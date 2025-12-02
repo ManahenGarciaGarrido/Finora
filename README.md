@@ -1164,19 +1164,19 @@ El backend de Finora deberá incluir los siguientes componentes:
 ## 🗓️ Roadmap
 
 ### Sprint 1 (Semanas 1-2)
-- ✅ RF-01: Registro de usuario
-- ✅ RNF-01, RNF-02: Cifrado de datos
-- ✅ RNF-12: Diseño responsive
-- ✅ RNF-18, RNF-19: Compatibilidad móvil
-- ✅ RNF-22: Arquitectura limpia
+- 📋 RF-01: Registro de usuario
+- 📋 RNF-01, RNF-02: Cifrado de datos
+- 📋 RNF-12: Diseño responsive
+- 📋 RNF-18, RNF-19: Compatibilidad móvil
+- 📋 RNF-22: Arquitectura limpia
 
 ### Sprint 2 (Semanas 3-4)
-- 🔄 RF-02: Inicio de sesión
-- 🔄 RF-04: Recuperación de contraseña
-- 🔄 RF-05: Registro manual de transacciones
-- 🔄 RF-15: Gestión de categorías predefinidas
-- 🔄 RNF-06: Tiempo de respuesta
-- 🔄 RNF-15: Funcionamiento offline
+- 📋 RF-02: Inicio de sesión
+- 📋 RF-04: Recuperación de contraseña
+- 📋 RF-05: Registro manual de transacciones
+- 📋 RF-15: Gestión de categorías predefinidas
+- 📋 RNF-06: Tiempo de respuesta
+- 📋 RNF-15: Funcionamiento offline
 
 ### Sprint 3 (Semanas 5-6)
 - 📋 RF-06: Edición de transacciones
@@ -1245,7 +1245,7 @@ Este proyecto es parte del Trabajo de Fin de Grado (TFG) de **Manahen García Ga
 ## 👤 Autor
 
 **Manahen García Garrido**  
-📧 Email: [manahen@example.com](mailto:manahen@example.com)  
+📧 Email: [manahen@example.com](mailto:manahengag@gmail.com)  
 🔗 GitHub: [@ManahenGarciaGarrido](https://github.com/ManahenGarciaGarrido)
 
 ---
@@ -1253,7 +1253,6 @@ Este proyecto es parte del Trabajo de Fin de Grado (TFG) de **Manahen García Ga
 ## 🙏 Agradecimientos
 
 - Universidad de Extremadura - Escuela Politécnica
-- Colaboradores: Eduardo Gómez Almendral, Rubén Tie Corbacho Pérez
 
 ---
 
