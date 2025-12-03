@@ -1245,7 +1245,7 @@ Este proyecto es parte del Trabajo de Fin de Grado (TFG) de **Manahen García Ga
 ## 👤 Autor
 
 **Manahen García Garrido**  
-📧 Email: [manahen@example.com](mailto:manahengag@gmail.com)  
+📧 Email: [manahengag@gmail.com](mailto:manahengag@gmail.com)  
 🔗 GitHub: [@ManahenGarciaGarrido](https://github.com/ManahenGarciaGarrido)
 
 ---
