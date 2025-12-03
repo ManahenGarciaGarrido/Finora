@@ -1256,5 +1256,5 @@ Este proyecto es parte del Trabajo de Fin de Grado (TFG) de **Manahen García Ga
 
 ---
 
-**Última actualización**: Diciembre 2024  
+**Última actualización**: Diciembre 2025  
 **Versión**: 0.1.0-alpha
