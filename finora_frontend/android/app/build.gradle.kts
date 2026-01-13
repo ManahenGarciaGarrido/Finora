@@ -7,7 +7,8 @@ plugins {
 
 android {
     namespace = "com.example.finora_frontend"
-    compileSdk = flutter.compileSdkVersion
+    // Configuración de SDK para compatibilidad con Android 8.0+ (95% de dispositivos activos)
+    compileSdk = 34  // Android 14
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -22,10 +23,10 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.finora_frontend"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Compatibilidad con Android 8.0 (API 26) o superior
+        // Cubre aproximadamente 95% de dispositivos Android activos
+        minSdk = 26  // Android 8.0 Oreo
+        targetSdk = 34  // Android 14 (última versión estable)
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
