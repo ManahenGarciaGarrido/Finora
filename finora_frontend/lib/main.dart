@@ -3,11 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/constants/app_constants.dart';
 import 'core/utils/platform_version_helper.dart';
+import 'core/utils/ios_version_helper.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/authentication/presentation/pages/login_page.dart';
 
-// TESTING: Descomenta la siguiente línea para probar el widget de compatibilidad de Android
-// import 'core/utils/platform_compatibility_example.dart';
+// TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
+// import 'core/utils/platform_compatibility_example.dart';  // Android
+// import 'core/utils/ios_compatibility_example.dart';       // iOS
 
 /// Main entry point of the application
 /// Demonstrates Clean Architecture with Dependency Injection
@@ -19,14 +21,17 @@ void main() async {
   // This sets up all dependencies following the dependency inversion principle
   await di.init();
 
-  // Inicializar cache de versión de Android para verificación de compatibilidad
-  // Esto detecta la versión de Android y cachea la información del dispositivo
-  await PlatformVersionHelper.initialize();
+  // Inicializar cache de versiones de plataforma para verificación de compatibilidad
+  // Esto detecta la versión de Android/iOS y cachea la información del dispositivo
+  await PlatformVersionHelper.initialize();  // Android
+  await IOSVersionHelper.initialize();        // iOS
 
   // TESTING: Descomenta las siguientes líneas para ver información de compatibilidad en logs
-  // final compatInfo = await PlatformVersionHelper.getCompatibilityInfo();
+  // final androidCompatInfo = await PlatformVersionHelper.getCompatibilityInfo();
+  // final iosCompatInfo = await IOSVersionHelper.getCompatibilityInfo();
   // debugPrint('=== INFORMACIÓN DE COMPATIBILIDAD ===');
-  // debugPrint(compatInfo);
+  // debugPrint(androidCompatInfo);
+  // debugPrint(iosCompatInfo);
   // debugPrint('====================================');
 
   runApp(const MyApp());
@@ -55,26 +60,35 @@ class MyApp extends StatelessWidget {
         ),
         home: const LoginPage(),
 
-        // TESTING: Para probar el widget de compatibilidad de Android:
-        // 1. Descomenta el import de 'platform_compatibility_example.dart' al inicio del archivo
-        // 2. Reemplaza temporalmente 'const LoginPage()' con:
-        //    const CompatibilityDemoWidget()
+        // TESTING: Para probar los widgets de compatibilidad:
         //
-        // O agrega un FloatingActionButton en LoginPage con:
-        // onPressed: () {
-        //   Navigator.push(
-        //     context,
-        //     MaterialPageRoute(
-        //       builder: (context) => const CompatibilityDemoWidget(),
-        //     ),
-        //   );
-        // }
+        // ANDROID:
+        // 1. Descomenta el import de 'platform_compatibility_example.dart'
+        // 2. Reemplaza 'const LoginPage()' con: const CompatibilityDemoWidget()
         //
-        // Esto mostrará:
-        // - Versión de Android del dispositivo/emulador
-        // - API Level actual
-        // - Fabricante y modelo
-        // - Lista de todas las características soportadas (notificaciones, storage, etc.)
+        // iOS:
+        // 1. Descomenta el import de 'ios_compatibility_example.dart'
+        // 2. Reemplaza 'const LoginPage()' con: const IOSCompatibilityDemoWidget()
+        //
+        // O agrega un FloatingActionButton en LoginPage:
+        // floatingActionButton: FloatingActionButton(
+        //   onPressed: () {
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(
+        //         builder: (context) => Platform.isAndroid
+        //             ? const CompatibilityDemoWidget()
+        //             : const IOSCompatibilityDemoWidget(),
+        //       ),
+        //     );
+        //   },
+        //   child: const Icon(Icons.info),
+        // ),
+        //
+        // Los widgets mostrarán:
+        // - Versión de la plataforma (Android/iOS)
+        // - Información del dispositivo
+        // - Lista de todas las características soportadas por versión
       ),
     );
   }
