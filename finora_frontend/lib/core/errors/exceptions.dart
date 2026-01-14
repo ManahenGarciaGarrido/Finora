@@ -170,3 +170,15 @@ class ParseException extends AppException {
   @override
   String toString() => 'ParseException: $message (code: $code)';
 }
+
+/// Security-related exceptions (TLS, certificate pinning, HTTPS enforcement)
+class SecurityException extends AppException {
+  const SecurityException({
+    required super.message,
+    super.code,
+    super.details,
+  });
+
+  @override
+  String toString() => 'SecurityException: $message (code: $code)';
+}
