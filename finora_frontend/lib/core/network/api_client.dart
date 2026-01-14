@@ -2,8 +2,10 @@ import 'package:dio/dio.dart';
 import '../constants/app_constants.dart';
 import '../constants/api_endpoints.dart';
 import '../errors/exceptions.dart';
+import 'secure_http_client.dart';
+import 'tls_validator.dart';
 
-/// HTTP client for API communication
+/// HTTP client for API communication with secure TLS 1.3 enforcement
 /// Singleton pattern ensures single instance throughout the app
 class ApiClient {
   late final Dio _dio;
@@ -22,11 +24,18 @@ class ApiClient {
       ),
     );
 
+    // Configure secure HTTP client with TLS 1.3
+    _dio.httpClientAdapter = SecureHttpClient.create();
+
     _setupInterceptors();
   }
 
   /// Setup request/response interceptors
   void _setupInterceptors() {
+    // Add security interceptor first (validates HTTPS and TLS)
+    _dio.interceptors.add(TlsValidator.createSecurityInterceptor());
+
+    // Add authentication interceptor
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
