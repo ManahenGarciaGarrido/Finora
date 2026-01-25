@@ -91,4 +91,15 @@ class ApiEndpoints {
   static const String settings = '/settings';
   static const String updateSettings = '/settings';
   static const String privacySettings = '/settings/privacy';
+
+  // GDPR Compliance endpoints (RNF-04)
+  static const String gdprPrivacyPolicy = '/gdpr/privacy-policy';
+  static const String gdprDataProcessing = '/gdpr/data-processing';
+  static const String gdprDPO = '/gdpr/dpo';
+  static const String gdprConsents = '/gdpr/consents';
+  static const String gdprUserConsents = '/gdpr/consents/user';
+  static const String gdprConsentHistory = '/gdpr/consents/history';
+  static const String gdprExport = '/gdpr/export';
+  static const String gdprDeleteAccount = '/gdpr/delete-account';
+  static String gdprWithdrawConsent(String consentType) => '/gdpr/consents/$consentType';
 }
