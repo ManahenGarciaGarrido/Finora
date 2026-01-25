@@ -5,7 +5,7 @@ import 'core/constants/app_constants.dart';
 import 'core/utils/platform_version_helper.dart';
 import 'core/utils/ios_version_helper.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
-import 'features/authentication/presentation/pages/login_page.dart';
+import 'features/authentication/presentation/pages/register_page.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
 // import 'core/utils/platform_compatibility_example.dart';  // Android
@@ -58,37 +58,7 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
         ),
-        home: const LoginPage(),
-
-        // TESTING: Para probar los widgets de compatibilidad:
-        //
-        // ANDROID:
-        // 1. Descomenta el import de 'platform_compatibility_example.dart'
-        // 2. Reemplaza 'const LoginPage()' con: const CompatibilityDemoWidget()
-        //
-        // iOS:
-        // 1. Descomenta el import de 'ios_compatibility_example.dart'
-        // 2. Reemplaza 'const LoginPage()' con: const IOSCompatibilityDemoWidget()
-        //
-        // O agrega un FloatingActionButton en LoginPage:
-        // floatingActionButton: FloatingActionButton(
-        //   onPressed: () {
-        //     Navigator.push(
-        //       context,
-        //       MaterialPageRoute(
-        //         builder: (context) => Platform.isAndroid
-        //             ? const CompatibilityDemoWidget()
-        //             : const IOSCompatibilityDemoWidget(),
-        //       ),
-        //     );
-        //   },
-        //   child: const Icon(Icons.info),
-        // ),
-        //
-        // Los widgets mostrarán:
-        // - Versión de la plataforma (Android/iOS)
-        // - Información del dispositivo
-        // - Lista de todas las características soportadas por versión
+        home: const RegisterPage(),
       ),
     );
   }
