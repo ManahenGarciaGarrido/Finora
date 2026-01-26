@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: finora-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: finora
+      POSTGRES_PASSWORD: finora_secure_password_2024
+      POSTGRES_DB: finora_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./finora_backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finora -d finora_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finora-network
+
+  # MailHog - Email testing service
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: finora-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI for viewing emails
+    networks:
+      - finora-network
+
+  # Finora Backend API
+  backend:
+    build:
+      context: ./finora_backend
+      dockerfile: Dockerfile
+    container_name: finora-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      JWT_SECRET: finora-jwt-secret-key-change-in-production-minimum-32-chars
+      DATABASE_URL: postgresql://finora:finora_secure_password_2024@postgres:5432/finora_db
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      EMAIL_FROM: noreply@finora.com
+      APP_URL: http://localhost:3000
+      ALLOWED_ORIGINS: "*"
+    ports:
+      - "3000:3000"
+    networks:
+      - finora-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  finora-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
