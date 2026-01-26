@@ -11,6 +11,10 @@ const userRoutes = require('./routes/user');
 const healthRoutes = require('./routes/health');
 const gdprRoutes = require('./routes/gdpr');
 
+// Import services
+const emailService = require('./services/email');
+const db = require('./services/db');
+
 // Import GDPR middleware
 const { gdprAuditMiddleware } = require('./middleware/gdprAudit');
 
@@ -145,15 +149,35 @@ app.use((err, req, res, next) => {
 // SERVER START
 // ============================================
 
-app.listen(PORT, () => {
-  console.log('='.repeat(50));
-  console.log(`🚀 Finora API Server`);
-  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 Server running on port ${PORT}`);
-  console.log(`🔒 HTTPS/TLS: ${process.env.NODE_ENV === 'production' ? 'Enabled (by Render)' : 'Disabled (dev)'}`);
-  console.log(`⏰ Started at: ${new Date().toISOString()}`);
-  console.log('='.repeat(50));
-});
+const startServer = async () => {
+  try {
+    // Test database connection
+    const dbHealth = await db.healthCheck();
+    if (dbHealth.status !== 'healthy') {
+      console.error('Database connection failed:', dbHealth.error);
+      // Continue anyway, health endpoint will report unhealthy
+    }
+
+    // Verify email service
+    await emailService.verifyConnection();
+
+    app.listen(PORT, () => {
+      console.log('='.repeat(50));
+      console.log(`Finora API Server`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Database: ${dbHealth.status}`);
+      console.log(`HTTPS/TLS: ${process.env.NODE_ENV === 'production' ? 'Enabled' : 'Disabled (dev)'}`);
+      console.log(`Started at: ${new Date().toISOString()}`);
+      console.log('='.repeat(50));
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
