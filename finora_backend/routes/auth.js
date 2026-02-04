@@ -168,11 +168,12 @@ router.post('/register', registerValidation, async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        emailVerified: user.email_verified,
-        createdAt: user.created_at,
-        updatedAt: user.updated_at
+        is_email_verified: user.email_verified || false,
+        is_2fa_enabled: false,
+        created_at: user.created_at,
+        updated_at: user.updated_at
       },
-      token,
+      access_token: token,
       expiresIn: JWT_EXPIRES_IN,
       emailSent: emailResult.success,
       verificationRequired: true
@@ -410,11 +411,12 @@ router.post('/login', loginValidation, async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        emailVerified: user.email_verified,
-        createdAt: user.created_at,
-        updatedAt: user.updated_at
+        is_email_verified: user.email_verified || false,
+        is_2fa_enabled: false,
+        created_at: user.created_at,
+        updated_at: user.updated_at
       },
-      token,
+      access_token: token,
       expiresIn: JWT_EXPIRES_IN
     });
 

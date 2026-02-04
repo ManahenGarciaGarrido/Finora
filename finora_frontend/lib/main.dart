@@ -6,6 +6,7 @@ import 'core/utils/platform_version_helper.dart';
 import 'core/utils/ios_version_helper.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/authentication/presentation/pages/register_page.dart';
+import 'features/home/presentation/pages/home_page.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
 // import 'core/utils/platform_compatibility_example.dart';  // Android
@@ -59,6 +60,10 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
         ),
         home: const RegisterPage(),
+        routes: {
+          '/register': (context) => const RegisterPage(),
+          '/home': (context) => const HomePage(),
+        },
       ),
     );
   }

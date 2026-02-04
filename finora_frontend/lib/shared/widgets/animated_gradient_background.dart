@@ -3,10 +3,10 @@ import 'dart:math' as math;
 
 import '../../core/theme/app_colors.dart';
 
-/// Fondo con gradiente animado para pantallas de autenticación
+/// Fondo con gradiente animado suave para pantallas de autenticación
 ///
-/// Crea un efecto visual atractivo con círculos/burbujas que se mueven
-/// y un gradiente suave de fondo
+/// Crea un efecto visual elegante con formas difuminadas que se mueven
+/// lentamente creando un efecto de "aurora" o "mesh gradient"
 class AnimatedGradientBackground extends StatefulWidget {
   final Widget child;
   final List<Color>? colors;
@@ -18,7 +18,7 @@ class AnimatedGradientBackground extends StatefulWidget {
     required this.child,
     this.colors,
     this.showBubbles = true,
-    this.bubbleCount = 6,
+    this.bubbleCount = 4,
   });
 
   @override
@@ -27,117 +27,64 @@ class AnimatedGradientBackground extends StatefulWidget {
 }
 
 class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
-    with TickerProviderStateMixin {
-  late AnimationController _gradientController;
-  late AnimationController _bubbleController;
-  late List<_BubbleData> _bubbles;
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-
-    // Controlador para animación de gradiente
-    _gradientController = AnimationController(
-      duration: const Duration(seconds: 10),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    // Controlador para burbujas
-    _bubbleController = AnimationController(
-      duration: const Duration(seconds: 20),
+    _controller = AnimationController(
+      duration: const Duration(seconds: 15),
       vsync: this,
     )..repeat();
-
-    // Generar burbujas aleatorias
-    _bubbles = List.generate(
-      widget.bubbleCount,
-      (index) => _BubbleData.random(),
-    );
   }
 
   @override
   void dispose() {
-    _gradientController.dispose();
-    _bubbleController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors =
-        widget.colors ??
-        [
-          AppColors.primary.withValues(alpha: 0.8),
-          AppColors.accent.withValues(alpha: 0.6),
-          AppColors.secondary.withValues(alpha: 0.4),
-        ];
-
     return Stack(
       children: [
-        // Fondo con gradiente animado
-        AnimatedBuilder(
-          animation: _gradientController,
-          builder: (context, child) {
-            return Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment(
-                    math.cos(_gradientController.value * math.pi * 2),
-                    math.sin(_gradientController.value * math.pi * 2),
-                  ),
-                  end: Alignment(
-                    -math.cos(_gradientController.value * math.pi * 2),
-                    -math.sin(_gradientController.value * math.pi * 2),
-                  ),
-                  colors: [
-                    AppColors.backgroundLight,
-                    colors[0].withValues(alpha: 0.1),
-                    colors[1].withValues(alpha: 0.05),
-                  ],
-                ),
-              ),
-            );
-          },
+        // Fondo base con gradiente estático
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF8FAFC), // Gris muy claro
+                Color(0xFFEEF2FF), // Indigo muy claro
+                Color(0xFFF5F3FF), // Violeta muy claro
+              ],
+            ),
+          ),
         ),
 
-        // Burbujas animadas
+        // Formas animadas suaves
         if (widget.showBubbles)
-          ...List.generate(widget.bubbleCount, (index) {
-            final bubble = _bubbles[index];
-            return AnimatedBuilder(
-              animation: _bubbleController,
-              builder: (context, child) {
-                final progress =
-                    (_bubbleController.value + bubble.offset) % 1.0;
-                final size = MediaQuery.of(context).size;
-
-                return Positioned(
-                  left: bubble.startX * size.width,
-                  top: size.height * (1 - progress) - bubble.size / 2,
-                  child: Transform.scale(
-                    scale: 0.5 + (math.sin(progress * math.pi) * 0.5),
-                    child: Opacity(
-                      opacity: math.sin(progress * math.pi) * bubble.opacity,
-                      child: Container(
-                        width: bubble.size,
-                        height: bubble.size,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              bubble.color.withValues(alpha: 0.3),
-                              bubble.color.withValues(alpha: 0.1),
-                              bubble.color.withValues(alpha: 0.0),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            );
-          }),
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return CustomPaint(
+                painter: _AuroraBackgroundPainter(
+                  animation: _controller.value,
+                  colors:
+                      widget.colors ??
+                      [
+                        AppColors.primary.withValues(alpha: 0.15),
+                        AppColors.secondary.withValues(alpha: 0.1),
+                        AppColors.accent.withValues(alpha: 0.12),
+                        AppColors.info.withValues(alpha: 0.08),
+                      ],
+                ),
+                size: Size.infinite,
+              );
+            },
+          ),
 
         // Contenido principal
         widget.child,
@@ -146,38 +93,61 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
   }
 }
 
-/// Datos de una burbuja individual
-class _BubbleData {
-  final double startX;
-  final double size;
-  final double offset;
-  final double opacity;
-  final Color color;
+/// Painter que dibuja formas difuminadas tipo aurora
+class _AuroraBackgroundPainter extends CustomPainter {
+  final double animation;
+  final List<Color> colors;
 
-  _BubbleData({
-    required this.startX,
-    required this.size,
-    required this.offset,
-    required this.opacity,
-    required this.color,
-  });
+  _AuroraBackgroundPainter({required this.animation, required this.colors});
 
-  factory _BubbleData.random() {
-    final random = math.Random();
-    final colors = [
-      AppColors.primary,
-      AppColors.secondary,
-      AppColors.accent,
-      AppColors.info,
-    ];
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
 
-    return _BubbleData(
-      startX: random.nextDouble(),
-      size: 100 + random.nextDouble() * 150,
-      offset: random.nextDouble(),
-      opacity: 0.3 + random.nextDouble() * 0.4,
-      color: colors[random.nextInt(colors.length)],
+    // Forma 1 - Esquina superior derecha
+    final offset1 = Offset(
+      size.width * 0.8 + math.sin(animation * 2 * math.pi) * size.width * 0.1,
+      size.height * 0.15 +
+          math.cos(animation * 2 * math.pi) * size.height * 0.08,
     );
+    paint.color = colors[0 % colors.length];
+    canvas.drawCircle(offset1, size.width * 0.35, paint);
+
+    // Forma 2 - Esquina inferior izquierda
+    final offset2 = Offset(
+      size.width * 0.2 +
+          math.cos(animation * 2 * math.pi + 1) * size.width * 0.08,
+      size.height * 0.75 +
+          math.sin(animation * 2 * math.pi + 1) * size.height * 0.1,
+    );
+    paint.color = colors[1 % colors.length];
+    canvas.drawCircle(offset2, size.width * 0.4, paint);
+
+    // Forma 3 - Centro derecha
+    final offset3 = Offset(
+      size.width * 0.9 +
+          math.sin(animation * 2 * math.pi + 2) * size.width * 0.06,
+      size.height * 0.5 +
+          math.cos(animation * 2 * math.pi + 2) * size.height * 0.12,
+    );
+    paint.color = colors[2 % colors.length];
+    canvas.drawCircle(offset3, size.width * 0.3, paint);
+
+    // Forma 4 - Centro superior
+    final offset4 = Offset(
+      size.width * 0.4 +
+          math.cos(animation * 2 * math.pi + 3) * size.width * 0.1,
+      size.height * 0.3 +
+          math.sin(animation * 2 * math.pi + 3) * size.height * 0.06,
+    );
+    paint.color = colors[3 % colors.length];
+    canvas.drawCircle(offset4, size.width * 0.25, paint);
+  }
+
+  @override
+  bool shouldRepaint(_AuroraBackgroundPainter oldDelegate) {
+    return oldDelegate.animation != animation;
   }
 }
 
@@ -196,7 +166,7 @@ class AnimatedBuilder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder2(
+    return AnimatedWidget2(
       animation: animation,
       builder: builder,
       child: child,
@@ -204,11 +174,11 @@ class AnimatedBuilder extends StatelessWidget {
   }
 }
 
-class AnimatedBuilder2 extends AnimatedWidget {
+class AnimatedWidget2 extends AnimatedWidget {
   final Widget Function(BuildContext, Widget?) builder;
   final Widget? child;
 
-  const AnimatedBuilder2({
+  const AnimatedWidget2({
     super.key,
     required Animation<double> animation,
     required this.builder,
