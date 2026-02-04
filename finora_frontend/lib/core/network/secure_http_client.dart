@@ -36,14 +36,24 @@ class SecureHttpClient extends IOHttpClientAdapter {
 
   /// Validates the security of a connection before allowing it
   static void validateConnection(Uri uri) {
-    // Reject HTTP connections if not allowed
+    // Allow HTTP for local development (localhost, 10.0.2.2 for Android emulator)
+    final isLocalDevelopment = uri.host == 'localhost' ||
+        uri.host == '127.0.0.1' ||
+        uri.host == '10.0.2.2';
+
+    if (isLocalDevelopment) {
+      // Skip security validation for local development
+      return;
+    }
+
+    // Reject HTTP connections if not allowed in production
     if (!SecurityConfig.allowHttpConnections && uri.scheme == 'http') {
       throw SecurityException(
         message: '${SecurityConfig.httpConnectionMessage} (URI: ${uri.toString()})',
       );
     }
 
-    // Ensure HTTPS is used
+    // Ensure HTTPS is used in production
     if (uri.scheme != 'https') {
       throw SecurityException(
         message: 'Only HTTPS connections are allowed (URI: ${uri.toString()})',

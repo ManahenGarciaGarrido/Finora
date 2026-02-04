@@ -1,11 +1,20 @@
 const { Pool } = require('pg');
 
+// Determine if SSL should be used
+// Disable SSL for local/Docker development (localhost, postgres service, 127.0.0.1)
+const isLocalDatabase = () => {
+  const dbUrl = process.env.DATABASE_URL || '';
+  return dbUrl.includes('localhost') ||
+         dbUrl.includes('127.0.0.1') ||
+         dbUrl.includes('@postgres:') ||  // Docker service name
+         dbUrl.includes('@db:') ||
+         dbUrl.includes('@database:');
+};
+
 // PostgreSQL connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL?.includes('localhost')
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: isLocalDatabase() ? false : { rejectUnauthorized: false },
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
