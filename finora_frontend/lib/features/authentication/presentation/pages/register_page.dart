@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -8,6 +9,9 @@ import '../../../../core/responsive/responsive_builder.dart';
 import '../../../../shared/widgets/animated_gradient_background.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../../shared/widgets/animated_button.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_event.dart';
+import '../bloc/auth_state.dart';
 
 /// Pantalla de Registro de Usuario (RF-01)
 ///
@@ -67,15 +71,13 @@ class _RegisterPageState extends State<RegisterPage>
       ),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     _animationController.forward();
 
@@ -167,7 +169,9 @@ class _RegisterPageState extends State<RegisterPage>
       _nameError = _validateName(_nameController.text);
       _emailError = _validateEmail(_emailController.text);
       _passwordError = _validatePassword(_passwordController.text);
-      _confirmPasswordError = _validateConfirmPassword(_confirmPasswordController.text);
+      _confirmPasswordError = _validateConfirmPassword(
+        _confirmPasswordController.text,
+      );
     });
 
     if (_nameError != null ||
@@ -180,38 +184,61 @@ class _RegisterPageState extends State<RegisterPage>
     if (!_acceptTerms || !_acceptPrivacy) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Debes aceptar los términos y la política de privacidad'),
+          content: Text(
+            'Debes aceptar los términos y la política de privacidad',
+          ),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
 
-    setState(() => _isLoading = true);
+    // Enviar evento de registro al BLoC
+    context.read<AuthBloc>().add(
+      RegisterRequested(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+      ),
+    );
+  }
 
-    // Simular registro
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _isLoading = false;
-      _isSuccess = true;
-    });
-
-    // Navegar después del éxito
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/home');
+  void _handleAuthState(BuildContext context, AuthState state) {
+    if (state is AuthLoading) {
+      setState(() => _isLoading = true);
+    } else if (state is RegistrationSuccess) {
+      setState(() {
+        _isLoading = false;
+        _isSuccess = true;
+      });
+      // Navegar después del éxito
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      });
+    } else if (state is AuthError) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.message),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AnimatedGradientBackground(
-        child: SafeArea(
-          child: ResponsiveBuilder(
-            mobile: (context) => _buildMobileLayout(context),
-            tablet: (context) => _buildTabletLayout(context),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: _handleAuthState,
+      child: Scaffold(
+        body: AnimatedGradientBackground(
+          child: SafeArea(
+            child: ResponsiveBuilder(
+              mobile: (context) => _buildMobileLayout(context),
+              tablet: (context) => _buildTabletLayout(context),
+            ),
           ),
         ),
       ),
@@ -420,11 +447,14 @@ class _RegisterPageState extends State<RegisterPage>
             obscureText: true,
             showPasswordToggle: true,
             textInputAction: TextInputAction.done,
-            showSuccessState: _confirmPasswordController.text.isNotEmpty &&
+            showSuccessState:
+                _confirmPasswordController.text.isNotEmpty &&
                 _confirmPasswordController.text == _passwordController.text,
             onChanged: (value) {
               if (_confirmPasswordError != null) {
-                setState(() => _confirmPasswordError = _validateConfirmPassword(value));
+                setState(
+                  () => _confirmPasswordError = _validateConfirmPassword(value),
+                );
               }
             },
             onSubmitted: (_) => _handleRegister(),
@@ -468,22 +498,33 @@ class _RegisterPageState extends State<RegisterPage>
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              label,
-              style: AppTypography.labelSmall(color: color),
-            ),
+            Text(label, style: AppTypography.labelSmall(color: color)),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            _buildRequirement('8+ caracteres', _passwordController.text.length >= 8),
+            _buildRequirement(
+              '8+ caracteres',
+              _passwordController.text.length >= 8,
+            ),
             const SizedBox(width: 8),
-            _buildRequirement('Mayúscula', _passwordController.text.contains(RegExp(r'[A-Z]'))),
+            _buildRequirement(
+              'Mayúscula',
+              _passwordController.text.contains(RegExp(r'[A-Z]')),
+            ),
             const SizedBox(width: 8),
-            _buildRequirement('Número', _passwordController.text.contains(RegExp(r'[0-9]'))),
+            _buildRequirement(
+              'Número',
+              _passwordController.text.contains(RegExp(r'[0-9]')),
+            ),
             const SizedBox(width: 8),
-            _buildRequirement('Especial', _passwordController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))),
+            _buildRequirement(
+              'Especial',
+              _passwordController.text.contains(
+                RegExp(r'[!@#$%^&*(),.?":{}|<>]'),
+              ),
+            ),
           ],
         ),
       ],
@@ -524,17 +565,20 @@ class _RegisterPageState extends State<RegisterPage>
           onChanged: (value) => setState(() => _acceptTerms = value ?? false),
           child: RichText(
             text: TextSpan(
-              style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
+              style: AppTypography.bodySmall(
+                color: AppColors.textSecondaryLight,
+              ),
               children: [
                 const TextSpan(text: 'Acepto los '),
                 TextSpan(
                   text: 'Términos y Condiciones',
-                  style: AppTypography.bodySmall(color: AppColors.primary).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  recognizer: TapGestureRecognizer()..onTap = () {
-                    // Mostrar términos
-                  },
+                  style: AppTypography.bodySmall(
+                    color: AppColors.primary,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      // Mostrar términos
+                    },
                 ),
               ],
             ),
@@ -548,17 +592,20 @@ class _RegisterPageState extends State<RegisterPage>
           onChanged: (value) => setState(() => _acceptPrivacy = value ?? false),
           child: RichText(
             text: TextSpan(
-              style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
+              style: AppTypography.bodySmall(
+                color: AppColors.textSecondaryLight,
+              ),
               children: [
                 const TextSpan(text: 'He leído y acepto la '),
                 TextSpan(
                   text: 'Política de Privacidad',
-                  style: AppTypography.bodySmall(color: AppColors.primary).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  recognizer: TapGestureRecognizer()..onTap = () {
-                    // Mostrar política de privacidad
-                  },
+                  style: AppTypography.bodySmall(
+                    color: AppColors.primary,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      // Mostrar política de privacidad
+                    },
                 ),
               ],
             ),
@@ -607,5 +654,4 @@ class _RegisterPageState extends State<RegisterPage>
       isSuccess: _isSuccess,
     );
   }
-
 }
