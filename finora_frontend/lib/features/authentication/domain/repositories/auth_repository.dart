@@ -65,4 +65,10 @@ abstract class AuthRepository {
   /// Disable two-factor authentication
   /// Returns Either a Failure or void
   Future<Either<Failure, void>> disable2FA();
+
+  /// Resend verification email
+  /// Returns Either a Failure or void
+  Future<Either<Failure, void>> resendVerificationEmail({
+    required String email,
+  });
 }
