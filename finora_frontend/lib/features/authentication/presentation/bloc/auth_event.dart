@@ -54,3 +54,13 @@ class CheckAuthStatus extends AuthEvent {
 class ClearAuthError extends AuthEvent {
   const ClearAuthError();
 }
+
+/// Event to resend email verification
+class ResendVerificationRequested extends AuthEvent {
+  final String email;
+
+  const ResendVerificationRequested({required this.email});
+
+  @override
+  List<Object?> get props => [email];
+}

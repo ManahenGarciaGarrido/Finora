@@ -2,6 +2,7 @@ import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../models/user_model.dart';
+import 'auth_local_datasource.dart';
 
 /// Remote data source for authentication
 /// Handles all HTTP requests related to authentication
@@ -36,12 +37,18 @@ abstract class AuthRemoteDataSource {
   Future<void> verify2FA({required String code});
 
   Future<void> disable2FA();
+
+  Future<void> resendVerificationEmail({required String email});
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final ApiClient apiClient;
+  final AuthLocalDataSource? localDataSource;
 
-  AuthRemoteDataSourceImpl({required this.apiClient});
+  AuthRemoteDataSourceImpl({
+    required this.apiClient,
+    this.localDataSource,
+  });
 
   @override
   Future<UserModel> login({
@@ -60,10 +67,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
 
-        // Store access token
+        // Store access token in memory and persistent storage
         final accessToken = data['access_token'] as String?;
         if (accessToken != null) {
           apiClient.setToken(accessToken);
+          // Save token to secure storage for session persistence
+          if (localDataSource != null) {
+            await localDataSource!.saveToken(accessToken);
+          }
         }
 
         // Parse user data
@@ -106,10 +117,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       if (response.statusCode == 201 || response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
 
-        // Store access token
+        // Store access token in memory and persistent storage
         final accessToken = data['access_token'] as String?;
         if (accessToken != null) {
           apiClient.setToken(accessToken);
+          // Save token to secure storage for session persistence
+          if (localDataSource != null) {
+            await localDataSource!.saveToken(accessToken);
+          }
         }
 
         // Parse user data
@@ -276,6 +291,21 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void> disable2FA() async {
     try {
       await apiClient.post(ApiEndpoints.disable2FA);
+    } catch (e) {
+      if (e is ServerException || e is NetworkException) {
+        rethrow;
+      }
+      throw ServerException(message: e.toString());
+    }
+  }
+
+  @override
+  Future<void> resendVerificationEmail({required String email}) async {
+    try {
+      await apiClient.post(
+        ApiEndpoints.resendVerification,
+        data: {'email': email},
+      );
     } catch (e) {
       if (e is ServerException || e is NetworkException) {
         rethrow;

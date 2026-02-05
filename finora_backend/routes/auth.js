@@ -338,7 +338,13 @@ router.post('/resend-verification', async (req, res) => {
     );
 
     // Send verification email
-    await emailService.sendVerificationEmail(email, user.name, verificationToken);
+    const emailResult = await emailService.sendVerificationEmail(email, user.name, verificationToken);
+
+    if (emailResult.success) {
+      console.log(`Verification email resent to: ${email}`);
+    } else {
+      console.error(`Failed to resend verification email to: ${email}`, emailResult.error);
+    }
 
     res.status(200).json({
       message: 'Se ha enviado un nuevo enlace de verificacion a tu correo electronico'
@@ -395,6 +401,17 @@ router.post('/login', loginValidation, async (req, res) => {
       return res.status(401).json({
         error: 'Autenticacion Fallida',
         message: 'Correo electronico o contrasena incorrectos'
+      });
+    }
+
+    // Check if email is verified
+    if (!user.email_verified) {
+      return res.status(403).json({
+        error: 'Cuenta No Verificada',
+        message: 'Por favor verifica tu correo electronico antes de iniciar sesion',
+        emailVerified: false,
+        userId: user.id,
+        email: user.email
       });
     }
 

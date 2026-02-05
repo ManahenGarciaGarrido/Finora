@@ -211,10 +211,10 @@ class _RegisterPageState extends State<RegisterPage>
         _isLoading = false;
         _isSuccess = true;
       });
-      // Navegar después del éxito
+      // Mostrar diálogo de verificación de email
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
+          _showEmailVerificationDialog(context, state.user.email);
         }
       });
     } else if (state is AuthError) {
@@ -226,6 +226,82 @@ class _RegisterPageState extends State<RegisterPage>
         ),
       );
     }
+  }
+
+  void _showEmailVerificationDialog(BuildContext context, String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.mark_email_read_outlined, color: AppColors.success, size: 28),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                '¡Registro Exitoso!',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Te hemos enviado un correo de verificación.',
+              style: TextStyle(fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Revisa tu bandeja de entrada en $email y haz clic en el enlace para verificar tu cuenta.',
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.warning),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'No podrás iniciar sesión hasta verificar tu email.',
+                      style: TextStyle(fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Ir a Iniciar Sesión'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -270,6 +346,8 @@ class _RegisterPageState extends State<RegisterPage>
                 _buildTermsAndPrivacy(),
                 SizedBox(height: responsive.hp(3)),
                 _buildRegisterButton(),
+                SizedBox(height: responsive.hp(3)),
+                _buildLoginLink(context),
                 SizedBox(height: responsive.hp(2)),
               ],
             ),
@@ -313,6 +391,8 @@ class _RegisterPageState extends State<RegisterPage>
                       _buildTermsAndPrivacy(),
                       const SizedBox(height: 24),
                       _buildRegisterButton(),
+                      const SizedBox(height: 24),
+                      _buildLoginLink(context),
                     ],
                   ),
                 ),
@@ -652,6 +732,27 @@ class _RegisterPageState extends State<RegisterPage>
       onPressed: _handleRegister,
       isLoading: _isLoading,
       isSuccess: _isSuccess,
+    );
+  }
+
+  Widget _buildLoginLink(BuildContext context) {
+    return Center(
+      child: RichText(
+        text: TextSpan(
+          text: '¿Ya tienes una cuenta? ',
+          style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
+          children: [
+            TextSpan(
+              text: 'Inicia sesión',
+              style: AppTypography.link(color: AppColors.primary),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () {
+                  Navigator.pushNamed(context, '/login');
+                },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
