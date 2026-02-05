@@ -233,12 +233,14 @@ class _RegisterPageState extends State<RegisterPage>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.mark_email_read_outlined, color: AppColors.success, size: 28),
+            Icon(
+              Icons.mark_email_read_outlined,
+              color: AppColors.success,
+              size: 28,
+            ),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
@@ -265,7 +267,7 @@ class _RegisterPageState extends State<RegisterPage>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
+                color: AppColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppColors.warning),
               ),

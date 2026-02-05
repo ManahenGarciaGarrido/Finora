@@ -7,6 +7,8 @@ import 'package:finora_frontend/features/authentication/domain/entities/user.dar
 import 'package:finora_frontend/features/authentication/domain/usecases/login_usecase.dart';
 import 'package:finora_frontend/features/authentication/domain/usecases/register_usecase.dart';
 import 'package:finora_frontend/features/authentication/domain/usecases/logout_usecase.dart';
+import 'package:finora_frontend/features/authentication/domain/usecases/forgot_password_usecase.dart';
+import 'package:finora_frontend/features/authentication/domain/usecases/reset_password_usecase.dart';
 import 'package:finora_frontend/features/authentication/presentation/bloc/auth_bloc.dart';
 import 'package:finora_frontend/features/authentication/presentation/bloc/auth_event.dart';
 import 'package:finora_frontend/features/authentication/presentation/bloc/auth_state.dart';
@@ -16,6 +18,8 @@ import 'package:finora_frontend/core/errors/failures.dart';
   LoginUseCase,
   RegisterUseCase,
   LogoutUseCase,
+  ForgotPasswordUseCase,
+  ResetPasswordUseCase,
 ])
 import 'auth_bloc_test.mocks.dart';
 
@@ -24,15 +28,21 @@ void main() {
   late MockLoginUseCase mockLoginUseCase;
   late MockRegisterUseCase mockRegisterUseCase;
   late MockLogoutUseCase mockLogoutUseCase;
+  late MockForgotPasswordUseCase mockForgotPasswordUseCase;
+  late MockResetPasswordUseCase mockResetPasswordUseCase;
 
   setUp(() {
     mockLoginUseCase = MockLoginUseCase();
     mockRegisterUseCase = MockRegisterUseCase();
     mockLogoutUseCase = MockLogoutUseCase();
+    mockForgotPasswordUseCase = MockForgotPasswordUseCase();
+    mockResetPasswordUseCase = MockResetPasswordUseCase();
     authBloc = AuthBloc(
       loginUseCase: mockLoginUseCase,
       registerUseCase: mockRegisterUseCase,
       logoutUseCase: mockLogoutUseCase,
+      forgotPasswordUseCase: mockForgotPasswordUseCase,
+      resetPasswordUseCase: mockResetPasswordUseCase,
     );
   });
 
