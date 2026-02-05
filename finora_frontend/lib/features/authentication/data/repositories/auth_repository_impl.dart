@@ -291,4 +291,26 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(UnexpectedFailure(message: e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> resendVerificationEmail({
+    required String email,
+  }) async {
+    if (!await networkInfo.isConnected) {
+      return const Left(
+        NetworkFailure(message: 'No internet connection'),
+      );
+    }
+
+    try {
+      await remoteDataSource.resendVerificationEmail(email: email);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, code: e.code));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Left(UnexpectedFailure(message: e.toString()));
+    }
+  }
 }

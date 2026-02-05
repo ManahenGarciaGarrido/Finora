@@ -58,3 +58,37 @@ class RegistrationSuccess extends AuthState {
 class LogoutSuccess extends AuthState {
   const LogoutSuccess();
 }
+
+/// Email resent success state
+class EmailResent extends AuthState {
+  final String message;
+
+  const EmailResent({this.message = 'Correo de verificación enviado exitosamente'});
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Password reset email sent state
+class PasswordResetEmailSent extends AuthState {
+  final String message;
+
+  const PasswordResetEmailSent({
+    this.message = 'Se ha enviado un enlace de recuperación a tu correo',
+  });
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Password reset success state
+class PasswordResetSuccess extends AuthState {
+  final String message;
+
+  const PasswordResetSuccess({
+    this.message = 'Contraseña restablecida exitosamente',
+  });
+
+  @override
+  List<Object?> get props => [message];
+}
