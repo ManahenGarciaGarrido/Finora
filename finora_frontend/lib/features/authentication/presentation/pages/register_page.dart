@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -8,6 +9,9 @@ import '../../../../core/responsive/responsive_builder.dart';
 import '../../../../shared/widgets/animated_gradient_background.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../../shared/widgets/animated_button.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_event.dart';
+import '../bloc/auth_state.dart';
 
 /// Pantalla de Registro de Usuario (RF-01)
 ///
@@ -67,15 +71,13 @@ class _RegisterPageState extends State<RegisterPage>
       ),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     _animationController.forward();
 
@@ -167,7 +169,9 @@ class _RegisterPageState extends State<RegisterPage>
       _nameError = _validateName(_nameController.text);
       _emailError = _validateEmail(_emailController.text);
       _passwordError = _validatePassword(_passwordController.text);
-      _confirmPasswordError = _validateConfirmPassword(_confirmPasswordController.text);
+      _confirmPasswordError = _validateConfirmPassword(
+        _confirmPasswordController.text,
+      );
     });
 
     if (_nameError != null ||
@@ -180,38 +184,139 @@ class _RegisterPageState extends State<RegisterPage>
     if (!_acceptTerms || !_acceptPrivacy) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Debes aceptar los términos y la política de privacidad'),
+          content: Text(
+            'Debes aceptar los términos y la política de privacidad',
+          ),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
 
-    setState(() => _isLoading = true);
+    // Enviar evento de registro al BLoC
+    context.read<AuthBloc>().add(
+      RegisterRequested(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+      ),
+    );
+  }
 
-    // Simular registro
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _isLoading = false;
-      _isSuccess = true;
-    });
-
-    // Navegar después del éxito
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/home');
+  void _handleAuthState(BuildContext context, AuthState state) {
+    if (state is AuthLoading) {
+      setState(() => _isLoading = true);
+    } else if (state is RegistrationSuccess) {
+      setState(() {
+        _isLoading = false;
+        _isSuccess = true;
+      });
+      // Mostrar diálogo de verificación de email
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _showEmailVerificationDialog(context, state.user.email);
+        }
+      });
+    } else if (state is AuthError) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.message),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
+  }
+
+  void _showEmailVerificationDialog(BuildContext context, String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.mark_email_read_outlined,
+              color: AppColors.success,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                '¡Registro Exitoso!',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Te hemos enviado un correo de verificación.',
+              style: TextStyle(fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Revisa tu bandeja de entrada en $email y haz clic en el enlace para verificar tu cuenta.',
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.warning),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'No podrás iniciar sesión hasta verificar tu email.',
+                      style: TextStyle(fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Ir a Iniciar Sesión'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AnimatedGradientBackground(
-        child: SafeArea(
-          child: ResponsiveBuilder(
-            mobile: (context) => _buildMobileLayout(context),
-            tablet: (context) => _buildTabletLayout(context),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: _handleAuthState,
+      child: Scaffold(
+        body: AnimatedGradientBackground(
+          child: SafeArea(
+            child: ResponsiveBuilder(
+              mobile: (context) => _buildMobileLayout(context),
+              tablet: (context) => _buildTabletLayout(context),
+            ),
           ),
         ),
       ),
@@ -243,6 +348,8 @@ class _RegisterPageState extends State<RegisterPage>
                 _buildTermsAndPrivacy(),
                 SizedBox(height: responsive.hp(3)),
                 _buildRegisterButton(),
+                SizedBox(height: responsive.hp(3)),
+                _buildLoginLink(context),
                 SizedBox(height: responsive.hp(2)),
               ],
             ),
@@ -286,6 +393,8 @@ class _RegisterPageState extends State<RegisterPage>
                       _buildTermsAndPrivacy(),
                       const SizedBox(height: 24),
                       _buildRegisterButton(),
+                      const SizedBox(height: 24),
+                      _buildLoginLink(context),
                     ],
                   ),
                 ),
@@ -420,11 +529,14 @@ class _RegisterPageState extends State<RegisterPage>
             obscureText: true,
             showPasswordToggle: true,
             textInputAction: TextInputAction.done,
-            showSuccessState: _confirmPasswordController.text.isNotEmpty &&
+            showSuccessState:
+                _confirmPasswordController.text.isNotEmpty &&
                 _confirmPasswordController.text == _passwordController.text,
             onChanged: (value) {
               if (_confirmPasswordError != null) {
-                setState(() => _confirmPasswordError = _validateConfirmPassword(value));
+                setState(
+                  () => _confirmPasswordError = _validateConfirmPassword(value),
+                );
               }
             },
             onSubmitted: (_) => _handleRegister(),
@@ -468,22 +580,33 @@ class _RegisterPageState extends State<RegisterPage>
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              label,
-              style: AppTypography.labelSmall(color: color),
-            ),
+            Text(label, style: AppTypography.labelSmall(color: color)),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            _buildRequirement('8+ caracteres', _passwordController.text.length >= 8),
+            _buildRequirement(
+              '8+ caracteres',
+              _passwordController.text.length >= 8,
+            ),
             const SizedBox(width: 8),
-            _buildRequirement('Mayúscula', _passwordController.text.contains(RegExp(r'[A-Z]'))),
+            _buildRequirement(
+              'Mayúscula',
+              _passwordController.text.contains(RegExp(r'[A-Z]')),
+            ),
             const SizedBox(width: 8),
-            _buildRequirement('Número', _passwordController.text.contains(RegExp(r'[0-9]'))),
+            _buildRequirement(
+              'Número',
+              _passwordController.text.contains(RegExp(r'[0-9]')),
+            ),
             const SizedBox(width: 8),
-            _buildRequirement('Especial', _passwordController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))),
+            _buildRequirement(
+              'Especial',
+              _passwordController.text.contains(
+                RegExp(r'[!@#$%^&*(),.?":{}|<>]'),
+              ),
+            ),
           ],
         ),
       ],
@@ -524,17 +647,20 @@ class _RegisterPageState extends State<RegisterPage>
           onChanged: (value) => setState(() => _acceptTerms = value ?? false),
           child: RichText(
             text: TextSpan(
-              style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
+              style: AppTypography.bodySmall(
+                color: AppColors.textSecondaryLight,
+              ),
               children: [
                 const TextSpan(text: 'Acepto los '),
                 TextSpan(
                   text: 'Términos y Condiciones',
-                  style: AppTypography.bodySmall(color: AppColors.primary).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  recognizer: TapGestureRecognizer()..onTap = () {
-                    // Mostrar términos
-                  },
+                  style: AppTypography.bodySmall(
+                    color: AppColors.primary,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      // Mostrar términos
+                    },
                 ),
               ],
             ),
@@ -548,17 +674,20 @@ class _RegisterPageState extends State<RegisterPage>
           onChanged: (value) => setState(() => _acceptPrivacy = value ?? false),
           child: RichText(
             text: TextSpan(
-              style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
+              style: AppTypography.bodySmall(
+                color: AppColors.textSecondaryLight,
+              ),
               children: [
                 const TextSpan(text: 'He leído y acepto la '),
                 TextSpan(
                   text: 'Política de Privacidad',
-                  style: AppTypography.bodySmall(color: AppColors.primary).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  recognizer: TapGestureRecognizer()..onTap = () {
-                    // Mostrar política de privacidad
-                  },
+                  style: AppTypography.bodySmall(
+                    color: AppColors.primary,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      // Mostrar política de privacidad
+                    },
                 ),
               ],
             ),
@@ -608,4 +737,24 @@ class _RegisterPageState extends State<RegisterPage>
     );
   }
 
+  Widget _buildLoginLink(BuildContext context) {
+    return Center(
+      child: RichText(
+        text: TextSpan(
+          text: '¿Ya tienes una cuenta? ',
+          style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
+          children: [
+            TextSpan(
+              text: 'Inicia sesión',
+              style: AppTypography.link(color: AppColors.primary),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () {
+                  Navigator.pushNamed(context, '/login');
+                },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

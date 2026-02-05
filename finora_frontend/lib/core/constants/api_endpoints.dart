@@ -1,13 +1,30 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 /// API endpoints for backend communication
 class ApiEndpoints {
   // Private constructor to prevent instantiation
   ApiEndpoints._();
 
-  // Base URL - should be configured via environment variables
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://api.finora.com/v1',
-  );
+  // Base URL - configured for local Docker backend
+  // Android emulator uses 10.0.2.2, iOS simulator and desktop use localhost
+  static String get baseUrl {
+    const envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) return envUrl;
+
+    // Web platform
+    if (kIsWeb) {
+      return 'http://localhost:3000/api/v1';
+    }
+
+    // For local development with Docker
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:3000/api/v1';
+    }
+
+    // iOS, Windows, macOS, Linux
+    return 'http://localhost:3000/api/v1';
+  }
 
   // Authentication endpoints
   static const String login = '/auth/login';
@@ -17,6 +34,7 @@ class ApiEndpoints {
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
   static const String verifyEmail = '/auth/verify-email';
+  static const String resendVerification = '/auth/resend-verification';
   static const String enable2FA = '/auth/2fa/enable';
   static const String verify2FA = '/auth/2fa/verify';
   static const String disable2FA = '/auth/2fa/disable';

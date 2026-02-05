@@ -12,10 +12,20 @@ class TlsValidator {
   static void validateRequest(RequestOptions options) {
     final uri = options.uri;
 
-    // Validate connection security
+    // Allow HTTP for local development (localhost, 10.0.2.2 for Android emulator)
+    final isLocalDevelopment = uri.host == 'localhost' ||
+        uri.host == '127.0.0.1' ||
+        uri.host == '10.0.2.2';
+
+    if (isLocalDevelopment) {
+      // Skip TLS validation for local development
+      return;
+    }
+
+    // Validate connection security for production
     SecureHttpClient.validateConnection(uri);
 
-    // Ensure proper scheme
+    // Ensure proper scheme for production
     if (uri.scheme != 'https') {
       throw SecurityException(
         message: '${SecurityConfig.httpConnectionMessage} (URI: ${uri.toString()})',

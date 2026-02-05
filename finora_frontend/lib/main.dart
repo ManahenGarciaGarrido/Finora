@@ -5,7 +5,12 @@ import 'core/constants/app_constants.dart';
 import 'core/utils/platform_version_helper.dart';
 import 'core/utils/ios_version_helper.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
+import 'features/authentication/presentation/pages/splash_page.dart';
+import 'features/authentication/presentation/pages/login_page.dart';
 import 'features/authentication/presentation/pages/register_page.dart';
+import 'features/authentication/presentation/pages/forgot_password_page.dart';
+import 'features/authentication/presentation/pages/reset_password_page.dart';
+import 'features/home/presentation/pages/home_page.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
 // import 'core/utils/platform_compatibility_example.dart';  // Android
@@ -58,7 +63,50 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
         ),
-        home: const RegisterPage(),
+        home: const SplashPage(),
+        routes: {
+          '/splash': (context) => const SplashPage(),
+          '/login': (context) => const LoginPage(),
+          '/register': (context) => const RegisterPage(),
+          '/home': (context) => const HomePage(),
+          '/forgot-password': (context) => const ForgotPasswordPage(),
+        },
+        onGenerateRoute: (settings) {
+          debugPrint('=== ROUTE DEBUG ===');
+          debugPrint('Route name: ${settings.name}');
+          debugPrint('Arguments: ${settings.arguments}');
+
+          // Handle /reset-password route with token parameter
+          if (settings.name?.startsWith('/reset-password') ?? false) {
+            // Try to get token from arguments first (internal navigation)
+            String? token = settings.arguments as String?;
+
+            // If no arguments, try to extract token from query parameters (web URL)
+            if (token == null && settings.name != null) {
+              try {
+                final uri = Uri.parse(settings.name!);
+                token = uri.queryParameters['token'];
+                debugPrint('Token extracted from URL: $token');
+              } catch (e) {
+                debugPrint('Error parsing URL: $e');
+              }
+            }
+
+            if (token != null && token.isNotEmpty) {
+              debugPrint('Navigating to ResetPasswordPage with token: ${token.substring(0, 10)}...');
+              return MaterialPageRoute(
+                builder: (context) => ResetPasswordPage(token: token!),
+                settings: settings,
+              );
+            } else {
+              debugPrint('ERROR: No token found, redirecting to login');
+              return MaterialPageRoute(
+                builder: (context) => const LoginPage(),
+              );
+            }
+          }
+          return null;
+        },
       ),
     );
   }
