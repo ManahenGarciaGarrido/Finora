@@ -58,3 +58,13 @@ class RegistrationSuccess extends AuthState {
 class LogoutSuccess extends AuthState {
   const LogoutSuccess();
 }
+
+/// Email resent success state
+class EmailResent extends AuthState {
+  final String message;
+
+  const EmailResent({this.message = 'Correo de verificación enviado exitosamente'});
+
+  @override
+  List<Object?> get props => [message];
+}

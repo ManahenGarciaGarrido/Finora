@@ -34,6 +34,7 @@ class ApiEndpoints {
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
   static const String verifyEmail = '/auth/verify-email';
+  static const String resendVerification = '/auth/resend-verification';
   static const String enable2FA = '/auth/2fa/enable';
   static const String verify2FA = '/auth/2fa/verify';
   static const String disable2FA = '/auth/2fa/disable';
