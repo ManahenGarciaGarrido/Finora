@@ -62,12 +62,16 @@ Future<void> _initAuthentication() async {
   );
 
   // Data sources
-  sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(apiClient: sl()),
-  );
-
+  // Register local data source first since remote depends on it
   sl.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSourceImpl(),
+  );
+
+  sl.registerLazySingleton<AuthRemoteDataSource>(
+    () => AuthRemoteDataSourceImpl(
+      apiClient: sl(),
+      localDataSource: sl(),
+    ),
   );
 }
 

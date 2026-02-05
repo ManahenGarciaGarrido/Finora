@@ -1,11 +1,20 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter based on environment
+// Create transporter based on SMTP configuration
 const createTransporter = () => {
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Debug: Log current SMTP configuration
+  console.log('=== SMTP Configuration Debug ===');
+  console.log('SMTP_HOST:', process.env.SMTP_HOST);
+  console.log('SMTP_PORT:', process.env.SMTP_PORT);
+  console.log('SMTP_SECURE:', process.env.SMTP_SECURE);
+  console.log('SMTP_USER:', process.env.SMTP_USER ? '***configured***' : 'NOT SET');
+  console.log('SMTP_PASS:', process.env.SMTP_PASS ? '***configured***' : 'NOT SET');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('===============================');
 
-  // For development/testing with MailHog
-  if (!isProduction || process.env.SMTP_HOST === 'mailhog') {
+  // Use MailHog only if explicitly configured for development/testing
+  if (process.env.SMTP_HOST === 'mailhog' || process.env.SMTP_HOST === 'localhost') {
+    console.log('⚠️  Using MailHog transporter (localhost/mailhog)');
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'localhost',
       port: parseInt(process.env.SMTP_PORT) || 1025,
@@ -14,7 +23,8 @@ const createTransporter = () => {
     });
   }
 
-  // For production with real SMTP
+  // For real SMTP providers (Gmail, SendGrid, Amazon SES, etc.)
+  console.log('✓ Using real SMTP transporter:', process.env.SMTP_HOST);
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT) || 587,
@@ -44,18 +54,34 @@ const verifyConnection = async () => {
 const sendVerificationEmail = async (to, name, verificationToken) => {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   const verificationLink = `${appUrl}/api/v1/auth/verify-email?token=${verificationToken}`;
+  const fromName = process.env.EMAIL_FROM_NAME || 'Finora';
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@finora.com';
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@finora.com',
+    from: `${fromName} <${fromEmail}>`,
     to: to,
-    subject: 'Verifica tu cuenta de Finora',
+    replyTo: process.env.EMAIL_REPLY_TO || fromEmail,
+    subject: 'Verifica tu cuenta de Finora ✓',
+    // Preheader text (mostrado en preview del email)
+    headers: {
+      'X-Priority': '3',
+      'X-MSMail-Priority': 'Normal',
+      'X-Mailer': 'Finora Mailer',
+      'X-MimeOLE': 'Produced By Finora',
+    },
     html: `
       <!DOCTYPE html>
-      <html>
+      <html lang="es">
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <title>Verificar Email - Finora</title>
+        <!--[if mso]>
+        <style type="text/css">
+          body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
+        </style>
+        <![endif]-->
         <style>
           body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -69,13 +95,21 @@ const sendVerificationEmail = async (to, name, verificationToken) => {
         </style>
       </head>
       <body>
+        <!-- Preheader text (invisible, mostrado en preview) -->
+        <div style="display: none; max-height: 0px; overflow: hidden;">
+          Completa tu registro verificando tu correo electrónico. ¡Solo te tomará un clic!
+        </div>
+        <!-- Espaciador para preheader -->
+        <div style="display: none; max-height: 0px; overflow: hidden;">
+          &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+        </div>
         <div class="container">
           <div class="header">
-            <h1>Finora</h1>
+            <h1>📧 Finora</h1>
           </div>
           <div class="content">
-            <h2>Hola ${name},</h2>
-            <p>Gracias por registrarte en Finora. Para completar tu registro y comenzar a usar la aplicacion, por favor verifica tu direccion de correo electronico.</p>
+            <h2>¡Hola, ${name}! 👋</h2>
+            <p>Gracias por registrarte en Finora. Para completar tu registro y comenzar a usar la aplicación, por favor verifica tu dirección de correo electrónico.</p>
 
             <div style="text-align: center;">
               <a href="${verificationLink}" class="button">Verificar mi Email</a>
@@ -128,11 +162,19 @@ const sendVerificationEmail = async (to, name, verificationToken) => {
 const sendPasswordResetEmail = async (to, name, resetToken) => {
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   const resetLink = `${appUrl}/api/v1/auth/reset-password?token=${resetToken}`;
+  const fromName = process.env.EMAIL_FROM_NAME || 'Finora';
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@finora.com';
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@finora.com',
+    from: `${fromName} <${fromEmail}>`,
     to: to,
-    subject: 'Restablecer contrasena - Finora',
+    replyTo: process.env.EMAIL_REPLY_TO || fromEmail,
+    subject: 'Restablecer contraseña - Finora 🔐',
+    headers: {
+      'X-Priority': '1',
+      'X-MSMail-Priority': 'High',
+      'Importance': 'high',
+    },
     html: `
       <!DOCTYPE html>
       <html>
@@ -211,10 +253,18 @@ const sendPasswordResetEmail = async (to, name, resetToken) => {
 
 // Send welcome email after verification
 const sendWelcomeEmail = async (to, name) => {
+  const fromName = process.env.EMAIL_FROM_NAME || 'Finora';
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@finora.com';
+
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@finora.com',
+    from: `${fromName} <${fromEmail}>`,
     to: to,
-    subject: 'Bienvenido a Finora!',
+    replyTo: process.env.EMAIL_REPLY_TO || fromEmail,
+    subject: '¡Bienvenido a Finora! 🎉',
+    headers: {
+      'X-Priority': '3',
+      'X-MSMail-Priority': 'Normal',
+    },
     html: `
       <!DOCTYPE html>
       <html>

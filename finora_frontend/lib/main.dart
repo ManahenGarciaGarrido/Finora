@@ -5,6 +5,8 @@ import 'core/constants/app_constants.dart';
 import 'core/utils/platform_version_helper.dart';
 import 'core/utils/ios_version_helper.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
+import 'features/authentication/presentation/pages/splash_page.dart';
+import 'features/authentication/presentation/pages/login_page.dart';
 import 'features/authentication/presentation/pages/register_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 
@@ -59,10 +61,17 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
         ),
-        home: const RegisterPage(),
+        home: const SplashPage(),
         routes: {
+          '/splash': (context) => const SplashPage(),
+          '/login': (context) => const LoginPage(),
           '/register': (context) => const RegisterPage(),
           '/home': (context) => const HomePage(),
+          '/forgot-password': (context) => const Scaffold(
+            body: Center(
+              child: Text('Página de recuperación de contraseña (TODO)'),
+            ),
+          ),
         },
       ),
     );
