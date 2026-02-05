@@ -571,7 +571,13 @@ router.post('/forgot-password', async (req, res) => {
     );
 
     // Send password reset email
-    await emailService.sendPasswordResetEmail(email, user.name, resetToken);
+    const emailResult = await emailService.sendPasswordResetEmail(email, user.name, resetToken);
+
+    if (emailResult.success) {
+      console.log(`Password reset email sent to: ${email}`);
+    } else {
+      console.error(`Failed to send password reset email to: ${email}`, emailResult.error);
+    }
 
     res.status(200).json({
       message: 'Si el correo existe, recibiras un enlace para restablecer tu contrasena'
@@ -583,6 +589,322 @@ router.post('/forgot-password', async (req, res) => {
       error: 'Error Interno del Servidor',
       message: 'No se pudo procesar la solicitud'
     });
+  }
+});
+
+/**
+ * GET /api/v1/auth/reset-password
+ * Display password reset form (for email links)
+ */
+router.get('/reset-password', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Error - Finora</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+            .error { color: #d32f2f; font-size: 24px; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error">⚠️ Token no válido</div>
+            <p>El enlace de restablecimiento no es válido.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Verify token is valid
+    const result = await db.query(
+      `SELECT id, email, password_reset_expires FROM users
+       WHERE password_reset_token = $1`,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Error - Finora</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+            .error { color: #d32f2f; font-size: 24px; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error">⚠️ Token inválido</div>
+            <p>El token de restablecimiento no es válido o ya fue utilizado.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    const user = result.rows[0];
+
+    // Check if token has expired
+    if (new Date() > new Date(user.password_reset_expires)) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Error - Finora</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+            .error { color: #d32f2f; font-size: 24px; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error">⏰ Token expirado</div>
+            <p>El token de restablecimiento ha expirado. Por favor solicita uno nuevo.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Show password reset form
+    return res.send(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Restablecer Contraseña - Finora</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; padding: 20px;
+          }
+          .container {
+            background: white; padding: 40px; border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 450px; width: 100%;
+          }
+          h1 { color: #333; margin-bottom: 10px; font-size: 28px; text-align: center; }
+          .subtitle { color: #666; margin-bottom: 30px; text-align: center; font-size: 14px; }
+          .email-info { background: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 20px; text-align: center; color: #666; font-size: 14px; }
+          .form-group { margin-bottom: 20px; }
+          label { display: block; color: #333; font-weight: 500; margin-bottom: 8px; font-size: 14px; }
+          input {
+            width: 100%; padding: 12px; border: 2px solid #e0e0e0;
+            border-radius: 8px; font-size: 16px; transition: border-color 0.3s;
+          }
+          input:focus { outline: none; border-color: #667eea; }
+          .password-requirements {
+            font-size: 12px; color: #666; margin-top: 8px;
+            padding: 10px; background: #f9f9f9; border-radius: 5px;
+          }
+          .password-requirements div { margin: 4px 0; }
+          .requirement { display: flex; align-items: center; }
+          .requirement::before { content: '•'; margin-right: 8px; color: #999; }
+          button {
+            width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 8px;
+            font-size: 16px; font-weight: 600; cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+          }
+          button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+          button:active { transform: translateY(0); }
+          button:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+          .error { color: #d32f2f; font-size: 14px; margin-top: 10px; display: none; }
+          .success { color: #2e7d32; font-size: 14px; margin-top: 10px; display: none; text-align: center; }
+          .show { display: block; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🔐 Restablecer Contraseña</h1>
+          <p class="subtitle">Ingresa tu nueva contraseña</p>
+          <div class="email-info">
+            📧 ${user.email}
+          </div>
+
+          <form id="resetForm" onsubmit="return false;">
+            <div class="form-group">
+              <label for="password">Nueva Contraseña</label>
+              <input type="password" id="password" name="password" required autocomplete="new-password">
+              <div class="password-requirements">
+                <div class="requirement">Mínimo 8 caracteres</div>
+                <div class="requirement">Al menos una letra mayúscula</div>
+                <div class="requirement">Al menos un número</div>
+                <div class="requirement">Al menos un carácter especial</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="confirmPassword">Confirmar Contraseña</label>
+              <input type="password" id="confirmPassword" name="confirmPassword" required>
+              <div class="error" id="error"></div>
+            </div>
+
+            <button type="submit" id="submitBtn">Restablecer Contraseña</button>
+            <div class="success" id="success">
+              ✅ Contraseña restablecida exitosamente. Puedes cerrar esta página y usar tu nueva contraseña en la aplicación.
+            </div>
+          </form>
+        </div>
+
+        <script>
+          console.log('=== Reset Password Form Script Loaded ===');
+          console.log('Current URL:', window.location.href);
+
+          const form = document.getElementById('resetForm');
+          const submitBtn = document.getElementById('submitBtn');
+          const errorDiv = document.getElementById('error');
+          const successDiv = document.getElementById('success');
+          const passwordInput = document.getElementById('password');
+          const confirmPasswordInput = document.getElementById('confirmPassword');
+
+          // Extract token from URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const resetToken = urlParams.get('token');
+
+          console.log('Token extracted:', resetToken ? 'YES - ' + resetToken.substring(0, 10) + '...' : 'NO TOKEN FOUND');
+
+          if (!resetToken) {
+            console.error('ERROR: No token in URL!');
+            errorDiv.textContent = 'Token no encontrado en la URL';
+            errorDiv.classList.add('show');
+            submitBtn.disabled = true;
+          } else {
+            console.log('Token found, form ready');
+          }
+
+          form.addEventListener('submit', async (e) => {
+            console.log('Form submit event triggered');
+            e.preventDefault();
+            e.stopPropagation();
+
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+
+            errorDiv.classList.remove('show');
+            successDiv.classList.remove('show');
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+              errorDiv.textContent = 'Las contraseñas no coinciden';
+              errorDiv.classList.add('show');
+              return;
+            }
+
+            // Validate password strength
+            if (password.length < 8) {
+              errorDiv.textContent = 'La contraseña debe tener al menos 8 caracteres';
+              errorDiv.classList.add('show');
+              return;
+            }
+
+            if (!/[A-Z]/.test(password)) {
+              errorDiv.textContent = 'La contraseña debe tener al menos una letra mayúscula';
+              errorDiv.classList.add('show');
+              return;
+            }
+
+            if (!/[0-9]/.test(password)) {
+              errorDiv.textContent = 'La contraseña debe tener al menos un número';
+              errorDiv.classList.add('show');
+              return;
+            }
+
+            if (!/[!@#$%^&*(),.?":{}|<>_\\-+=\\[\\]\\\\/\`~;']/.test(password)) {
+              errorDiv.textContent = 'La contraseña debe tener al menos un carácter especial';
+              errorDiv.classList.add('show');
+              return;
+            }
+
+            // Submit to API
+            console.log('Sending POST request with token:', resetToken ? resetToken.substring(0, 10) + '...' : 'NULL');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Restableciendo...';
+
+            try {
+              const requestBody = {
+                token: resetToken,
+                password: password
+              };
+              console.log('Request body:', { ...requestBody, password: '***HIDDEN***' });
+
+              const response = await fetch('/api/v1/auth/reset-password', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+              });
+
+              console.log('Response status:', response.status);
+
+              const data = await response.json();
+
+              if (response.ok) {
+                successDiv.classList.add('show');
+                form.reset();
+                submitBtn.style.display = 'none';
+              } else {
+                errorDiv.textContent = data.message || 'Error al restablecer la contraseña';
+                errorDiv.classList.add('show');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Restablecer Contraseña';
+              }
+            } catch (error) {
+              errorDiv.textContent = 'Error de conexión. Por favor intenta de nuevo.';
+              errorDiv.classList.add('show');
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Restablecer Contraseña';
+            }
+          });
+        </script>
+      </body>
+      </html>
+    `);
+
+  } catch (error) {
+    console.error('Reset password page error:', error);
+    return res.status(500).send(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Error - Finora</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+          .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+          .error { color: #d32f2f; font-size: 24px; margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error">⚠️ Error del servidor</div>
+          <p>No se pudo cargar la página. Por favor intenta de nuevo.</p>
+        </div>
+      </body>
+      </html>
+    `);
   }
 });
 
@@ -648,6 +970,8 @@ router.post('/reset-password', async (req, res) => {
        WHERE id = $2`,
       [hashedPassword, user.id]
     );
+
+    console.log(`Password reset successful for user ID: ${user.id}`);
 
     res.status(200).json({
       message: 'Contrasena restablecida exitosamente'

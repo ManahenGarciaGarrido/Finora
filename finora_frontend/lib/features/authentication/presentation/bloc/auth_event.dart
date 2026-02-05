@@ -64,3 +64,27 @@ class ResendVerificationRequested extends AuthEvent {
   @override
   List<Object?> get props => [email];
 }
+
+/// Event to request password reset
+class ForgotPasswordRequested extends AuthEvent {
+  final String email;
+
+  const ForgotPasswordRequested({required this.email});
+
+  @override
+  List<Object?> get props => [email];
+}
+
+/// Event to reset password with token
+class ResetPasswordRequested extends AuthEvent {
+  final String token;
+  final String newPassword;
+
+  const ResetPasswordRequested({
+    required this.token,
+    required this.newPassword,
+  });
+
+  @override
+  List<Object?> get props => [token, newPassword];
+}

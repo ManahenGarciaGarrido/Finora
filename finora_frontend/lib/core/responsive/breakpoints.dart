@@ -236,6 +236,9 @@ class ResponsiveUtils {
 
   /// Escala basada en alto (base 812 - iPhone X)
   double sh(double size) => size * (screenHeight / 812);
+
+  /// Escala de tamaño de fuente (basado en ancho, base 375 - iPhone X)
+  double sp(double size) => size * (screenWidth / 375);
 }
 
 /// Extension para acceso fácil a ResponsiveUtils
