@@ -13,94 +13,95 @@ class AppColors {
   // COLORES PRIMARIOS
   // ============================================
 
-  /// Azul principal - Color de marca
-  static const Color primary = Color(0xFF2563EB);
-  static const Color primaryLight = Color(0xFF60A5FA);
-  static const Color primaryDark = Color(0xFF1D4ED8);
-  static const Color primarySoft = Color(0xFFDBEAFE);
+  /// Azul principal - AHORA: Azul Marino Profundo (Navy)
+  static const Color primary = Color(0xFF0F172A); // Antes era azul brillante
+  static const Color primaryLight = Color(0xFF334155); // Slate
+  static const Color primaryDark = Color(0xFF020617); // Casi negro
+  static const Color primarySoft = Color(0xFFF1F5F9); // Gris muy claro
 
   /// Variaciones del primario
   static const MaterialColor primarySwatch =
-      MaterialColor(0xFF2563EB, <int, Color>{
-        50: Color(0xFFEFF6FF),
-        100: Color(0xFFDBEAFE),
-        200: Color(0xFFBFDBFE),
-        300: Color(0xFF93C5FD),
-        400: Color(0xFF60A5FA),
-        500: Color(0xFF3B82F6),
-        600: Color(0xFF2563EB),
-        700: Color(0xFF1D4ED8),
-        800: Color(0xFF1E40AF),
-        900: Color(0xFF1E3A8A),
+      MaterialColor(0xFF0F172A, <int, Color>{
+        50: Color(0xFFF8FAFC),
+        100: Color(0xFFF1F5F9),
+        200: Color(0xFFE2E8F0),
+        300: Color(0xFFCBD5E1),
+        400: Color(0xFF94A3B8),
+        500: Color(0xFF64748B),
+        600: Color(0xFF475569),
+        700: Color(0xFF334155),
+        800: Color(0xFF1E293B),
+        900: Color(0xFF0F172A),
       });
 
   // ============================================
   // COLORES SECUNDARIOS
   // ============================================
 
-  /// Verde - Éxito, ganancias, crecimiento
-  static const Color secondary = Color(0xFF10B981);
+  /// Verde - Éxito, ganancias (Mantenemos verde pero más sobrio)
+  static const Color secondary = Color(0xFF059669);
   static const Color secondaryLight = Color(0xFF34D399);
-  static const Color secondaryDark = Color(0xFF059669);
-  static const Color secondarySoft = Color(0xFFD1FAE5);
+  static const Color secondaryDark = Color(0xFF064E3B);
+  static const Color secondarySoft = Color(0xFFECFDF5);
 
-  /// Púrpura - Premium, sofisticado
-  static const Color accent = Color(0xFF8B5CF6);
-  static const Color accentLight = Color(0xFFA78BFA);
-  static const Color accentDark = Color(0xFF7C3AED);
-  static const Color accentSoft = Color(0xFFEDE9FE);
+  /// Púrpura -> CAMBIADO A: Azul Acero / Gris Azulado (Accent serio)
+  /// Ya no es morado, ahora es un tono técnico elegante.
+  static const Color accent = Color(0xFF475569); // Slate 600
+  static const Color accentLight = Color(0xFF64748B);
+  static const Color accentDark = Color(0xFF334155);
+  static const Color accentSoft = Color(0xFFF8FAFC);
 
   // ============================================
   // COLORES SEMÁNTICOS
   // ============================================
 
-  /// Éxito - Para ganancias, metas cumplidas
-  static const Color success = Color(0xFF22C55E);
-  static const Color successLight = Color(0xFF86EFAC);
-  static const Color successDark = Color(0xFF16A34A);
-  static const Color successSoft = Color(0xFFDCFCE7);
+  /// Éxito
+  static const Color success = Color(0xFF059669);
+  static const Color successLight = Color(0xFF34D399);
+  static const Color successDark = Color(0xFF064E3B);
+  static const Color successSoft = Color(0xFFD1FAE5);
 
-  /// Advertencia - Para alertas de presupuesto
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningLight = Color(0xFFFCD34D);
-  static const Color warningDark = Color(0xFFD97706);
-  static const Color warningSoft = Color(0xFFFEF3C7);
+  /// Advertencia
+  static const Color warning = Color(0xFFD97706); // Ámbar oscuro
+  static const Color warningLight = Color(0xFFFBBF24);
+  static const Color warningDark = Color(0xFF92400E);
+  static const Color warningSoft = Color(0xFFFFFBEB);
 
-  /// Error - Para gastos excesivos, errores
-  static const Color error = Color(0xFFEF4444);
-  static const Color errorLight = Color(0xFFFCA5A5);
-  static const Color errorDark = Color(0xFFDC2626);
-  static const Color errorSoft = Color(0xFFFEE2E2);
+  /// Error
+  static const Color error = Color(0xFFDC2626); // Rojo clásico serio
+  static const Color errorLight = Color(0xFFF87171);
+  static const Color errorDark = Color(0xFF991B1B);
+  static const Color errorSoft = Color(0xFFFEF2F2);
 
-  /// Info - Para información general
-  static const Color info = Color(0xFF0EA5E9);
-  static const Color infoLight = Color(0xFF7DD3FC);
-  static const Color infoDark = Color(0xFF0284C7);
+  /// Info
+  static const Color info = Color(0xFF0284C7); // Azul cielo oscuro
+  static const Color infoLight = Color(0xFF38BDF8);
+  static const Color infoDark = Color(0xFF075985);
   static const Color infoSoft = Color(0xFFE0F2FE);
 
   // ============================================
   // COLORES DE FINANZAS
   // ============================================
 
-  /// Ingreso - Dinero que entra
-  static const Color income = Color(0xFF22C55E);
-  static const Color incomeLight = Color(0xFF4ADE80);
-  static const Color incomeDark = Color(0xFF15803D);
+  /// Ingreso
+  static const Color income = Color(0xFF059669);
+  static const Color incomeLight = Color(0xFF34D399);
+  static const Color incomeDark = Color(0xFF064E3B);
 
-  /// Gasto - Dinero que sale
-  static const Color expense = Color(0xFFEF4444);
+  /// Gasto
+  static const Color expense = Color(0xFFDC2626);
   static const Color expenseLight = Color(0xFFF87171);
-  static const Color expenseDark = Color(0xFFB91C1C);
+  static const Color expenseDark = Color(0xFF991B1B);
 
-  /// Ahorro - Dinero guardado
-  static const Color savings = Color(0xFF8B5CF6);
-  static const Color savingsLight = Color(0xFFA78BFA);
-  static const Color savingsDark = Color(0xFF6D28D9);
+  /// Ahorro - Antes Morado -> AHORA: Indigo profundo
+  static const Color savings = Color(0xFF4338CA);
+  static const Color savingsLight = Color(0xFF6366F1);
+  static const Color savingsDark = Color(0xFF312E81);
 
-  /// Inversión - Dinero invertido
-  static const Color investment = Color(0xFF06B6D4);
+  /// Inversión
+  static const Color investment = Color(0xFF0891B2); // Cyan oscuro
   static const Color investmentLight = Color(0xFF22D3EE);
-  static const Color investmentDark = Color(0xFF0891B2);
+  static const Color investmentDark = Color(0xFF164E63);
 
   // ============================================
   // COLORES NEUTROS
@@ -112,7 +113,7 @@ class AppColors {
   /// Negro
   static const Color black = Color(0xFF000000);
 
-  /// Grises
+  /// Grises (Cool Grays para look tecnológico)
   static const Color gray50 = Color(0xFFF9FAFB);
   static const Color gray100 = Color(0xFFF3F4F6);
   static const Color gray200 = Color(0xFFE5E7EB);
@@ -129,7 +130,7 @@ class AppColors {
   // ============================================
 
   /// Fondo claro
-  static const Color backgroundLight = Color(0xFFF8FAFC);
+  static const Color backgroundLight = Color(0xFFF8FAFC); // Slate 50
   static const Color surfaceLight = Color(0xFFFFFFFF);
   static const Color cardLight = Color(0xFFFFFFFF);
 
@@ -143,8 +144,8 @@ class AppColors {
   // ============================================
 
   /// Texto en tema claro
-  static const Color textPrimaryLight = Color(0xFF1E293B);
-  static const Color textSecondaryLight = Color(0xFF64748B);
+  static const Color textPrimaryLight = Color(0xFF0F172A); // Navy muy oscuro
+  static const Color textSecondaryLight = Color(0xFF64748B); // Slate
   static const Color textTertiaryLight = Color(0xFF94A3B8);
   static const Color textDisabledLight = Color(0xFFCBD5E1);
 
@@ -155,49 +156,49 @@ class AppColors {
   static const Color textDisabledDark = Color(0xFF475569);
 
   // ============================================
-  // GRADIENTES
+  // GRADIENTES (Aquí quitamos los colores infantiles)
   // ============================================
 
-  /// Gradiente primario (horizontal)
+  /// Gradiente primario (horizontal) -> AHORA: Navy Profundo a Slate
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [primary, Color(0xFF7C3AED)],
+    colors: [Color(0xFF0F172A), Color(0xFF334155)], // De Navy a Pizarra
   );
 
   /// Gradiente primario (vertical)
   static const LinearGradient primaryGradientVertical = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [primaryLight, primary],
+    colors: [Color(0xFF334155), Color(0xFF0F172A)],
   );
 
   /// Gradiente de éxito (para ganancias)
   static const LinearGradient successGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFF22C55E), Color(0xFF10B981)],
+    colors: [Color(0xFF059669), Color(0xFF10B981)],
   );
 
-  /// Gradiente de fondo premium
+  /// Gradiente de fondo premium -> AHORA: Dark Mode elegante
   static const LinearGradient premiumGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1E3A8A), Color(0xFF7C3AED)],
+    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
   );
 
-  /// Gradiente de card
+  /// Gradiente de card -> AHORA: Azul corporativo sobrio
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+    colors: [Color(0xFF1E40AF), Color(0xFF1E3A8A)], // Azules oscuros
   );
 
   /// Gradiente de fondo suave
   static const LinearGradient softGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
+    colors: [Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
   );
 
   /// Gradiente oscuro
@@ -214,12 +215,12 @@ class AppColors {
   /// Sombra suave
   static List<BoxShadow> get shadowSoft => [
     BoxShadow(
-      color: black.withValues(alpha: 0.04),
+      color: black.withValues(alpha: 0.03), // Sombra más sutil
       blurRadius: 8,
       offset: const Offset(0, 2),
     ),
     BoxShadow(
-      color: black.withValues(alpha: 0.02),
+      color: black.withValues(alpha: 0.01),
       blurRadius: 4,
       offset: const Offset(0, 1),
     ),
@@ -228,12 +229,12 @@ class AppColors {
   /// Sombra media
   static List<BoxShadow> get shadowMedium => [
     BoxShadow(
-      color: black.withValues(alpha: 0.08),
+      color: black.withValues(alpha: 0.06),
       blurRadius: 16,
       offset: const Offset(0, 4),
     ),
     BoxShadow(
-      color: black.withValues(alpha: 0.04),
+      color: black.withValues(alpha: 0.03),
       blurRadius: 8,
       offset: const Offset(0, 2),
     ),
@@ -242,46 +243,41 @@ class AppColors {
   /// Sombra fuerte
   static List<BoxShadow> get shadowStrong => [
     BoxShadow(
-      color: black.withValues(alpha: 0.12),
+      color: black.withValues(alpha: 0.10),
       blurRadius: 24,
       offset: const Offset(0, 8),
     ),
     BoxShadow(
-      color: black.withValues(alpha: 0.06),
+      color: black.withValues(alpha: 0.05),
       blurRadius: 12,
       offset: const Offset(0, 4),
     ),
   ];
 
-  /// Sombra de color (para botones)
+  /// Sombra de color (para botones) -> AHORA: Mucho más suave
   static List<BoxShadow> shadowColor(Color color) => [
     BoxShadow(
-      color: color.withValues(alpha: 0.3),
-      blurRadius: 16,
-      offset: const Offset(0, 6),
-    ),
-    BoxShadow(
-      color: color.withValues(alpha: 0.2),
-      blurRadius: 8,
-      offset: const Offset(0, 3),
+      color: color.withValues(alpha: 0.2), // Bajada opacidad
+      blurRadius: 12,
+      offset: const Offset(0, 4),
     ),
   ];
 
   // ============================================
-  // COLORES POR CATEGORÍA (Para gráficos)
+  // COLORES POR CATEGORÍA (Más maduros)
   // ============================================
 
   static const List<Color> categoryColors = [
-    Color(0xFF3B82F6), // Azul
-    Color(0xFF22C55E), // Verde
-    Color(0xFFF59E0B), // Amarillo
-    Color(0xFFEF4444), // Rojo
-    Color(0xFF8B5CF6), // Púrpura
-    Color(0xFF06B6D4), // Cyan
-    Color(0xFFF97316), // Naranja
-    Color(0xFFEC4899), // Rosa
-    Color(0xFF14B8A6), // Teal
-    Color(0xFF6366F1), // Indigo
+    Color(0xFF1E40AF), // Azul oscuro
+    Color(0xFF059669), // Verde bosque
+    Color(0xFFD97706), // Ámbar
+    Color(0xFFDC2626), // Rojo
+    Color(0xFF475569), // Slate
+    Color(0xFF0891B2), // Cyan oscuro
+    Color(0xFFEA580C), // Naranja quemado
+    Color(0xFFBE185D), // Rosa oscuro
+    Color(0xFF0D9488), // Teal
+    Color(0xFF4338CA), // Indigo
   ];
 
   /// Obtiene color para una categoría por índice
