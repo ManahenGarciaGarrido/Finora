@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const healthRoutes = require('./routes/health');
 const gdprRoutes = require('./routes/gdpr');
+const transactionRoutes = require('./routes/transactions');
 
 // Import services
 const emailService = require('./services/email');
@@ -100,6 +101,7 @@ app.use('/health', healthRoutes);
 app.use('/api/v1/auth', authLimiter, authRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/gdpr', gdprRoutes);
+app.use('/api/v1/transactions', transactionRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -113,6 +115,7 @@ app.get('/', (req, res) => {
       auth: '/api/v1/auth',
       user: '/api/v1/user',
       gdpr: '/api/v1/gdpr',
+      transactions: '/api/v1/transactions',
     }
   });
 });
