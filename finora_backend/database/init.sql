@@ -85,3 +85,35 @@ CREATE TRIGGER update_gdpr_consents_updated_at
     BEFORE UPDATE ON gdpr_consents
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- TRANSACTIONS TABLE (RF-05)
+-- ============================================
+
+-- Transactions table for manual income/expense tracking
+CREATE TABLE IF NOT EXISTS transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
+    type VARCHAR(10) NOT NULL CHECK (type IN ('income', 'expense')),
+    category VARCHAR(100) NOT NULL,
+    description TEXT,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('cash', 'card', 'transfer')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for transactions
+CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
+CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
+CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_date ON transactions(user_id, date DESC);
+
+-- Trigger to auto-update updated_at for transactions
+DROP TRIGGER IF EXISTS update_transactions_updated_at ON transactions;
+CREATE TRIGGER update_transactions_updated_at
+    BEFORE UPDATE ON transactions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
