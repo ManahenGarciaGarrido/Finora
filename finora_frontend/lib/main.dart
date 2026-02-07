@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/constants/app_constants.dart';
+import 'core/network/api_client.dart';
 import 'core/utils/platform_version_helper.dart';
 import 'core/utils/ios_version_helper.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
+import 'features/transactions/presentation/bloc/transaction_bloc.dart';
+import 'features/transactions/presentation/bloc/transaction_event.dart';
 import 'features/authentication/presentation/pages/splash_page.dart';
 import 'features/authentication/presentation/pages/login_page.dart';
 import 'features/authentication/presentation/pages/register_page.dart';
 import 'features/authentication/presentation/pages/forgot_password_page.dart';
 import 'features/authentication/presentation/pages/reset_password_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
+import 'features/transactions/presentation/pages/add_transaction_page.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
 // import 'core/utils/platform_compatibility_example.dart';  // Android
@@ -55,6 +59,10 @@ class MyApp extends StatelessWidget {
         BlocProvider(
           create: (_) => di.sl<AuthBloc>(),
         ),
+        BlocProvider(
+          create: (_) => TransactionBloc(apiClient: di.sl<ApiClient>())
+              ..add(LoadTransactions()),
+        ),
       ],
       child: MaterialApp(
         title: AppConstants.appName,
@@ -70,6 +78,7 @@ class MyApp extends StatelessWidget {
           '/register': (context) => const RegisterPage(),
           '/home': (context) => const HomePage(),
           '/forgot-password': (context) => const ForgotPasswordPage(),
+          '/add-transaction': (context) => const AddTransactionPage(),
         },
         onGenerateRoute: (settings) {
           debugPrint('=== ROUTE DEBUG ===');
