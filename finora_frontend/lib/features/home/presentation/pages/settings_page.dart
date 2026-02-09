@@ -8,6 +8,8 @@ import '../../../../core/responsive/breakpoints.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
+import '../../../categories/presentation/pages/categories_page.dart';
+import '../../../settings/presentation/pages/privacy_page.dart';
 
 /// Página de Ajustes
 ///
@@ -86,6 +88,19 @@ class SettingsPage extends StatelessWidget {
                 title: 'General',
                 items: [
                   _SettingsItem(
+                    icon: Icons.category_outlined,
+                    title: 'Categorías',
+                    subtitle: 'Gestionar categorías de gastos e ingresos',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CategoriesPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _SettingsItem(
                     icon: Icons.notifications_outlined,
                     title: 'Notificaciones',
                     subtitle: 'Gestionar alertas y avisos',
@@ -161,7 +176,14 @@ class SettingsPage extends StatelessWidget {
                     icon: Icons.privacy_tip_outlined,
                     title: 'Política de privacidad',
                     subtitle: 'Consultar política GDPR',
-                    isDeveloping: true,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PrivacyPage(),
+                        ),
+                      );
+                    },
                   ),
                   _SettingsItem(
                     icon: Icons.delete_outline_rounded,
@@ -315,7 +337,7 @@ class SettingsPage extends StatelessWidget {
   }
 
   Widget _buildSettingsRow(_SettingsItem item) {
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
@@ -372,6 +394,15 @@ class SettingsPage extends StatelessWidget {
         ],
       ),
     );
+
+    if (item.onTap != null) {
+      return GestureDetector(
+        onTap: item.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: content,
+      );
+    }
+    return content;
   }
 
   Widget _buildLogoutButton(BuildContext context) {
@@ -453,6 +484,7 @@ class _SettingsItem {
   final String subtitle;
   final bool isDeveloping;
   final bool isDanger;
+  final VoidCallback? onTap;
 
   _SettingsItem({
     required this.icon,
@@ -460,5 +492,6 @@ class _SettingsItem {
     required this.subtitle,
     this.isDeveloping = false,
     this.isDanger = false,
+    this.onTap,
   });
 }

@@ -30,14 +30,3 @@ class GetDataProcessingInfoUseCase
   }
 }
 
-/// Caso de uso para obtener información del DPO (Data Protection Officer)
-class GetDPOInfoUseCase implements UseCase<DPOInfo, NoParams> {
-  final GDPRRepository repository;
-
-  GetDPOInfoUseCase(this.repository);
-
-  @override
-  Future<Either<Failure, DPOInfo>> call(NoParams params) async {
-    return await repository.getDPOInfo();
-  }
-}
