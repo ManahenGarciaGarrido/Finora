@@ -99,7 +99,7 @@ router.post('/register', registerValidation, async (req, res) => {
       });
     }
 
-    const { email, password, name, termsAccepted, privacyAccepted } = req.body;
+    const { email, password, name, termsAccepted, privacyAccepted, consents } = req.body;
 
     // Check if user already exists
     const existingUser = await db.query(
@@ -146,6 +146,49 @@ router.post('/register', registerValidation, async (req, res) => {
     ]);
 
     const user = result.rows[0];
+
+    // Seed predefined categories for this user (RF-15)
+    try {
+      await db.query('SELECT seed_categories_for_user($1)', [user.id]);
+    } catch (seedError) {
+      console.error('Error seeding categories for user:', seedError);
+      // Non-fatal: continue registration even if category seeding fails
+    }
+
+    // Save GDPR consents
+    try {
+      const ipAddress = req.ip;
+      const userAgent = req.headers['user-agent'];
+
+      if (consents && typeof consents === 'object') {
+        // User provided specific consent choices (scenario 3)
+        const consentTypes = ['essential', 'analytics', 'marketing', 'third_party', 'personalization', 'data_processing'];
+        for (const consentType of consentTypes) {
+          const granted = consents[consentType] !== undefined ? consents[consentType] : true;
+          // Required consents are always true
+          const isRequired = consentType === 'essential' || consentType === 'data_processing';
+          const finalValue = isRequired ? true : granted;
+
+          await db.query(
+            `INSERT INTO user_consents_current (user_id, consent_type, granted)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (user_id, consent_type) DO UPDATE SET granted = $3, updated_at = CURRENT_TIMESTAMP`,
+            [user.id, consentType, finalValue]
+          );
+          await db.query(
+            `INSERT INTO user_consents_history (user_id, consent_type, granted, action, ip_address, user_agent)
+             VALUES ($1, $2, $3, 'INITIAL_REGISTRATION', $4, $5)`,
+            [user.id, consentType, finalValue, ipAddress, userAgent]
+          );
+        }
+      } else {
+        // No specific consents: all defaults ON (scenario 1 & 2)
+        await db.query('SELECT seed_default_consents($1, $2, $3)', [user.id, ipAddress, userAgent]);
+      }
+    } catch (consentError) {
+      console.error('Error saving initial consents:', consentError);
+      // Non-fatal: continue registration
+    }
 
     // Send verification email
     const emailResult = await emailService.sendVerificationEmail(email, name, verificationToken);

@@ -49,6 +49,15 @@ class _RegisterPageState extends State<RegisterPage>
   bool _isSuccess = false;
   bool _acceptTerms = false;
   bool _acceptPrivacy = false;
+  bool _hasCustomizedConsents = false; // Tracks if user manually configured consents
+  Map<String, bool> _consents = {
+    'essential': true,
+    'analytics': true,
+    'marketing': true,
+    'third_party': true,
+    'personalization': true,
+    'data_processing': true,
+  };
   double _passwordStrength = 0;
   String? _nameError;
   String? _emailError;
@@ -194,11 +203,14 @@ class _RegisterPageState extends State<RegisterPage>
     }
 
     // Enviar evento de registro al BLoC
+    // If user has customized consents (scenario 3), send specific choices
+    // Otherwise (scenarios 1 & 2), send null = all defaults ON
     context.read<AuthBloc>().add(
       RegisterRequested(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         name: _nameController.text.trim(),
+        consents: _hasCustomizedConsents ? _consents : null,
       ),
     );
   }
@@ -644,7 +656,24 @@ class _RegisterPageState extends State<RegisterPage>
         // Términos y condiciones
         _buildCheckboxRow(
           value: _acceptTerms,
-          onChanged: (value) => setState(() => _acceptTerms = value ?? false),
+          onChanged: (value) {
+            setState(() {
+              _acceptTerms = value ?? false;
+              // If user unchecks and rechecks without re-entering detail view,
+              // reset to all defaults (scenario 1 logic)
+              if (_acceptTerms && _hasCustomizedConsents) {
+                _hasCustomizedConsents = false;
+                _consents = {
+                  'essential': true,
+                  'analytics': true,
+                  'marketing': true,
+                  'third_party': true,
+                  'personalization': true,
+                  'data_processing': true,
+                };
+              }
+            });
+          },
           child: RichText(
             text: TextSpan(
               style: AppTypography.bodySmall(
@@ -658,9 +687,7 @@ class _RegisterPageState extends State<RegisterPage>
                     color: AppColors.primary,
                   ).copyWith(fontWeight: FontWeight.w600),
                   recognizer: TapGestureRecognizer()
-                    ..onTap = () {
-                      // Mostrar términos
-                    },
+                    ..onTap = () => _showTermsAndConditions(),
                 ),
               ],
             ),
@@ -671,7 +698,23 @@ class _RegisterPageState extends State<RegisterPage>
         // Política de privacidad
         _buildCheckboxRow(
           value: _acceptPrivacy,
-          onChanged: (value) => setState(() => _acceptPrivacy = value ?? false),
+          onChanged: (value) {
+            setState(() {
+              _acceptPrivacy = value ?? false;
+              // Same reset logic: unchecking and rechecking = defaults
+              if (_acceptPrivacy && _hasCustomizedConsents) {
+                _hasCustomizedConsents = false;
+                _consents = {
+                  'essential': true,
+                  'analytics': true,
+                  'marketing': true,
+                  'third_party': true,
+                  'personalization': true,
+                  'data_processing': true,
+                };
+              }
+            });
+          },
           child: RichText(
             text: TextSpan(
               style: AppTypography.bodySmall(
@@ -685,14 +728,316 @@ class _RegisterPageState extends State<RegisterPage>
                     color: AppColors.primary,
                   ).copyWith(fontWeight: FontWeight.w600),
                   recognizer: TapGestureRecognizer()
-                    ..onTap = () {
-                      // Mostrar política de privacidad
-                    },
+                    ..onTap = () => _showPrivacyPolicyWithConsents(),
                 ),
               ],
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  void _showTermsAndConditions() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Términos y Condiciones',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(16),
+                children: const [
+                  Text(
+                    '1. Aceptación de los Términos',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Al registrarse y utilizar Finora, usted acepta estos Términos y Condiciones '
+                    'y se compromete a cumplirlos. Si no está de acuerdo, no debe utilizar el servicio.',
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '2. Descripción del Servicio',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Finora es una aplicación de gestión financiera personal que permite registrar '
+                    'transacciones, visualizar estadísticas y gestionar categorías de gastos e ingresos.',
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '3. Cuenta de Usuario',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Usted es responsable de mantener la confidencialidad de su cuenta y contraseña. '
+                    'Debe proporcionar información veraz y actualizada.',
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '4. Uso Aceptable',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'El servicio debe usarse solo para fines legales y de gestión financiera personal. '
+                    'Queda prohibido cualquier uso fraudulento o ilegal.',
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '5. Protección de Datos',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Sus datos se tratan conforme al GDPR. Consulte nuestra Política de Privacidad '
+                    'para más información sobre el tratamiento de datos personales.',
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '6. Limitación de Responsabilidad',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Finora no se responsabiliza de decisiones financieras tomadas en base a la '
+                    'información proporcionada por la aplicación. El servicio es orientativo.',
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '7. Modificaciones',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Nos reservamos el derecho de modificar estos términos. Se notificará a los '
+                    'usuarios sobre cambios significativos.',
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    'Última actualización: Febrero 2026',
+                    style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    setState(() => _acceptTerms = true);
+                  },
+                  child: const Text('Aceptar Términos'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPrivacyPolicyWithConsents() {
+    // Create a local copy of consents for editing
+    final localConsents = Map<String, bool>.from(_consents);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) => Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Política de Privacidad',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    const Text(
+                      'Gestión de Consentimientos',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Selecciona qué tipos de datos deseas permitirnos procesar. '
+                      'Los marcados como "Requerido" son necesarios para usar el servicio.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildConsentOption(
+                      setSheetState, localConsents,
+                      'essential', 'Cookies y datos esenciales',
+                      'Necesarios para el funcionamiento básico de la aplicación.',
+                      required: true,
+                    ),
+                    _buildConsentOption(
+                      setSheetState, localConsents,
+                      'data_processing', 'Procesamiento de datos financieros',
+                      'Procesar tus transacciones para ofrecerte análisis financiero.',
+                      required: true,
+                    ),
+                    _buildConsentOption(
+                      setSheetState, localConsents,
+                      'analytics', 'Análisis y mejora del servicio',
+                      'Nos permite analizar cómo usas la app para mejorar la experiencia.',
+                    ),
+                    _buildConsentOption(
+                      setSheetState, localConsents,
+                      'marketing', 'Comunicaciones de marketing',
+                      'Te enviaremos ofertas, novedades y consejos financieros.',
+                    ),
+                    _buildConsentOption(
+                      setSheetState, localConsents,
+                      'third_party', 'Compartir datos con terceros',
+                      'Compartir información con socios para productos relevantes.',
+                    ),
+                    _buildConsentOption(
+                      setSheetState, localConsents,
+                      'personalization', 'Personalización del servicio',
+                      'Usar tus datos para personalizar recomendaciones y alertas.',
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Resumen de la Política',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Finora cumple con el GDPR de la UE. Tus datos están protegidos y tienes '
+                      'control total sobre ellos. Puedes modificar estos ajustes en cualquier momento '
+                      'desde Ajustes > Privacidad.\n\n'
+                      'Contacto: privacy@finora.app\n'
+                      'Última actualización: Febrero 2026',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Check if user modified any consent from the default (all true)
+                      final allTrue = localConsents.values.every((v) => v);
+
+                      setState(() {
+                        _consents = Map<String, bool>.from(localConsents);
+                        _acceptPrivacy = true;
+
+                        if (!allTrue) {
+                          // Scenario 3: User unchecked something
+                          _hasCustomizedConsents = true;
+                        }
+                        // Scenarios 1 & 2: User read but left all ON or didn't change
+                        // _hasCustomizedConsents stays false
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Aceptar Política de Privacidad'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConsentOption(
+    StateSetter setSheetState,
+    Map<String, bool> localConsents,
+    String key,
+    String title,
+    String description, {
+    bool required = false,
+  }) {
+    return Column(
+      children: [
+        SwitchListTile(
+          title: Row(
+            children: [
+              Expanded(child: Text(title)),
+              if (required)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Requerido',
+                    style: TextStyle(fontSize: 10, color: Colors.orange.shade800),
+                  ),
+                ),
+            ],
+          ),
+          subtitle: Text(description, style: const TextStyle(fontSize: 12)),
+          value: localConsents[key] ?? true,
+          onChanged: required
+              ? null // Cannot disable required consents
+              : (value) {
+                  setSheetState(() {
+                    localConsents[key] = value;
+                  });
+                },
+        ),
+        const Divider(),
       ],
     );
   }

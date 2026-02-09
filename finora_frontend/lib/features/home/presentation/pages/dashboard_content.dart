@@ -12,6 +12,7 @@ import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
+import '../../../categories/domain/entities/category_entity.dart';
 
 /// Contenido del Dashboard principal
 class DashboardContent extends StatefulWidget {
@@ -572,12 +573,12 @@ class _DashboardContentState extends State<DashboardContent> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: t.isExpense ? AppColors.errorSoft : AppColors.successSoft,
+              color: _getCategoryColor(t.category).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               _getCategoryIcon(t.category),
-              color: t.isExpense ? AppColors.expense : AppColors.income,
+              color: _getCategoryColor(t.category),
               size: 20,
             ),
           ),
@@ -688,7 +689,14 @@ class _DashboardContentState extends State<DashboardContent> {
                       children: [
                         CustomPaint(
                           size: const Size(160, 160),
-                          painter: _DonutChartPainter(categories: categories, total: totalExpenses),
+                          painter: _DonutChartPainter(
+                            categories: categories,
+                            total: totalExpenses,
+                            colorMap: {
+                              for (final key in categories.keys)
+                                key: _getCategoryColor(key),
+                            },
+                          ),
                         ),
                         Column(
                           mainAxisSize: MainAxisSize.min,
@@ -702,9 +710,7 @@ class _DashboardContentState extends State<DashboardContent> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                ...categories.entries.toList().asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final cat = entry.value;
+                ...categories.entries.map((cat) {
                   final pct = totalExpenses > 0 ? (cat.value / totalExpenses * 100) : 0;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -714,7 +720,7 @@ class _DashboardContentState extends State<DashboardContent> {
                           width: 10,
                           height: 10,
                           decoration: BoxDecoration(
-                            color: AppColors.getCategoryColor(i),
+                            color: _getCategoryColor(cat.key),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         ),
@@ -912,36 +918,25 @@ class _DashboardContentState extends State<DashboardContent> {
   }
 
   IconData _getCategoryIcon(String category) {
-    const icons = {
-      'Alimentación': Icons.restaurant_outlined,
-      'Transporte': Icons.directions_car_outlined,
-      'Vivienda': Icons.home_outlined,
-      'Ocio': Icons.sports_esports_outlined,
-      'Salud': Icons.local_hospital_outlined,
-      'Educación': Icons.school_outlined,
-      'Ropa': Icons.shopping_bag_outlined,
-      'Suscripciones': Icons.subscriptions_outlined,
-      'Facturas': Icons.receipt_long_outlined,
-      'Compras': Icons.shopping_cart_outlined,
-      'Restaurantes': Icons.restaurant_outlined,
-      'Salario': Icons.work_outline_rounded,
-      'Freelance': Icons.laptop_outlined,
-      'Inversiones': Icons.trending_up_outlined,
-      'Ventas': Icons.sell_outlined,
-      'Regalos': Icons.card_giftcard_outlined,
-      'Reembolsos': Icons.replay_outlined,
-      'Otros': Icons.more_horiz_rounded,
-    };
-    return icons[category] ?? Icons.receipt_outlined;
+    return CategoryEntity.getIconForName(category);
+  }
+
+  Color _getCategoryColor(String category) {
+    return CategoryEntity.getColorForName(category);
   }
 }
 
 /// Painter para el gráfico de dona con datos reales
 class _DonutChartPainter extends CustomPainter {
   final Map<String, double> categories;
+  final Map<String, Color> colorMap;
   final double total;
 
-  _DonutChartPainter({required this.categories, required this.total});
+  _DonutChartPainter({
+    required this.categories,
+    required this.total,
+    required this.colorMap,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -957,10 +952,9 @@ class _DonutChartPainter extends CustomPainter {
 
     var startAngle = -math.pi / 2;
 
-    int i = 0;
     for (final entry in categories.entries) {
       final sweepAngle = (entry.value / total) * 2 * math.pi;
-      paint.color = AppColors.getCategoryColor(i);
+      paint.color = colorMap[entry.key] ?? const Color(0xFF6B7280);
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
@@ -971,7 +965,6 @@ class _DonutChartPainter extends CustomPainter {
       );
 
       startAngle += sweepAngle;
-      i++;
     }
   }
 
