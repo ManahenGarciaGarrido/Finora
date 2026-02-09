@@ -21,6 +21,7 @@ abstract class AuthRepository {
     required String password,
     required String name,
     String? phoneNumber,
+    Map<String, bool>? consents,
   });
 
   /// Logout current user

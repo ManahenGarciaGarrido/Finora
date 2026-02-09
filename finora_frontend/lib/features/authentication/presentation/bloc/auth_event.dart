@@ -28,16 +28,18 @@ class RegisterRequested extends AuthEvent {
   final String password;
   final String name;
   final String? phoneNumber;
+  final Map<String, bool>? consents;
 
   const RegisterRequested({
     required this.email,
     required this.password,
     required this.name,
     this.phoneNumber,
+    this.consents,
   });
 
   @override
-  List<Object?> get props => [email, password, name, phoneNumber];
+  List<Object?> get props => [email, password, name, phoneNumber, consents];
 }
 
 /// Event to trigger logout

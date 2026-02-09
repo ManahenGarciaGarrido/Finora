@@ -20,9 +20,6 @@ abstract class GDPRRepository {
   /// Obtiene información sobre el procesamiento de datos
   Future<Either<Failure, DataProcessingInfo>> getDataProcessingInfo();
 
-  /// Obtiene información del DPO (Data Protection Officer)
-  Future<Either<Failure, DPOInfo>> getDPOInfo();
-
   /// Obtiene los consentimientos actuales del usuario
   Future<Either<Failure, UserConsents>> getUserConsents();
 

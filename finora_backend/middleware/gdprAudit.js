@@ -10,7 +10,7 @@
 // Almacenamiento en memoria para auditoría (en producción usar base de datos)
 const auditLog = [];
 const dataBreaches = [];
-const DPO_EMAIL = process.env.DPO_EMAIL || 'dpo@finora.app';
+const PRIVACY_EMAIL = process.env.PRIVACY_EMAIL || 'privacy@finora.app';
 const BREACH_NOTIFICATION_HOURS = 72;
 
 /**
@@ -138,9 +138,9 @@ const registerDataBreach = (breachInfo) => {
     },
   });
 
-  // En producción, notificar inmediatamente al DPO
+  // En producción, notificar inmediatamente al responsable
   console.error(`[GDPR BREACH ALERT] Data breach detected: ${breach.id}`);
-  console.error(`DPO must be notified: ${DPO_EMAIL}`);
+  console.error(`Privacy team must be notified: ${PRIVACY_EMAIL}`);
   console.error(`Notification deadline: ${breach.notificationDeadline}`);
 
   return breach;
@@ -184,19 +184,13 @@ const getAuditStats = () => {
 };
 
 /**
- * Información del DPO (Data Protection Officer)
+ * Información de contacto de privacidad
  */
-const getDPOInfo = () => {
+const getPrivacyContactInfo = () => {
   return {
-    role: 'Data Protection Officer (DPO)',
-    email: DPO_EMAIL,
-    responsibilities: [
-      'Supervisar el cumplimiento del GDPR',
-      'Gestionar las solicitudes de los interesados',
-      'Comunicarse con la autoridad de control',
-      'Evaluar el impacto de las actividades de tratamiento',
-    ],
-    contactInstructions: 'Para ejercer sus derechos GDPR, contacte al DPO a través del email proporcionado.',
+    role: 'Equipo de Privacidad',
+    email: PRIVACY_EMAIL,
+    contactInstructions: 'Para ejercer sus derechos GDPR, contacte al equipo de privacidad a través del email proporcionado.',
   };
 };
 
@@ -207,7 +201,7 @@ module.exports = {
   getUserAuditLog,
   getDataBreaches,
   getAuditStats,
-  getDPOInfo,
+  getPrivacyContactInfo,
   GDPRAuditEventTypes,
-  DPO_EMAIL,
+  PRIVACY_EMAIL,
 };

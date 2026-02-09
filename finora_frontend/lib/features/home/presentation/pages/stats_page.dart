@@ -8,6 +8,7 @@ import '../../../../core/responsive/breakpoints.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
+import '../../../categories/domain/entities/category_entity.dart';
 
 /// Página de Estadísticas
 ///
@@ -419,6 +420,10 @@ class StatsPage extends StatelessWidget {
                           painter: _DonutChartPainter(
                             categories: categories,
                             total: totalExpenses,
+                            colorMap: {
+                              for (final key in categories.keys)
+                                key: CategoryEntity.getColorForName(key),
+                            },
                           ),
                         ),
                         Column(
@@ -442,9 +447,7 @@ class StatsPage extends StatelessWidget {
                 ),
               if (categories.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                ...categories.entries.toList().asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final cat = entry.value;
+                ...categories.entries.map((cat) {
                   final pct = totalExpenses > 0
                       ? (cat.value / totalExpenses * 100)
                       : 0;
@@ -456,7 +459,7 @@ class StatsPage extends StatelessWidget {
                           width: 10,
                           height: 10,
                           decoration: BoxDecoration(
-                            color: AppColors.getCategoryColor(i),
+                            color: CategoryEntity.getColorForName(cat.key),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         ),
@@ -556,7 +559,7 @@ class StatsPage extends StatelessWidget {
                 final progress = totalExpenses > 0
                     ? cat.value / totalExpenses
                     : 0.0;
-                final color = AppColors.getCategoryColor(i);
+                final color = CategoryEntity.getColorForName(cat.key);
 
                 return Padding(
                   padding: EdgeInsets.only(bottom: i < top.length - 1 ? 14 : 0),
@@ -710,9 +713,14 @@ class StatsPage extends StatelessWidget {
 /// Painter para gráfico de dona
 class _DonutChartPainter extends CustomPainter {
   final Map<String, double> categories;
+  final Map<String, Color> colorMap;
   final double total;
 
-  _DonutChartPainter({required this.categories, required this.total});
+  _DonutChartPainter({
+    required this.categories,
+    required this.total,
+    required this.colorMap,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -728,10 +736,9 @@ class _DonutChartPainter extends CustomPainter {
 
     var startAngle = -math.pi / 2;
 
-    int i = 0;
     for (final entry in categories.entries) {
       final sweepAngle = (entry.value / total) * 2 * math.pi;
-      paint.color = AppColors.getCategoryColor(i);
+      paint.color = colorMap[entry.key] ?? const Color(0xFF6B7280);
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
@@ -742,7 +749,6 @@ class _DonutChartPainter extends CustomPainter {
       );
 
       startAngle += sweepAngle;
-      i++;
     }
   }
 

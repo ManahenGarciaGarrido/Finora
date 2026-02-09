@@ -14,9 +14,6 @@ abstract class GDPRRemoteDataSource {
   /// Obtiene información del procesamiento de datos
   Future<DataProcessingInfoModel> getDataProcessingInfo();
 
-  /// Obtiene información del DPO
-  Future<DPOInfoModel> getDPOInfo();
-
   /// Obtiene los tipos de consentimiento disponibles
   Future<Map<String, dynamic>> getConsentTypes();
 
@@ -60,13 +57,6 @@ class GDPRRemoteDataSourceImpl implements GDPRRemoteDataSource {
     final data = response.data as Map<String, dynamic>;
     return DataProcessingInfoModel.fromJson(
         data['dataProcessing'] as Map<String, dynamic>);
-  }
-
-  @override
-  Future<DPOInfoModel> getDPOInfo() async {
-    final response = await _apiClient.get(ApiEndpoints.gdprDPO);
-    final data = response.data as Map<String, dynamic>;
-    return DPOInfoModel.fromJson(data['dpo'] as Map<String, dynamic>);
   }
 
   @override

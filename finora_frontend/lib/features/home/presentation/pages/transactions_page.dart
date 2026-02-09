@@ -8,6 +8,7 @@ import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
+import '../../../categories/domain/entities/category_entity.dart';
 
 /// Página de Historial de Transacciones
 ///
@@ -74,27 +75,11 @@ class _TransactionsPageState extends State<TransactionsPage> {
   }
 
   IconData _getCategoryIcon(String category) {
-    const icons = {
-      'Alimentación': Icons.restaurant_outlined,
-      'Transporte': Icons.directions_car_outlined,
-      'Vivienda': Icons.home_outlined,
-      'Ocio': Icons.sports_esports_outlined,
-      'Salud': Icons.local_hospital_outlined,
-      'Educación': Icons.school_outlined,
-      'Ropa': Icons.shopping_bag_outlined,
-      'Suscripciones': Icons.subscriptions_outlined,
-      'Facturas': Icons.receipt_long_outlined,
-      'Compras': Icons.shopping_cart_outlined,
-      'Restaurantes': Icons.restaurant_outlined,
-      'Salario': Icons.work_outline_rounded,
-      'Freelance': Icons.laptop_outlined,
-      'Inversiones': Icons.trending_up_outlined,
-      'Ventas': Icons.sell_outlined,
-      'Regalos': Icons.card_giftcard_outlined,
-      'Reembolsos': Icons.replay_outlined,
-      'Otros': Icons.more_horiz_rounded,
-    };
-    return icons[category] ?? Icons.receipt_outlined;
+    return CategoryEntity.getIconForName(category);
+  }
+
+  Color _getCategoryColor(String category) {
+    return CategoryEntity.getColorForName(category);
   }
 
   List<TransactionEntity> _applyFilters(List<TransactionEntity> transactions) {
@@ -433,12 +418,12 @@ class _TransactionsPageState extends State<TransactionsPage> {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: t.isExpense ? AppColors.errorSoft : AppColors.successSoft,
+                color: _getCategoryColor(t.category).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(13),
               ),
               child: Icon(
                 _getCategoryIcon(t.category),
-                color: t.isExpense ? AppColors.expense : AppColors.income,
+                color: _getCategoryColor(t.category),
                 size: 20,
               ),
             ),

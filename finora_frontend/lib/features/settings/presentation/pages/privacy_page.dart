@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/network/api_client.dart';
+import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../domain/entities/consent.dart';
 
 /// Página de Privacidad y GDPR
 ///
-/// Muestra la política de privacidad, permite gestionar consentimientos
-/// y acceder a las funciones de exportación y eliminación de datos.
+/// Conectada a la API real para gestionar consentimientos,
+/// exportar datos y eliminar cuenta.
 class PrivacyPage extends StatefulWidget {
   const PrivacyPage({super.key});
 
@@ -16,19 +22,39 @@ class PrivacyPage extends StatefulWidget {
 class _PrivacyPageState extends State<PrivacyPage> {
   bool _isLoading = true;
   final Map<ConsentType, bool> _consents = {};
+  final ApiClient _apiClient = di.sl<ApiClient>();
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadConsentsFromApi();
   }
 
-  Future<void> _loadData() async {
-    // Inicializar consentimientos por defecto
-    for (final type in ConsentType.values) {
-      _consents[type] = type.isRequired;
+  Future<void> _loadConsentsFromApi() async {
+    try {
+      final response = await _apiClient.get(ApiEndpoints.gdprUserConsents);
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        final consentsMap = data['consents'] as Map<String, dynamic>? ?? {};
+
+        setState(() {
+          for (final type in ConsentType.values) {
+            final key = type.key;
+            _consents[type] = consentsMap[key] == true;
+          }
+          _isLoading = false;
+        });
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error loading consents from API: $e');
     }
+
+    // Fallback to defaults
     setState(() {
+      for (final type in ConsentType.values) {
+        _consents[type] = type.isRequired;
+      }
       _isLoading = false;
     });
   }
@@ -49,8 +75,6 @@ class _PrivacyPageState extends State<PrivacyPage> {
                   _buildConsentsSection(),
                   const SizedBox(height: 24),
                   _buildUserRightsSection(),
-                  const SizedBox(height: 24),
-                  _buildDPOContactSection(),
                   const SizedBox(height: 24),
                   _buildDangerZoneSection(),
                 ],
@@ -155,7 +179,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
           ),
           value: _consents[type] ?? false,
           onChanged: type.isRequired
-              ? null // Los requeridos no se pueden desactivar
+              ? null
               : (value) {
                   setState(() {
                     _consents[type] = value;
@@ -201,8 +225,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
             _buildRightTile(
               icon: Icons.edit,
               title: 'Derecho de Rectificación',
-              subtitle: 'Corrige datos inexactos',
-              onTap: () => _navigateToProfile(),
+              // TODO: Implementar navegación a editar perfil
+              subtitle: 'Corrige datos inexactos (próximamente)',
+              onTap: _navigateToProfile,
             ),
             _buildRightTile(
               icon: Icons.history,
@@ -234,65 +259,6 @@ class _PrivacyPageState extends State<PrivacyPage> {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
-    );
-  }
-
-  Widget _buildDPOContactSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.contact_mail),
-                SizedBox(width: 8),
-                Text(
-                  'Delegado de Protección de Datos',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Nuestro DPO está disponible para atender tus consultas sobre privacidad:',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            const ListTile(
-              leading: Icon(Icons.email),
-              title: Text('dpo@finora.app'),
-              subtitle: Text('Tiempo de respuesta: máximo 30 días'),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Responsabilidades del DPO:',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 4),
-            ...[
-              'Supervisar el cumplimiento del GDPR',
-              'Gestionar las solicitudes de los interesados',
-              'Comunicarse con la autoridad de control',
-              'Evaluar el impacto de las actividades de tratamiento',
-            ].map(
-              (r) => Padding(
-                padding: const EdgeInsets.only(left: 8, top: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check, size: 16, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(r, style: const TextStyle(fontSize: 13)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -385,20 +351,42 @@ class _PrivacyPageState extends State<PrivacyPage> {
     );
   }
 
-  void _saveConsents() {
-    // Aquí se guardarían los consentimientos via el usecase
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Preferencias guardadas correctamente'),
-        backgroundColor: Colors.green,
-      ),
-    );
+  Future<void> _saveConsents() async {
+    try {
+      final consentsMap = <String, bool>{};
+      for (final entry in _consents.entries) {
+        consentsMap[entry.key.key] = entry.value;
+      }
+
+      final response = await _apiClient.post(
+        ApiEndpoints.gdprConsents,
+        data: {'consents': consentsMap},
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Preferencias guardadas correctamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al guardar preferencias: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _exportUserData() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Exportar mis datos'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
@@ -414,28 +402,21 @@ class _PrivacyPageState extends State<PrivacyPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
-            Text('• Información personal'),
-            Text('• Historial de consentimientos'),
-            Text('• Datos financieros'),
-            Text('• Registro de actividad'),
+            Text('- Información personal'),
+            Text('- Historial de consentimientos'),
+            Text('- Transacciones financieras'),
+            Text('- Categorías personalizadas'),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Aquí se ejecutaría el usecase de exportación
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Exportación iniciada. Recibirás el archivo pronto.',
-                  ),
-                ),
-              );
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await _performExport();
             },
             child: const Text('Exportar'),
           ),
@@ -444,42 +425,102 @@ class _PrivacyPageState extends State<PrivacyPage> {
     );
   }
 
+  Future<void> _performExport() async {
+    try {
+      final response = await _apiClient.get(ApiEndpoints.gdprExport);
+
+      if (response.statusCode == 200 && mounted) {
+        final data = response.data as Map<String, dynamic>;
+        final exportData = data['data'] as Map<String, dynamic>?;
+
+        if (exportData != null) {
+          _showExportResultDialog(exportData);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al exportar datos: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showExportResultDialog(Map<String, dynamic> exportData) {
+    final personalData = exportData['personalData'] as Map<String, dynamic>?;
+    final financialData = exportData['financialData'] as Map<String, dynamic>?;
+    final totalTransactions = financialData?['totalTransactions'] ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Datos Exportados'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Resumen de tus datos:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text('Nombre: ${personalData?['name'] ?? 'N/A'}'),
+              Text('Email: ${personalData?['email'] ?? 'N/A'}'),
+              Text('Transacciones: $totalTransactions'),
+              Text('Registro: ${_formatDate(personalData?['registrationDate'])}'),
+              const SizedBox(height: 16),
+              const Text(
+                'Los datos completos en formato JSON han sido generados correctamente.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(dynamic dateStr) {
+    if (dateStr == null) return 'N/A';
+    try {
+      final date = DateTime.parse(dateStr.toString());
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (_) {
+      return dateStr.toString();
+    }
+  }
+
+  // TODO: Implementar navegación a editar perfil cuando esté disponible
   void _navigateToProfile() {
-    // Navegar a la página de perfil
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Navegando a perfil...')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Edición de perfil: próximamente'),
+        backgroundColor: Colors.orange,
+      ),
+    );
   }
 
   void _showConsentHistory() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Historial de Consentimientos',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Aún no hay cambios registrados en tus preferencias de consentimiento.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cerrar'),
-              ),
-            ),
-          ],
-        ),
-      ),
+      isScrollControlled: true,
+      builder: (sheetContext) => _ConsentHistorySheet(apiClient: _apiClient),
     );
   }
 
@@ -527,7 +568,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
   void _confirmDeleteAccount() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             Icon(Icons.warning, color: Colors.red.shade700),
@@ -545,31 +586,31 @@ class _PrivacyPageState extends State<PrivacyPage> {
             ),
             SizedBox(height: 16),
             Text(
-              'Esta acción es IRREVERSIBLE y eliminará:',
+              'Esta acción es IRREVERSIBLE y eliminará PERMANENTEMENTE:',
               style: TextStyle(color: Colors.red),
             ),
             SizedBox(height: 8),
-            Text('• Toda tu información personal'),
-            Text('• Historial de transacciones'),
-            Text('• Cuentas bancarias conectadas'),
-            Text('• Objetivos de ahorro'),
-            Text('• Preferencias y configuraciones'),
+            Text('- Toda tu información personal'),
+            Text('- Historial de transacciones'),
+            Text('- Categorías personalizadas'),
+            Text('- Registros de consentimiento'),
+            Text('- Historial de consentimientos'),
             SizedBox(height: 16),
             Text(
               'Según el Artículo 17 del GDPR (Derecho al Olvido), '
-              'algunos datos pueden conservarse por requisitos legales.',
+              'todos tus datos serán eliminados de nuestros servidores.',
               style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               _showDeleteConfirmation();
             },
             style: ElevatedButton.styleFrom(
@@ -585,10 +626,11 @@ class _PrivacyPageState extends State<PrivacyPage> {
 
   void _showDeleteConfirmation() {
     final controller = TextEditingController();
+    final reasonController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Confirmar Eliminación'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -605,8 +647,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
               ),
             ),
             const SizedBox(height: 16),
-            const TextField(
-              decoration: InputDecoration(
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
                 hintText: 'Razón para eliminar (opcional)',
                 border: OutlineInputBorder(),
               ),
@@ -616,20 +659,14 @@ class _PrivacyPageState extends State<PrivacyPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (controller.text == 'ELIMINAR') {
-                Navigator.pop(context);
-                // Aquí se ejecutaría el usecase de eliminación
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Cuenta eliminada. Gracias por usar Finora.'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                Navigator.pop(dialogContext);
+                await _performDeleteAccount(reasonController.text);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -645,6 +682,197 @@ class _PrivacyPageState extends State<PrivacyPage> {
             ),
             child: const Text('Eliminar Definitivamente'),
           ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performDeleteAccount(String reason) async {
+    try {
+      final response = await _apiClient.delete(
+        ApiEndpoints.gdprDeleteAccount,
+        data: {
+          'confirmDeletion': 'DELETE_MY_ACCOUNT',
+          'reason': reason.isNotEmpty ? reason : 'No especificada',
+        },
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cuenta eliminada permanentemente. Gracias por usar Finora.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        if (mounted) {
+          context.read<AuthBloc>().add(const LogoutRequested());
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login',
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al eliminar la cuenta: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// Sheet that loads and shows consent history from the API
+class _ConsentHistorySheet extends StatefulWidget {
+  final ApiClient apiClient;
+
+  const _ConsentHistorySheet({required this.apiClient});
+
+  @override
+  State<_ConsentHistorySheet> createState() => _ConsentHistorySheetState();
+}
+
+class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
+  bool _loading = true;
+  List<dynamic> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final response = await widget.apiClient.get(ApiEndpoints.gdprConsentHistory);
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        setState(() {
+          _history = data['history'] as List<dynamic>? ?? [];
+          _loading = false;
+        });
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error loading consent history: $e');
+    }
+    setState(() => _loading = false);
+  }
+
+  String _consentTypeName(String type) {
+    switch (type) {
+      case 'essential':
+        return 'Datos esenciales';
+      case 'analytics':
+        return 'Análisis';
+      case 'marketing':
+        return 'Marketing';
+      case 'third_party':
+        return 'Terceros';
+      case 'personalization':
+        return 'Personalización';
+      case 'data_processing':
+        return 'Procesamiento datos';
+      default:
+        return type;
+    }
+  }
+
+  String _actionName(String action) {
+    switch (action) {
+      case 'INITIAL_REGISTRATION':
+        return 'Registro inicial';
+      case 'CONSENT_UPDATED':
+        return 'Actualizado';
+      case 'CONSENT_WITHDRAWN':
+        return 'Retirado';
+      default:
+        return action;
+    }
+  }
+
+  String _formatTimestamp(dynamic ts) {
+    if (ts == null) return '';
+    try {
+      final date = DateTime.parse(ts.toString());
+      return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return ts.toString();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) => Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Historial de Consentimientos',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          if (_loading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (_history.isEmpty)
+            const Expanded(
+              child: Center(
+                child: Text(
+                  'No hay cambios registrados en tus preferencias.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.separated(
+                controller: scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: _history.length,
+                separatorBuilder: (_, __) => const Divider(),
+                itemBuilder: (context, index) {
+                  final entry = _history[index] as Map<String, dynamic>;
+                  final granted = entry['granted'] == true;
+                  return ListTile(
+                    leading: Icon(
+                      granted ? Icons.check_circle : Icons.cancel,
+                      color: granted ? Colors.green : Colors.red,
+                    ),
+                    title: Text(_consentTypeName(entry['consentType'] ?? '')),
+                    subtitle: Text(
+                      '${_actionName(entry['action'] ?? '')} - ${_formatTimestamp(entry['timestamp'])}',
+                    ),
+                    trailing: Text(
+                      granted ? 'Aceptado' : 'Rechazado',
+                      style: TextStyle(
+                        color: granted ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -669,57 +897,61 @@ class _PrivacyPolicyContent extends StatelessWidget {
         _buildSection(
           '2. Datos que recopilamos',
           'Recopilamos los siguientes tipos de datos:\n'
-              '• Datos de identificación: nombre, email, teléfono\n'
-              '• Datos financieros: transacciones, saldos, categorías de gasto\n'
-              '• Datos de uso: interacciones con la app, preferencias\n'
-              '• Datos técnicos: dispositivo, sistema operativo, IP',
+              '- Datos de identificación: nombre, email, teléfono\n'
+              '- Datos financieros: transacciones, saldos, categorías de gasto\n'
+              '- Datos de uso: interacciones con la app, preferencias\n'
+              '- Datos técnicos: dispositivo, sistema operativo, IP',
         ),
         _buildSection(
           '3. Base legal para el tratamiento',
           'Procesamos sus datos personales bajo las siguientes bases legales:\n'
-              '• Ejecución de contrato: para proporcionar nuestros servicios\n'
-              '• Consentimiento: para marketing y análisis\n'
-              '• Interés legítimo: para seguridad y prevención de fraude\n'
-              '• Obligación legal: para cumplir requisitos regulatorios',
+              '- Ejecución de contrato: para proporcionar nuestros servicios\n'
+              '- Consentimiento: para marketing y análisis\n'
+              '- Interés legítimo: para seguridad y prevención de fraude\n'
+              '- Obligación legal: para cumplir requisitos regulatorios',
         ),
         _buildSection(
           '4. Conservación de datos',
           'Conservamos sus datos personales durante el tiempo necesario:\n'
-              '• Datos de cuenta: mientras la cuenta esté activa + 5 años\n'
-              '• Datos financieros: 7 años por requisitos legales\n'
-              '• Datos de marketing: hasta retirada del consentimiento\n'
-              '• Logs de seguridad: 2 años',
+              '- Datos de cuenta: mientras la cuenta esté activa + 5 años\n'
+              '- Datos financieros: 7 años por requisitos legales\n'
+              '- Datos de marketing: hasta retirada del consentimiento\n'
+              '- Logs de seguridad: 2 años',
         ),
         _buildSection(
           '5. Sus derechos',
           'Bajo el GDPR, usted tiene los siguientes derechos:\n'
-              '• Derecho de acceso: obtener copia de sus datos\n'
-              '• Derecho de rectificación: corregir datos inexactos\n'
-              '• Derecho de supresión: eliminar sus datos ("derecho al olvido")\n'
-              '• Derecho de portabilidad: recibir sus datos en formato estructurado\n'
-              '• Derecho de oposición: oponerse al tratamiento\n'
-              '• Derecho a retirar el consentimiento: en cualquier momento\n'
-              '• Derecho a presentar reclamación: ante la autoridad de control',
+              '- Derecho de acceso: obtener copia de sus datos\n'
+              '- Derecho de rectificación: corregir datos inexactos\n'
+              '- Derecho de supresión: eliminar sus datos ("derecho al olvido")\n'
+              '- Derecho de portabilidad: recibir sus datos en formato estructurado\n'
+              '- Derecho de oposición: oponerse al tratamiento\n'
+              '- Derecho a retirar el consentimiento: en cualquier momento\n'
+              '- Derecho a presentar reclamación: ante la autoridad de control',
         ),
         _buildSection(
           '6. Seguridad de los datos',
           'Implementamos medidas técnicas y organizativas apropiadas:\n'
-              '• Cifrado AES-256 para datos en reposo\n'
-              '• TLS 1.3 para datos en tránsito\n'
-              '• Almacenamiento seguro con Keychain/KeyStore\n'
-              '• Autenticación multifactor disponible\n'
-              '• Auditorías de seguridad regulares',
+              '- Cifrado AES-256 para datos en reposo\n'
+              '- TLS 1.3 para datos en tránsito\n'
+              '- Almacenamiento seguro con Keychain/KeyStore\n'
+              '- Autenticación multifactor disponible\n'
+              '- Auditorías de seguridad regulares',
         ),
         _buildSection(
-          '7. Contacto',
+          '7. Transferencias internacionales',
+          'Sus datos se procesan dentro del Espacio Económico Europeo (EEE). '
+              'En caso de transferencias fuera del EEE, garantizamos protección adecuada '
+              'mediante cláusulas contractuales tipo o decisiones de adecuación de la Comisión Europea.',
+        ),
+        _buildSection(
+          '8. Contacto',
           'Para ejercer sus derechos o realizar consultas sobre privacidad, '
-              'contacte a nuestro Delegado de Protección de Datos (DPO):\n\n'
-              'Email: dpo@finora.app\n'
-              'Tiempo de respuesta: máximo 30 días',
+              'contacte con nosotros en: privacy@finora.app',
         ),
         const SizedBox(height: 16),
         Text(
-          'Última actualización: Enero 2024',
+          'Última actualización: Febrero 2026',
           style: TextStyle(
             color: Colors.grey.shade600,
             fontStyle: FontStyle.italic,
@@ -799,9 +1031,9 @@ class _DataProcessingContent extends StatelessWidget {
         const SizedBox(height: 8),
         const Text(
           'Solo recopilamos datos estrictamente necesarios:\n'
-          '• Campos opcionales claramente identificados\n'
-          '• No recopilamos datos sensibles innecesarios\n'
-          '• Revisión periódica de necesidad de datos',
+          '- Campos opcionales claramente identificados\n'
+          '- No recopilamos datos sensibles innecesarios\n'
+          '- Revisión periódica de necesidad de datos',
         ),
       ],
     );
