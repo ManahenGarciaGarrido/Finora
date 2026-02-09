@@ -56,24 +56,6 @@ class GDPRRepositoryImpl implements GDPRRepository {
   }
 
   @override
-  Future<Either<Failure, DPOInfo>> getDPOInfo() async {
-    if (await networkInfo.isConnected) {
-      try {
-        final result = await remoteDataSource.getDPOInfo();
-        return Right(result);
-      } on ServerException catch (e) {
-        return Left(ServerFailure(message: e.message));
-      } on NetworkException catch (e) {
-        return Left(NetworkFailure(message: e.message));
-      } catch (e) {
-        return Left(UnexpectedFailure(message: e.toString()));
-      }
-    } else {
-      return const Left(NetworkFailure(message: 'No internet connection'));
-    }
-  }
-
-  @override
   Future<Either<Failure, UserConsents>> getUserConsents() async {
     if (await networkInfo.isConnected) {
       try {

@@ -17,6 +17,7 @@ abstract class AuthRemoteDataSource {
     required String password,
     required String name,
     String? phoneNumber,
+    Map<String, bool>? consents,
   });
 
   Future<void> logout();
@@ -102,6 +103,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
     required String name,
     String? phoneNumber,
+    Map<String, bool>? consents,
   }) async {
     try {
       final response = await apiClient.post(
@@ -110,7 +112,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           'email': email,
           'password': password,
           'name': name,
+          'termsAccepted': true,
+          'privacyAccepted': true,
           if (phoneNumber != null) 'phone_number': phoneNumber,
+          if (consents != null) 'consents': consents,
         },
       );
 

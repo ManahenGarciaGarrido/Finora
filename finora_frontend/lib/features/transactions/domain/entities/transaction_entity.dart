@@ -130,33 +130,29 @@ enum PaymentMethod {
   }
 }
 
-/// Categorías predefinidas de transacciones
+/// Categorías predefinidas de transacciones (RF-15)
+///
+/// Fallback local cuando el CategoryBloc/API no está disponible.
+/// Las categorías ahora se gestionan desde la BD vía CategoryBloc.
 class TransactionCategories {
   TransactionCategories._();
 
   static const List<String> expenseCategories = [
     'Alimentación',
     'Transporte',
-    'Vivienda',
     'Ocio',
     'Salud',
+    'Vivienda',
+    'Servicios',
     'Educación',
     'Ropa',
-    'Suscripciones',
-    'Facturas',
-    'Compras',
-    'Restaurantes',
     'Otros',
   ];
 
   static const List<String> incomeCategories = [
     'Salario',
     'Freelance',
-    'Inversiones',
-    'Ventas',
-    'Regalos',
-    'Reembolsos',
-    'Otros',
+    'Otros ingresos',
   ];
 
   static List<String> forType(TransactionType type) {

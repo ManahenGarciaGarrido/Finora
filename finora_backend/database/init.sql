@@ -117,3 +117,121 @@ CREATE TRIGGER update_transactions_updated_at
     BEFORE UPDATE ON transactions
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- CATEGORIES TABLE (RF-15)
+-- ============================================
+
+-- Categories table: predefined (user_id NULL) + user custom categories
+CREATE TABLE IF NOT EXISTS categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(10) NOT NULL CHECK (type IN ('income', 'expense')),
+    icon VARCHAR(50) NOT NULL,
+    color VARCHAR(7) NOT NULL,
+    is_predefined BOOLEAN NOT NULL DEFAULT FALSE,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for categories
+CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
+CREATE INDEX IF NOT EXISTS idx_categories_type ON categories(type);
+
+-- Trigger to auto-update updated_at for categories
+DROP TRIGGER IF EXISTS update_categories_updated_at ON categories;
+CREATE TRIGGER update_categories_updated_at
+    BEFORE UPDATE ON categories
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- USER CONSENTS CURRENT TABLE (GDPR - RNF-04)
+-- Estado actual de consentimientos por usuario
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS user_consents_current (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    consent_type VARCHAR(50) NOT NULL,
+    granted BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, consent_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_consents_current_user_id ON user_consents_current(user_id);
+
+-- ============================================
+-- USER CONSENTS HISTORY TABLE (GDPR - RNF-04)
+-- Registro histórico de TODOS los cambios de consentimiento
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS user_consents_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    consent_type VARCHAR(50) NOT NULL,
+    granted BOOLEAN NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_consents_history_user_id ON user_consents_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_consents_history_created_at ON user_consents_history(created_at);
+
+-- ============================================
+-- FUNCTION: Seed predefined categories for a user (RF-15)
+-- Called at registration to give each user their own categories
+-- ============================================
+
+CREATE OR REPLACE FUNCTION seed_categories_for_user(p_user_id UUID) RETURNS VOID AS $$
+BEGIN
+    -- Expense categories
+    INSERT INTO categories (user_id, name, type, icon, color, is_predefined, display_order) VALUES
+        (p_user_id, 'Alimentación', 'expense', 'restaurant', '#F59E0B', TRUE, 1),
+        (p_user_id, 'Transporte', 'expense', 'directions_car', '#3B82F6', TRUE, 2),
+        (p_user_id, 'Ocio', 'expense', 'sports_esports', '#8B5CF6', TRUE, 3),
+        (p_user_id, 'Salud', 'expense', 'local_hospital', '#EF4444', TRUE, 4),
+        (p_user_id, 'Vivienda', 'expense', 'home', '#06B6D4', TRUE, 5),
+        (p_user_id, 'Servicios', 'expense', 'phone_android', '#6366F1', TRUE, 6),
+        (p_user_id, 'Educación', 'expense', 'school', '#F97316', TRUE, 7),
+        (p_user_id, 'Ropa', 'expense', 'checkroom', '#EC4899', TRUE, 8),
+        (p_user_id, 'Otros', 'expense', 'more_horiz', '#6B7280', TRUE, 9);
+    -- Income categories
+    INSERT INTO categories (user_id, name, type, icon, color, is_predefined, display_order) VALUES
+        (p_user_id, 'Salario', 'income', 'work', '#22C55E', TRUE, 1),
+        (p_user_id, 'Freelance', 'income', 'computer', '#14B8A6', TRUE, 2),
+        (p_user_id, 'Otros ingresos', 'income', 'account_balance_wallet', '#64748B', TRUE, 3);
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- FUNCTION: Seed default GDPR consents for a user
+-- Called at registration with the user's consent choices
+-- ============================================
+
+CREATE OR REPLACE FUNCTION seed_default_consents(p_user_id UUID, p_ip VARCHAR, p_user_agent TEXT) RETURNS VOID AS $$
+BEGIN
+    -- Insert default consents (all ON = user accepted without customizing)
+    INSERT INTO user_consents_current (user_id, consent_type, granted) VALUES
+        (p_user_id, 'essential', TRUE),
+        (p_user_id, 'analytics', TRUE),
+        (p_user_id, 'marketing', TRUE),
+        (p_user_id, 'third_party', TRUE),
+        (p_user_id, 'personalization', TRUE),
+        (p_user_id, 'data_processing', TRUE)
+    ON CONFLICT (user_id, consent_type) DO UPDATE SET granted = EXCLUDED.granted, updated_at = CURRENT_TIMESTAMP;
+
+    -- Record in history
+    INSERT INTO user_consents_history (user_id, consent_type, granted, action, ip_address, user_agent) VALUES
+        (p_user_id, 'essential', TRUE, 'INITIAL_REGISTRATION', p_ip, p_user_agent),
+        (p_user_id, 'analytics', TRUE, 'INITIAL_REGISTRATION', p_ip, p_user_agent),
+        (p_user_id, 'marketing', TRUE, 'INITIAL_REGISTRATION', p_ip, p_user_agent),
+        (p_user_id, 'third_party', TRUE, 'INITIAL_REGISTRATION', p_ip, p_user_agent),
+        (p_user_id, 'personalization', TRUE, 'INITIAL_REGISTRATION', p_ip, p_user_agent),
+        (p_user_id, 'data_processing', TRUE, 'INITIAL_REGISTRATION', p_ip, p_user_agent);
+END;
+$$ LANGUAGE plpgsql;

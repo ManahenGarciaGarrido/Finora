@@ -8,6 +8,8 @@ import 'core/utils/ios_version_helper.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/transactions/presentation/bloc/transaction_bloc.dart';
 import 'features/transactions/presentation/bloc/transaction_event.dart';
+import 'features/categories/presentation/bloc/category_bloc.dart';
+import 'features/categories/presentation/bloc/category_event.dart';
 import 'features/authentication/presentation/pages/splash_page.dart';
 import 'features/authentication/presentation/pages/login_page.dart';
 import 'features/authentication/presentation/pages/register_page.dart';
@@ -62,6 +64,10 @@ class MyApp extends StatelessWidget {
         BlocProvider(
           create: (_) => TransactionBloc(apiClient: di.sl<ApiClient>())
               ..add(LoadTransactions()),
+        ),
+        BlocProvider(
+          create: (_) => CategoryBloc(apiClient: di.sl<ApiClient>())
+              ..add(LoadCategories()),
         ),
       ],
       child: MaterialApp(

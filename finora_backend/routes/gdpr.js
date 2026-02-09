@@ -6,30 +6,23 @@
  * Requisito: RNF-04 Cumplimiento GDPR
  *
  * Funcionalidades implementadas:
- * - Gestión de consentimientos
- * - Exportación de datos del usuario (Portabilidad)
- * - Derecho al olvido (Eliminación completa)
+ * - Gestión de consentimientos (BD real)
+ * - Exportación de datos del usuario (Portabilidad - Art. 20)
+ * - Derecho al olvido (Eliminación completa - Art. 17)
  * - Información sobre tratamiento de datos
- * - Registro de consentimientos
- * - Información del DPO
+ * - Historial de consentimientos
  */
 
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const db = require('../services/db');
 const {
   logAuditEvent,
-  getUserAuditLog,
-  getDPOInfo,
-  getAuditStats,
   GDPRAuditEventTypes,
 } = require('../middleware/gdprAudit');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-// Almacenamiento en memoria para consentimientos (en producción usar base de datos)
-const userConsents = new Map();
-const deletedUsers = new Set();
 
 // ============================================
 // AUTHENTICATION MIDDLEWARE
@@ -76,12 +69,12 @@ const authenticateToken = (req, res, next) => {
 // ============================================
 
 const ConsentTypes = {
-  ESSENTIAL: 'essential', // Necesario para el funcionamiento
-  ANALYTICS: 'analytics', // Análisis de uso
-  MARKETING: 'marketing', // Comunicaciones de marketing
-  THIRD_PARTY: 'third_party', // Compartir con terceros
-  PERSONALIZATION: 'personalization', // Personalización del servicio
-  DATA_PROCESSING: 'data_processing', // Procesamiento de datos financieros
+  ESSENTIAL: 'essential',
+  ANALYTICS: 'analytics',
+  MARKETING: 'marketing',
+  THIRD_PARTY: 'third_party',
+  PERSONALIZATION: 'personalization',
+  DATA_PROCESSING: 'data_processing',
 };
 
 const ConsentDescriptions = {
@@ -133,15 +126,14 @@ const ConsentDescriptions = {
  */
 router.get('/privacy-policy', (req, res) => {
   const privacyPolicy = {
-    version: '1.0.0',
-    lastUpdated: '2024-01-15',
-    effectiveDate: '2024-01-15',
+    version: '2.0.0',
+    lastUpdated: '2026-02-01',
+    effectiveDate: '2026-02-01',
     language: 'es',
     controller: {
       name: 'Finora App',
       address: 'Madrid, España',
       email: 'privacy@finora.app',
-      dpo: getDPOInfo(),
     },
     sections: [
       {
@@ -226,8 +218,7 @@ router.get('/privacy-policy', (req, res) => {
       {
         id: 'contact',
         title: '10. Contacto',
-        content: 'Para ejercer sus derechos o realizar consultas sobre privacidad, contacte a nuestro Delegado de Protección de Datos (DPO):',
-        contact: getDPOInfo(),
+        content: 'Para ejercer sus derechos o realizar consultas sobre privacidad, contacte con nosotros en: privacy@finora.app',
       },
     ],
   };
@@ -239,7 +230,7 @@ router.get('/privacy-policy', (req, res) => {
 });
 
 // ============================================
-// GESTIÓN DE CONSENTIMIENTOS
+// GESTIÓN DE CONSENTIMIENTOS (BD REAL)
 // ============================================
 
 /**
@@ -255,317 +246,451 @@ router.get('/consents', (req, res) => {
 
 /**
  * GET /api/v1/gdpr/consents/user
- * Obtiene los consentimientos del usuario autenticado
+ * Obtiene los consentimientos actuales del usuario desde la BD
  */
-router.get('/consents/user', authenticateToken, (req, res) => {
-  const userId = req.user.userId;
-  const consents = userConsents.get(userId) || getDefaultConsents();
+router.get('/consents/user', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
 
-  res.status(200).json({
-    message: 'User consents retrieved successfully',
-    userId,
-    consents,
-    lastUpdated: consents.lastUpdated || new Date().toISOString(),
-  });
+    const result = await db.query(
+      `SELECT consent_type, granted, updated_at
+       FROM user_consents_current
+       WHERE user_id = $1
+       ORDER BY consent_type`,
+      [userId]
+    );
+
+    // Build consents map
+    const consents = {};
+    let lastUpdated = null;
+    for (const row of result.rows) {
+      consents[row.consent_type] = row.granted;
+      if (!lastUpdated || new Date(row.updated_at) > new Date(lastUpdated)) {
+        lastUpdated = row.updated_at;
+      }
+    }
+
+    // If no consents found, return defaults (all required = true, others = false)
+    if (result.rows.length === 0) {
+      Object.keys(ConsentDescriptions).forEach(key => {
+        consents[key] = ConsentDescriptions[key].required;
+      });
+      lastUpdated = new Date().toISOString();
+    }
+
+    res.status(200).json({
+      message: 'User consents retrieved successfully',
+      userId,
+      consents,
+      lastUpdated,
+    });
+  } catch (error) {
+    console.error('Error fetching user consents:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error al obtener los consentimientos',
+    });
+  }
 });
 
 /**
  * POST /api/v1/gdpr/consents
- * Registra o actualiza los consentimientos del usuario
+ * Registra o actualiza los consentimientos del usuario en BD
  */
-router.post('/consents', authenticateToken, (req, res) => {
-  const userId = req.user.userId;
-  const { consents } = req.body;
+router.post('/consents', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { consents } = req.body;
 
-  if (!consents || typeof consents !== 'object') {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'Consents object is required',
-    });
-  }
-
-  // Validar que los consentimientos esenciales estén aceptados
-  const requiredConsents = Object.entries(ConsentDescriptions)
-    .filter(([_, desc]) => desc.required)
-    .map(([key]) => key);
-
-  for (const required of requiredConsents) {
-    if (consents[required] !== true) {
+    if (!consents || typeof consents !== 'object') {
       return res.status(400).json({
         error: 'Bad Request',
-        message: `Consent for '${required}' is required to use the service`,
-        requiredConsents,
+        message: 'Consents object is required',
       });
     }
-  }
 
-  const consentRecord = {
-    userId,
-    consents,
-    lastUpdated: new Date().toISOString(),
-    history: [
-      ...(userConsents.get(userId)?.history || []),
-      {
-        timestamp: new Date().toISOString(),
-        action: 'CONSENT_UPDATED',
-        consents: { ...consents },
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
+    // Validate required consents
+    const requiredConsents = Object.entries(ConsentDescriptions)
+      .filter(([_, desc]) => desc.required)
+      .map(([key]) => key);
+
+    for (const required of requiredConsents) {
+      if (consents[required] !== true) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: `El consentimiento '${required}' es obligatorio para usar el servicio`,
+          requiredConsents,
+        });
+      }
+    }
+
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
+
+    // Update each consent in a transaction
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const [consentType, granted] of Object.entries(consents)) {
+        if (!ConsentDescriptions[consentType]) continue;
+
+        // Upsert current consent
+        await client.query(
+          `INSERT INTO user_consents_current (user_id, consent_type, granted, updated_at)
+           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+           ON CONFLICT (user_id, consent_type)
+           DO UPDATE SET granted = $3, updated_at = CURRENT_TIMESTAMP`,
+          [userId, consentType, granted]
+        );
+
+        // Record in history
+        await client.query(
+          `INSERT INTO user_consents_history (user_id, consent_type, granted, action, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [userId, consentType, granted, 'CONSENT_UPDATED', ipAddress, userAgent]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    // Audit log
+    logAuditEvent({
+      eventType: GDPRAuditEventTypes.CONSENT_GIVEN,
+      userId,
+      action: 'Consent preferences updated',
+      metadata: {
+        consentsGiven: Object.keys(consents).filter(k => consents[k]),
+        consentsWithdrawn: Object.keys(consents).filter(k => !consents[k]),
       },
-    ],
-  };
+    });
 
-  userConsents.set(userId, consentRecord);
-
-  // Registrar en auditoría
-  logAuditEvent({
-    eventType: GDPRAuditEventTypes.CONSENT_GIVEN,
-    userId,
-    action: 'Consent preferences updated',
-    metadata: {
-      consentsGiven: Object.keys(consents).filter(k => consents[k]),
-      consentsWithdrawn: Object.keys(consents).filter(k => !consents[k]),
-    },
-  });
-
-  res.status(200).json({
-    message: 'Consents saved successfully',
-    consents: consentRecord,
-  });
+    res.status(200).json({
+      message: 'Consentimientos guardados correctamente',
+      consents,
+    });
+  } catch (error) {
+    console.error('Error saving consents:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error al guardar los consentimientos',
+    });
+  }
 });
 
 /**
  * DELETE /api/v1/gdpr/consents/:consentType
  * Retira un consentimiento específico
  */
-router.delete('/consents/:consentType', authenticateToken, (req, res) => {
-  const userId = req.user.userId;
-  const { consentType } = req.params;
+router.delete('/consents/:consentType', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { consentType } = req.params;
 
-  if (!ConsentDescriptions[consentType]) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'Invalid consent type',
+    if (!ConsentDescriptions[consentType]) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Invalid consent type',
+      });
+    }
+
+    if (ConsentDescriptions[consentType].required) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Este consentimiento es obligatorio. Para retirarlo, debes eliminar tu cuenta.',
+      });
+    }
+
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
+
+    // Update current consent
+    await db.query(
+      `INSERT INTO user_consents_current (user_id, consent_type, granted, updated_at)
+       VALUES ($1, $2, FALSE, CURRENT_TIMESTAMP)
+       ON CONFLICT (user_id, consent_type)
+       DO UPDATE SET granted = FALSE, updated_at = CURRENT_TIMESTAMP`,
+      [userId, consentType]
+    );
+
+    // Record in history
+    await db.query(
+      `INSERT INTO user_consents_history (user_id, consent_type, granted, action, ip_address, user_agent)
+       VALUES ($1, $2, FALSE, $3, $4, $5)`,
+      [userId, consentType, 'CONSENT_WITHDRAWN', ipAddress, userAgent]
+    );
+
+    logAuditEvent({
+      eventType: GDPRAuditEventTypes.CONSENT_WITHDRAWN,
+      userId,
+      action: `Consent withdrawn: ${consentType}`,
+      metadata: { consentType },
+    });
+
+    res.status(200).json({
+      message: `Consentimiento '${consentType}' retirado correctamente`,
+    });
+  } catch (error) {
+    console.error('Error withdrawing consent:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error al retirar el consentimiento',
     });
   }
-
-  if (ConsentDescriptions[consentType].required) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'This consent is required and cannot be withdrawn. You may delete your account instead.',
-    });
-  }
-
-  const currentConsents = userConsents.get(userId) || getDefaultConsents();
-  currentConsents.consents[consentType] = false;
-  currentConsents.lastUpdated = new Date().toISOString();
-  currentConsents.history = [
-    ...(currentConsents.history || []),
-    {
-      timestamp: new Date().toISOString(),
-      action: 'CONSENT_WITHDRAWN',
-      consentType,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    },
-  ];
-
-  userConsents.set(userId, currentConsents);
-
-  // Registrar en auditoría
-  logAuditEvent({
-    eventType: GDPRAuditEventTypes.CONSENT_WITHDRAWN,
-    userId,
-    action: `Consent withdrawn: ${consentType}`,
-    metadata: { consentType },
-  });
-
-  res.status(200).json({
-    message: `Consent for '${consentType}' withdrawn successfully`,
-    consents: currentConsents,
-  });
 });
 
 // ============================================
-// EXPORTACIÓN DE DATOS (PORTABILIDAD)
-// ============================================
-
-/**
- * GET /api/v1/gdpr/export
- * Exporta todos los datos del usuario en formato estructurado (JSON)
- * Derecho de portabilidad - Art. 20 GDPR
- */
-router.get('/export', authenticateToken, (req, res) => {
-  const userId = req.user.userId;
-  const format = req.query.format || 'json';
-
-  // Recopilar todos los datos del usuario
-  const userData = {
-    exportMetadata: {
-      exportDate: new Date().toISOString(),
-      format,
-      gdprArticle: 'Article 20 - Right to data portability',
-      requestedBy: req.user.email,
-    },
-    personalData: {
-      userId: req.user.userId,
-      email: req.user.email,
-      // En producción, obtener de la base de datos
-      name: 'Usuario de Finora',
-      registrationDate: new Date().toISOString(),
-    },
-    consents: userConsents.get(userId) || getDefaultConsents(),
-    // En producción, incluir:
-    financialData: {
-      note: 'Los datos financieros se incluirían aquí cuando la funcionalidad esté implementada',
-      transactions: [],
-      bankAccounts: [],
-      savingsGoals: [],
-      budgets: [],
-    },
-    activityLog: getUserAuditLog(userId),
-    dataProcessingInfo: {
-      purposes: [
-        'Gestión de finanzas personales',
-        'Análisis de gastos',
-        'Recomendaciones financieras',
-      ],
-      legalBasis: 'Consentimiento y ejecución de contrato',
-      recipients: ['Ningún tercero actualmente'],
-      retentionPeriod: '7 años para datos financieros',
-    },
-  };
-
-  // Registrar en auditoría
-  logAuditEvent({
-    eventType: GDPRAuditEventTypes.DATA_EXPORT,
-    userId,
-    action: 'User data exported',
-    metadata: { format },
-  });
-
-  res.status(200).json({
-    message: 'User data exported successfully',
-    data: userData,
-  });
-});
-
-// ============================================
-// DERECHO AL OLVIDO (ELIMINACIÓN)
-// ============================================
-
-/**
- * DELETE /api/v1/gdpr/delete-account
- * Elimina completamente todos los datos del usuario
- * Derecho al olvido - Art. 17 GDPR
- */
-router.delete('/delete-account', authenticateToken, (req, res) => {
-  const userId = req.user.userId;
-  const { confirmDeletion, reason } = req.body;
-
-  if (confirmDeletion !== 'DELETE_MY_ACCOUNT') {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'Please confirm deletion by sending confirmDeletion: "DELETE_MY_ACCOUNT"',
-    });
-  }
-
-  // Registrar la eliminación antes de borrar
-  logAuditEvent({
-    eventType: GDPRAuditEventTypes.ACCOUNT_DELETED,
-    userId,
-    action: 'Account deletion requested - Right to be forgotten',
-    metadata: {
-      reason: reason || 'Not specified',
-      gdprArticle: 'Article 17 - Right to erasure',
-      deletionDate: new Date().toISOString(),
-    },
-  });
-
-  // Eliminar consentimientos
-  userConsents.delete(userId);
-
-  // Marcar usuario como eliminado (en producción, eliminar de todas las bases de datos)
-  deletedUsers.add(userId);
-
-  // En producción:
-  // - Eliminar de la base de datos principal
-  // - Eliminar datos de backups (programar)
-  // - Notificar a terceros para eliminar datos compartidos
-  // - Invalidar todos los tokens
-  // - Eliminar datos de analytics
-
-  const deletionReceipt = {
-    receiptId: `del_${Date.now()}_${userId.substring(0, 8)}`,
-    userId,
-    deletionDate: new Date().toISOString(),
-    dataDeleted: [
-      'Personal information',
-      'Financial data',
-      'Consent records',
-      'Activity logs',
-      'Preferences',
-    ],
-    retainedForLegal: [
-      'Anonymized transaction records (7 years - legal requirement)',
-      'Audit logs (anonymized)',
-    ],
-    gdprCompliance: {
-      article: 'Article 17 - Right to erasure ("right to be forgotten")',
-      processingTime: 'Immediate',
-      backupDeletion: '30 days',
-    },
-  };
-
-  res.status(200).json({
-    message: 'Account and all associated data have been deleted',
-    deletionReceipt,
-  });
-});
-
-// ============================================
-// INFORMACIÓN DEL DPO
-// ============================================
-
-/**
- * GET /api/v1/gdpr/dpo
- * Obtiene información del Data Protection Officer
- */
-router.get('/dpo', (req, res) => {
-  res.status(200).json({
-    message: 'DPO information retrieved successfully',
-    dpo: getDPOInfo(),
-    howToContact: {
-      exerciseRights: 'Envíe un email al DPO indicando qué derecho desea ejercer',
-      complaint: 'Puede presentar una reclamación ante la Agencia Española de Protección de Datos (AEPD)',
-      responseTime: 'Máximo 30 días según GDPR',
-    },
-  });
-});
-
-// ============================================
-// HISTORIAL DE CONSENTIMIENTOS
+// HISTORIAL DE CONSENTIMIENTOS (BD REAL)
 // ============================================
 
 /**
  * GET /api/v1/gdpr/consents/history
- * Obtiene el historial de cambios de consentimiento del usuario
+ * Obtiene el historial de cambios de consentimiento del usuario desde BD
  */
-router.get('/consents/history', authenticateToken, (req, res) => {
-  const userId = req.user.userId;
-  const consentRecord = userConsents.get(userId);
+router.get('/consents/history', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
 
-  if (!consentRecord || !consentRecord.history) {
-    return res.status(200).json({
-      message: 'No consent history found',
-      history: [],
+    const result = await db.query(
+      `SELECT consent_type, granted, action, ip_address, user_agent, created_at
+       FROM user_consents_history
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [userId]
+    );
+
+    res.status(200).json({
+      message: 'Consent history retrieved successfully',
+      history: result.rows.map(row => ({
+        consentType: row.consent_type,
+        granted: row.granted,
+        action: row.action,
+        timestamp: row.created_at,
+        ipAddress: row.ip_address,
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching consent history:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error al obtener el historial de consentimientos',
     });
   }
+});
 
-  res.status(200).json({
-    message: 'Consent history retrieved successfully',
-    history: consentRecord.history,
-  });
+// ============================================
+// EXPORTACIÓN DE DATOS (PORTABILIDAD) - Art. 20 GDPR
+// ============================================
+
+/**
+ * GET /api/v1/gdpr/export
+ * Exporta TODOS los datos reales del usuario en formato JSON
+ */
+router.get('/export', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Get user personal data
+    const userResult = await db.query(
+      `SELECT id, email, name, email_verified, terms_accepted, terms_accepted_at,
+              privacy_accepted, privacy_accepted_at, created_at, updated_at
+       FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Get transactions
+    const transactionsResult = await db.query(
+      `SELECT id, amount, type, category, description, date, payment_method, created_at
+       FROM transactions WHERE user_id = $1 ORDER BY date DESC`,
+      [userId]
+    );
+
+    // Get categories
+    const categoriesResult = await db.query(
+      `SELECT id, name, type, icon, color, is_predefined, display_order, created_at
+       FROM categories WHERE user_id = $1 ORDER BY type, display_order`,
+      [userId]
+    );
+
+    // Get current consents
+    const consentsResult = await db.query(
+      `SELECT consent_type, granted, updated_at
+       FROM user_consents_current WHERE user_id = $1`,
+      [userId]
+    );
+
+    // Get consent history
+    const historyResult = await db.query(
+      `SELECT consent_type, granted, action, created_at
+       FROM user_consents_history WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    const exportData = {
+      exportMetadata: {
+        exportDate: new Date().toISOString(),
+        format: 'json',
+        gdprArticle: 'Artículo 20 - Derecho a la portabilidad de datos',
+        requestedBy: user.email,
+      },
+      personalData: {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        emailVerified: user.email_verified,
+        termsAccepted: user.terms_accepted,
+        termsAcceptedAt: user.terms_accepted_at,
+        privacyAccepted: user.privacy_accepted,
+        privacyAcceptedAt: user.privacy_accepted_at,
+        registrationDate: user.created_at,
+        lastUpdated: user.updated_at,
+      },
+      consents: {
+        current: consentsResult.rows,
+        history: historyResult.rows,
+      },
+      financialData: {
+        transactions: transactionsResult.rows,
+        totalTransactions: transactionsResult.rows.length,
+      },
+      categories: categoriesResult.rows,
+      dataProcessingInfo: {
+        purposes: [
+          'Gestión de finanzas personales',
+          'Análisis de gastos',
+          'Recomendaciones financieras',
+        ],
+        legalBasis: 'Consentimiento y ejecución de contrato',
+        recipients: ['Ningún tercero actualmente'],
+        retentionPeriod: '7 años para datos financieros',
+      },
+    };
+
+    logAuditEvent({
+      eventType: GDPRAuditEventTypes.DATA_EXPORT,
+      userId,
+      action: 'User data exported',
+      metadata: { format: 'json' },
+    });
+
+    res.status(200).json({
+      message: 'Datos exportados correctamente',
+      data: exportData,
+    });
+  } catch (error) {
+    console.error('Error exporting user data:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error al exportar los datos',
+    });
+  }
+});
+
+// ============================================
+// DERECHO AL OLVIDO (ELIMINACIÓN REAL) - Art. 17 GDPR
+// ============================================
+
+/**
+ * DELETE /api/v1/gdpr/delete-account
+ * Elimina REALMENTE todos los datos del usuario de la BD
+ */
+router.delete('/delete-account', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { confirmDeletion, reason } = req.body;
+
+    if (confirmDeletion !== 'DELETE_MY_ACCOUNT') {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Para confirinar la eliminación, envía confirmDeletion: "DELETE_MY_ACCOUNT"',
+      });
+    }
+
+    // Log before deletion
+    logAuditEvent({
+      eventType: GDPRAuditEventTypes.ACCOUNT_DELETED,
+      userId,
+      action: 'Account deletion requested - Right to be forgotten',
+      metadata: {
+        reason: reason || 'Not specified',
+        gdprArticle: 'Article 17 - Right to erasure',
+        deletionDate: new Date().toISOString(),
+      },
+    });
+
+    // Delete everything in a transaction
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Delete consent history
+      await client.query('DELETE FROM user_consents_history WHERE user_id = $1', [userId]);
+      // Delete current consents
+      await client.query('DELETE FROM user_consents_current WHERE user_id = $1', [userId]);
+      // Delete transactions
+      await client.query('DELETE FROM transactions WHERE user_id = $1', [userId]);
+      // Delete categories
+      await client.query('DELETE FROM categories WHERE user_id = $1', [userId]);
+      // Delete GDPR consents (old table)
+      await client.query('DELETE FROM gdpr_consents WHERE user_id = $1', [userId]);
+      // Delete audit logs (anonymize rather than delete for legal compliance)
+      await client.query(
+        `UPDATE audit_logs SET user_id = NULL, details = jsonb_set(COALESCE(details, '{}'), '{anonymized}', 'true')
+         WHERE user_id = $1`,
+        [userId]
+      );
+      // Finally delete the user
+      await client.query('DELETE FROM users WHERE id = $1', [userId]);
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const deletionReceipt = {
+      receiptId: `del_${Date.now()}_${userId.substring(0, 8)}`,
+      userId,
+      deletionDate: new Date().toISOString(),
+      dataDeleted: [
+        'Información personal',
+        'Datos financieros (transacciones)',
+        'Categorías',
+        'Registros de consentimiento',
+        'Historial de consentimientos',
+      ],
+      gdprCompliance: {
+        article: 'Artículo 17 - Derecho de supresión ("derecho al olvido")',
+        processingTime: 'Inmediato',
+      },
+    };
+
+    res.status(200).json({
+      message: 'Cuenta y todos los datos asociados han sido eliminados permanentemente',
+      deletionReceipt,
+    });
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error al eliminar la cuenta',
+    });
+  }
 });
 
 // ============================================
@@ -581,7 +706,6 @@ router.get('/data-processing', (req, res) => {
     controller: {
       name: 'Finora App',
       contact: 'privacy@finora.app',
-      dpo: getDPOInfo(),
     },
     purposes: [
       {
@@ -649,7 +773,7 @@ router.get('/data-processing', (req, res) => {
 });
 
 // ============================================
-// AUDITORÍA (Solo para administradores en producción)
+// AUDITORÍA
 // ============================================
 
 /**
@@ -657,7 +781,7 @@ router.get('/data-processing', (req, res) => {
  * Obtiene estadísticas de auditoría GDPR
  */
 router.get('/audit/stats', authenticateToken, (req, res) => {
-  // En producción, verificar que es administrador
+  const { getAuditStats } = require('../middleware/gdprAudit');
   const stats = getAuditStats();
 
   res.status(200).json({
@@ -665,21 +789,5 @@ router.get('/audit/stats', authenticateToken, (req, res) => {
     stats,
   });
 });
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-function getDefaultConsents() {
-  const defaults = {};
-  Object.keys(ConsentDescriptions).forEach(key => {
-    defaults[key] = ConsentDescriptions[key].required;
-  });
-  return {
-    consents: defaults,
-    lastUpdated: new Date().toISOString(),
-    history: [],
-  };
-}
 
 module.exports = router;

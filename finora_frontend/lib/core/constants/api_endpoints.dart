@@ -113,7 +113,7 @@ class ApiEndpoints {
   // GDPR Compliance endpoints (RNF-04)
   static const String gdprPrivacyPolicy = '/gdpr/privacy-policy';
   static const String gdprDataProcessing = '/gdpr/data-processing';
-  static const String gdprDPO = '/gdpr/dpo';
+  // DPO removed - not applicable
   static const String gdprConsents = '/gdpr/consents';
   static const String gdprUserConsents = '/gdpr/consents/user';
   static const String gdprConsentHistory = '/gdpr/consents/history';

@@ -63,6 +63,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
     required String name,
     String? phoneNumber,
+    Map<String, bool>? consents,
   }) async {
     // Check network connectivity
     if (!await networkInfo.isConnected) {
@@ -77,6 +78,7 @@ class AuthRepositoryImpl implements AuthRepository {
         password: password,
         name: name,
         phoneNumber: phoneNumber,
+        consents: consents,
       );
 
       // Cache user data locally

@@ -9,6 +9,9 @@ import '../../../../core/responsive/responsive_builder.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../bloc/transaction_bloc.dart';
 import '../bloc/transaction_event.dart';
+import '../../../categories/domain/entities/category_entity.dart';
+import '../../../categories/presentation/bloc/category_bloc.dart';
+import '../../../categories/presentation/bloc/category_state.dart';
 
 /// Página de Registro Manual de Transacciones (RF-05)
 ///
@@ -485,136 +488,102 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   }
 
   Widget _buildCategorySelector() {
-    final categories = TransactionCategories.forType(_selectedType);
+    return BlocBuilder<CategoryBloc, CategoryState>(
+      builder: (context, categoryState) {
+        List<CategoryEntity> categories;
+        if (categoryState is CategoriesLoaded) {
+          categories = _selectedType == TransactionType.expense
+              ? categoryState.expenseCategories
+              : categoryState.incomeCategories;
+        } else {
+          categories = _selectedType == TransactionType.expense
+              ? CategoryEntity.defaultExpenseCategories
+              : CategoryEntity.defaultIncomeCategories;
+        }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Categoría',
-          style: AppTypography.labelMedium(
-            color: AppColors.textSecondaryLight,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: categories.map((category) {
-            final isSelected = _selectedCategory == category;
-            return GestureDetector(
-              onTap: () => setState(() => _selectedCategory = category),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? (_selectedType == TransactionType.expense
-                          ? AppColors.error
-                          : AppColors.success)
-                      : AppColors.gray50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? Colors.transparent
-                        : AppColors.gray200,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: (_selectedType == TransactionType.expense
-                                    ? AppColors.error
-                                    : AppColors.success)
-                                .withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _getCategoryIcon(category),
-                      size: 16,
-                      color: isSelected
-                          ? AppColors.white
-                          : AppColors.textSecondaryLight,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      category,
-                      style: AppTypography.labelMedium(
-                        color: isSelected
-                            ? AppColors.white
-                            : AppColors.textPrimaryLight,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        if (_selectedCategory == null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              '* Selecciona una categoría',
-              style: AppTypography.bodySmall(
-                color: AppColors.textTertiaryLight,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Categoría',
+              style: AppTypography.labelMedium(
+                color: AppColors.textSecondaryLight,
               ),
             ),
-          ),
-      ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: categories.map((cat) {
+                final isSelected = _selectedCategory == cat.name;
+                final catColor = cat.colorValue;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedCategory = cat.name),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? catColor
+                          : AppColors.gray50,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.transparent
+                            : AppColors.gray200,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: catColor.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          cat.iconData,
+                          size: 16,
+                          color: isSelected
+                              ? AppColors.white
+                              : catColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          cat.name,
+                          style: AppTypography.labelMedium(
+                            color: isSelected
+                                ? AppColors.white
+                                : AppColors.textPrimaryLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            if (_selectedCategory == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '* Selecciona una categoría',
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textTertiaryLight,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Alimentación':
-        return Icons.restaurant_outlined;
-      case 'Transporte':
-        return Icons.directions_car_outlined;
-      case 'Vivienda':
-        return Icons.home_outlined;
-      case 'Ocio':
-        return Icons.sports_esports_outlined;
-      case 'Salud':
-        return Icons.local_hospital_outlined;
-      case 'Educación':
-        return Icons.school_outlined;
-      case 'Ropa':
-        return Icons.shopping_bag_outlined;
-      case 'Suscripciones':
-        return Icons.subscriptions_outlined;
-      case 'Facturas':
-        return Icons.receipt_long_outlined;
-      case 'Compras':
-        return Icons.shopping_cart_outlined;
-      case 'Restaurantes':
-        return Icons.restaurant_outlined;
-      case 'Salario':
-        return Icons.work_outline_rounded;
-      case 'Freelance':
-        return Icons.laptop_outlined;
-      case 'Inversiones':
-        return Icons.trending_up_outlined;
-      case 'Ventas':
-        return Icons.sell_outlined;
-      case 'Regalos':
-        return Icons.card_giftcard_outlined;
-      case 'Reembolsos':
-        return Icons.replay_outlined;
-      case 'Otros':
-        return Icons.more_horiz_rounded;
-      default:
-        return Icons.receipt_outlined;
-    }
   }
 
   Widget _buildDescriptionField() {
