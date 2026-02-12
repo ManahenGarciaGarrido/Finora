@@ -13,9 +13,19 @@ class AddTransaction extends TransactionEvent {
   AddTransaction({required this.transaction});
 }
 
+/// Editar una transacción existente (RNF-15 - offline)
+class EditTransaction extends TransactionEvent {
+  final TransactionEntity transaction;
+
+  EditTransaction({required this.transaction});
+}
+
 /// Eliminar una transacción
 class DeleteTransaction extends TransactionEvent {
   final String transactionId;
 
   DeleteTransaction({required this.transactionId});
 }
+
+/// Sincronizar transacciones pendientes con el servidor (RNF-15)
+class SyncTransactions extends TransactionEvent {}

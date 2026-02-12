@@ -1,7 +1,8 @@
 /// Entidad de Transacción del dominio
 ///
 /// Representa una transacción financiera (ingreso o gasto)
-/// según el requisito RF-05
+/// según el requisito RF-05. Incluye estado de sincronización
+/// para soporte offline (RNF-15).
 class TransactionEntity {
   final String? id;
   final double amount;
@@ -12,6 +13,7 @@ class TransactionEntity {
   final PaymentMethod paymentMethod;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final SyncStatus syncStatus;
 
   const TransactionEntity({
     this.id,
@@ -23,6 +25,7 @@ class TransactionEntity {
     required this.paymentMethod,
     this.createdAt,
     this.updatedAt,
+    this.syncStatus = SyncStatus.synced,
   });
 
   TransactionEntity copyWith({
@@ -35,6 +38,7 @@ class TransactionEntity {
     PaymentMethod? paymentMethod,
     DateTime? createdAt,
     DateTime? updatedAt,
+    SyncStatus? syncStatus,
   }) {
     return TransactionEntity(
       id: id ?? this.id,
@@ -46,11 +50,93 @@ class TransactionEntity {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
   bool get isExpense => type == TransactionType.expense;
   bool get isIncome => type == TransactionType.income;
+  bool get isPendingSync => syncStatus == SyncStatus.pending;
+  bool get hasSyncError => syncStatus == SyncStatus.error;
+
+  /// Serializa a Map para almacenamiento en Hive
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'amount': amount,
+      'type': type.apiValue,
+      'category': category,
+      'description': description,
+      'date': date.toIso8601String(),
+      'payment_method': paymentMethod.apiValue,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+      'sync_status': syncStatus.value,
+    };
+  }
+
+  /// Deserializa desde Map almacenado en Hive
+  factory TransactionEntity.fromMap(Map<String, dynamic> map) {
+    return TransactionEntity(
+      id: map['id']?.toString(),
+      amount: (map['amount'] is String)
+          ? double.parse(map['amount'])
+          : (map['amount'] as num).toDouble(),
+      type: TransactionType.fromString(map['type'] ?? 'expense'),
+      category: map['category'] ?? '',
+      description: map['description'],
+      date: DateTime.tryParse(map['date'] ?? '') ?? DateTime.now(),
+      paymentMethod: PaymentMethod.fromString(map['payment_method'] ?? 'cash'),
+      createdAt: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'])
+          : null,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.tryParse(map['updated_at'])
+          : null,
+      syncStatus: SyncStatus.fromString(map['sync_status'] ?? 'synced'),
+    );
+  }
+
+  /// Convierte a formato de API (para enviar al servidor)
+  Map<String, dynamic> toApiMap() {
+    return {
+      'amount': amount,
+      'type': type.apiValue,
+      'category': category,
+      'description': description,
+      'date': date.toIso8601String(),
+      'payment_method': paymentMethod.apiValue,
+    };
+  }
+}
+
+/// Estado de sincronización de una transacción (RNF-15)
+enum SyncStatus {
+  synced,
+  pending,
+  error;
+
+  String get value {
+    switch (this) {
+      case SyncStatus.synced:
+        return 'synced';
+      case SyncStatus.pending:
+        return 'pending';
+      case SyncStatus.error:
+        return 'error';
+    }
+  }
+
+  static SyncStatus fromString(String value) {
+    switch (value) {
+      case 'pending':
+        return SyncStatus.pending;
+      case 'error':
+        return SyncStatus.error;
+      default:
+        return SyncStatus.synced;
+    }
+  }
 }
 
 /// Tipo de transacción

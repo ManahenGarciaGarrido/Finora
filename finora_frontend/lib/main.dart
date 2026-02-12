@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/constants/app_constants.dart';
-import 'core/network/api_client.dart';
+import 'core/database/local_database.dart';
+import 'core/connectivity/connectivity_service.dart';
 import 'core/utils/platform_version_helper.dart';
 import 'core/utils/ios_version_helper.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
@@ -17,6 +18,7 @@ import 'features/authentication/presentation/pages/forgot_password_page.dart';
 import 'features/authentication/presentation/pages/reset_password_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/transactions/presentation/pages/add_transaction_page.dart';
+import 'shared/widgets/offline_indicator.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
 // import 'core/utils/platform_compatibility_example.dart';  // Android
@@ -32,25 +34,27 @@ void main() async {
   // This sets up all dependencies following the dependency inversion principle
   await di.init();
 
+  // Inicializar base de datos local Hive (RNF-15 - Offline)
+  final localDatabase = di.sl<LocalDatabase>();
+  await localDatabase.init();
+
+  // Inicializar servicio de conectividad (RNF-15 - Auto-sync)
+  final connectivityService = di.sl<ConnectivityService>();
+  await connectivityService.init();
+
   // Inicializar cache de versiones de plataforma para verificación de compatibilidad
   // Esto detecta la versión de Android/iOS y cachea la información del dispositivo
   await PlatformVersionHelper.initialize();  // Android
   await IOSVersionHelper.initialize();        // iOS
 
-  // TESTING: Descomenta las siguientes líneas para ver información de compatibilidad en logs
-  // final androidCompatInfo = await PlatformVersionHelper.getCompatibilityInfo();
-  // final iosCompatInfo = await IOSVersionHelper.getCompatibilityInfo();
-  // debugPrint('=== INFORMACIÓN DE COMPATIBILIDAD ===');
-  // debugPrint(androidCompatInfo);
-  // debugPrint(iosCompatInfo);
-  // debugPrint('====================================');
-
-  runApp(const MyApp());
+  runApp(MyApp(connectivityService: connectivityService));
 }
 
 /// Root widget of the application
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final ConnectivityService connectivityService;
+
+  const MyApp({super.key, required this.connectivityService});
 
   @override
   Widget build(BuildContext context) {
@@ -62,11 +66,11 @@ class MyApp extends StatelessWidget {
           create: (_) => di.sl<AuthBloc>(),
         ),
         BlocProvider(
-          create: (_) => TransactionBloc(apiClient: di.sl<ApiClient>())
+          create: (_) => di.sl<TransactionBloc>()
               ..add(LoadTransactions()),
         ),
         BlocProvider(
-          create: (_) => CategoryBloc(apiClient: di.sl<ApiClient>())
+          create: (_) => di.sl<CategoryBloc>()
               ..add(LoadCategories()),
         ),
       ],
@@ -121,6 +125,13 @@ class MyApp extends StatelessWidget {
             }
           }
           return null;
+        },
+        builder: (context, child) {
+          // Envolver toda la app con el indicador offline (RNF-15)
+          return OfflineIndicator(
+            connectivityService: connectivityService,
+            child: child ?? const SizedBox.shrink(),
+          );
         },
       ),
     );
