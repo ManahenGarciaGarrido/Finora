@@ -4,6 +4,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 // Core
 import '../network/api_client.dart';
 import '../network/network_info.dart';
+import '../database/local_database.dart';
+import '../sync/sync_manager.dart';
+import '../connectivity/connectivity_service.dart';
 
 // Features - Authentication
 import '../../features/authentication/data/datasources/auth_remote_datasource.dart';
@@ -17,6 +20,12 @@ import '../../features/authentication/domain/usecases/forgot_password_usecase.da
 import '../../features/authentication/domain/usecases/reset_password_usecase.dart';
 import '../../features/authentication/presentation/bloc/auth_bloc.dart';
 
+// Features - Transactions
+import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
+
+// Features - Categories
+import '../../features/categories/presentation/bloc/category_bloc.dart';
+
 final sl = GetIt.instance;
 
 /// Initialize all dependencies
@@ -28,14 +37,17 @@ final sl = GetIt.instance;
 /// - Use cases are registered
 /// - BLoCs/ViewModels are registered last
 Future<void> init() async {
-  //! Features - Authentication
-  await _initAuthentication();
+  //! External
+  await _initExternal();
 
   //! Core
   await _initCore();
 
-  //! External
-  await _initExternal();
+  //! Features - Authentication
+  await _initAuthentication();
+
+  //! Features - Transactions & Categories
+  await _initTransactions();
 }
 
 /// Initialize Authentication feature dependencies
@@ -89,6 +101,47 @@ Future<void> _initCore() async {
   );
 
   sl.registerLazySingleton(() => ApiClient());
+
+  // Local Database (RNF-15)
+  sl.registerLazySingleton(() => LocalDatabase());
+
+  // Sync Manager (RNF-15)
+  sl.registerLazySingleton(
+    () => SyncManager(
+      localDatabase: sl(),
+      apiClient: sl(),
+      networkInfo: sl(),
+    ),
+  );
+
+  // Connectivity Service (RNF-15)
+  sl.registerLazySingleton(
+    () => ConnectivityService(
+      connectivity: sl(),
+      syncManager: sl(),
+    ),
+  );
+}
+
+/// Initialize Transaction and Category BLoCs (RNF-06, RNF-15)
+Future<void> _initTransactions() async {
+  // Transaction BLoC - ahora con soporte offline
+  sl.registerFactory(
+    () => TransactionBloc(
+      apiClient: sl(),
+      localDatabase: sl(),
+      networkInfo: sl(),
+      syncManager: sl(),
+    ),
+  );
+
+  // Category BLoC - ahora con caché Hive
+  sl.registerFactory(
+    () => CategoryBloc(
+      apiClient: sl(),
+      localDatabase: sl(),
+    ),
+  );
 }
 
 /// Initialize External dependencies
