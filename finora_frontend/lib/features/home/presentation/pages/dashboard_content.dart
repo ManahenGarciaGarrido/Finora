@@ -565,7 +565,9 @@ class _DashboardContentState extends State<DashboardContent> {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gray100),
+        border: Border.all(
+          color: t.isPendingSync ? AppColors.warning.withValues(alpha: 0.4) : AppColors.gray100,
+        ),
       ),
       child: Row(
         children: [
@@ -576,10 +578,31 @@ class _DashboardContentState extends State<DashboardContent> {
               color: _getCategoryColor(t.category).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              _getCategoryIcon(t.category),
-              color: _getCategoryColor(t.category),
-              size: 20,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  _getCategoryIcon(t.category),
+                  color: _getCategoryColor(t.category),
+                  size: 20,
+                ),
+                // Indicador de pendiente de sincronización (RNF-15)
+                if (t.isPendingSync)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: AppColors.warning,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.white, width: 1.5),
+                      ),
+                      child: const Icon(Icons.cloud_upload_outlined, size: 7, color: AppColors.white),
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 12),
@@ -687,15 +710,18 @@ class _DashboardContentState extends State<DashboardContent> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        CustomPaint(
-                          size: const Size(160, 160),
-                          painter: _DonutChartPainter(
-                            categories: categories,
-                            total: totalExpenses,
-                            colorMap: {
-                              for (final key in categories.keys)
-                                key: _getCategoryColor(key),
-                            },
+                        // RepaintBoundary para aislar el repintado del gráfico (RNF-06)
+                        RepaintBoundary(
+                          child: CustomPaint(
+                            size: const Size(160, 160),
+                            painter: _DonutChartPainter(
+                              categories: categories,
+                              total: totalExpenses,
+                              colorMap: {
+                                for (final key in categories.keys)
+                                  key: _getCategoryColor(key),
+                              },
+                            ),
                           ),
                         ),
                         Column(

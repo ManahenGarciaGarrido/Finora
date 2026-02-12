@@ -9,18 +9,22 @@ class TransactionInitial extends TransactionState {}
 /// Cargando
 class TransactionLoading extends TransactionState {}
 
-/// Transacciones cargadas exitosamente
+/// Transacciones cargadas exitosamente (RNF-15: incluye estado offline)
 class TransactionsLoaded extends TransactionState {
   final List<TransactionEntity> transactions;
   final double balance;
   final double totalIncome;
   final double totalExpenses;
+  final bool isOffline;
+  final int pendingSyncCount;
 
   TransactionsLoaded({
     required this.transactions,
     required this.balance,
     required this.totalIncome,
     required this.totalExpenses,
+    this.isOffline = false,
+    this.pendingSyncCount = 0,
   });
 }
 
@@ -33,6 +37,9 @@ class TransactionAdded extends TransactionState {
 
 /// Transacción eliminada
 class TransactionDeleted extends TransactionState {}
+
+/// Sincronizando transacciones pendientes (RNF-15)
+class TransactionsSyncing extends TransactionState {}
 
 /// Error en transacciones
 class TransactionError extends TransactionState {
