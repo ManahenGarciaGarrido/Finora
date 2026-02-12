@@ -135,7 +135,36 @@ class _TransactionsPageState extends State<TransactionsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Transacciones', style: AppTypography.headlineSmall()),
+                      Row(
+                        children: [
+                          Text('Transacciones', style: AppTypography.headlineSmall()),
+                          // Indicador de transacciones pendientes de sincronizar (RNF-15)
+                          BlocBuilder<TransactionBloc, TransactionState>(
+                            builder: (context, state) {
+                              final pending = state is TransactionsLoaded ? state.pendingSyncCount : 0;
+                              if (pending == 0) return const SizedBox.shrink();
+                              return Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warningSoft,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.cloud_upload_outlined, size: 12, color: AppColors.warningDark),
+                                      const SizedBox(width: 4),
+                                      Text('$pending', style: AppTypography.badge(color: AppColors.warningDark)),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                       GestureDetector(
                         onTap: () => Navigator.pushNamed(context, '/add-transaction'),
                         child: Container(
@@ -410,7 +439,11 @@ class _TransactionsPageState extends State<TransactionsPage> {
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.gray100),
+          border: Border.all(
+            color: t.isPendingSync
+                ? AppColors.warning.withValues(alpha: 0.4)
+                : AppColors.gray100,
+          ),
         ),
         child: Row(
           children: [
@@ -421,10 +454,47 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 color: _getCategoryColor(t.category).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(13),
               ),
-              child: Icon(
-                _getCategoryIcon(t.category),
-                color: _getCategoryColor(t.category),
-                size: 20,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    _getCategoryIcon(t.category),
+                    color: _getCategoryColor(t.category),
+                    size: 20,
+                  ),
+                  // Indicador de sincronización pendiente (RNF-15)
+                  if (t.isPendingSync)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: AppColors.warning,
+                          borderRadius: BorderRadius.circular(7),
+                          border: Border.all(color: AppColors.white, width: 1.5),
+                        ),
+                        child: const Icon(Icons.cloud_upload_outlined, size: 8, color: AppColors.white),
+                      ),
+                    ),
+                  // Indicador de error de sincronización (RNF-15)
+                  if (t.hasSyncError)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          borderRadius: BorderRadius.circular(7),
+                          border: Border.all(color: AppColors.white, width: 1.5),
+                        ),
+                        child: const Icon(Icons.cloud_off_rounded, size: 8, color: AppColors.white),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 12),
@@ -457,6 +527,21 @@ class _TransactionsPageState extends State<TransactionsPage> {
                           style: AppTypography.badge(color: AppColors.textTertiaryLight),
                         ),
                       ),
+                      // Badge de pendiente de sync (RNF-15)
+                      if (t.isPendingSync) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.warningSoft,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Pendiente',
+                            style: AppTypography.badge(color: AppColors.warningDark),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
