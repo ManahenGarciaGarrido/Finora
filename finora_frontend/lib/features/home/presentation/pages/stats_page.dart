@@ -415,15 +415,18 @@ class StatsPage extends StatelessWidget {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        CustomPaint(
-                          size: const Size(180, 180),
-                          painter: _DonutChartPainter(
-                            categories: categories,
-                            total: totalExpenses,
-                            colorMap: {
-                              for (final key in categories.keys)
-                                key: CategoryEntity.getColorForName(key),
-                            },
+                        // RepaintBoundary para aislar el repintado del gráfico (RNF-06)
+                        RepaintBoundary(
+                          child: CustomPaint(
+                            size: const Size(180, 180),
+                            painter: _DonutChartPainter(
+                              categories: categories,
+                              total: totalExpenses,
+                              colorMap: {
+                                for (final key in categories.keys)
+                                  key: CategoryEntity.getColorForName(key),
+                              },
+                            ),
                           ),
                         ),
                         Column(

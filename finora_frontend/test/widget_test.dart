@@ -1,30 +1,52 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:finora_frontend/main.dart';
+// 1. Importar el servicio original
+import 'package:finora_frontend/core/connectivity/connectivity_service.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    // 2. Instanciar el servicio falso (Mock)
+    final mockConnectivityService = MockConnectivityService();
 
-    // Verify that our counter starts at 0.
+    // 3. Pasarlo al constructor de MyApp (quitando el 'const')
+    await tester.pumpWidget(
+      MyApp(connectivityService: mockConnectivityService),
+    );
+
+    // NOTA: Tu test original verifica un contador, pero tu App ahora muestra
+    // un Splash o Login. Este test compilará, pero fallará la lógica después
+    // porque no encontrará el '0'. Para arreglar solo el error de compilación
+    // esto es suficiente.
+
+    // El resto del código original del test...
     expect(find.text('0'), findsOneWidget);
     expect(find.text('1'), findsNothing);
 
-    // Tap the '+' icon and trigger a frame.
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
 
-    // Verify that our counter has incremented.
     expect(find.text('0'), findsNothing);
     expect(find.text('1'), findsOneWidget);
   });
+}
+
+// 4. Definición de la clase Mock al final del archivo
+// Implementa la interfaz del servicio pero no hace nada real
+class MockConnectivityService implements ConnectivityService {
+  @override
+  Future<bool> checkConnectivity() async => true;
+
+  @override
+  void dispose() {}
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  bool get isOnline => true;
+
+  @override
+  Stream<bool> get onConnectivityChanged => const Stream.empty();
 }
