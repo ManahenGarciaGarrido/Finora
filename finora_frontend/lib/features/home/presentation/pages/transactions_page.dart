@@ -8,6 +8,7 @@ import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
+import '../../../transactions/presentation/pages/edit_transaction_page.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 
 /// Página de Historial de Transacciones
@@ -383,11 +384,46 @@ class _TransactionsPageState extends State<TransactionsPage> {
     );
   }
 
+  /// Abre la página de edición de la transacción (RF-06)
+  Future<void> _openEditPage(TransactionEntity t) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditTransactionPage(transaction: t),
+      ),
+    );
+  }
+
   Widget _buildTransactionItem(TransactionEntity t) {
     return Dismissible(
       key: Key(t.id ?? t.hashCode.toString()),
-      direction: DismissDirection.endToStart,
+      direction: DismissDirection.horizontal,
+      // Fondo deslizando a la derecha → Editar (RF-06)
       background: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.edit_rounded, color: AppColors.white),
+            SizedBox(width: 6),
+            Text(
+              'Editar',
+              style: TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      // Fondo deslizando a la izquierda → Eliminar
+      secondaryBackground: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: AppColors.error,
@@ -395,9 +431,29 @@ class _TransactionsPageState extends State<TransactionsPage> {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete_outline_rounded, color: AppColors.white),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              'Eliminar',
+              style: TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(width: 6),
+            Icon(Icons.delete_outline_rounded, color: AppColors.white),
+          ],
+        ),
       ),
       confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Swipe derecha → abrir edición, no descartar
+          await _openEditPage(t);
+          return false;
+        }
+        // Swipe izquierda → confirmar eliminación
         return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -433,7 +489,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
           context.read<TransactionBloc>().add(DeleteTransaction(transactionId: t.id!));
         }
       },
-      child: Container(
+      child: GestureDetector(
+        onTap: () => _openEditPage(t),
+        child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -567,7 +625,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildEmptyState() {
