@@ -14,16 +14,16 @@ class ApiEndpoints {
 
     // Web platform
     if (kIsWeb) {
-      return 'http://localhost:3000/api/v1';
+      return 'http://192.168.100.88:3000/api/v1';
     }
 
     // For local development with Docker
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:3000/api/v1';
+      return 'http://192.168.100.88:3000/api/v1';
     }
 
     // iOS, Windows, macOS, Linux
-    return 'http://localhost:3000/api/v1';
+    return 'http://192.168.100.88:3000/api/v1';
   }
 
   // Authentication endpoints
@@ -70,7 +70,8 @@ class ApiEndpoints {
   // Savings goals endpoints
   static const String savingsGoals = '/goals';
   static String goalById(String id) => '/goals/$id';
-  static String addContribution(String goalId) => '/goals/$goalId/contributions';
+  static String addContribution(String goalId) =>
+      '/goals/$goalId/contributions';
   static String goalProgress(String goalId) => '/goals/$goalId/progress';
   static const String goalRecommendations = '/goals/recommendations';
 
@@ -86,7 +87,8 @@ class ApiEndpoints {
   static const String affordability = '/ai/affordability';
   static const String recommendations = '/ai/recommendations';
   static const String conversationHistory = '/ai/conversation-history';
-  static String clearConversation(String conversationId) => '/ai/conversation/$conversationId/clear';
+  static String clearConversation(String conversationId) =>
+      '/ai/conversation/$conversationId/clear';
 
   // Visualization endpoints
   static const String dashboard = '/analytics/dashboard';
@@ -119,5 +121,6 @@ class ApiEndpoints {
   static const String gdprConsentHistory = '/gdpr/consents/history';
   static const String gdprExport = '/gdpr/export';
   static const String gdprDeleteAccount = '/gdpr/delete-account';
-  static String gdprWithdrawConsent(String consentType) => '/gdpr/consents/$consentType';
+  static String gdprWithdrawConsent(String consentType) =>
+      '/gdpr/consents/$consentType';
 }
