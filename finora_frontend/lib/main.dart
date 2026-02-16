@@ -21,6 +21,8 @@ import 'features/authentication/presentation/pages/forgot_password_page.dart';
 import 'features/authentication/presentation/pages/reset_password_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/transactions/presentation/pages/add_transaction_page.dart';
+import 'features/transactions/presentation/pages/edit_transaction_page.dart';
+import 'features/transactions/domain/entities/transaction_entity.dart';
 import 'shared/widgets/offline_indicator.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
@@ -173,6 +175,17 @@ class _MyAppState extends State<MyApp> {
           debugPrint('=== ROUTE DEBUG ===');
           debugPrint('Route name: ${settings.name}');
           debugPrint('Arguments: ${settings.arguments}');
+
+          // Handle /edit-transaction route (RF-06)
+          if (settings.name == '/edit-transaction') {
+            final transaction = settings.arguments as TransactionEntity?;
+            if (transaction != null) {
+              return MaterialPageRoute(
+                builder: (context) => EditTransactionPage(transaction: transaction),
+                settings: settings,
+              );
+            }
+          }
 
           // Handle /reset-password route with token parameter
           if (settings.name?.startsWith('/reset-password') ?? false) {

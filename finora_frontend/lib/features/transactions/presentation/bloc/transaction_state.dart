@@ -35,6 +35,13 @@ class TransactionAdded extends TransactionState {
   TransactionAdded({required this.transaction});
 }
 
+/// Transacción actualizada exitosamente (RF-06)
+class TransactionUpdated extends TransactionState {
+  final TransactionEntity transaction;
+
+  TransactionUpdated({required this.transaction});
+}
+
 /// Transacción eliminada
 class TransactionDeleted extends TransactionState {}
 

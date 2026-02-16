@@ -236,6 +236,131 @@ router.get('/:id',
 );
 
 // ============================================
+// UPDATE TRANSACTION (RF-06)
+// ============================================
+router.put('/:id',
+  authenticateToken,
+  [
+    param('id').isUUID().withMessage('ID de transacción inválido'),
+    body('amount')
+      .isFloat({ min: 0.01 })
+      .withMessage('La cantidad debe ser un número positivo mayor que 0'),
+    body('type')
+      .isIn(['income', 'expense'])
+      .withMessage('El tipo debe ser "income" o "expense"'),
+    body('category')
+      .notEmpty()
+      .trim()
+      .withMessage('La categoría es requerida'),
+    body('description')
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .withMessage('La descripción no puede exceder 500 caracteres'),
+    body('date')
+      .isISO8601()
+      .withMessage('La fecha debe ser una fecha válida en formato ISO 8601'),
+    body('payment_method')
+      .isIn(['cash', 'card', 'transfer'])
+      .withMessage('El método de pago debe ser "cash", "card" o "transfer"'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: 'Los datos proporcionados no son válidos',
+          details: errors.array()
+        });
+      }
+
+      const userId = req.user.userId;
+      const transactionId = req.params.id;
+
+      // Verificar que la transacción existe y pertenece al usuario
+      const existing = await db.query(
+        'SELECT id FROM transactions WHERE id = $1 AND user_id = $2',
+        [transactionId, userId]
+      );
+
+      if (existing.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: 'Transacción no encontrada'
+        });
+      }
+
+      const { amount, type, category, description, date, payment_method } = req.body;
+
+      const result = await db.query(
+        `UPDATE transactions
+         SET amount = $1, type = $2, category = $3, description = $4,
+             date = $5, payment_method = $6, updated_at = NOW()
+         WHERE id = $7 AND user_id = $8
+         RETURNING *`,
+        [amount, type, category, description || null, date, payment_method, transactionId, userId]
+      );
+
+      res.json({
+        message: 'Transacción actualizada exitosamente',
+        transaction: result.rows[0]
+      });
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      res.status(500).json({
+        error: 'Server Error',
+        message: 'Error al actualizar la transacción'
+      });
+    }
+  }
+);
+
+// ============================================
+// DELETE TRANSACTION (RF-06)
+// ============================================
+router.delete('/:id',
+  authenticateToken,
+  [
+    param('id').isUUID().withMessage('ID de transacción inválido'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          details: errors.array()
+        });
+      }
+
+      const result = await db.query(
+        'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id',
+        [req.params.id, req.user.userId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: 'Transacción no encontrada'
+        });
+      }
+
+      res.json({
+        message: 'Transacción eliminada exitosamente',
+        id: result.rows[0].id
+      });
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      res.status(500).json({
+        error: 'Server Error',
+        message: 'Error al eliminar la transacción'
+      });
+    }
+  }
+);
+
+// ============================================
 // GET BALANCE SUMMARY
 // ============================================
 router.get('/summary/balance',

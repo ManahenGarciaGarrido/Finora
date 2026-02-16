@@ -28,13 +28,21 @@ class _HomePageState extends State<HomePage> {
   /// IndexedStack mantiene todas las páginas en memoria,
   /// eliminando el tiempo de reconstrucción al cambiar de sección.
   /// Navegación resultante: < 16ms (1 frame)
-  final List<Widget> _pages = const [
-    DashboardContent(),
-    StatsPage(),
-    TransactionsPage(),
-    AccountsPage(),
-    SettingsPage(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      DashboardContent(
+        onNavigateToTransactions: () => setState(() => _selectedNavIndex = 2),
+      ),
+      const StatsPage(),
+      const TransactionsPage(),
+      const AccountsPage(),
+      const SettingsPage(),
+    ];
+  }
 
   void _onRailTap(int index) {
     // En tablet: 0=Home, 1=Stats, 2=Transactions, 3=Accounts, 4=Settings
@@ -165,10 +173,10 @@ class _HomePageState extends State<HomePage> {
               ),
               _buildAddButton(),
               _buildNavItem(
-                Icons.account_balance_wallet_outlined,
-                Icons.account_balance_wallet_rounded,
-                'Cuentas',
-                3,
+                Icons.receipt_long_outlined,
+                Icons.receipt_long_rounded,
+                'Movimientos',
+                2,
               ),
               _buildNavItem(
                 Icons.settings_outlined,
