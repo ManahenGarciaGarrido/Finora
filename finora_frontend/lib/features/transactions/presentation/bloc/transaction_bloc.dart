@@ -264,7 +264,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     return 'Error de validación en los datos. Por favor, revisa los campos e intenta de nuevo';
   }
 
-  /// Editar transacción: actualizar en Hive, luego API si hay conexión
+  /// Editar transacción: actualizar en Hive, luego API si hay conexión (RF-06)
   Future<void> _onEditTransaction(
     EditTransaction event,
     Emitter<TransactionState> emit,
@@ -274,6 +274,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     final t = event.transaction;
     final index = _transactions.indexWhere((tx) => tx.id == t.id);
     if (index == -1) {
+      emit(TransactionError(message: 'Transacción no encontrada'));
       _emitLoaded(emit);
       return;
     }
@@ -282,22 +283,37 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
     if (isConnected) {
       try {
-        await _apiClient.put(
+        final response = await _apiClient.put(
           ApiEndpoints.transactionById(t.id!),
           data: t.toApiMap(),
         );
 
-        final updated = t.copyWith(
-          updatedAt: DateTime.now(),
-          syncStatus: SyncStatus.synced,
-        );
+        // Usar los datos devueltos por el servidor (incluye updated_at real)
+        final serverData = response.data['transaction'];
+        final updated = serverData != null
+            ? _fromJson(serverData)
+            : t.copyWith(
+                updatedAt: DateTime.now(),
+                syncStatus: SyncStatus.synced,
+              );
+
         _transactions[index] = updated;
         await _localDatabase.updateTransaction(t.id!, updated.toMap());
 
+        emit(TransactionUpdated(transaction: updated));
         _emitLoaded(emit);
         return;
       } catch (e) {
         debugPrint('TransactionBloc: Error editando en API: $e');
+
+        // Intentar extraer mensaje de validación
+        String errorMessage = 'Error al actualizar la transacción';
+        if (e.toString().contains('Validation Error')) {
+          errorMessage = _extractValidationError(e);
+          emit(TransactionError(message: errorMessage));
+          return;
+        }
+        // Para errores de conexión, continuar con guardado offline
       }
     }
 
@@ -313,6 +329,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     apiData['id'] = t.id;
     await _syncManager.enqueueUpdate(apiData);
 
+    emit(TransactionUpdated(transaction: updated));
     _emitLoaded(emit, isOffline: !isConnected);
   }
 
