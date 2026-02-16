@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import '../constants/app_constants.dart';
 import '../constants/api_endpoints.dart';
@@ -10,6 +11,11 @@ import 'tls_validator.dart';
 class ApiClient {
   late final Dio _dio;
   String? _accessToken;
+
+  final _onUnauthorizedController = StreamController<void>.broadcast();
+
+  /// Emite cuando se recibe un 401 en endpoints protegidos (token expirado)
+  Stream<void> get onUnauthorized => _onUnauthorizedController.stream;
 
   ApiClient() {
     _dio = Dio(
@@ -49,6 +55,15 @@ class ApiClient {
           return handler.next(response);
         },
         onError: (error, handler) {
+          // Detectar token expirado en endpoints protegidos
+          if (error.response?.statusCode == 401) {
+            final path = error.requestOptions.path;
+            // No disparar logout si el 401 viene de login/register (credenciales incorrectas)
+            final isAuthEndpoint = path.startsWith('/auth/');
+            if (!isAuthEndpoint) {
+              _onUnauthorizedController.add(null);
+            }
+          }
           return handler.next(error);
         },
       ),
@@ -260,6 +275,10 @@ class ApiClient {
           details: error,
         );
     }
+  }
+
+  void dispose() {
+    _onUnauthorizedController.close();
   }
 
   /// Extract error message from response data

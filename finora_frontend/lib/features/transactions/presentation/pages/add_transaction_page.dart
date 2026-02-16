@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -13,15 +16,16 @@ import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/bloc/category_bloc.dart';
 import '../../../categories/presentation/bloc/category_state.dart';
 
-/// Página de Registro Manual de Transacciones (RF-05)
+/// Página de Registro Manual de Transacciones (RF-05, HU-03)
 ///
 /// Permite al usuario registrar manualmente gastos e ingresos especificando:
-/// - Cantidad (numérica, positiva)
+/// - Cantidad (numérica, positiva) — teclado numérico por defecto
 /// - Tipo (gasto/ingreso)
-/// - Categoría (selección)
+/// - Categoría (con autocompletado basado en historial)
 /// - Descripción (texto libre, opcional)
 /// - Fecha (default: hoy)
 /// - Método de pago (efectivo, tarjeta, transferencia)
+/// - Foto del ticket (opcional)
 class AddTransactionPage extends StatefulWidget {
   const AddTransactionPage({super.key});
 
@@ -39,6 +43,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   PaymentMethod _selectedPaymentMethod = PaymentMethod.card;
+  String? _photoPath;
 
   bool _isSubmitting = false;
   bool _showSuccess = false;
@@ -46,6 +51,9 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // HU-03: Autocompletado — frecuencia de categorías del historial
+  Map<String, int> _categoryFrequency = {};
 
   @override
   void initState() {
@@ -62,12 +70,25 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
     _animationController.forward();
+    _computeCategoryFrequency();
+  }
+
+  /// HU-03: Calcula la frecuencia de uso de cada categoría desde el historial
+  void _computeCategoryFrequency() {
+    final bloc = context.read<TransactionBloc>();
+    final freq = <String, int>{};
+    for (final t in bloc.transactions) {
+      if (t.type == _selectedType) {
+        freq[t.category] = (freq[t.category] ?? 0) + 1;
+      }
+    }
+    _categoryFrequency = freq;
   }
 
   @override
@@ -77,6 +98,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     _descriptionController.dispose();
     super.dispose();
   }
+
+  // --- Validación ---
 
   String? _validateAmount(String? value) {
     if (value == null || value.isEmpty) {
@@ -91,6 +114,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     }
     return null;
   }
+
+  // --- Fecha ---
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
@@ -117,6 +142,123 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     }
   }
 
+  // --- HU-03: Foto del ticket ---
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 85,
+    );
+    if (picked != null) {
+      setState(() => _photoPath = picked.path);
+    }
+  }
+
+  void _showImageSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Añadir foto del ticket',
+                style: AppTypography.titleMedium(),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: AppColors.primary,
+                  ),
+                ),
+                title: Text('Cámara', style: AppTypography.bodyMedium()),
+                subtitle: Text(
+                  'Hacer una foto ahora',
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: AppColors.primary,
+                  ),
+                ),
+                title: Text('Galería', style: AppTypography.bodyMedium()),
+                subtitle: Text(
+                  'Seleccionar de la galería',
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              if (_photoPath != null) ...[
+                ListTile(
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.error,
+                    ),
+                  ),
+                  title: Text(
+                    'Eliminar foto',
+                    style: AppTypography.bodyMedium(color: AppColors.error),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() => _photoPath = null);
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- Submit ---
+
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategory == null) {
@@ -135,9 +277,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
     setState(() => _isSubmitting = true);
 
-    final amount = double.parse(
-      _amountController.text.replaceAll(',', '.'),
-    );
+    final amount = double.parse(_amountController.text.replaceAll(',', '.'));
 
     final transaction = TransactionEntity(
       amount: amount,
@@ -148,14 +288,13 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           : _descriptionController.text.trim(),
       date: _selectedDate,
       paymentMethod: _selectedPaymentMethod,
+      photoPath: _photoPath,
     );
 
-    // Añadir la transacción al BLoC
     context.read<TransactionBloc>().add(
       AddTransaction(transaction: transaction),
     );
 
-    // Pequeña espera para simular procesamiento
     await Future.delayed(const Duration(milliseconds: 400));
 
     setState(() {
@@ -163,7 +302,6 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       _showSuccess = true;
     });
 
-    // Mostrar confirmación y volver al dashboard
     await Future.delayed(const Duration(milliseconds: 800));
 
     if (mounted) {
@@ -173,16 +311,31 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   String _formatDate(DateTime date) {
     const months = [
-      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
     ];
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dateOnly = DateTime(date.year, date.month, date.day);
-
-    if (dateOnly == today) return 'Hoy, ${date.day} de ${months[date.month - 1]}';
+    if (dateOnly == today) {
+      return 'Hoy, ${date.day} de ${months[date.month - 1]}';
+    }
     return '${date.day} de ${months[date.month - 1]} de ${date.year}';
   }
+
+  // =========================================================================
+  // BUILD
+  // =========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -193,13 +346,13 @@ class _AddTransactionPageState extends State<AddTransactionPage>
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textPrimaryLight),
+          icon: const Icon(
+            Icons.close_rounded,
+            color: AppColors.textPrimaryLight,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Nueva transacción',
-          style: AppTypography.titleLarge(),
-        ),
+        title: Text('Nueva transacción', style: AppTypography.titleLarge()),
         centerTitle: true,
       ),
       body: ResponsiveBuilder(
@@ -211,7 +364,6 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   Widget _buildMobileLayout(BuildContext context) {
     final responsive = ResponsiveUtils(context);
-
     return FadeTransition(
       opacity: _fadeAnimation,
       child: SlideTransition(
@@ -230,7 +382,6 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   Widget _buildTabletLayout(BuildContext context) {
     final responsive = ResponsiveUtils(context);
-
     return Center(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -259,34 +410,25 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   Widget _buildFormContent(BuildContext context) {
     return Form(
       key: _formKey,
+      autovalidateMode:
+          AutovalidateMode.onUserInteraction, // HU-03: tiempo real
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Selector de tipo (Gasto / Ingreso)
           _buildTypeSelector(),
           const SizedBox(height: 24),
-
-          // Campo de cantidad
           _buildAmountField(),
           const SizedBox(height: 24),
-
-          // Selector de categoría
           _buildCategorySelector(),
           const SizedBox(height: 24),
-
-          // Campo de descripción
           _buildDescriptionField(),
           const SizedBox(height: 24),
-
-          // Selector de fecha
           _buildDateSelector(),
           const SizedBox(height: 24),
-
-          // Selector de método de pago
           _buildPaymentMethodSelector(),
+          const SizedBox(height: 24),
+          _buildPhotoTicketSection(), // HU-03: foto del ticket
           const SizedBox(height: 32),
-
-          // Botón de guardar
           _buildSubmitButton(),
           const SizedBox(height: 16),
         ],
@@ -294,15 +436,17 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
   }
 
+  // =========================================================================
+  // WIDGETS DEL FORMULARIO
+  // =========================================================================
+
   Widget _buildTypeSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Tipo de transacción',
-          style: AppTypography.labelMedium(
-            color: AppColors.textSecondaryLight,
-          ),
+          style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
         Container(
@@ -312,110 +456,80 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           ),
           child: Row(
             children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedType = TransactionType.expense;
-                      _selectedCategory = null;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: _selectedType == TransactionType.expense
-                          ? AppColors.error
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: _selectedType == TransactionType.expense
-                          ? [
-                              BoxShadow(
-                                color: AppColors.error.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.arrow_downward_rounded,
-                          size: 18,
-                          color: _selectedType == TransactionType.expense
-                              ? AppColors.white
-                              : AppColors.textSecondaryLight,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Gasto',
-                          style: AppTypography.labelLarge(
-                            color: _selectedType == TransactionType.expense
-                                ? AppColors.white
-                                : AppColors.textSecondaryLight,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              _buildTypeOption(
+                TransactionType.expense,
+                'Gasto',
+                Icons.arrow_downward_rounded,
+                AppColors.error,
               ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedType = TransactionType.income;
-                      _selectedCategory = null;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: _selectedType == TransactionType.income
-                          ? AppColors.success
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: _selectedType == TransactionType.income
-                          ? [
-                              BoxShadow(
-                                color: AppColors.success.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.arrow_upward_rounded,
-                          size: 18,
-                          color: _selectedType == TransactionType.income
-                              ? AppColors.white
-                              : AppColors.textSecondaryLight,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Ingreso',
-                          style: AppTypography.labelLarge(
-                            color: _selectedType == TransactionType.income
-                                ? AppColors.white
-                                : AppColors.textSecondaryLight,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              _buildTypeOption(
+                TransactionType.income,
+                'Ingreso',
+                Icons.arrow_upward_rounded,
+                AppColors.success,
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTypeOption(
+    TransactionType type,
+    String label,
+    IconData icon,
+    Color color,
+  ) {
+    final isSelected = _selectedType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedType = type;
+            _selectedCategory = null;
+            _computeCategoryFrequency(); // Recalcular por tipo
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected ? color : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected
+                    ? AppColors.white
+                    : AppColors.textSecondaryLight,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: AppTypography.labelLarge(
+                  color: isSelected
+                      ? AppColors.white
+                      : AppColors.textSecondaryLight,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -425,17 +539,17 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       children: [
         Text(
           'Cantidad',
-          style: AppTypography.labelMedium(
-            color: AppColors.textSecondaryLight,
-          ),
+          style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _amountController,
+          // HU-03: teclado numérico por defecto
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
           ],
+          autofocus: true, // HU-03: foco automático para rapidez
           style: AppTypography.moneyLarge(
             color: _selectedType == TransactionType.expense
                 ? AppColors.error
@@ -487,6 +601,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
   }
 
+  /// HU-03: Selector de categoría con autocompletado por historial.
+  /// Las categorías más usadas aparecen primero y marcadas con un badge.
   Widget _buildCategorySelector() {
     return BlocBuilder<CategoryBloc, CategoryState>(
       builder: (context, categoryState) {
@@ -501,22 +617,60 @@ class _AddTransactionPageState extends State<AddTransactionPage>
               : CategoryEntity.defaultIncomeCategories;
         }
 
+        // Ordenar por frecuencia de uso (historial) — autocompletado
+        final sorted = [...categories];
+        sorted.sort((a, b) {
+          final freqA = _categoryFrequency[a.name] ?? 0;
+          final freqB = _categoryFrequency[b.name] ?? 0;
+          if (freqB != freqA) return freqB.compareTo(freqA);
+          return a.displayOrder.compareTo(b.displayOrder);
+        });
+
+        // Las 2 más frecuentes del historial (si existen)
+        final topCategories =
+            _categoryFrequency.entries.where((e) => e.value > 0).toList()
+              ..sort((a, b) => b.value.compareTo(a.value));
+        final topNames = topCategories.take(2).map((e) => e.key).toSet();
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Categoría',
-              style: AppTypography.labelMedium(
-                color: AppColors.textSecondaryLight,
-              ),
+            Row(
+              children: [
+                Text(
+                  'Categoría',
+                  style: AppTypography.labelMedium(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                if (topNames.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Sugeridas por historial',
+                      style: AppTypography.labelSmall(color: AppColors.primary),
+                    ),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: categories.map((cat) {
+              children: sorted.map((cat) {
                 final isSelected = _selectedCategory == cat.name;
                 final catColor = cat.colorValue;
+                final isTop = topNames.contains(cat.name);
+
                 return GestureDetector(
                   onTap: () => setState(() => _selectedCategory = cat.name),
                   child: AnimatedContainer(
@@ -526,14 +680,15 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? catColor
-                          : AppColors.gray50,
+                      color: isSelected ? catColor : AppColors.gray50,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: isSelected
+                        color: isTop && !isSelected
+                            ? catColor.withValues(alpha: 0.6)
+                            : isSelected
                             ? Colors.transparent
                             : AppColors.gray200,
+                        width: isTop && !isSelected ? 1.5 : 1,
                       ),
                       boxShadow: isSelected
                           ? [
@@ -551,9 +706,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                         Icon(
                           cat.iconData,
                           size: 16,
-                          color: isSelected
-                              ? AppColors.white
-                              : catColor,
+                          color: isSelected ? AppColors.white : catColor,
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -564,6 +717,15 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                                 : AppColors.textPrimaryLight,
                           ),
                         ),
+                        // Indicador visual de categoría frecuente
+                        if (isTop && !isSelected) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.trending_up_rounded,
+                            size: 12,
+                            color: catColor,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -651,9 +813,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       children: [
         Text(
           'Fecha',
-          style: AppTypography.labelMedium(
-            color: AppColors.textSecondaryLight,
-          ),
+          style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
         GestureDetector(
@@ -673,10 +833,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                   size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  _formatDate(_selectedDate),
-                  style: AppTypography.input(),
-                ),
+                Text(_formatDate(_selectedDate), style: AppTypography.input()),
                 const Spacer(),
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
@@ -696,9 +853,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       children: [
         Text(
           'Método de pago',
-          style: AppTypography.labelMedium(
-            color: AppColors.textSecondaryLight,
-          ),
+          style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
         Row(
@@ -706,8 +861,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             final isSelected = _selectedPaymentMethod == method;
             return Expanded(
               child: GestureDetector(
-                onTap: () =>
-                    setState(() => _selectedPaymentMethod = method),
+                onTap: () => setState(() => _selectedPaymentMethod = method),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: EdgeInsets.only(
@@ -718,9 +872,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                     color: isSelected ? AppColors.primary : AppColors.gray50,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected
-                          ? AppColors.primary
-                          : AppColors.gray200,
+                      color: isSelected ? AppColors.primary : AppColors.gray200,
                     ),
                     boxShadow: isSelected
                         ? [
@@ -772,6 +924,142 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     }
   }
 
+  /// HU-03: Sección para añadir foto del ticket (opcional)
+  Widget _buildPhotoTicketSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Foto del ticket',
+              style: AppTypography.labelMedium(
+                color: AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '(opcional)',
+              style: AppTypography.bodySmall(
+                color: AppColors.textTertiaryLight,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_photoPath != null)
+          _buildPhotoPreview()
+        else
+          _buildPhotoPlaceholder(),
+      ],
+    );
+  }
+
+  Widget _buildPhotoPlaceholder() {
+    return GestureDetector(
+      onTap: _showImageSourceDialog,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 100,
+        decoration: BoxDecoration(
+          color: AppColors.gray50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.gray200,
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.add_a_photo_outlined,
+                color: AppColors.primary.withValues(alpha: 0.7),
+                size: 28,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Añadir foto del ticket',
+                style: AppTypography.labelMedium(
+                  color: AppColors.primary.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoPreview() {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: _showImageSourceDialog,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              File(_photoPath!),
+              height: 160,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: GestureDetector(
+            onTap: () => setState(() => _photoPath = null),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.black.withValues(alpha: 0.55),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close_rounded,
+                color: AppColors.white,
+                size: 16,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 8,
+          right: 8,
+          child: GestureDetector(
+            onTap: _showImageSourceDialog,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.edit_rounded,
+                    color: AppColors.white,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Cambiar',
+                    style: AppTypography.labelSmall(color: AppColors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // HU-03: Botón de guardado con confirmación visual animada
   Widget _buildSubmitButton() {
     return SizedBox(
       width: double.infinity,
@@ -789,8 +1077,11 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.check_circle_rounded,
-                          color: AppColors.white, size: 24),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: AppColors.white,
+                        size: 24,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Transacción registrada',
@@ -829,8 +1120,11 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.save_rounded,
-                                  color: AppColors.white, size: 20),
+                              const Icon(
+                                Icons.save_rounded,
+                                color: AppColors.white,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Guardar transacción',

@@ -5,21 +5,20 @@ import '../errors/exceptions.dart';
 
 /// Secure HTTP client adapter with TLS 1.3 enforcement and certificate pinning
 class SecureHttpClient extends IOHttpClientAdapter {
-  SecureHttpClient({
-    SecurityContext? securityContext,
-  }) : super(
-          createHttpClient: () {
-            final httpClient = HttpClient(context: securityContext);
+  SecureHttpClient({SecurityContext? securityContext})
+    : super(
+        createHttpClient: () {
+          final httpClient = HttpClient(context: securityContext);
 
-            // Configure TLS settings - reject all bad certificates
-            httpClient.badCertificateCallback = (cert, host, port) {
-              // Reject all bad certificates by default
-              return false;
-            };
+          // Configure TLS settings - reject all bad certificates
+          httpClient.badCertificateCallback = (cert, host, port) {
+            // Reject all bad certificates by default
+            return false;
+          };
 
-            return httpClient;
-          },
-        );
+          return httpClient;
+        },
+      );
 
   /// Creates a secure HTTP client with TLS 1.3 enforcement
   static SecureHttpClient create() {
@@ -29,16 +28,16 @@ class SecureHttpClient extends IOHttpClientAdapter {
     // TLS 1.3 support depends on the underlying platform's OpenSSL/BoringSSL version
     // Modern Android (API 29+) and iOS (13+) support TLS 1.3 by default
 
-    return SecureHttpClient(
-      securityContext: securityContext,
-    );
+    return SecureHttpClient(securityContext: securityContext);
   }
 
   /// Validates the security of a connection before allowing it
   static void validateConnection(Uri uri) {
     // Allow HTTP for local development (localhost, 10.0.2.2 for Android emulator)
-    final isLocalDevelopment = uri.host == 'localhost' ||
+    final isLocalDevelopment =
+        uri.host == 'localhost' ||
         uri.host == '127.0.0.1' ||
+        uri.host == '192.168.100.88' ||
         uri.host == '10.0.2.2';
 
     if (isLocalDevelopment) {
@@ -49,7 +48,8 @@ class SecureHttpClient extends IOHttpClientAdapter {
     // Reject HTTP connections if not allowed in production
     if (!SecurityConfig.allowHttpConnections && uri.scheme == 'http') {
       throw SecurityException(
-        message: '${SecurityConfig.httpConnectionMessage} (URI: ${uri.toString()})',
+        message:
+            '${SecurityConfig.httpConnectionMessage} (URI: ${uri.toString()})',
       );
     }
 

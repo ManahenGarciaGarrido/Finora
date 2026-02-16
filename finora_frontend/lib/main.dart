@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/constants/app_constants.dart';
 import 'core/database/local_database.dart';
+import 'core/network/api_client.dart';
 import 'core/connectivity/connectivity_service.dart';
 import 'core/utils/platform_version_helper.dart';
 import 'core/utils/ios_version_helper.dart';
+import 'features/authentication/data/datasources/auth_local_datasource.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/transactions/presentation/bloc/transaction_bloc.dart';
 import 'features/transactions/presentation/bloc/transaction_event.dart';
@@ -51,23 +54,98 @@ void main() async {
 }
 
 /// Root widget of the application
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final ConnectivityService connectivityService;
 
   const MyApp({super.key, required this.connectivityService});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  late final TransactionBloc _transactionBloc;
+  StreamSubscription<bool>? _syncSubscription;
+  StreamSubscription<void>? _unauthorizedSubscription;
+  bool _isHandlingUnauthorized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _transactionBloc = di.sl<TransactionBloc>()..add(LoadTransactions());
+
+    // Escuchar sincronización completada para recargar transacciones
+    _syncSubscription = widget.connectivityService.onSyncComplete.listen((_) {
+      debugPrint('MyApp: Sync completado, recargando transacciones...');
+      _transactionBloc.add(LoadTransactions());
+    });
+
+    // Escuchar token expirado (401) para forzar cierre de sesión
+    final apiClient = di.sl<ApiClient>();
+    _unauthorizedSubscription = apiClient.onUnauthorized.listen((_) {
+      _handleTokenExpired();
+    });
+  }
+
+  /// Cierra sesión automáticamente cuando el token ha expirado
+  Future<void> _handleTokenExpired() async {
+    // Evitar múltiples ejecuciones simultáneas
+    if (_isHandlingUnauthorized) return;
+    _isHandlingUnauthorized = true;
+
+    debugPrint('MyApp: Token expirado, cerrando sesión automáticamente...');
+
+    try {
+      // Limpiar token del ApiClient
+      final apiClient = di.sl<ApiClient>();
+      apiClient.clearToken();
+
+      // Limpiar token almacenado
+      final localDataSource = di.sl<AuthLocalDataSource>();
+      await localDataSource.clearToken();
+      await localDataSource.clearCache();
+    } catch (e) {
+      debugPrint('MyApp: Error limpiando datos de sesión: $e');
+    }
+
+    // Navegar a login
+    final navigator = _navigatorKey.currentState;
+    if (navigator != null) {
+      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+
+      // Mostrar mensaje al usuario
+      final context = navigator.context;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.'),
+            backgroundColor: Colors.orange[700],
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+
+    _isHandlingUnauthorized = false;
+  }
+
+  @override
+  void dispose() {
+    _syncSubscription?.cancel();
+    _unauthorizedSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
-      // Provide BLoCs to the entire app
-      // BLoCs are injected via the service locator
       providers: [
         BlocProvider(
           create: (_) => di.sl<AuthBloc>(),
         ),
-        BlocProvider(
-          create: (_) => di.sl<TransactionBloc>()
-              ..add(LoadTransactions()),
+        BlocProvider.value(
+          value: _transactionBloc,
         ),
         BlocProvider(
           create: (_) => di.sl<CategoryBloc>()
@@ -75,6 +153,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        navigatorKey: _navigatorKey,
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
@@ -129,7 +208,7 @@ class MyApp extends StatelessWidget {
         builder: (context, child) {
           // Envolver toda la app con el indicador offline (RNF-15)
           return OfflineIndicator(
-            connectivityService: connectivityService,
+            connectivityService: widget.connectivityService,
             child: child ?? const SizedBox.shrink(),
           );
         },
