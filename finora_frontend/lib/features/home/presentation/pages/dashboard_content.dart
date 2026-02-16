@@ -12,11 +12,15 @@ import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
+import '../../../transactions/presentation/pages/edit_transaction_page.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 
 /// Contenido del Dashboard principal
 class DashboardContent extends StatefulWidget {
-  const DashboardContent({super.key});
+  /// Callback para navegar a la pestaña de Transacciones desde el dashboard
+  final VoidCallback? onNavigateToTransactions;
+
+  const DashboardContent({super.key, this.onNavigateToTransactions});
 
   @override
   State<DashboardContent> createState() => _DashboardContentState();
@@ -100,7 +104,7 @@ class _DashboardContentState extends State<DashboardContent> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(hp, 28, hp, 12),
-                child: _buildSectionHeader('Últimas transacciones', onTap: () {}),
+                child: _buildSectionHeader('Últimas transacciones', onTap: widget.onNavigateToTransactions),
               ),
             ),
             SliverPadding(
@@ -160,7 +164,7 @@ class _DashboardContentState extends State<DashboardContent> {
                     flex: 2,
                     child: Column(
                       children: [
-                        _buildSectionHeader('Últimas transacciones', onTap: () {}),
+                        _buildSectionHeader('Últimas transacciones', onTap: widget.onNavigateToTransactions),
                         const SizedBox(height: 12),
                         _buildTransactionsColumn(context),
                       ],
@@ -527,6 +531,17 @@ class _DashboardContentState extends State<DashboardContent> {
   // ============================================
   // TRANSACTIONS LIST
   // ============================================
+
+  /// Abre la página de edición de la transacción desde el dashboard (RF-06)
+  Future<void> _openEditPage(TransactionEntity t) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditTransactionPage(transaction: t),
+      ),
+    );
+  }
+
   Widget _buildTransactionsList(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
@@ -559,7 +574,9 @@ class _DashboardContentState extends State<DashboardContent> {
   }
 
   Widget _buildTransactionTile(TransactionEntity t) {
-    return Container(
+    return GestureDetector(
+      onTap: () => _openEditPage(t),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -643,6 +660,7 @@ class _DashboardContentState extends State<DashboardContent> {
           ),
         ],
       ),
+    ),
     );
   }
 
