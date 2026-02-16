@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:finora_frontend/features/transactions/presentation/bloc/transaction_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -339,25 +340,58 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
+    return BlocListener<TransactionBloc, TransactionState>(
+      listener: (context, state) {
+        if (state is TransactionError) {
+          // Mostrar error del servidor
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              action: SnackBarAction(
+                label: 'Reintentar',
+                textColor: AppColors.white,
+                onPressed: () {
+                  // Limpiar estado de envío para permitir reintentar
+                  setState(() {
+                    _isSubmitting = false;
+                    _showSuccess = false;
+                  });
+                },
+              ),
+            ),
+          );
+          // Resetear estado de envío
+          setState(() {
+            _isSubmitting = false;
+            _showSuccess = false;
+          });
+        }
+      },
+      child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.close_rounded,
-            color: AppColors.textPrimaryLight,
+        appBar: AppBar(
+          backgroundColor: AppColors.backgroundLight,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.close_rounded,
+              color: AppColors.textPrimaryLight,
+            ),
+            onPressed: () => Navigator.pop(context),
           ),
-          onPressed: () => Navigator.pop(context),
+          title: Text('Nueva transacción', style: AppTypography.titleLarge()),
+          centerTitle: true,
         ),
-        title: Text('Nueva transacción', style: AppTypography.titleLarge()),
-        centerTitle: true,
-      ),
-      body: ResponsiveBuilder(
-        mobile: (context) => _buildMobileLayout(context),
-        tablet: (context) => _buildTabletLayout(context),
+        body: ResponsiveBuilder(
+          mobile: (context) => _buildMobileLayout(context),
+          tablet: (context) => _buildTabletLayout(context),
+        ),
       ),
     );
   }
