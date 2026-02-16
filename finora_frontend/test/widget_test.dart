@@ -49,4 +49,8 @@ class MockConnectivityService implements ConnectivityService {
 
   @override
   Stream<bool> get onConnectivityChanged => const Stream.empty();
+
+  @override
+  // TODO: implement onSyncComplete
+  Stream<bool> get onSyncComplete => throw UnimplementedError();
 }

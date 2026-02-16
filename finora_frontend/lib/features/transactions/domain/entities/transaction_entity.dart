@@ -11,6 +11,7 @@ class TransactionEntity {
   final String? description;
   final DateTime date;
   final PaymentMethod paymentMethod;
+  final String? photoPath; // HU-03: foto opcional del ticket
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final SyncStatus syncStatus;
@@ -23,6 +24,7 @@ class TransactionEntity {
     this.description,
     required this.date,
     required this.paymentMethod,
+    this.photoPath,
     this.createdAt,
     this.updatedAt,
     this.syncStatus = SyncStatus.synced,
@@ -36,6 +38,7 @@ class TransactionEntity {
     String? description,
     DateTime? date,
     PaymentMethod? paymentMethod,
+    String? photoPath,
     DateTime? createdAt,
     DateTime? updatedAt,
     SyncStatus? syncStatus,
@@ -48,6 +51,7 @@ class TransactionEntity {
       description: description ?? this.description,
       date: date ?? this.date,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      photoPath: photoPath ?? this.photoPath,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
@@ -69,6 +73,7 @@ class TransactionEntity {
       'description': description,
       'date': date.toIso8601String(),
       'payment_method': paymentMethod.apiValue,
+      'photo_path': photoPath,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'sync_status': syncStatus.value,
@@ -87,6 +92,7 @@ class TransactionEntity {
       description: map['description'],
       date: DateTime.tryParse(map['date'] ?? '') ?? DateTime.now(),
       paymentMethod: PaymentMethod.fromString(map['payment_method'] ?? 'cash'),
+      photoPath: map['photo_path'],
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'])
           : null,

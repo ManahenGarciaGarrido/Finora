@@ -13,8 +13,10 @@ class TlsValidator {
     final uri = options.uri;
 
     // Allow HTTP for local development (localhost, 10.0.2.2 for Android emulator)
-    final isLocalDevelopment = uri.host == 'localhost' ||
+    final isLocalDevelopment =
+        uri.host == 'localhost' ||
         uri.host == '127.0.0.1' ||
+        uri.host == '192.168.100.88' ||
         uri.host == '10.0.2.2';
 
     if (isLocalDevelopment) {
@@ -28,7 +30,8 @@ class TlsValidator {
     // Ensure proper scheme for production
     if (uri.scheme != 'https') {
       throw SecurityException(
-        message: '${SecurityConfig.httpConnectionMessage} (URI: ${uri.toString()})',
+        message:
+            '${SecurityConfig.httpConnectionMessage} (URI: ${uri.toString()})',
       );
     }
   }
