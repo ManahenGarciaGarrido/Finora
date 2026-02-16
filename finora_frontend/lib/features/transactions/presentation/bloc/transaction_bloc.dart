@@ -187,12 +187,24 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         _emitLoaded(emit);
         return;
       } catch (e) {
+        // Diferenciar entre errores de validación y errores de conexión
+        debugPrint('TransactionBloc: Error API - $e');
+
+        // Intentar extraer mensaje de error del servidor
+        String errorMessage = 'Error al registrar la transacción';
+        if (e.toString().contains('Validation Error')) {
+          // Error de validación del servidor
+          errorMessage = _extractValidationError(e);
+          emit(TransactionError(message: errorMessage));
+          return; // Detener aquí, no guardar offline
+        }
+
+        // Para otros errores (conexión, servidor), guardar offline y notificar
         debugPrint('TransactionBloc: Error API, guardando offline: $e');
-        // Fallo de API → guardar offline
       }
     }
 
-    // Offline o fallo de API: guardar localmente
+    // Offline o fallo de conexión: guardar localmente
     final localId = 'local_${DateTime.now().millisecondsSinceEpoch}';
     final transaction = event.transaction.copyWith(
       id: localId,
@@ -211,8 +223,45 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     apiData['local_id'] = localId;
     await _syncManager.enqueueCreate(apiData);
 
-    emit(TransactionAdded(transaction: transaction));
+    // Emitir estado con información de guardado offline
+    if (!isConnected) {
+      emit(TransactionAdded(
+        transaction: transaction,
+      ));
+      // Mostrar SnackBar informativo de guardado offline
+      debugPrint('TransactionBloc: Transacción guardada offline, se sincronizará cuando haya conexión');
+    } else {
+      emit(TransactionAdded(transaction: transaction));
+    }
+
     _emitLoaded(emit, isOffline: !isConnected);
+  }
+
+  /// Extrae mensaje de error de validación desde la excepción
+  String _extractValidationError(dynamic error) {
+    final errorStr = error.toString();
+
+    // Intentar extraer mensaje específico de error
+    if (errorStr.contains('cantidad')) {
+      return 'La cantidad debe ser un número positivo mayor que 0';
+    }
+    if (errorStr.contains('tipo')) {
+      return 'El tipo debe ser ingreso o gasto';
+    }
+    if (errorStr.contains('categoría')) {
+      return 'La categoría es requerida';
+    }
+    if (errorStr.contains('fecha')) {
+      return 'La fecha debe ser una fecha válida';
+    }
+    if (errorStr.contains('método de pago')) {
+      return 'El método de pago es inválido';
+    }
+    if (errorStr.contains('descripción')) {
+      return 'La descripción no puede exceder 500 caracteres';
+    }
+
+    return 'Error de validación en los datos. Por favor, revisa los campos e intenta de nuevo';
   }
 
   /// Editar transacción: actualizar en Hive, luego API si hay conexión
