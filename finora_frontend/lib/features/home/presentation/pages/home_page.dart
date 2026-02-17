@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/responsive/responsive_builder.dart';
+import '../../../transactions/presentation/bloc/transaction_bloc.dart';
+import '../../../transactions/presentation/bloc/transaction_event.dart';
 import 'dashboard_content.dart';
 import 'transactions_page.dart';
 import 'stats_page.dart';
@@ -42,6 +45,16 @@ class _HomePageState extends State<HomePage> {
       const AccountsPage(),
       const SettingsPage(),
     ];
+
+    // Cargar transacciones tras el primer frame, cuando el token JWT ya está
+    // configurado en ApiClient (la autenticación se completa antes de que
+    // HomePage sea visible). Esto garantiza que se carguen tanto los datos
+    // locales (Hive) como los remotos (API) desde el primer acceso.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<TransactionBloc>().add(LoadTransactions());
+      }
+    });
   }
 
   void _onRailTap(int index) {
@@ -65,10 +78,7 @@ class _HomePageState extends State<HomePage> {
 
   /// Layout móvil con IndexedStack para navegación instantánea (RNF-06)
   Widget _buildMobileLayout(BuildContext context) {
-    return IndexedStack(
-      index: _selectedNavIndex,
-      children: _pages,
-    );
+    return IndexedStack(index: _selectedNavIndex, children: _pages);
   }
 
   /// Layout tablet con IndexedStack para navegación instantánea (RNF-06)
@@ -78,10 +88,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           _buildNavigationRail(),
           Expanded(
-            child: IndexedStack(
-              index: _selectedNavIndex,
-              children: _pages,
-            ),
+            child: IndexedStack(index: _selectedNavIndex, children: _pages),
           ),
         ],
       ),
@@ -159,30 +166,38 @@ class _HomePageState extends State<HomePage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(
-                Icons.home_outlined,
-                Icons.home_rounded,
-                'Inicio',
-                0,
+              Expanded(
+                child: _buildNavItem(
+                  Icons.home_outlined,
+                  Icons.home_rounded,
+                  'Inicio',
+                  0,
+                ),
               ),
-              _buildNavItem(
-                Icons.analytics_outlined,
-                Icons.analytics_rounded,
-                'Estadísticas',
-                1,
+              Expanded(
+                child: _buildNavItem(
+                  Icons.analytics_outlined,
+                  Icons.analytics_rounded,
+                  'Estadísticas',
+                  1,
+                ),
               ),
               _buildAddButton(),
-              _buildNavItem(
-                Icons.receipt_long_outlined,
-                Icons.receipt_long_rounded,
-                'Movimientos',
-                2,
+              Expanded(
+                child: _buildNavItem(
+                  Icons.receipt_long_outlined,
+                  Icons.receipt_long_rounded,
+                  'Movimientos',
+                  2,
+                ),
               ),
-              _buildNavItem(
-                Icons.settings_outlined,
-                Icons.settings_rounded,
-                'Ajustes',
-                4,
+              Expanded(
+                child: _buildNavItem(
+                  Icons.settings_outlined,
+                  Icons.settings_rounded,
+                  'Ajustes',
+                  4,
+                ),
               ),
             ],
           ),
