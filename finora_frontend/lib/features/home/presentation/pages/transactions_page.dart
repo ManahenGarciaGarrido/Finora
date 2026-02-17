@@ -186,6 +186,32 @@ class _TransactionsPageState extends State<TransactionsPage> {
     return CategoryEntity.getColorForName(category);
   }
 
+  /// Puntúa la relevancia de una transacción para la búsqueda activa (RF-09).
+  /// Mayor puntuación → más relevante.
+  int _searchRelevanceScore(TransactionEntity t, String query) {
+    final q = query.toLowerCase();
+    final desc = (t.description ?? '').toLowerCase();
+    final cat = t.category.toLowerCase();
+    int score = 0;
+    // Descripción / comercio (mayor peso)
+    if (desc == q) {
+      score += 100;
+    } else if (desc.startsWith(q)) {
+      score += 60;
+    } else if (desc.contains(q)) {
+      score += 30;
+    }
+    // Categoría
+    if (cat == q) {
+      score += 50;
+    } else if (cat.startsWith(q)) {
+      score += 30;
+    } else if (cat.contains(q)) {
+      score += 15;
+    }
+    return score;
+  }
+
   /// Aplica todos los filtros activos a la lista de transacciones
   List<TransactionEntity> _applyFilters(List<TransactionEntity> transactions) {
     var filtered = transactions.where((t) {
@@ -235,6 +261,18 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
       return true;
     }).toList();
+
+    // Ordenar por relevancia cuando hay búsqueda activa (RF-09)
+    if (_searchQuery.isNotEmpty) {
+      filtered.sort((a, b) {
+        final scoreA = _searchRelevanceScore(a, _searchQuery);
+        final scoreB = _searchRelevanceScore(b, _searchQuery);
+        if (scoreB != scoreA) return scoreB.compareTo(scoreA);
+        return b.date.compareTo(
+          a.date,
+        ); // Igual relevancia → más reciente primero
+      });
+    }
 
     return filtered;
   }
@@ -765,7 +803,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
                             _displayCount = _pageSize;
                           }),
                           decoration: InputDecoration(
-                            hintText: 'Buscar por descripción o categoría...',
+                            hintText:
+                                'Buscar por comercio, descripción o categoría...',
                             hintStyle: AppTypography.bodyMedium(
                               color: AppColors.textTertiaryLight,
                             ),
@@ -910,35 +949,84 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
     // Scroll infinito: mostrar solo _displayCount transacciones (RF-08)
     final displayed = filtered.take(_displayCount).toList();
-    final grouped = _groupByDate(displayed);
     final hasMore = filtered.length > _displayCount;
 
-    return ListView.builder(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(
-        parent: BouncingScrollPhysics(),
-      ),
-      padding: EdgeInsets.symmetric(horizontal: responsive.horizontalPadding),
-      itemCount: grouped.length + (hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        // Indicador de "cargando más" al final (scroll infinito)
-        if (index == grouped.length) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Center(
-              child: Text(
-                '${filtered.length - _displayCount} más...',
-                style: AppTypography.bodySmall(
+    // Búsqueda activa → lista plana ordenada por relevancia (RF-09)
+    // Sin búsqueda → lista agrupada por fecha
+    final isSearching = _searchQuery.isNotEmpty;
+    final grouped = isSearching ? null : _groupByDate(displayed);
+    final groupKeys = grouped?.keys.toList() ?? [];
+    final listLength = isSearching
+        ? displayed.length + (hasMore ? 1 : 0)
+        : groupKeys.length + (hasMore ? 1 : 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Indicador de número de resultados (RF-09)
+        if (isSearching)
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: responsive.horizontalPadding,
+              vertical: 6,
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.search_rounded,
+                  size: 13,
                   color: AppColors.textTertiaryLight,
                 ),
-              ),
+                const SizedBox(width: 5),
+                Text(
+                  '${filtered.length} resultado${filtered.length == 1 ? '' : 's'}',
+                  style: AppTypography.badge(
+                    color: AppColors.textTertiaryLight,
+                  ),
+                ),
+              ],
             ),
-          );
-        }
-        final dateLabel = grouped.keys.elementAt(index);
-        final items = grouped[dateLabel]!;
-        return _buildDateGroup(dateLabel, items);
-      },
+          ),
+        Expanded(
+          child: ListView.builder(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(
+              horizontal: responsive.horizontalPadding,
+            ),
+            itemCount: listLength,
+            itemBuilder: (context, index) {
+              final isMoreIndicator = isSearching
+                  ? index == displayed.length
+                  : index == groupKeys.length;
+              // Indicador de "cargando más" al final (scroll infinito)
+              if (isMoreIndicator && hasMore) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: Text(
+                      '${filtered.length - _displayCount} más...',
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textTertiaryLight,
+                      ),
+                    ),
+                  ),
+                );
+              }
+              if (isSearching) {
+                // Lista plana ordenada por relevancia (RF-09)
+                return _buildTransactionItem(displayed[index]);
+              } else {
+                // Lista agrupada por fecha (modo normal)
+                final dateLabel = groupKeys[index];
+                return _buildDateGroup(dateLabel, grouped![dateLabel]!);
+              }
+            },
+          ),
+        ),
+      ],
     );
   }
 
