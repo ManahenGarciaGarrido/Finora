@@ -75,7 +75,10 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _transactionBloc = di.sl<TransactionBloc>()..add(LoadTransactions());
+    // No disparar LoadTransactions aquí: el token JWT aún no está configurado
+    // en ApiClient en este punto del ciclo de vida. Se dispara desde HomePage
+    // una vez que la autenticación se ha completado.
+    _transactionBloc = di.sl<TransactionBloc>();
 
     // Escuchar sincronización completada para recargar transacciones
     _syncSubscription = widget.connectivityService.onSyncComplete.listen((_) {

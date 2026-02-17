@@ -56,7 +56,8 @@ class _DashboardContentState extends State<DashboardContent> {
     final authState = context.watch<AuthBloc>().state;
     if (authState is Authenticated) {
       final parts = authState.user.name.split(' ');
-      if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+      if (parts.length >= 2)
+        return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
       return parts[0].substring(0, math.min(2, parts[0].length)).toUpperCase();
     }
     return 'U';
@@ -77,9 +78,7 @@ class _DashboardContentState extends State<DashboardContent> {
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: () async {
-          context.read<TransactionBloc>().add(
-            LoadTransactions(),
-          );
+          context.read<TransactionBloc>().add(LoadTransactions());
           await Future.delayed(const Duration(milliseconds: 500));
         },
         color: AppColors.primary,
@@ -104,7 +103,10 @@ class _DashboardContentState extends State<DashboardContent> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(hp, 28, hp, 12),
-                child: _buildSectionHeader('Últimas transacciones', onTap: widget.onNavigateToTransactions),
+                child: _buildSectionHeader(
+                  'Últimas transacciones',
+                  onTap: widget.onNavigateToTransactions,
+                ),
               ),
             ),
             SliverPadding(
@@ -164,7 +166,10 @@ class _DashboardContentState extends State<DashboardContent> {
                     flex: 2,
                     child: Column(
                       children: [
-                        _buildSectionHeader('Últimas transacciones', onTap: widget.onNavigateToTransactions),
+                        _buildSectionHeader(
+                          'Últimas transacciones',
+                          onTap: widget.onNavigateToTransactions,
+                        ),
                         const SizedBox(height: 12),
                         _buildTransactionsColumn(context),
                       ],
@@ -187,7 +192,10 @@ class _DashboardContentState extends State<DashboardContent> {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        responsive.horizontalPadding, 16, responsive.horizontalPadding, 16,
+        responsive.horizontalPadding,
+        16,
+        responsive.horizontalPadding,
+        16,
       ),
       child: Row(
         children: [
@@ -202,7 +210,9 @@ class _DashboardContentState extends State<DashboardContent> {
                 const SizedBox(height: 2),
                 Text(
                   _getGreetingMessage(),
-                  style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
+                  style: AppTypography.bodyMedium(
+                    color: AppColors.textSecondaryLight,
+                  ),
                 ),
               ],
             ),
@@ -261,8 +271,12 @@ class _DashboardContentState extends State<DashboardContent> {
   Widget _buildBalanceCard(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
-        final double income = state is TransactionsLoaded ? state.totalIncome : 0;
-        final double expenses = state is TransactionsLoaded ? state.totalExpenses : 0;
+        final double income = state is TransactionsLoaded
+            ? state.totalIncome
+            : 0;
+        final double expenses = state is TransactionsLoaded
+            ? state.totalExpenses
+            : 0;
         final double balance = income - expenses;
 
         return Container(
@@ -292,10 +306,14 @@ class _DashboardContentState extends State<DashboardContent> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () => setState(() => _balanceVisible = !_balanceVisible),
+                    onTap: () =>
+                        setState(() => _balanceVisible = !_balanceVisible),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
@@ -323,7 +341,10 @@ class _DashboardContentState extends State<DashboardContent> {
               if (income == 0 && expenses == 0) ...[
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -346,7 +367,9 @@ class _DashboardContentState extends State<DashboardContent> {
                     _buildBalanceIndicator(
                       icon: Icons.south_west_rounded,
                       label: 'Ingresos',
-                      amount: _balanceVisible ? _formatCurrency(income) : '••••',
+                      amount: _balanceVisible
+                          ? _formatCurrency(income)
+                          : '••••',
                       color: AppColors.successLight,
                     ),
                     Container(
@@ -357,7 +380,9 @@ class _DashboardContentState extends State<DashboardContent> {
                     _buildBalanceIndicator(
                       icon: Icons.north_east_rounded,
                       label: 'Gastos',
-                      amount: _balanceVisible ? _formatCurrency(expenses) : '••••',
+                      amount: _balanceVisible
+                          ? _formatCurrency(expenses)
+                          : '••••',
                       color: AppColors.errorLight,
                     ),
                   ],
@@ -452,17 +477,21 @@ class _DashboardContentState extends State<DashboardContent> {
   }) {
     final available = onTap != null;
     return GestureDetector(
-      onTap: onTap ?? () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$label: Próximamente'),
-            backgroundColor: AppColors.gray700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      },
+      onTap:
+          onTap ??
+          () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$label: Próximamente'),
+                backgroundColor: AppColors.gray700,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
       child: Column(
         children: [
           Container(
@@ -478,7 +507,11 @@ class _DashboardContentState extends State<DashboardContent> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(icon, color: available ? color : color.withValues(alpha: 0.4), size: 26),
+                Icon(
+                  icon,
+                  color: available ? color : color.withValues(alpha: 0.4),
+                  size: 26,
+                ),
                 if (!available)
                   Positioned(
                     top: 4,
@@ -490,7 +523,11 @@ class _DashboardContentState extends State<DashboardContent> {
                         color: AppColors.gray300,
                         borderRadius: BorderRadius.circular(7),
                       ),
-                      child: const Icon(Icons.lock_outline, size: 8, color: AppColors.white),
+                      child: const Icon(
+                        Icons.lock_outline,
+                        size: 8,
+                        color: AppColors.white,
+                      ),
                     ),
                   ),
               ],
@@ -500,7 +537,9 @@ class _DashboardContentState extends State<DashboardContent> {
           Text(
             label,
             style: AppTypography.labelSmall(
-              color: available ? AppColors.textSecondaryLight : AppColors.textTertiaryLight,
+              color: available
+                  ? AppColors.textSecondaryLight
+                  : AppColors.textTertiaryLight,
             ),
           ),
         ],
@@ -577,90 +616,105 @@ class _DashboardContentState extends State<DashboardContent> {
     return GestureDetector(
       onTap: () => _openEditPage(t),
       child: Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: t.isPendingSync ? AppColors.warning.withValues(alpha: 0.4) : AppColors.gray100,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: t.isPendingSync
+                ? AppColors.warning.withValues(alpha: 0.4)
+                : AppColors.gray100,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: _getCategoryColor(t.category).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  _getCategoryIcon(t.category),
-                  color: _getCategoryColor(t.category),
-                  size: 20,
-                ),
-                // Indicador de pendiente de sincronización (RNF-15)
-                if (t.isPendingSync)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: AppColors.warning,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.white, width: 1.5),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _getCategoryColor(t.category).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    _getCategoryIcon(t.category),
+                    color: _getCategoryColor(t.category),
+                    size: 20,
+                  ),
+                  // Indicador de pendiente de sincronización (RNF-15)
+                  if (t.isPendingSync)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: AppColors.warning,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppColors.white,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.cloud_upload_outlined,
+                          size: 7,
+                          color: AppColors.white,
+                        ),
                       ),
-                      child: const Icon(Icons.cloud_upload_outlined, size: 7, color: AppColors.white),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.description?.isNotEmpty == true
+                        ? t.description!
+                        : t.category,
+                    style: AppTypography.titleSmall(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${t.category} · ${t.paymentMethod.label}',
+                    style: AppTypography.bodySmall(
+                      color: AppColors.textTertiaryLight,
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  t.description?.isNotEmpty == true ? t.description! : t.category,
-                  style: AppTypography.titleSmall(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  '${t.isExpense ? '-' : '+'}${_formatCurrency(t.amount)}',
+                  style: AppTypography.titleSmall(
+                    color: t.isExpense ? AppColors.expense : AppColors.income,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${t.category} · ${t.paymentMethod.label}',
-                  style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+                  _formatRelativeDate(t.date),
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textTertiaryLight,
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${t.isExpense ? '-' : '+'}${_formatCurrency(t.amount)}',
-                style: AppTypography.titleSmall(
-                  color: t.isExpense ? AppColors.expense : AppColors.income,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _formatRelativeDate(t.date),
-                style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -681,7 +735,11 @@ class _DashboardContentState extends State<DashboardContent> {
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 28),
+            child: const Icon(
+              Icons.receipt_long_outlined,
+              color: AppColors.primary,
+              size: 28,
+            ),
           ),
           const SizedBox(height: 16),
           Text('Sin transacciones', style: AppTypography.titleSmall()),
@@ -745,8 +803,16 @@ class _DashboardContentState extends State<DashboardContent> {
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(_formatCurrency(totalExpenses), style: AppTypography.titleMedium()),
-                            Text('total', style: AppTypography.bodySmall(color: AppColors.textTertiaryLight)),
+                            Text(
+                              _formatCurrency(totalExpenses),
+                              style: AppTypography.titleMedium(),
+                            ),
+                            Text(
+                              'total',
+                              style: AppTypography.bodySmall(
+                                color: AppColors.textTertiaryLight,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -755,7 +821,9 @@ class _DashboardContentState extends State<DashboardContent> {
                 ),
                 const SizedBox(height: 20),
                 ...categories.entries.map((cat) {
-                  final pct = totalExpenses > 0 ? (cat.value / totalExpenses * 100) : 0;
+                  final pct = totalExpenses > 0
+                      ? (cat.value / totalExpenses * 100)
+                      : 0;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
@@ -769,13 +837,23 @@ class _DashboardContentState extends State<DashboardContent> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(cat.key, style: AppTypography.bodySmall())),
+                        Expanded(
+                          child: Text(
+                            cat.key,
+                            style: AppTypography.bodySmall(),
+                          ),
+                        ),
                         Text(
                           '${pct.toStringAsFixed(0)}%',
-                          style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+                          style: AppTypography.bodySmall(
+                            color: AppColors.textTertiaryLight,
+                          ),
                         ),
                         const SizedBox(width: 8),
-                        Text(_formatCurrency(cat.value), style: AppTypography.titleSmall()),
+                        Text(
+                          _formatCurrency(cat.value),
+                          style: AppTypography.titleSmall(),
+                        ),
                       ],
                     ),
                   );
@@ -803,7 +881,9 @@ class _DashboardContentState extends State<DashboardContent> {
             const SizedBox(height: 8),
             Text(
               'Registra gastos para ver el desglose',
-              style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+              style: AppTypography.bodySmall(
+                color: AppColors.textTertiaryLight,
+              ),
             ),
           ],
         ),
@@ -818,7 +898,9 @@ class _DashboardContentState extends State<DashboardContent> {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
         final income = state is TransactionsLoaded ? state.totalIncome : 0.0;
-        final expenses = state is TransactionsLoaded ? state.totalExpenses : 0.0;
+        final expenses = state is TransactionsLoaded
+            ? state.totalExpenses
+            : 0.0;
         final savings = income - expenses;
 
         return Container(
@@ -836,7 +918,10 @@ class _DashboardContentState extends State<DashboardContent> {
                 children: [
                   Text('Resumen del mes', style: AppTypography.titleMedium()),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primarySoft,
                       borderRadius: BorderRadius.circular(8),
@@ -874,7 +959,9 @@ class _DashboardContentState extends State<DashboardContent> {
                       icon: Icons.savings_outlined,
                       label: 'Ahorro',
                       value: _formatCurrency(savings),
-                      color: savings >= 0 ? AppColors.accent : AppColors.warning,
+                      color: savings >= 0
+                          ? AppColors.accent
+                          : AppColors.warning,
                     ),
                   ),
                 ],
@@ -890,7 +977,9 @@ class _DashboardContentState extends State<DashboardContent> {
                     minHeight: 8,
                     backgroundColor: AppColors.gray100,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      (expenses / income) > 0.9 ? AppColors.error : AppColors.primary,
+                      (expenses / income) > 0.9
+                          ? AppColors.error
+                          : AppColors.primary,
                     ),
                   ),
                 ),
@@ -899,7 +988,9 @@ class _DashboardContentState extends State<DashboardContent> {
                   income > 0
                       ? 'Has gastado el ${(expenses / income * 100).toStringAsFixed(0)}% de tus ingresos'
                       : '',
-                  style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textTertiaryLight,
+                  ),
                 ),
               ],
             ],
@@ -926,7 +1017,10 @@ class _DashboardContentState extends State<DashboardContent> {
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(height: 8),
-          Text(label, style: AppTypography.labelSmall(color: AppColors.textTertiaryLight)),
+          Text(
+            label,
+            style: AppTypography.labelSmall(color: AppColors.textTertiaryLight),
+          ),
           const SizedBox(height: 2),
           Text(
             value,
@@ -940,8 +1034,18 @@ class _DashboardContentState extends State<DashboardContent> {
 
   String _currentMonthLabel() {
     const months = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
     ];
     final now = DateTime.now();
     return '${months[now.month - 1]} ${now.year}';
@@ -957,7 +1061,20 @@ class _DashboardContentState extends State<DashboardContent> {
     final d = DateTime(date.year, date.month, date.day);
     if (d == today) return 'Hoy';
     if (d == yesterday) return 'Ayer';
-    const m = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const m = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
+    ];
     return '${date.day} ${m[date.month - 1]}';
   }
 

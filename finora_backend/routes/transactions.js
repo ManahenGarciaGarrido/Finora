@@ -116,8 +116,10 @@ router.get('/',
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('El límite debe ser entre 1 y 100'),
     query('type').optional().isIn(['income', 'expense']).withMessage('Tipo inválido'),
     query('category').optional().trim(),
+    query('categories').optional().trim(),
     query('from').optional().isISO8601().withMessage('Fecha desde inválida'),
     query('to').optional().isISO8601().withMessage('Fecha hasta inválida'),
+    query('payment_method').optional().isIn(['cash', 'card', 'transfer']).withMessage('Método de pago inválido'),
   ],
   async (req, res) => {
     try {
@@ -144,9 +146,24 @@ router.get('/',
         paramIndex++;
       }
 
-      if (req.query.category) {
+      if (req.query.categories) {
+        // Soporte para múltiples categorías separadas por coma (RF-08)
+        const categoryList = req.query.categories.split(',').map(c => c.trim()).filter(c => c.length > 0);
+        if (categoryList.length > 0) {
+          const placeholders = categoryList.map((_, i) => `$${paramIndex + i}`).join(', ');
+          whereClause += ` AND category IN (${placeholders})`;
+          params.push(...categoryList);
+          paramIndex += categoryList.length;
+        }
+      } else if (req.query.category) {
         whereClause += ` AND category = $${paramIndex}`;
         params.push(req.query.category);
+        paramIndex++;
+      }
+
+      if (req.query.payment_method) {
+        whereClause += ` AND payment_method = $${paramIndex}`;
+        params.push(req.query.payment_method);
         paramIndex++;
       }
 
