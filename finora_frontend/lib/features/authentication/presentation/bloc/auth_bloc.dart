@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
@@ -97,6 +98,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   /// Handle check authentication status
+  ///
+  /// Verifica la sesión usando datos locales primero (sin red) para evitar
+  /// cierres de sesión falsos por problemas de conectividad (RF-08 / RNF-15).
   Future<void> _onCheckAuthStatus(
     CheckAuthStatus event,
     Emitter<AuthState> emit,
@@ -104,31 +108,63 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
 
     try {
-      // Load token from secure storage and set it in ApiClient
       final localDataSource = di.sl<AuthLocalDataSource>();
       final token = await localDataSource.getToken();
 
-      if (token != null) {
-        final apiClient = di.sl<ApiClient>();
-        apiClient.setToken(token);
-      }
-
-      // Check if user is logged in by verifying token existence
-      final isLoggedIn = await loginUseCase.repository.isLoggedIn();
-
-      if (isLoggedIn) {
-        // Get cached user data
-        final result = await loginUseCase.repository.getCurrentUser();
-
-        result.fold(
-          (failure) => emit(const Unauthenticated()),
-          (user) => emit(Authenticated(user: user)),
-        );
-      } else {
+      // Sin token → no autenticado
+      if (token == null || token.isEmpty) {
         emit(const Unauthenticated());
+        return;
       }
+
+      // Verificar expiración del JWT localmente (sin llamada de red)
+      if (_isTokenExpired(token)) {
+        await localDataSource.clearToken();
+        emit(const Unauthenticated());
+        return;
+      }
+
+      // Token válido → configurar en ApiClient
+      final apiClient = di.sl<ApiClient>();
+      apiClient.setToken(token);
+
+      // Usar datos de usuario en caché local primero (sin red)
+      try {
+        final cachedUser = await localDataSource.getCachedUser();
+        emit(Authenticated(user: cachedUser));
+        return;
+      } catch (_) {
+        // Sin caché local → intentar con red como fallback
+      }
+
+      // Fallback: obtener usuario desde el servidor
+      final result = await loginUseCase.repository.getCurrentUser();
+      result.fold(
+        (failure) => emit(const Unauthenticated()),
+        (user) => emit(Authenticated(user: user)),
+      );
     } catch (e) {
       emit(const Unauthenticated());
+    }
+  }
+
+  /// Decodifica el JWT y comprueba si ha expirado localmente (sin red).
+  bool _isTokenExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = parts[1];
+      // Normalizar padding base64url
+      final normalized = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final map = json.decode(decoded) as Map<String, dynamic>;
+      final exp = map['exp'] as int?;
+      if (exp == null) return false;
+      return DateTime.fromMillisecondsSinceEpoch(exp * 1000)
+          .isBefore(DateTime.now());
+    } catch (_) {
+      // Si no podemos decodificar, no forzamos el cierre de sesión
+      return false;
     }
   }
 
