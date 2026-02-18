@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_startup_tracker.dart';
 import '../../../../shared/widgets/animated_gradient_background.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -9,11 +10,12 @@ import '../bloc/auth_state.dart';
 
 /// Pantalla de Splash con verificación de autenticación
 ///
-/// Características:
+/// Características (RNF-08):
 /// - Verifica si hay una sesión activa al iniciar
 /// - Navega automáticamente al home si está autenticado
 /// - Navega al login si no está autenticado
-/// - Muestra animación de carga durante la verificación
+/// - Animación optimizada: duración total < 1 segundo
+/// - CheckAuthStatus se dispara de forma inmediata sin delays artificiales
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -31,8 +33,9 @@ class _SplashPageState extends State<SplashPage>
   void initState() {
     super.initState();
 
+    // RNF-08: Animación reducida a 600ms (era 1500ms) para cumplir splash < 1s
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
@@ -46,10 +49,9 @@ class _SplashPageState extends State<SplashPage>
 
     _animationController.forward();
 
-    // Verificar estado de autenticación
-    Future.delayed(const Duration(milliseconds: 500), () {
-      context.read<AuthBloc>().add(const CheckAuthStatus());
-    });
+    // RNF-08: Verificar estado de autenticación de forma inmediata,
+    // sin delay artificial (era 500ms de espera innecesaria)
+    context.read<AuthBloc>().add(const CheckAuthStatus());
   }
 
   @override
@@ -60,19 +62,17 @@ class _SplashPageState extends State<SplashPage>
 
   void _handleAuthState(BuildContext context, AuthState state) {
     if (state is Authenticated) {
-      // Usuario autenticado, navegar al home
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
-      });
+      // RNF-08: Navegación inmediata al home, sin delay artificial (era 500ms)
+      AppStartupTracker.markSplashComplete();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
     } else if (state is Unauthenticated) {
-      // Usuario no autenticado, navegar al login
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/login');
-        }
-      });
+      // RNF-08: Navegación inmediata al login, sin delay artificial (era 500ms)
+      AppStartupTracker.markSplashComplete();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
     }
   }
 

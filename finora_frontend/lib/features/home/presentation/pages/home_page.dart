@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/responsive/responsive_builder.dart';
+import '../../../../core/utils/app_startup_tracker.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import 'dashboard_content.dart';
@@ -53,6 +54,8 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<TransactionBloc>().add(LoadTransactions());
+        // RNF-08: Dashboard visible → registrar tiempo de inicio completo
+        AppStartupTracker.markDashboardReady();
       }
     });
   }

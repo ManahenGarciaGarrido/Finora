@@ -8,12 +8,12 @@ import 'core/network/api_client.dart';
 import 'core/connectivity/connectivity_service.dart';
 import 'core/utils/platform_version_helper.dart';
 import 'core/utils/ios_version_helper.dart';
+import 'core/utils/app_startup_tracker.dart';
 import 'features/authentication/data/datasources/auth_local_datasource.dart';
 import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/transactions/presentation/bloc/transaction_bloc.dart';
 import 'features/transactions/presentation/bloc/transaction_event.dart';
 import 'features/categories/presentation/bloc/category_bloc.dart';
-import 'features/categories/presentation/bloc/category_event.dart';
 import 'features/authentication/presentation/pages/splash_page.dart';
 import 'features/authentication/presentation/pages/login_page.dart';
 import 'features/authentication/presentation/pages/register_page.dart';
@@ -35,22 +35,30 @@ void main() async {
   // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
 
+  // RNF-08: Iniciar tracker de arranque para medir tiempos de inicio
+  AppStartupTracker.markAppStart();
+
+  // RNF-08: Inicializar servicios en paralelo para reducir tiempo de cold start.
+  // localDatabase, connectivityService, PlatformVersionHelper e IOSVersionHelper
+  // son independientes entre sí y pueden ejecutarse concurrentemente.
+  final localDatabase = LocalDatabase();
+  await localDatabase.init();
+
   // Initialize dependency injection
   // This sets up all dependencies following the dependency inversion principle
   await di.init();
 
-  // Inicializar base de datos local Hive (RNF-15 - Offline)
-  final localDatabase = di.sl<LocalDatabase>();
-  await localDatabase.init();
-
-  // Inicializar servicio de conectividad (RNF-15 - Auto-sync)
   final connectivityService = di.sl<ConnectivityService>();
-  await connectivityService.init();
 
-  // Inicializar cache de versiones de plataforma para verificación de compatibilidad
-  // Esto detecta la versión de Android/iOS y cachea la información del dispositivo
-  await PlatformVersionHelper.initialize();  // Android
-  await IOSVersionHelper.initialize();        // iOS
+  await Future.wait([
+    localDatabase.init(),
+    connectivityService.init(),
+    PlatformVersionHelper.initialize(),
+    IOSVersionHelper.initialize(),
+  ]);
+
+  // RNF-08: Registrar tiempo de init completado
+  AppStartupTracker.markInitComplete();
 
   runApp(MyApp(connectivityService: connectivityService));
 }
@@ -124,7 +132,9 @@ class _MyAppState extends State<MyApp> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.'),
+            content: const Text(
+              'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.',
+            ),
             backgroundColor: Colors.orange[700],
             duration: const Duration(seconds: 4),
           ),
@@ -146,16 +156,12 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) => di.sl<AuthBloc>(),
-        ),
-        BlocProvider.value(
-          value: _transactionBloc,
-        ),
-        BlocProvider(
-          create: (_) => di.sl<CategoryBloc>()
-              ..add(LoadCategories()),
-        ),
+        BlocProvider(create: (_) => di.sl<AuthBloc>()),
+        BlocProvider.value(value: _transactionBloc),
+        // RNF-08: CategoryBloc se registra sin disparar LoadCategories aquí.
+        // Las categorías solo se necesitan en AddTransactionPage y EditTransactionPage,
+        // por lo que se cargan de forma lazy cuando el usuario accede a esas pantallas.
+        BlocProvider(create: (_) => di.sl<CategoryBloc>()),
       ],
       child: MaterialApp(
         navigatorKey: _navigatorKey,
@@ -184,7 +190,8 @@ class _MyAppState extends State<MyApp> {
             final transaction = settings.arguments as TransactionEntity?;
             if (transaction != null) {
               return MaterialPageRoute(
-                builder: (context) => EditTransactionPage(transaction: transaction),
+                builder: (context) =>
+                    EditTransactionPage(transaction: transaction),
                 settings: settings,
               );
             }
@@ -207,16 +214,16 @@ class _MyAppState extends State<MyApp> {
             }
 
             if (token != null && token.isNotEmpty) {
-              debugPrint('Navigating to ResetPasswordPage with token: ${token.substring(0, 10)}...');
+              debugPrint(
+                'Navigating to ResetPasswordPage with token: ${token.substring(0, 10)}...',
+              );
               return MaterialPageRoute(
                 builder: (context) => ResetPasswordPage(token: token!),
                 settings: settings,
               );
             } else {
               debugPrint('ERROR: No token found, redirecting to login');
-              return MaterialPageRoute(
-                builder: (context) => const LoginPage(),
-              );
+              return MaterialPageRoute(builder: (context) => const LoginPage());
             }
           }
           return null;

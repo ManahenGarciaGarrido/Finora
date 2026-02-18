@@ -15,6 +15,7 @@ import '../bloc/transaction_bloc.dart';
 import '../bloc/transaction_event.dart';
 import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/bloc/category_bloc.dart';
+import '../../../categories/presentation/bloc/category_event.dart';
 import '../../../categories/presentation/bloc/category_state.dart';
 
 /// Página de Registro Manual de Transacciones (RF-05, HU-03)
@@ -78,6 +79,14 @@ class _AddTransactionPageState extends State<AddTransactionPage>
         );
     _animationController.forward();
     _computeCategoryFrequency();
+
+    // RNF-08: Carga lazy de categorías — solo se cargan cuando el usuario
+    // abre esta pantalla, no al inicio de la app.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<CategoryBloc>().add(LoadCategories());
+      }
+    });
   }
 
   /// HU-03: Calcula la frecuencia de uso de cada categoría desde el historial
