@@ -64,6 +64,11 @@ dependencies:
   # Image Picker (HU-03: foto del ticket)
   image_picker: ^1.0.7
 
+  # RNF-08: Splash screen nativo optimizado
+  # Muestra el splash antes de que el motor de Flutter arranque,
+  # eliminando la pantalla en blanco del cold start.
+  flutter_native_splash: ^2.3.10
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -121,3 +126,20 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# RNF-08: Configuración de flutter_native_splash
+# Genera splash screens nativos para Android e iOS que se muestran
+# ANTES de que el motor de Flutter arranque, cubriendo la pantalla en blanco.
+# Para aplicar: flutter pub run flutter_native_splash:create
+flutter_native_splash:
+  color: "#ffffff"
+  # Usando el ícono de Material Icons como placeholder hasta tener el logo final
+  # image: assets/images/splash_logo.png  # Descomentar cuando exista el asset
+  android: true
+  ios: true
+  android_gravity: center
+  ios_content_mode: center
+  fullscreen: false
+  # Ocultar el splash nativo en cuanto Flutter esté listo
+  android_12:
+    color: "#ffffff"
