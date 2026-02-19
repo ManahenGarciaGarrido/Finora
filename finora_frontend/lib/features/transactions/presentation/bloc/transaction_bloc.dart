@@ -24,6 +24,16 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   final SyncManager _syncManager;
   final List<TransactionEntity> _transactions = [];
 
+  /// Cache inteligente: marca cuándo se hizo la última carga desde la API.
+  /// Si han pasado menos de [_cacheTtl], se reutilizan los datos de Hive
+  /// sin lanzar una nueva petición de red (Nota Técnica HU-15).
+  DateTime? _lastApiLoadTime;
+  static const Duration _cacheTtl = Duration(seconds: 30);
+
+  bool get _isCacheValid =>
+      _lastApiLoadTime != null &&
+      DateTime.now().difference(_lastApiLoadTime!) < _cacheTtl;
+
   TransactionBloc({
     required ApiClient apiClient,
     required LocalDatabase localDatabase,
@@ -97,7 +107,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       _emitLoaded(emit, isOffline: false);
     }
 
-    // Paso 2: Intentar cargar de API en background
+    // Paso 2: Cache inteligente — si los datos son recientes (< 30 s),
+    // evitar llamada a la API y devolver los datos de Hive (Nota Técnica HU-15)
+    if (localData.isNotEmpty && _isCacheValid) {
+      debugPrint('TransactionBloc: Cache válida (${DateTime.now().difference(_lastApiLoadTime!).inSeconds}s), usando datos locales');
+      _emitLoaded(emit, isOffline: false);
+      return;
+    }
+
+    // Paso 3: Intentar cargar de API en background
     try {
       final isConnected = await _networkInfo.isConnected;
       if (!isConnected) {
@@ -151,6 +169,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         await _localDatabase.saveAllTransactions(serverTransactions);
       }
 
+      // Actualizar timestamp de cache tras carga exitosa desde API
+      _lastApiLoadTime = DateTime.now();
       _emitLoaded(emit, isOffline: false);
     } catch (e) {
       debugPrint('TransactionBloc: Error cargando de API: $e');
@@ -159,11 +179,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     }
   }
 
+  /// Invalida la cache para forzar recarga desde API en el próximo LoadTransactions
+  void _invalidateCache() => _lastApiLoadTime = null;
+
   /// Agregar transacción: guardar en Hive primero, luego API si hay conexión
   Future<void> _onAddTransaction(
     AddTransaction event,
     Emitter<TransactionState> emit,
   ) async {
+    _invalidateCache(); // Las mutaciones siempre deben refrescarse desde la API
     emit(TransactionLoading());
 
     final isConnected = await _networkInfo.isConnected;
@@ -269,6 +293,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     EditTransaction event,
     Emitter<TransactionState> emit,
   ) async {
+    _invalidateCache();
     emit(TransactionLoading());
 
     final t = event.transaction;
@@ -338,6 +363,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     DeleteTransaction event,
     Emitter<TransactionState> emit,
   ) async {
+    _invalidateCache();
     emit(TransactionLoading());
 
     final isConnected = await _networkInfo.isConnected;
