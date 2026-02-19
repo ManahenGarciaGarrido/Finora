@@ -38,16 +38,14 @@ void main() async {
   // RNF-08: Iniciar tracker de arranque para medir tiempos de inicio
   AppStartupTracker.markAppStart();
 
-  // RNF-08: Inicializar servicios en paralelo para reducir tiempo de cold start.
-  // localDatabase, connectivityService, PlatformVersionHelper e IOSVersionHelper
-  // son independientes entre sí y pueden ejecutarse concurrentemente.
-  final localDatabase = LocalDatabase();
-  await localDatabase.init();
-
   // Initialize dependency injection
   // This sets up all dependencies following the dependency inversion principle
   await di.init();
 
+  // RNF-08: Inicializar servicios en paralelo para reducir tiempo de cold start.
+  // localDatabase, connectivityService, PlatformVersionHelper e IOSVersionHelper
+  // son independientes entre sí y pueden ejecutarse concurrentemente.
+  final localDatabase = di.sl<LocalDatabase>();
   final connectivityService = di.sl<ConnectivityService>();
 
   await Future.wait([
