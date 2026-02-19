@@ -26,8 +26,13 @@ class DashboardContent extends StatefulWidget {
   State<DashboardContent> createState() => _DashboardContentState();
 }
 
-class _DashboardContentState extends State<DashboardContent> {
+class _DashboardContentState extends State<DashboardContent>
+    with SingleTickerProviderStateMixin {
   bool _balanceVisible = true;
+
+  // ─── Shimmer animation (Skeleton loading – Nota Técnica) ─────────────────
+  late AnimationController _shimmerCtrl;
+  late Animation<double> _shimmerAnim;
 
   String _formatCurrency(double amount) {
     final isNegative = amount < 0;
@@ -62,6 +67,24 @@ class _DashboardContentState extends State<DashboardContent> {
       return parts[0].substring(0, math.min(2, parts[0].length)).toUpperCase();
     }
     return 'U';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerCtrl = AnimationController(
+      duration: const Duration(milliseconds: 1100),
+      vsync: this,
+    )..repeat(reverse: true);
+    _shimmerAnim = Tween<double>(begin: 0.35, end: 0.85).animate(
+      CurvedAnimation(parent: _shimmerCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _shimmerCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -103,39 +126,76 @@ class _DashboardContentState extends State<DashboardContent> {
                 child: _buildQuickActions(context),
               ),
             ),
-            // Resumen del mes actual con comparativa (RF-28)
+            // Secciones principales: skeleton mientras carga, real cuando listo (Nota Técnica)
             SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
-                child: _buildMonthlyOverview(context),
-              ),
-            ),
-            // Gráfico barras ingresos vs gastos últimos 6 meses (RF-28)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                child: _buildIncomeExpenseChart(context),
-              ),
-            ),
-            // Top 5 categorías del mes actual (RF-28)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                child: _buildSpendingChart(context),
-              ),
-            ),
-            // Progreso de objetivos (RF-28)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                child: _buildGoalsSection(context),
-              ),
-            ),
-            // Próximos gastos recurrentes (RF-28)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                child: _buildRecurringExpenses(context),
+              child: BlocBuilder<TransactionBloc, TransactionState>(
+                builder: (ctx, state) {
+                  final isLoading =
+                      state is TransactionInitial || state is TransactionLoading;
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    transitionBuilder: (child, anim) =>
+                        FadeTransition(opacity: anim, child: child),
+                    child: isLoading
+                        ? Column(
+                            key: const ValueKey('dashboard_skeleton'),
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
+                                child: _buildSkeletonSectionCard(height: 160),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildSkeletonSectionCard(height: 230),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildSkeletonSectionCard(height: 220),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildSkeletonSectionCard(height: 180),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildSkeletonSectionCard(height: 100),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            key: const ValueKey('dashboard_loaded'),
+                            children: [
+                              // Resumen del mes actual con comparativa (RF-28)
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
+                                child: _buildMonthlyOverview(context),
+                              ),
+                              // Gráfico barras ingresos vs gastos últimos 6 meses (RF-28)
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildIncomeExpenseChart(context),
+                              ),
+                              // Top 5 categorías del mes actual (RF-28)
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildSpendingChart(context),
+                              ),
+                              // Progreso de objetivos (RF-28)
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildGoalsSection(context),
+                              ),
+                              // Próximos gastos recurrentes (RF-28)
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildRecurringExpenses(context),
+                              ),
+                            ],
+                          ),
+                  );
+                },
               ),
             ),
             // Últimas transacciones
@@ -299,6 +359,143 @@ class _DashboardContentState extends State<DashboardContent> {
   }
 
   // ============================================
+  // SKELETON LOADING (Nota Técnica HU-15)
+  // Muestra placeholders animados mientras carga la primera vez.
+  // ============================================
+
+  /// Caja gris pulsante: base de todos los widgets skeleton
+  Widget _shimmerBox({
+    double width = double.infinity,
+    double height = 16,
+    double radius = 8,
+  }) {
+    return AnimatedBuilder(
+      animation: _shimmerAnim,
+      builder: (_, __) => Opacity(
+        opacity: _shimmerAnim.value,
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: AppColors.gray200,
+            borderRadius: BorderRadius.circular(radius),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Skeleton de la tarjeta de balance (copia visual de _buildBalanceCard)
+  Widget _buildSkeletonBalanceCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _shimmerBox(width: 90, height: 14, radius: 6),
+              _shimmerBox(width: 32, height: 26, radius: 13),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _shimmerBox(width: 180, height: 36, radius: 10),
+          const SizedBox(height: 22),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _shimmerBox(height: 36, radius: 8)),
+                const SizedBox(width: 12),
+                Expanded(child: _shimmerBox(height: 36, radius: 8)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Skeleton genérico de card de sección
+  Widget _buildSkeletonSectionCard({double height = 120}) {
+    return Container(
+      width: double.infinity,
+      height: height,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.gray100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _shimmerBox(width: 120, height: 14, radius: 6),
+          const SizedBox(height: 12),
+          _shimmerBox(height: 12, radius: 6),
+          const SizedBox(height: 8),
+          _shimmerBox(width: 200, height: 12, radius: 6),
+        ],
+      ),
+    );
+  }
+
+  /// Skeleton de un ítem de transacción
+  Widget _buildSkeletonTransactionTile() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.gray100),
+      ),
+      child: Row(
+        children: [
+          _shimmerBox(width: 44, height: 44, radius: 12),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _shimmerBox(width: 140, height: 13, radius: 6),
+                const SizedBox(height: 6),
+                _shimmerBox(width: 90, height: 11, radius: 5),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _shimmerBox(width: 64, height: 13, radius: 6),
+              const SizedBox(height: 6),
+              _shimmerBox(width: 40, height: 11, radius: 5),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================
   // MONTHLY DATA HELPERS (RF-28)
   // ============================================
 
@@ -403,6 +600,14 @@ class _DashboardContentState extends State<DashboardContent> {
   Widget _buildBalanceCard(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
+        // Skeleton loading: muestra placeholder animado mientras carga (Nota Técnica)
+        if (state is TransactionInitial || state is TransactionLoading) {
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            child: _buildSkeletonBalanceCard(),
+          );
+        }
+
         final double income = state is TransactionsLoaded
             ? state.totalIncome
             : 0;
@@ -411,7 +616,11 @@ class _DashboardContentState extends State<DashboardContent> {
             : 0;
         final double balance = income - expenses;
 
-        return Container(
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          switchInCurve: Curves.easeOut,
+          child: Container(
+            key: const ValueKey('balance_loaded'),
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -522,7 +731,8 @@ class _DashboardContentState extends State<DashboardContent> {
               ),
             ],
           ),
-        );
+        ), // cierra Container (tarjeta de balance)
+        ); // cierra AnimatedSwitcher
       },
     );
   }
@@ -716,6 +926,15 @@ class _DashboardContentState extends State<DashboardContent> {
   Widget _buildTransactionsList(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
+        // Skeleton loading: 3 tiles pulsantes mientras carga (Nota Técnica)
+        if (state is TransactionInitial || state is TransactionLoading) {
+          return SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (_, __) => _buildSkeletonTransactionTile(),
+              childCount: 3,
+            ),
+          );
+        }
         if (state is TransactionsLoaded && state.transactions.isNotEmpty) {
           final items = state.transactions.take(5).toList();
           return SliverList(
