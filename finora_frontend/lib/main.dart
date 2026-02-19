@@ -42,14 +42,19 @@ void main() async {
   // This sets up all dependencies following the dependency inversion principle
   await di.init();
 
-  // RNF-08: Inicializar servicios en paralelo para reducir tiempo de cold start.
-  // localDatabase, connectivityService, PlatformVersionHelper e IOSVersionHelper
-  // son independientes entre sí y pueden ejecutarse concurrentemente.
+  // RNF-15 / HU-15: Inicializar Hive PRIMERO de forma secuencial.
+  // LocalDatabase debe estar completamente listo antes de que ConnectivityService
+  // u otros servicios puedan disparar eventos que accedan a los boxes de Hive
+  // (ej. sync automático, LoadTransactions al navegar desde SplashPage).
+  // Ejecutarlo en parallel con connectivityService causaba "Box not found".
   final localDatabase = di.sl<LocalDatabase>();
-  final connectivityService = di.sl<ConnectivityService>();
+  await localDatabase.init();
 
+  // RNF-08: Inicializar el resto de servicios en paralelo una vez Hive está listo.
+  // ConnectivityService, PlatformVersionHelper e IOSVersionHelper son independientes
+  // entre sí y de LocalDatabase, por lo que pueden ejecutarse concurrentemente.
+  final connectivityService = di.sl<ConnectivityService>();
   await Future.wait([
-    localDatabase.init(),
     connectivityService.init(),
     PlatformVersionHelper.initialize(),
     IOSVersionHelper.initialize(),
