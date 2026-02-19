@@ -111,6 +111,15 @@ CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
 CREATE INDEX IF NOT EXISTS idx_transactions_user_date ON transactions(user_id, date DESC);
 
+-- Índice de búsqueda de texto completo en description (RF-09 Nota Técnica)
+-- Permite búsquedas eficientes por nombre de comercio/descripción en el backend
+CREATE INDEX IF NOT EXISTS idx_transactions_description_fts
+    ON transactions USING GIN(to_tsvector('spanish', coalesce(description, '')));
+
+-- Índice en description para búsquedas combinadas (user_id + description)
+CREATE INDEX IF NOT EXISTS idx_transactions_user_description
+    ON transactions(user_id, description text_pattern_ops);
+
 -- Trigger to auto-update updated_at for transactions
 DROP TRIGGER IF EXISTS update_transactions_updated_at ON transactions;
 CREATE TRIGGER update_transactions_updated_at
