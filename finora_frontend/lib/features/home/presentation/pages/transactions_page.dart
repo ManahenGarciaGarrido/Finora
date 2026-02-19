@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -34,7 +36,11 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
   // ─── Búsqueda ────────────────────────────────────────────────────────────
   final _searchController = TextEditingController();
+  /// Texto mostrado en el campo (actualización inmediata para clear button)
+  String _searchText = '';
+  /// Query debounced 300 ms — usado para filtrar (RF-09, Nota Técnica)
   String _searchQuery = '';
+  Timer? _debounceTimer;
 
   // ─── Filtros avanzados (RF-08) ───────────────────────────────────────────
   DateTime? _filterDateFrom;
@@ -55,6 +61,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -86,8 +93,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
   /// Limpia todos los filtros activos
   void _clearAllFilters() {
+    _debounceTimer?.cancel();
     setState(() {
       _selectedFilter = 'Todas';
+      _searchText = '';
       _searchQuery = '';
       _searchController.clear();
       _filterDateFrom = null;
@@ -186,6 +195,64 @@ class _TransactionsPageState extends State<TransactionsPage> {
     return CategoryEntity.getColorForName(category);
   }
 
+  // ─── Fuzzy search (Nota Técnica) ─────────────────────────────────────────
+
+  /// Distancia de Levenshtein entre dos cadenas cortas
+  int _levenshtein(String s, String t) {
+    if (s == t) return 0;
+    if (s.isEmpty) return t.length;
+    if (t.isEmpty) return s.length;
+    final matrix = List.generate(
+      s.length + 1,
+      (i) => List<int>.generate(t.length + 1, (j) => 0),
+    );
+    for (int i = 0; i <= s.length; i++) matrix[i][0] = i;
+    for (int j = 0; j <= t.length; j++) matrix[0][j] = j;
+    for (int i = 1; i <= s.length; i++) {
+      for (int j = 1; j <= t.length; j++) {
+        final cost = s[i - 1] == t[j - 1] ? 0 : 1;
+        matrix[i][j] = [
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost,
+        ].reduce((a, b) => a < b ? a : b);
+      }
+    }
+    return matrix[s.length][t.length];
+  }
+
+  /// Comprueba si [text] contiene [pattern] con tolerancia a 1–2 errores.
+  /// Palabras ≤ 2 caracteres deben coincidir exactamente.
+  bool _fuzzyContains(String text, String pattern) {
+    if (pattern.isEmpty) return true;
+    if (text.contains(pattern)) return true;
+    if (pattern.length <= 2) return false;
+    final maxErrors = pattern.length <= 5 ? 1 : 2;
+    for (int i = 0; i <= text.length - pattern.length + maxErrors; i++) {
+      final end = (i + pattern.length + maxErrors).clamp(0, text.length);
+      if (end - i < pattern.length - maxErrors) continue;
+      if (_levenshtein(text.substring(i, end), pattern) <= maxErrors) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Verifica si la transacción coincide con la búsqueda (exacta o fuzzy)
+  bool _matchesSearch(TransactionEntity t, String query) {
+    final q = query.toLowerCase().trim();
+    if (q.isEmpty) return true;
+    final desc = (t.description ?? '').toLowerCase();
+    final cat = t.category.toLowerCase();
+    // Soporte multi-palabra: todos los tokens deben aparecer
+    for (final token in q.split(' ').where((w) => w.isNotEmpty)) {
+      if (!_fuzzyContains(desc, token) && !_fuzzyContains(cat, token)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// Puntúa la relevancia de una transacción para la búsqueda activa (RF-09).
   /// Mayor puntuación → más relevante.
   int _searchRelevanceScore(TransactionEntity t, String query) {
@@ -200,6 +267,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
       score += 60;
     } else if (desc.contains(q)) {
       score += 30;
+    } else if (_fuzzyContains(desc, q)) {
+      score += 15; // Coincidencia fuzzy, menor peso
     }
     // Categoría
     if (cat == q) {
@@ -208,6 +277,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
       score += 30;
     } else if (cat.contains(q)) {
       score += 15;
+    } else if (_fuzzyContains(cat, q)) {
+      score += 8; // Coincidencia fuzzy, menor peso
     }
     return score;
   }
@@ -219,12 +290,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
       if (_selectedFilter == 'Gastos' && !t.isExpense) return false;
       if (_selectedFilter == 'Ingresos' && !t.isIncome) return false;
 
-      // Filtro por búsqueda de texto
-      if (_searchQuery.isNotEmpty) {
-        final query = _searchQuery.toLowerCase();
-        final desc = (t.description ?? '').toLowerCase();
-        final cat = t.category.toLowerCase();
-        if (!desc.contains(query) && !cat.contains(query)) return false;
+      // Filtro por búsqueda de texto con fuzzy search (RF-09 + Nota Técnica)
+      if (_searchQuery.isNotEmpty && !_matchesSearch(t, _searchQuery)) {
+        return false;
       }
 
       // Filtro por rango de fechas (RF-08)
@@ -798,10 +866,19 @@ class _TransactionsPageState extends State<TransactionsPage> {
                         child: TextField(
                           controller: _searchController,
                           style: AppTypography.bodyMedium(),
-                          onChanged: (value) => setState(() {
-                            _searchQuery = value;
-                            _displayCount = _pageSize;
-                          }),
+                          onChanged: (value) {
+                            // Actualización inmediata para mostrar/ocultar clear button
+                            setState(() => _searchText = value);
+                            // Debounce 300 ms para lanzar el filtro (Nota Técnica RF-09)
+                            _debounceTimer?.cancel();
+                            _debounceTimer = Timer(
+                              const Duration(milliseconds: 300),
+                              () => setState(() {
+                                _searchQuery = value;
+                                _displayCount = _pageSize;
+                              }),
+                            );
+                          },
                           decoration: InputDecoration(
                             hintText:
                                 'Buscar por comercio, descripción o categoría...',
@@ -813,7 +890,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                               color: AppColors.gray400,
                               size: 20,
                             ),
-                            suffixIcon: _searchQuery.isNotEmpty
+                            suffixIcon: _searchText.isNotEmpty
                                 ? IconButton(
                                     icon: const Icon(
                                       Icons.close_rounded,
@@ -821,8 +898,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                       color: AppColors.gray400,
                                     ),
                                     onPressed: () {
+                                      _debounceTimer?.cancel();
                                       _searchController.clear();
                                       setState(() {
+                                        _searchText = '';
                                         _searchQuery = '';
                                         _displayCount = _pageSize;
                                       });
@@ -1151,6 +1230,56 @@ class _TransactionsPageState extends State<TransactionsPage> {
     );
   }
 
+  // ─── Highlight de términos coincidentes (RF-09 criterio 6) ───────────────
+
+  /// Construye un widget de texto que resalta las partes que coinciden con [query].
+  /// Si no hay coincidencia exacta (p.ej. match fue fuzzy), muestra texto normal.
+  Widget _buildHighlightedText(
+    String text,
+    String query, {
+    TextStyle? baseStyle,
+    int? maxLines,
+    TextOverflow? overflow,
+  }) {
+    if (query.isEmpty) {
+      return Text(text, style: baseStyle, maxLines: maxLines, overflow: overflow);
+    }
+    final lowerText = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+    final spans = <TextSpan>[];
+    int start = 0;
+    int matchIndex = lowerText.indexOf(lowerQuery);
+    if (matchIndex == -1) {
+      // Sin coincidencia exacta → texto plano (la búsqueda fue fuzzy)
+      return Text(text, style: baseStyle, maxLines: maxLines, overflow: overflow);
+    }
+    while (matchIndex != -1) {
+      if (matchIndex > start) {
+        spans.add(TextSpan(text: text.substring(start, matchIndex), style: baseStyle));
+      }
+      spans.add(
+        TextSpan(
+          text: text.substring(matchIndex, matchIndex + lowerQuery.length),
+          style: (baseStyle ?? const TextStyle()).copyWith(
+            backgroundColor: const Color(0xFFFFE082), // Amarillo suave
+            color: const Color(0xFF333333),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+      start = matchIndex + lowerQuery.length;
+      matchIndex = lowerText.indexOf(lowerQuery, start);
+    }
+    if (start < text.length) {
+      spans.add(TextSpan(text: text.substring(start), style: baseStyle));
+    }
+    return Text.rich(
+      TextSpan(children: spans),
+      maxLines: maxLines,
+      overflow: overflow,
+    );
+  }
+
   Widget _buildTransactionItem(TransactionEntity t) {
     return Dismissible(
       key: Key(t.id ?? t.hashCode.toString()),
@@ -1346,11 +1475,12 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    _buildHighlightedText(
                       t.description?.isNotEmpty == true
                           ? t.description!
                           : t.category,
-                      style: AppTypography.titleSmall(),
+                      _searchQuery,
+                      baseStyle: AppTypography.titleSmall(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1358,9 +1488,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     Row(
                       children: [
                         Flexible(
-                          child: Text(
+                          child: _buildHighlightedText(
                             t.category,
-                            style: AppTypography.bodySmall(
+                            _searchQuery,
+                            baseStyle: AppTypography.bodySmall(
                               color: AppColors.textTertiaryLight,
                             ),
                             overflow: TextOverflow.ellipsis,
