@@ -64,6 +64,9 @@ dependencies:
   # Image Picker (HU-03: foto del ticket)
   image_picker: ^1.0.7
 
+  # RF-10: Open Banking PSD2 — abrir URL de autenticación en browser externo
+  url_launcher: ^6.2.5
+
   # RNF-08: Splash screen nativo optimizado
   # Muestra el splash antes de que el motor de Flutter arranque,
   # eliminando la pantalla en blanco del cold start.

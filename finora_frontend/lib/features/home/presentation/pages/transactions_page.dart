@@ -36,8 +36,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
   // ─── Búsqueda ────────────────────────────────────────────────────────────
   final _searchController = TextEditingController();
+
   /// Texto mostrado en el campo (actualización inmediata para clear button)
   String _searchText = '';
+
   /// Query debounced 300 ms — usado para filtrar (RF-09, Nota Técnica)
   String _searchQuery = '';
   Timer? _debounceTimer;
@@ -206,8 +208,12 @@ class _TransactionsPageState extends State<TransactionsPage> {
       s.length + 1,
       (i) => List<int>.generate(t.length + 1, (j) => 0),
     );
-    for (int i = 0; i <= s.length; i++) matrix[i][0] = i;
-    for (int j = 0; j <= t.length; j++) matrix[0][j] = j;
+    for (int i = 0; i <= s.length; i++) {
+      matrix[i][0] = i;
+    }
+    for (int j = 0; j <= t.length; j++) {
+      matrix[0][j] = j;
+    }
     for (int i = 1; i <= s.length; i++) {
       for (int j = 1; j <= t.length; j++) {
         final cost = s[i - 1] == t[j - 1] ? 0 : 1;
@@ -1242,7 +1248,12 @@ class _TransactionsPageState extends State<TransactionsPage> {
     TextOverflow? overflow,
   }) {
     if (query.isEmpty) {
-      return Text(text, style: baseStyle, maxLines: maxLines, overflow: overflow);
+      return Text(
+        text,
+        style: baseStyle,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
     }
     final lowerText = text.toLowerCase();
     final lowerQuery = query.toLowerCase();
@@ -1251,11 +1262,18 @@ class _TransactionsPageState extends State<TransactionsPage> {
     int matchIndex = lowerText.indexOf(lowerQuery);
     if (matchIndex == -1) {
       // Sin coincidencia exacta → texto plano (la búsqueda fue fuzzy)
-      return Text(text, style: baseStyle, maxLines: maxLines, overflow: overflow);
+      return Text(
+        text,
+        style: baseStyle,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
     }
     while (matchIndex != -1) {
       if (matchIndex > start) {
-        spans.add(TextSpan(text: text.substring(start, matchIndex), style: baseStyle));
+        spans.add(
+          TextSpan(text: text.substring(start, matchIndex), style: baseStyle),
+        );
       }
       spans.add(
         TextSpan(

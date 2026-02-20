@@ -14,6 +14,7 @@ import 'features/authentication/presentation/bloc/auth_bloc.dart';
 import 'features/transactions/presentation/bloc/transaction_bloc.dart';
 import 'features/transactions/presentation/bloc/transaction_event.dart';
 import 'features/categories/presentation/bloc/category_bloc.dart';
+import 'features/banks/presentation/bloc/bank_bloc.dart';
 import 'features/authentication/presentation/pages/splash_page.dart';
 import 'features/authentication/presentation/pages/login_page.dart';
 import 'features/authentication/presentation/pages/register_page.dart';
@@ -165,6 +166,8 @@ class _MyAppState extends State<MyApp> {
         // Las categorías solo se necesitan en AddTransactionPage y EditTransactionPage,
         // por lo que se cargan de forma lazy cuando el usuario accede a esas pantallas.
         BlocProvider(create: (_) => di.sl<CategoryBloc>()),
+        // RF-10: Open Banking PSD2 — bank accounts and connections
+        BlocProvider(create: (_) => di.sl<BankBloc>()),
       ],
       child: MaterialApp(
         navigatorKey: _navigatorKey,
