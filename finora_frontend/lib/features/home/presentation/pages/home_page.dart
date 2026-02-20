@@ -196,6 +196,14 @@ class _HomePageState extends State<HomePage> {
               ),
               Expanded(
                 child: _buildNavItem(
+                  Icons.account_balance_wallet_outlined,
+                  Icons.account_balance_wallet_rounded,
+                  'Cuentas',
+                  3,
+                ),
+              ),
+              Expanded(
+                child: _buildNavItem(
                   Icons.settings_outlined,
                   Icons.settings_rounded,
                   'Ajustes',

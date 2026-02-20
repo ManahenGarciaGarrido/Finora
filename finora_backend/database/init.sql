@@ -91,6 +91,7 @@ CREATE TRIGGER update_gdpr_consents_updated_at
 -- ============================================
 
 -- Transactions table for manual income/expense tracking
+-- external_tx_id: Salt Edge transaction ID (para deduplicación al importar desde el banco)
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -100,6 +101,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     description TEXT,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('cash', 'card', 'transfer')),
+    external_tx_id VARCHAR(255) UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -244,3 +246,58 @@ BEGIN
         (p_user_id, 'data_processing', TRUE, 'INITIAL_REGISTRATION', p_ip, p_user_agent);
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================
+-- RF-10: BANK CONNECTIONS TABLE (Salt Edge Community)
+-- requisition_id almacena el Salt Edge connection_id tras el callback
+-- saltedge_customer_id: ID del Customer en Salt Edge (uno por usuario)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS bank_connections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    requisition_id VARCHAR(255),
+    saltedge_customer_id VARCHAR(255),
+    institution_id VARCHAR(100),
+    institution_name VARCHAR(255),
+    institution_logo VARCHAR(512),
+    auth_url TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'linked', 'failed', 'disconnected')),
+    linked_at TIMESTAMP,
+    last_sync_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_connections_user_id ON bank_connections(user_id);
+CREATE INDEX IF NOT EXISTS idx_bank_connections_requisition_id ON bank_connections(requisition_id);
+
+DROP TRIGGER IF EXISTS update_bank_connections_updated_at ON bank_connections;
+CREATE TRIGGER update_bank_connections_updated_at
+    BEFORE UPDATE ON bank_connections
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- RF-10: BANK ACCOUNTS TABLE (Salt Edge Community)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS bank_accounts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    connection_id UUID NOT NULL REFERENCES bank_connections(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    external_account_id VARCHAR(255) UNIQUE,
+    iban VARCHAR(34),
+    account_name VARCHAR(255),
+    currency VARCHAR(3) DEFAULT 'EUR',
+    balance_cents BIGINT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_connection_id ON bank_accounts(connection_id);
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_user_id ON bank_accounts(user_id);
+
+DROP TRIGGER IF EXISTS update_bank_accounts_updated_at ON bank_accounts;
+CREATE TRIGGER update_bank_accounts_updated_at
+    BEFORE UPDATE ON bank_accounts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

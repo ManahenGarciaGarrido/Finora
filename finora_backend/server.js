@@ -12,6 +12,7 @@ const healthRoutes = require('./routes/health');
 const gdprRoutes = require('./routes/gdpr');
 const transactionRoutes = require('./routes/transactions');
 const categoryRoutes = require('./routes/categories');
+const bankRoutes = require('./routes/banks');
 
 // Import services
 const emailService = require('./services/email');
@@ -104,6 +105,7 @@ app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/gdpr', gdprRoutes);
 app.use('/api/v1/transactions', transactionRoutes);
 app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/banks', bankRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -119,6 +121,7 @@ app.get('/', (req, res) => {
       gdpr: '/api/v1/gdpr',
       transactions: '/api/v1/transactions',
       categories: '/api/v1/categories',
+      banks: '/api/v1/banks',
     }
   });
 });
