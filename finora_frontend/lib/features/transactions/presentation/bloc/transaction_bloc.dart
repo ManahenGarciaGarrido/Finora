@@ -441,6 +441,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           ? DateTime.parse(json['updated_at'])
           : null,
       syncStatus: SyncStatus.synced,
+      bankAccountId: json['bank_account_id'],
+      cardId: json['card_id'],
     );
   }
 }

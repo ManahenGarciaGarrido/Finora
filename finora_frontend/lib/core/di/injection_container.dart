@@ -26,6 +26,22 @@ import '../../features/transactions/presentation/bloc/transaction_bloc.dart';
 // Features - Categories
 import '../../features/categories/presentation/bloc/category_bloc.dart';
 
+// Features - Banks (RF-10)
+import '../../features/banks/data/datasources/bank_remote_datasource.dart';
+import '../../features/banks/data/repositories/bank_repository_impl.dart';
+import '../../features/banks/domain/repositories/bank_repository.dart';
+import '../../features/banks/domain/usecases/connect_bank_usecase.dart';
+import '../../features/banks/domain/usecases/disconnect_bank_usecase.dart';
+import '../../features/banks/domain/usecases/get_bank_accounts_usecase.dart';
+import '../../features/banks/domain/usecases/get_institutions_usecase.dart';
+import '../../features/banks/domain/usecases/get_sync_status_usecase.dart';
+import '../../features/banks/domain/usecases/sync_bank_usecase.dart';
+import '../../features/banks/domain/usecases/setup_bank_account_usecase.dart';
+import '../../features/banks/domain/usecases/get_bank_cards_usecase.dart';
+import '../../features/banks/domain/usecases/add_bank_card_usecase.dart';
+import '../../features/banks/domain/usecases/import_csv_usecase.dart';
+import '../../features/banks/presentation/bloc/bank_bloc.dart';
+
 final sl = GetIt.instance;
 
 /// Initialize all dependencies
@@ -48,6 +64,9 @@ Future<void> init() async {
 
   //! Features - Transactions & Categories
   await _initTransactions();
+
+  //! Features - Banks (RF-10)
+  await _initBanks();
 }
 
 /// Initialize Authentication feature dependencies
@@ -148,6 +167,47 @@ Future<void> _initTransactions() async {
 Future<void> _initExternal() async {
   // Connectivity
   sl.registerLazySingleton(() => Connectivity());
+}
+
+/// Initialize Bank feature dependencies (RF-10)
+Future<void> _initBanks() async {
+  // BLoC
+  sl.registerFactory(
+    () => BankBloc(
+      getInstitutions: sl(),
+      connectBank: sl(),
+      getBankAccounts: sl(),
+      getSyncStatus: sl(),
+      syncBank: sl(),
+      disconnectBank: sl(),
+      setupBankAccount: sl(),
+      getBankCards: sl(),
+      addBankCard: sl(),
+      importCsv: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => GetInstitutionsUseCase(sl()));
+  sl.registerLazySingleton(() => ConnectBankUseCase(sl()));
+  sl.registerLazySingleton(() => GetBankAccountsUseCase(sl()));
+  sl.registerLazySingleton(() => GetSyncStatusUseCase(sl()));
+  sl.registerLazySingleton(() => SyncBankUseCase(sl()));
+  sl.registerLazySingleton(() => DisconnectBankUseCase(sl()));
+  sl.registerLazySingleton(() => SetupBankAccountUseCase(sl()));
+  sl.registerLazySingleton(() => GetBankCardsUseCase(sl()));
+  sl.registerLazySingleton(() => AddBankCardUseCase(sl()));
+  sl.registerLazySingleton(() => ImportCsvUseCase(sl()));
+
+  // Repository
+  sl.registerLazySingleton<BankRepository>(
+    () => BankRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // Data sources
+  sl.registerLazySingleton<BankRemoteDataSource>(
+    () => BankRemoteDataSourceImpl(apiClient: sl()),
+  );
 }
 
 /// Reset all dependencies (useful for testing)
