@@ -8,6 +8,8 @@ import '../../../../core/responsive/responsive_builder.dart';
 import '../../../../core/utils/app_startup_tracker.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
+import '../../../banks/presentation/bloc/bank_bloc.dart';
+import '../../../banks/presentation/bloc/bank_event.dart';
 import 'dashboard_content.dart';
 import 'transactions_page.dart';
 import 'stats_page.dart';
@@ -60,11 +62,17 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _onTabSelected(int index) {
+    setState(() => _selectedNavIndex = index);
+    // Recargar cuentas bancarias al entrar en el tab Cuentas (index 3)
+    if (index == 3) {
+      context.read<BankBloc>().add(const LoadBankAccounts());
+    }
+  }
+
   void _onRailTap(int index) {
     // En tablet: 0=Home, 1=Stats, 2=Transactions, 3=Accounts, 4=Settings
-    setState(() {
-      _selectedNavIndex = index;
-    });
+    _onTabSelected(index);
   }
 
   @override
@@ -226,7 +234,7 @@ class _HomePageState extends State<HomePage> {
     final isSelected = _selectedNavIndex == index;
 
     return InkWell(
-      onTap: () => setState(() => _selectedNavIndex = index),
+      onTap: () => _onTabSelected(index),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -36,6 +36,10 @@ import '../../features/banks/domain/usecases/get_bank_accounts_usecase.dart';
 import '../../features/banks/domain/usecases/get_institutions_usecase.dart';
 import '../../features/banks/domain/usecases/get_sync_status_usecase.dart';
 import '../../features/banks/domain/usecases/sync_bank_usecase.dart';
+import '../../features/banks/domain/usecases/setup_bank_account_usecase.dart';
+import '../../features/banks/domain/usecases/get_bank_cards_usecase.dart';
+import '../../features/banks/domain/usecases/add_bank_card_usecase.dart';
+import '../../features/banks/domain/usecases/import_csv_usecase.dart';
 import '../../features/banks/presentation/bloc/bank_bloc.dart';
 
 final sl = GetIt.instance;
@@ -176,6 +180,10 @@ Future<void> _initBanks() async {
       getSyncStatus: sl(),
       syncBank: sl(),
       disconnectBank: sl(),
+      setupBankAccount: sl(),
+      getBankCards: sl(),
+      addBankCard: sl(),
+      importCsv: sl(),
     ),
   );
 
@@ -186,6 +194,10 @@ Future<void> _initBanks() async {
   sl.registerLazySingleton(() => GetSyncStatusUseCase(sl()));
   sl.registerLazySingleton(() => SyncBankUseCase(sl()));
   sl.registerLazySingleton(() => DisconnectBankUseCase(sl()));
+  sl.registerLazySingleton(() => SetupBankAccountUseCase(sl()));
+  sl.registerLazySingleton(() => GetBankCardsUseCase(sl()));
+  sl.registerLazySingleton(() => AddBankCardUseCase(sl()));
+  sl.registerLazySingleton(() => ImportCsvUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<BankRepository>(

@@ -1128,27 +1128,76 @@ class _EditTransactionPageState extends State<EditTransactionPage>
     );
   }
 
+  // All methods shown in the UI (excludes legacy aliases)
+  static const _displayMethods = [
+    PaymentMethod.cash,
+    PaymentMethod.debitCard,
+    PaymentMethod.creditCard,
+    PaymentMethod.prepaidCard,
+    PaymentMethod.bankTransfer,
+    PaymentMethod.sepa,
+    PaymentMethod.wire,
+    PaymentMethod.bizum,
+    PaymentMethod.paypal,
+    PaymentMethod.applePay,
+    PaymentMethod.googlePay,
+    PaymentMethod.directDebit,
+    PaymentMethod.cheque,
+    PaymentMethod.voucher,
+    PaymentMethod.crypto,
+  ];
+
   Widget _buildPaymentMethodSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Método de pago',
-          style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
-        ),
-        const SizedBox(height: 8),
         Row(
-          children: PaymentMethod.values.map((method) {
-            final isSelected = _selectedPaymentMethod == method;
-            return Expanded(
-              child: GestureDetector(
+          children: [
+            Text(
+              'Método de pago',
+              style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_getPaymentIcon(_selectedPaymentMethod),
+                      size: 14, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    _selectedPaymentMethod.label,
+                    style: AppTypography.labelSmall(color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 72,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _displayMethods.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final method = _displayMethods[i];
+              final isSelected = _selectedPaymentMethod == method ||
+                  (_selectedPaymentMethod == PaymentMethod.card &&
+                      method == PaymentMethod.debitCard) ||
+                  (_selectedPaymentMethod == PaymentMethod.transfer &&
+                      method == PaymentMethod.bankTransfer);
+              return GestureDetector(
                 onTap: () => setState(() => _selectedPaymentMethod = method),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  margin: EdgeInsets.only(
-                    right: method != PaymentMethod.transfer ? 8 : 0,
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  width: 72,
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.primary : AppColors.gray50,
                     borderRadius: BorderRadius.circular(12),
@@ -1159,13 +1208,14 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                         ? [
                             BoxShadow(
                               color: AppColors.primary.withValues(alpha: 0.3),
-                              blurRadius: 8,
+                              blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
                           ]
                         : null,
                   ),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         _getPaymentIcon(method),
@@ -1176,32 +1226,98 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        method.label,
+                        _shortPaymentLabel(method),
                         style: AppTypography.labelSmall(
                           color: isSelected
                               ? AppColors.white
                               : AppColors.textSecondaryLight,
                         ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            },
+          ),
         ),
       ],
     );
+  }
+
+  String _shortPaymentLabel(PaymentMethod method) {
+    switch (method) {
+      case PaymentMethod.cash:
+        return 'Efectivo';
+      case PaymentMethod.debitCard:
+        return 'Débito';
+      case PaymentMethod.creditCard:
+        return 'Crédito';
+      case PaymentMethod.prepaidCard:
+        return 'Prepago';
+      case PaymentMethod.bankTransfer:
+        return 'Transfer.';
+      case PaymentMethod.sepa:
+        return 'SEPA';
+      case PaymentMethod.wire:
+        return 'Wire';
+      case PaymentMethod.bizum:
+        return 'Bizum';
+      case PaymentMethod.paypal:
+        return 'PayPal';
+      case PaymentMethod.applePay:
+        return 'Apple Pay';
+      case PaymentMethod.googlePay:
+        return 'Google Pay';
+      case PaymentMethod.directDebit:
+        return 'Recibo';
+      case PaymentMethod.cheque:
+        return 'Cheque';
+      case PaymentMethod.voucher:
+        return 'Vale';
+      case PaymentMethod.crypto:
+        return 'Cripto';
+      default:
+        return method.label;
+    }
   }
 
   IconData _getPaymentIcon(PaymentMethod method) {
     switch (method) {
       case PaymentMethod.cash:
         return Icons.payments_outlined;
+      case PaymentMethod.debitCard:
       case PaymentMethod.card:
-        return Icons.credit_card_outlined;
+        return Icons.payment_rounded;
+      case PaymentMethod.creditCard:
+        return Icons.credit_card_rounded;
+      case PaymentMethod.prepaidCard:
+        return Icons.contactless_rounded;
+      case PaymentMethod.bankTransfer:
       case PaymentMethod.transfer:
         return Icons.swap_horiz_rounded;
+      case PaymentMethod.sepa:
+        return Icons.account_balance_outlined;
+      case PaymentMethod.wire:
+        return Icons.language_rounded;
+      case PaymentMethod.bizum:
+        return Icons.phone_android_rounded;
+      case PaymentMethod.paypal:
+        return Icons.account_balance_wallet_outlined;
+      case PaymentMethod.applePay:
+        return Icons.apple_rounded;
+      case PaymentMethod.googlePay:
+        return Icons.g_mobiledata_rounded;
+      case PaymentMethod.directDebit:
+        return Icons.autorenew_rounded;
+      case PaymentMethod.cheque:
+        return Icons.article_outlined;
+      case PaymentMethod.voucher:
+        return Icons.local_offer_outlined;
+      case PaymentMethod.crypto:
+        return Icons.currency_bitcoin_rounded;
     }
   }
 

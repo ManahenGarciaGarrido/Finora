@@ -17,6 +17,11 @@ import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/bloc/category_bloc.dart';
 import '../../../categories/presentation/bloc/category_event.dart';
 import '../../../categories/presentation/bloc/category_state.dart';
+import '../../../banks/presentation/bloc/bank_bloc.dart';
+import '../../../banks/presentation/bloc/bank_event.dart';
+import '../../../banks/presentation/bloc/bank_state.dart';
+import '../../../banks/domain/entities/bank_account_entity.dart';
+import '../../../banks/domain/entities/bank_card_entity.dart';
 
 /// Página de Registro Manual de Transacciones (RF-05, HU-03)
 ///
@@ -44,11 +49,17 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   TransactionType _selectedType = TransactionType.expense;
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
-  PaymentMethod _selectedPaymentMethod = PaymentMethod.card;
+  PaymentMethod _selectedPaymentMethod = PaymentMethod.debitCard;
   String? _photoPath;
 
   bool _isSubmitting = false;
   bool _showSuccess = false;
+
+  // Bank account / card selector
+  List<BankAccountEntity> _bankAccounts = [];
+  List<BankCardEntity> _bankCards = [];
+  String? _selectedBankAccountId;
+  String? _selectedBankCardId;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -85,6 +96,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<CategoryBloc>().add(LoadCategories());
+        context.read<BankBloc>().add(const LoadBankAccounts());
+        context.read<BankBloc>().add(const LoadBankCards());
       }
     });
   }
@@ -299,6 +312,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       date: _selectedDate,
       paymentMethod: _selectedPaymentMethod,
       photoPath: _photoPath,
+      bankAccountId: _selectedBankAccountId,
+      cardId: _selectedPaymentMethod.isCard ? _selectedBankCardId : null,
     );
 
     context.read<TransactionBloc>().add(
@@ -349,38 +364,48 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<TransactionBloc, TransactionState>(
-      listener: (context, state) {
-        if (state is TransactionError) {
-          // Mostrar error del servidor
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              action: SnackBarAction(
-                label: 'Reintentar',
-                textColor: AppColors.white,
-                onPressed: () {
-                  // Limpiar estado de envío para permitir reintentar
-                  setState(() {
-                    _isSubmitting = false;
-                    _showSuccess = false;
-                  });
-                },
-              ),
-            ),
-          );
-          // Resetear estado de envío
-          setState(() {
-            _isSubmitting = false;
-            _showSuccess = false;
-          });
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<TransactionBloc, TransactionState>(
+          listener: (context, state) {
+            if (state is TransactionError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  action: SnackBarAction(
+                    label: 'Reintentar',
+                    textColor: AppColors.white,
+                    onPressed: () {
+                      setState(() {
+                        _isSubmitting = false;
+                        _showSuccess = false;
+                      });
+                    },
+                  ),
+                ),
+              );
+              setState(() {
+                _isSubmitting = false;
+                _showSuccess = false;
+              });
+            }
+          },
+        ),
+        BlocListener<BankBloc, BankState>(
+          listener: (context, state) {
+            if (state is BankAccountsLoaded) {
+              setState(() => _bankAccounts = state.accounts);
+            } else if (state is BankCardsLoaded) {
+              setState(() => _bankCards = state.cards);
+            }
+          },
+        ),
+      ],
       child: Scaffold(
         backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
@@ -469,6 +494,11 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           _buildDateSelector(),
           const SizedBox(height: 24),
           _buildPaymentMethodSelector(),
+          if (_selectedPaymentMethod.isCard ||
+              _selectedPaymentMethod.isBank) ...[
+            const SizedBox(height: 16),
+            _buildAccountCardSelector(),
+          ],
           const SizedBox(height: 24),
           _buildPhotoTicketSection(), // HU-03: foto del ticket
           const SizedBox(height: 32),
@@ -890,27 +920,88 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
   }
 
+  // All methods shown in the UI (excludes legacy aliases)
+  static const _displayMethods = [
+    PaymentMethod.cash,
+    PaymentMethod.debitCard,
+    PaymentMethod.creditCard,
+    PaymentMethod.prepaidCard,
+    PaymentMethod.bankTransfer,
+    PaymentMethod.sepa,
+    PaymentMethod.wire,
+    PaymentMethod.bizum,
+    PaymentMethod.paypal,
+    PaymentMethod.applePay,
+    PaymentMethod.googlePay,
+    PaymentMethod.directDebit,
+    PaymentMethod.cheque,
+    PaymentMethod.voucher,
+    PaymentMethod.crypto,
+  ];
+
   Widget _buildPaymentMethodSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Método de pago',
-          style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
-        ),
-        const SizedBox(height: 8),
         Row(
-          children: PaymentMethod.values.map((method) {
-            final isSelected = _selectedPaymentMethod == method;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedPaymentMethod = method),
+          children: [
+            Text(
+              'Método de pago',
+              style: AppTypography.labelMedium(
+                color: AppColors.textSecondaryLight,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getPaymentIcon(_selectedPaymentMethod),
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _selectedPaymentMethod.label,
+                    style: AppTypography.labelSmall(color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 72,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _displayMethods.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final method = _displayMethods[i];
+              final isSelected =
+                  _selectedPaymentMethod == method ||
+                  // Handle legacy alias selection
+                  (_selectedPaymentMethod == PaymentMethod.card &&
+                      method == PaymentMethod.debitCard) ||
+                  (_selectedPaymentMethod == PaymentMethod.transfer &&
+                      method == PaymentMethod.bankTransfer);
+              return GestureDetector(
+                onTap: () => setState(() {
+                  _selectedPaymentMethod = method;
+                  if (!method.isCard) _selectedBankCardId = null;
+                  if (!method.isCard && !method.isBank)
+                    _selectedBankAccountId = null;
+                }),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  margin: EdgeInsets.only(
-                    right: method != PaymentMethod.transfer ? 8 : 0,
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  width: 72,
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.primary : AppColors.gray50,
                     borderRadius: BorderRadius.circular(12),
@@ -921,13 +1012,14 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                         ? [
                             BoxShadow(
                               color: AppColors.primary.withValues(alpha: 0.3),
-                              blurRadius: 8,
+                              blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
                           ]
                         : null,
                   ),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         _getPaymentIcon(method),
@@ -938,32 +1030,273 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        method.label,
+                        _shortPaymentLabel(method),
                         style: AppTypography.labelSmall(
                           color: isSelected
                               ? AppColors.white
                               : AppColors.textSecondaryLight,
                         ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            },
+          ),
         ),
       ],
     );
+  }
+
+  Widget _buildAccountCardSelector() {
+    final isCard = _selectedPaymentMethod.isCard;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Bank account selector (shown for card AND transfer methods)
+        if (_bankAccounts.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.gray50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.gray200),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.account_balance_outlined,
+                  size: 18,
+                  color: AppColors.gray400,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Sin cuentas bancarias vinculadas',
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textTertiaryLight,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else ...[
+          Text(
+            isCard ? 'Cuenta bancaria de la tarjeta' : 'Cuenta bancaria',
+            style: AppTypography.labelMedium(
+              color: AppColors.textSecondaryLight,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildDropdown(
+            value: _selectedBankAccountId,
+            hint: 'Seleccionar cuenta',
+            items: _bankAccounts
+                .map(
+                  (acct) => DropdownMenuItem(
+                    value: acct.id,
+                    child: Text(
+                      acct.iban != null
+                          ? '${acct.accountName} (${acct.maskedIban})'
+                          : acct.accountName,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (val) => setState(() {
+              _selectedBankAccountId = val;
+              _selectedBankCardId = null; // reset card on account change
+            }),
+          ),
+          // Card selector (only for card methods)
+          if (isCard) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Tarjeta',
+              style: AppTypography.labelMedium(
+                color: AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Builder(
+              builder: (context) {
+                final filteredCards = _selectedBankAccountId == null
+                    ? _bankCards
+                    : _bankCards
+                          .where(
+                            (c) => c.bankAccountId == _selectedBankAccountId,
+                          )
+                          .toList();
+                if (filteredCards.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.gray50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.gray200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.credit_card_off_outlined,
+                          size: 18,
+                          color: AppColors.gray400,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Sin tarjetas en esta cuenta',
+                          style: AppTypography.bodySmall(
+                            color: AppColors.textTertiaryLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return _buildDropdown(
+                  value: _selectedBankCardId,
+                  hint: 'Seleccionar tarjeta (opcional)',
+                  items: filteredCards
+                      .map(
+                        (card) => DropdownMenuItem(
+                          value: card.id,
+                          child: Text(
+                            card.displayName,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setState(() => _selectedBankCardId = val),
+                );
+              },
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDropdown({
+    required String? value,
+    required String hint,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        filled: true,
+        fillColor: AppColors.gray50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.gray200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.gray200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+      ),
+      hint: Text(
+        hint,
+        style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+      ),
+      items: items,
+      onChanged: onChanged,
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: AppColors.gray400,
+      ),
+      isExpanded: true,
+    );
+  }
+
+  String _shortPaymentLabel(PaymentMethod method) {
+    switch (method) {
+      case PaymentMethod.cash:
+        return 'Efectivo';
+      case PaymentMethod.debitCard:
+        return 'Débito';
+      case PaymentMethod.creditCard:
+        return 'Crédito';
+      case PaymentMethod.prepaidCard:
+        return 'Prepago';
+      case PaymentMethod.bankTransfer:
+        return 'Transfer.';
+      case PaymentMethod.sepa:
+        return 'SEPA';
+      case PaymentMethod.wire:
+        return 'Wire';
+      case PaymentMethod.bizum:
+        return 'Bizum';
+      case PaymentMethod.paypal:
+        return 'PayPal';
+      case PaymentMethod.applePay:
+        return 'Apple Pay';
+      case PaymentMethod.googlePay:
+        return 'Google Pay';
+      case PaymentMethod.directDebit:
+        return 'Recibo';
+      case PaymentMethod.cheque:
+        return 'Cheque';
+      case PaymentMethod.voucher:
+        return 'Vale';
+      case PaymentMethod.crypto:
+        return 'Cripto';
+      default:
+        return method.label;
+    }
   }
 
   IconData _getPaymentIcon(PaymentMethod method) {
     switch (method) {
       case PaymentMethod.cash:
         return Icons.payments_outlined;
+      case PaymentMethod.debitCard:
       case PaymentMethod.card:
-        return Icons.credit_card_outlined;
+        return Icons.payment_rounded;
+      case PaymentMethod.creditCard:
+        return Icons.credit_card_rounded;
+      case PaymentMethod.prepaidCard:
+        return Icons.contactless_rounded;
+      case PaymentMethod.bankTransfer:
       case PaymentMethod.transfer:
         return Icons.swap_horiz_rounded;
+      case PaymentMethod.sepa:
+        return Icons.account_balance_outlined;
+      case PaymentMethod.wire:
+        return Icons.language_rounded;
+      case PaymentMethod.bizum:
+        return Icons.phone_android_rounded;
+      case PaymentMethod.paypal:
+        return Icons.account_balance_wallet_outlined;
+      case PaymentMethod.applePay:
+        return Icons.apple_rounded;
+      case PaymentMethod.googlePay:
+        return Icons.g_mobiledata_rounded;
+      case PaymentMethod.directDebit:
+        return Icons.autorenew_rounded;
+      case PaymentMethod.cheque:
+        return Icons.article_outlined;
+      case PaymentMethod.voucher:
+        return Icons.local_offer_outlined;
+      case PaymentMethod.crypto:
+        return Icons.currency_bitcoin_rounded;
     }
   }
 

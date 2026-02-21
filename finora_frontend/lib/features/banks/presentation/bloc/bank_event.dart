@@ -12,7 +12,7 @@ class LoadInstitutions extends BankEvent {
   const LoadInstitutions();
 }
 
-/// User selected an institution → initiate OAuth
+/// User selected an institution → initiate OAuth or setup flow
 class ConnectBankRequested extends BankEvent {
   final String institutionId;
   const ConnectBankRequested(this.institutionId);
@@ -57,4 +57,61 @@ class DisconnectBankRequested extends BankEvent {
 /// User closed BankConnectingPage — cancel polling timer
 class CancelBankPolling extends BankEvent {
   const CancelBankPolling();
+}
+
+/// User confirmed setup of a new bank account
+class SetupBankAccountRequested extends BankEvent {
+  final String connectionId;
+  final String accountName;
+  final String accountType;
+  final String? iban;
+  final int balanceCents;
+
+  const SetupBankAccountRequested({
+    required this.connectionId,
+    required this.accountName,
+    required this.accountType,
+    this.iban,
+    this.balanceCents = 0,
+  });
+
+  @override
+  List<Object?> get props => [connectionId, accountName, accountType];
+}
+
+/// Load all bank cards for the user
+class LoadBankCards extends BankEvent {
+  const LoadBankCards();
+}
+
+/// Add a card to a bank account
+class AddBankCardRequested extends BankEvent {
+  final String bankAccountId;
+  final String cardName;
+  final String cardType;
+  final String? lastFour;
+
+  const AddBankCardRequested({
+    required this.bankAccountId,
+    required this.cardName,
+    required this.cardType,
+    this.lastFour,
+  });
+
+  @override
+  List<Object?> get props => [bankAccountId, cardName, cardType];
+}
+
+/// Import CSV transactions for a bank account
+class ImportCsvRequested extends BankEvent {
+  final String bankAccountId;
+  final List<Map<String, dynamic>> rows;
+
+  const ImportCsvRequested({
+    required this.bankAccountId,
+    required this.rows,
+  });
+
+  @override
+  List<Object?> get props => [bankAccountId, rows.length];
 }

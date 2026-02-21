@@ -1,5 +1,6 @@
 import '../../domain/entities/bank_institution_entity.dart';
 import '../../domain/entities/bank_account_entity.dart';
+import '../../domain/entities/bank_card_entity.dart';
 import '../../domain/entities/bank_sync_status_entity.dart';
 import '../../domain/entities/bank_connection_entity.dart';
 import '../../domain/repositories/bank_repository.dart';
@@ -62,5 +63,53 @@ class BankRepositoryImpl implements BankRepository {
   @override
   Future<void> disconnectBank(String connectionId) {
     return _remoteDataSource.disconnectBank(connectionId);
+  }
+
+  @override
+  Future<BankAccountEntity> setupBankAccount({
+    required String connectionId,
+    required String accountName,
+    required String accountType,
+    String? iban,
+    int balanceCents = 0,
+  }) {
+    return _remoteDataSource.setupBankAccount(
+      connectionId: connectionId,
+      accountName: accountName,
+      accountType: accountType,
+      iban: iban,
+      balanceCents: balanceCents,
+    );
+  }
+
+  @override
+  Future<List<BankCardEntity>> getBankCards() {
+    return _remoteDataSource.getBankCards();
+  }
+
+  @override
+  Future<BankCardEntity> addBankCard({
+    required String bankAccountId,
+    required String cardName,
+    required String cardType,
+    String? lastFour,
+  }) {
+    return _remoteDataSource.addBankCard(
+      bankAccountId: bankAccountId,
+      cardName: cardName,
+      cardType: cardType,
+      lastFour: lastFour,
+    );
+  }
+
+  @override
+  Future<Map<String, int>> importCsvTransactions({
+    required String bankAccountId,
+    required List<Map<String, dynamic>> rows,
+  }) {
+    return _remoteDataSource.importCsvTransactions(
+      bankAccountId: bankAccountId,
+      rows: rows,
+    );
   }
 }

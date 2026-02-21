@@ -162,8 +162,8 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
               Expanded(
                 child: BlocConsumer<BankBloc, BankState>(
                   listener: (context, state) {
+                    // Real OAuth mode: close sheet when URL is ready
                     if (state is BankConnectAuthUrlReady) {
-                      // Close the sheet — BankConnectingPage will open from AccountsPage
                       Navigator.pop(context);
                     }
                   },
@@ -247,9 +247,11 @@ class _InstitutionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        context
-            .read<BankBloc>()
-            .add(ConnectBankRequested(institution.id));
+        // Close the sheet immediately, then dispatch the event.
+        // This avoids race conditions where state changes blank the list
+        // before Navigator.pop fires from a BlocConsumer listener.
+        Navigator.pop(context);
+        context.read<BankBloc>().add(ConnectBankRequested(institution.id));
       },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
