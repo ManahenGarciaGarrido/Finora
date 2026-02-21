@@ -12,6 +12,7 @@ const healthRoutes = require('./routes/health');
 const gdprRoutes = require('./routes/gdpr');
 const transactionRoutes = require('./routes/transactions');
 const categoryRoutes = require('./routes/categories');
+const bankRoutes = require('./routes/banks');
 
 // Import services
 const emailService = require('./services/email');
@@ -28,12 +29,12 @@ const PORT = process.env.PORT || 3000;
 // ============================================
 
 // Helmet - Security headers
+// NOTE: HSTS is intentionally disabled here because this server runs plain HTTP.
+// HSTS must only be sent by HTTPS servers; sending it over HTTP causes browsers
+// to cache "this host requires HTTPS" and generate ERR_SSL_PROTOCOL_ERROR for
+// all subsequent HTTP requests (including OAuth callback pages).
 app.use(helmet({
-  hsts: {
-    maxAge: 31536000, // 1 year
-    includeSubDomains: true,
-    preload: true
-  },
+  hsts: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -104,6 +105,7 @@ app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/gdpr', gdprRoutes);
 app.use('/api/v1/transactions', transactionRoutes);
 app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/banks', bankRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -119,6 +121,7 @@ app.get('/', (req, res) => {
       gdpr: '/api/v1/gdpr',
       transactions: '/api/v1/transactions',
       categories: '/api/v1/categories',
+      banks: '/api/v1/banks',
     }
   });
 });

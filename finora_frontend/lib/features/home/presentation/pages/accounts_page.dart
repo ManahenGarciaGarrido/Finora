@@ -1,19 +1,154 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
+import '../../../transactions/domain/entities/transaction_entity.dart';
+import '../../../banks/presentation/bloc/bank_bloc.dart';
+import '../../../banks/presentation/bloc/bank_event.dart';
+import '../../../banks/presentation/bloc/bank_state.dart';
+import '../../../banks/domain/entities/bank_account_entity.dart';
+import '../../../banks/presentation/pages/institution_selector_sheet.dart';
+import '../../../banks/presentation/pages/bank_connecting_page.dart';
+import '../../../banks/presentation/pages/bank_account_setup_page.dart';
 
-/// Página de Cuentas
+/// Página de Cuentas (RF-10)
 ///
-/// Muestra un resumen del balance calculado desde transacciones reales.
-/// La conexión bancaria y cuentas individuales están marcadas como
-/// funcionalidades en desarrollo.
-class AccountsPage extends StatelessWidget {
+/// Muestra el balance calculado desde transacciones y las cuentas bancarias
+/// conectadas a través de Open Banking PSD2 (GoCardless).
+class AccountsPage extends StatefulWidget {
   const AccountsPage({super.key});
+
+  @override
+  State<AccountsPage> createState() => _AccountsPageState();
+}
+
+class _AccountsPageState extends State<AccountsPage> {
+  int _cashInitialCents = 0;
+  bool _cashSetupDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCashPrefs();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<BankBloc>().add(const LoadBankAccounts());
+      }
+    });
+  }
+
+  Future<void> _loadCashPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final done = prefs.getBool('cash_setup_done') ?? false;
+    setState(() {
+      _cashSetupDone = done;
+      _cashInitialCents = prefs.getInt('cash_initial_cents') ?? 0;
+    });
+    if (!done && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showCashSetupDialog(context);
+      });
+    }
+  }
+
+  Future<void> _saveCashPrefs(int cents) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('cash_initial_cents', cents);
+    await prefs.setBool('cash_setup_done', true);
+    if (!mounted) return;
+    setState(() {
+      _cashInitialCents = cents;
+      _cashSetupDone = true;
+    });
+  }
+
+  /// Calcula el balance de efectivo:
+  /// dinero inicial configurado + Σ transacciones en efectivo
+  double _cashBalance(TransactionState txState) {
+    double balance = _cashInitialCents / 100.0;
+    if (txState is TransactionsLoaded) {
+      for (final t in txState.transactions) {
+        if (t.paymentMethod == PaymentMethod.cash) {
+          balance += t.isIncome ? t.amount : -t.amount;
+        }
+      }
+    }
+    return balance;
+  }
+
+  Future<void> _showCashSetupDialog(BuildContext context) async {
+    final controller = TextEditingController(
+      text: _cashSetupDone
+          ? (_cashInitialCents / 100.0).toStringAsFixed(2)
+          : '',
+    );
+    final result = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Dinero en efectivo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Cuánto efectivo tienes ahora mismo?',
+              style: AppTypography.bodyMedium(),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'A partir de aquí, Finora irá sumando tus ingresos y restando tus gastos en efectivo.',
+              style: AppTypography.bodySmall(
+                color: AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+              ],
+              decoration: const InputDecoration(
+                prefixText: '€ ',
+                hintText: '0,00',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final raw = controller.text
+                  .replaceAll('.', '')
+                  .replaceAll(',', '.');
+              final amount = double.tryParse(raw) ?? 0.0;
+              Navigator.pop(ctx, (amount * 100).round());
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      await _saveCashPrefs(result);
+    }
+  }
 
   String _formatCurrency(double amount) {
     final isNegative = amount < 0;
@@ -41,8 +176,10 @@ class AccountsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 16,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                16,
+                responsive.horizontalPadding,
+                0,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -55,9 +192,12 @@ class AccountsPage extends StatelessWidget {
                     ),
                     child: IconButton(
                       icon: const Icon(Icons.add_rounded),
-                      onPressed: () => _showComingSoon(context),
+                      onPressed: () => _connectBank(context),
                       color: AppColors.white,
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
                     ),
                   ),
                 ],
@@ -69,19 +209,36 @@ class AccountsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 20,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                20,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildTransactionBalance(context),
             ),
           ),
 
-          // Saldo de cuentas bancarias - placeholder
+          // Tarjeta de efectivo
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 20,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                16,
+                responsive.horizontalPadding,
+                0,
+              ),
+              child: _buildCashCard(context),
+            ),
+          ),
+
+          // Saldo de cuentas bancarias
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                responsive.horizontalPadding,
+                20,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildBankAccountsSection(context),
             ),
@@ -91,8 +248,10 @@ class AccountsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 20,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                20,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildConnectBankCard(context),
             ),
@@ -102,8 +261,10 @@ class AccountsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 20,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                20,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildPaymentMethodsSummary(context),
             ),
@@ -119,7 +280,9 @@ class AccountsPage extends StatelessWidget {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
         final income = state is TransactionsLoaded ? state.totalIncome : 0.0;
-        final expenses = state is TransactionsLoaded ? state.totalExpenses : 0.0;
+        final expenses = state is TransactionsLoaded
+            ? state.totalExpenses
+            : 0.0;
         final balance = income - expenses;
 
         return Container(
@@ -142,7 +305,10 @@ class AccountsPage extends StatelessWidget {
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
@@ -175,7 +341,9 @@ class AccountsPage extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: AppColors.successLight.withValues(alpha: 0.2),
+                              color: AppColors.successLight.withValues(
+                                alpha: 0.2,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
@@ -192,12 +360,16 @@ class AccountsPage extends StatelessWidget {
                                 Text(
                                   'Ingresos',
                                   style: AppTypography.labelSmall(
-                                    color: AppColors.white.withValues(alpha: 0.6),
+                                    color: AppColors.white.withValues(
+                                      alpha: 0.6,
+                                    ),
                                   ),
                                 ),
                                 Text(
                                   _formatCurrency(income),
-                                  style: AppTypography.titleSmall(color: AppColors.white),
+                                  style: AppTypography.titleSmall(
+                                    color: AppColors.white,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -218,7 +390,9 @@ class AccountsPage extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: AppColors.errorLight.withValues(alpha: 0.2),
+                              color: AppColors.errorLight.withValues(
+                                alpha: 0.2,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
@@ -235,12 +409,16 @@ class AccountsPage extends StatelessWidget {
                                 Text(
                                   'Gastos',
                                   style: AppTypography.labelSmall(
-                                    color: AppColors.white.withValues(alpha: 0.6),
+                                    color: AppColors.white.withValues(
+                                      alpha: 0.6,
+                                    ),
                                   ),
                                 ),
                                 Text(
                                   _formatCurrency(expenses),
-                                  style: AppTypography.titleSmall(color: AppColors.white),
+                                  style: AppTypography.titleSmall(
+                                    color: AppColors.white,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -259,116 +437,346 @@ class AccountsPage extends StatelessWidget {
     );
   }
 
+  // ──────────────────────────────────────────────────────────
+  // Tarjeta de efectivo
+  // ──────────────────────────────────────────────────────────
+
+  Widget _buildCashCard(BuildContext context) {
+    return BlocBuilder<TransactionBloc, TransactionState>(
+      builder: (context, txState) {
+        final cashBalance = _cashBalance(txState);
+        final isNegative = cashBalance < 0;
+        return GestureDetector(
+          onTap: () => _showCashSetupDialog(context),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.payments_rounded,
+                    color: AppColors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Efectivo',
+                        style: AppTypography.bodySmall(
+                          color: AppColors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      Text(
+                        _formatCurrency(cashBalance),
+                        style: AppTypography.moneyMedium(
+                          color: isNegative
+                              ? const Color(0xFFFFADAD)
+                              : AppColors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.edit_rounded,
+                  size: 16,
+                  color: AppColors.white.withValues(alpha: 0.6),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Bank accounts section (RF-10)
+  // ──────────────────────────────────────────────────────────
+
   Widget _buildBankAccountsSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Cuentas bancarias', style: AppTypography.titleMedium()),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.warningSoft,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.construction_rounded, size: 10, color: AppColors.warningDark),
-                  const SizedBox(width: 4),
-                  Text('En desarrollo', style: AppTypography.badge(color: AppColors.warningDark)),
-                ],
+    return BlocConsumer<BankBloc, BankState>(
+      listener: (context, state) {
+        if (state is BankConnectPendingSetup) {
+          // Mock mode: navigate to setup page to configure the account
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: context.read<BankBloc>(),
+                child: BankAccountSetupPage(
+                  connectionId: state.connectionId,
+                  institutionName: state.institutionName,
+                ),
               ),
             ),
+          );
+        } else if (state is BankConnectAuthUrlReady) {
+          // Real mode: navigate to waiting page that polls until linked
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: context.read<BankBloc>(),
+                child: BankConnectingPage(
+                  connectionId: state.connectionId,
+                  institutionName: state.institutionName,
+                ),
+              ),
+            ),
+          ).then((_) {
+            context.read<BankBloc>().add(const LoadBankAccounts());
+          });
+        } else if (state is BankConnectSuccess || state is BankAccountsLoaded) {
+          // Accounts updated — nothing extra needed (builder handles display)
+        } else if (state is BankConnectFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al conectar: ${state.message}'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        } else if (state is BankAccountsError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error cuentas: ${state.message}'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        final accounts = state is BankAccountsLoaded
+            ? state.accounts
+            : <BankAccountEntity>[];
+        final isLoading =
+            state is BankAccountsLoading ||
+            state is BankSyncing ||
+            state is BankDisconnecting;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section header
+            Row(
+              children: [
+                Text('Cuentas bancarias', style: AppTypography.titleMedium()),
+                const Spacer(),
+                if (accounts.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.successSoft,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          size: 10,
+                          color: AppColors.success,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${accounts.length} conectada${accounts.length == 1 ? '' : 's'}',
+                          style: AppTypography.badge(color: AppColors.success),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            if (isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                    strokeWidth: 2,
+                  ),
+                ),
+              )
+            else if (accounts.isEmpty)
+              _buildEmptyBanksCard(context)
+            else
+              ...accounts.map(
+                (acct) => _BankAccountCard(
+                  account: acct,
+                  onDisconnect: () => _confirmDisconnect(context, acct),
+                ),
+              ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.gray200, style: BorderStyle.solid),
-          ),
-          child: Column(
-            children: [
-              Icon(Icons.account_balance_outlined, size: 40, color: AppColors.gray300),
-              const SizedBox(height: 12),
-              Text(
-                'Sin cuentas conectadas',
-                style: AppTypography.titleSmall(color: AppColors.textSecondaryLight),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Conecta tu banco para sincronizar automáticamente tus movimientos',
-                textAlign: TextAlign.center,
-                style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
-              ),
-            ],
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
   Widget _buildConnectBankCard(BuildContext context) {
+    return BlocBuilder<BankBloc, BankState>(
+      builder: (context, state) {
+        final hasAccounts =
+            state is BankAccountsLoaded && state.accounts.isNotEmpty;
+        if (hasAccounts) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.link_rounded,
+                  color: AppColors.primary,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text('Conecta tu banco', style: AppTypography.titleMedium()),
+              const SizedBox(height: 6),
+              Text(
+                'Sincroniza automáticamente tus cuentas bancarias mediante Open Banking PSD2.',
+                textAlign: TextAlign.center,
+                style: AppTypography.bodySmall(
+                  color: AppColors.textSecondaryLight,
+                ),
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () => _connectBank(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.add_link_rounded,
+                        color: AppColors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Conectar cuenta',
+                        style: AppTypography.labelLarge(color: AppColors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyBanksCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.gray200),
       ),
       child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.link_rounded, color: AppColors.primary, size: 28),
+          Icon(
+            Icons.account_balance_outlined,
+            size: 40,
+            color: AppColors.gray300,
           ),
-          const SizedBox(height: 14),
-          Text('Conecta tu banco', style: AppTypography.titleMedium()),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
           Text(
-            'Sincroniza automáticamente tus cuentas bancarias para un seguimiento preciso.',
+            'Sin cuentas conectadas',
+            style: AppTypography.titleSmall(
+              color: AppColors.textSecondaryLight,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Conecta tu banco para sincronizar automáticamente tus movimientos',
             textAlign: TextAlign.center,
-            style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
+            style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
           ),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: () => _showComingSoon(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.add_link_rounded, color: AppColors.white, size: 18),
-                  const SizedBox(width: 8),
-                  Text('Conectar cuenta', style: AppTypography.labelLarge(color: AppColors.white)),
-                ],
-              ),
-            ),
+        ],
+      ),
+    );
+  }
+
+  void _connectBank(BuildContext context) {
+    InstitutionSelectorSheet.show(context);
+  }
+
+  void _confirmDisconnect(BuildContext context, BankAccountEntity account) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Desconectar banco'),
+        content: Text(
+          '¿Seguro que quieres desconectar "${account.institutionName ?? account.accountName}"? '
+          'Se eliminarán las cuentas asociadas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
           ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.warningSoft,
-              borderRadius: BorderRadius.circular(6),
-            ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<BankBloc>().add(
+                DisconnectBankRequested(account.connectionId),
+              );
+            },
             child: Text(
-              'Función en desarrollo',
-              style: AppTypography.badge(color: AppColors.warningDark),
+              'Desconectar',
+              style: TextStyle(color: AppColors.error),
             ),
           ),
         ],
@@ -405,7 +813,10 @@ class AccountsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Uso por método de pago', style: AppTypography.titleMedium()),
+              Text(
+                'Uso por método de pago',
+                style: AppTypography.titleMedium(),
+              ),
               const SizedBox(height: 16),
               ...sortedMethods.map((method) {
                 final count = methodCounts[method]!;
@@ -434,7 +845,9 @@ class AccountsPage extends StatelessWidget {
                             Text(method, style: AppTypography.titleSmall()),
                             Text(
                               '$count transacciones',
-                              style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+                              style: AppTypography.bodySmall(
+                                color: AppColors.textTertiaryLight,
+                              ),
                             ),
                           ],
                         ),
@@ -457,11 +870,37 @@ class AccountsPage extends StatelessWidget {
   IconData _getPaymentMethodIcon(String method) {
     switch (method) {
       case 'Efectivo':
-        return Icons.money_rounded;
+        return Icons.payments_outlined;
+      case 'Tarjeta de débito':
       case 'Tarjeta':
+        return Icons.payment_rounded;
+      case 'Tarjeta de crédito':
         return Icons.credit_card_rounded;
+      case 'Tarjeta prepago':
+        return Icons.contactless_rounded;
+      case 'Transferencia bancaria':
       case 'Transferencia':
         return Icons.swap_horiz_rounded;
+      case 'Transferencia SEPA':
+        return Icons.account_balance_outlined;
+      case 'Transferencia internacional':
+        return Icons.language_rounded;
+      case 'Bizum':
+        return Icons.phone_android_rounded;
+      case 'PayPal':
+        return Icons.account_balance_wallet_outlined;
+      case 'Apple Pay':
+        return Icons.apple_rounded;
+      case 'Google Pay':
+        return Icons.g_mobiledata_rounded;
+      case 'Domiciliación/Recibo':
+        return Icons.autorenew_rounded;
+      case 'Cheque':
+        return Icons.article_outlined;
+      case 'Cupón/Vale':
+        return Icons.local_offer_outlined;
+      case 'Criptomonedas':
+        return Icons.currency_bitcoin_rounded;
       default:
         return Icons.payment_rounded;
     }
@@ -471,23 +910,218 @@ class AccountsPage extends StatelessWidget {
     switch (method) {
       case 'Efectivo':
         return AppColors.success;
+      case 'Tarjeta de débito':
       case 'Tarjeta':
         return AppColors.primary;
+      case 'Tarjeta de crédito':
+        return Colors.deepOrange;
+      case 'Tarjeta prepago':
+        return Colors.teal;
+      case 'Transferencia bancaria':
       case 'Transferencia':
         return AppColors.accent;
+      case 'Transferencia SEPA':
+      case 'Transferencia internacional':
+        return Colors.indigo;
+      case 'Bizum':
+        return Colors.blue;
+      case 'PayPal':
+        return Colors.blue.shade800;
+      case 'Apple Pay':
+      case 'Google Pay':
+        return Colors.grey.shade700;
+      case 'Domiciliación/Recibo':
+        return Colors.orange;
+      case 'Criptomonedas':
+        return Colors.amber.shade700;
       default:
         return AppColors.gray500;
     }
   }
+}
 
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Función en desarrollo. Disponible próximamente.'),
-        backgroundColor: AppColors.gray700,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+// ──────────────────────────────────────────────────────────────────────────────
+// Bank account card widget (RF-10)
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _BankAccountCard extends StatelessWidget {
+  final BankAccountEntity account;
+  final VoidCallback onDisconnect;
+
+  const _BankAccountCard({required this.account, required this.onDisconnect});
+
+  String _formatBalance(double balance) {
+    final isNeg = balance < 0;
+    final abs = balance.abs();
+    final parts = abs.toStringAsFixed(2).split('.');
+    final buf = StringBuffer();
+    for (int i = 0; i < parts[0].length; i++) {
+      if (i > 0 && (parts[0].length - i) % 3 == 0) buf.write('.');
+      buf.write(parts[0][i]);
+    }
+    return '${isNeg ? '-' : ''}${buf.toString()},${parts[1]} ${account.currency}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.gray100),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Logo
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: account.institutionLogo != null
+                    ? Image.network(
+                        account.institutionLogo!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.account_balance_rounded,
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.account_balance_rounded,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      account.accountName,
+                      style: AppTypography.titleSmall(),
+                    ),
+                    if (account.institutionName != null)
+                      Text(
+                        account.institutionName!,
+                        style: AppTypography.bodySmall(
+                          color: AppColors.textSecondaryLight,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              // Options menu
+              PopupMenuButton<String>(
+                onSelected: (v) {
+                  if (v == 'disconnect') onDisconnect();
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'disconnect',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.link_off_rounded,
+                          size: 18,
+                          color: AppColors.error,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Desconectar',
+                          style: TextStyle(color: AppColors.error),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                child: const Icon(
+                  Icons.more_vert_rounded,
+                  color: AppColors.gray400,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Balance
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Saldo disponible',
+                    style: AppTypography.labelSmall(
+                      color: AppColors.textTertiaryLight,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatBalance(account.balance),
+                    style: AppTypography.moneyMedium(),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'IBAN',
+                    style: AppTypography.labelSmall(
+                      color: AppColors.textTertiaryLight,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(account.maskedIban, style: AppTypography.bodySmall()),
+                ],
+              ),
+            ],
+          ),
+          if (account.lastSyncAt != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.successSoft,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 10,
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Sincronizado',
+                    style: AppTypography.badge(color: AppColors.success),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
