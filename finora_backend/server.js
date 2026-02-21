@@ -29,12 +29,12 @@ const PORT = process.env.PORT || 3000;
 // ============================================
 
 // Helmet - Security headers
+// NOTE: HSTS is intentionally disabled here because this server runs plain HTTP.
+// HSTS must only be sent by HTTPS servers; sending it over HTTP causes browsers
+// to cache "this host requires HTTPS" and generate ERR_SSL_PROTOCOL_ERROR for
+// all subsequent HTTP requests (including OAuth callback pages).
 app.use(helmet({
-  hsts: {
-    maxAge: 31536000, // 1 year
-    includeSubDomains: true,
-    preload: true
-  },
+  hsts: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],

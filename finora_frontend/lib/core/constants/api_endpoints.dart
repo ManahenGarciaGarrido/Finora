@@ -57,6 +57,10 @@ class ApiEndpoints {
   static const String bankInstitutions = '/banks/institutions';
   static const String connectBank = '/banks/connect';
   static const String bankAccounts = '/banks/accounts';
+  static const String bankAccountSetup = '/banks/accounts/setup';
+  static const String bankCards = '/banks/cards';
+  static String bankAccountCards(String id) => '/banks/accounts/$id/cards';
+  static String bankAccountImportCsv(String id) => '/banks/accounts/$id/import-csv';
   static String disconnectBank(String id) => '/banks/$id/disconnect';
   static String syncBank(String id) => '/banks/$id/sync';
   static String bankSyncStatus(String id) => '/banks/$id/sync-status';

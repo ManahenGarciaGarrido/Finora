@@ -64,6 +64,9 @@ dependencies:
   # Image Picker (HU-03: foto del ticket)
   image_picker: ^1.0.7
 
+  # File Picker (RF-10: CSV import desde archivo)
+  file_picker: ^8.0.0
+
   # RF-10: Open Banking PSD2 — abrir URL de autenticación en browser externo
   url_launcher: ^6.2.5
 

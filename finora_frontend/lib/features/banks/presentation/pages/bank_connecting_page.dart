@@ -8,7 +8,7 @@ import '../bloc/bank_state.dart';
 
 /// Full-screen page shown while waiting for OAuth callback (RF-10).
 /// Polls /banks/:id/sync-status via BankBloc until status == 'linked'.
-class BankConnectingPage extends StatelessWidget {
+class BankConnectingPage extends StatefulWidget {
   final String connectionId;
   final String institutionName;
 
@@ -17,6 +17,34 @@ class BankConnectingPage extends StatelessWidget {
     required this.connectionId,
     required this.institutionName,
   });
+
+  @override
+  State<BankConnectingPage> createState() => _BankConnectingPageState();
+}
+
+class _BankConnectingPageState extends State<BankConnectingPage>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// When the user closes the in-app browser and returns to the app,
+  /// trigger an immediate poll so the result is detected without waiting
+  /// for the next 3-second timer tick.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<BankBloc>().add(PollSyncStatus(widget.connectionId, 0));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +98,7 @@ class BankConnectingPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _subtitleFor(state, institutionName),
+                      _subtitleFor(state, widget.institutionName),
                       style: AppTypography.bodyMedium(
                           color: AppColors.textSecondaryLight),
                       textAlign: TextAlign.center,

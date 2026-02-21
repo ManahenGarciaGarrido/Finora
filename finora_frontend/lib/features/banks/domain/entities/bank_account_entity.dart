@@ -1,12 +1,13 @@
 import 'package:equatable/equatable.dart';
 
-/// Represents a bank account retrieved via GoCardless Open Banking (RF-10)
+/// Represents a bank account retrieved via Open Banking (RF-10)
 class BankAccountEntity extends Equatable {
   final String id;
   final String connectionId;
   final String? externalAccountId;
   final String? iban;
   final String accountName;
+  final String accountType; // current, savings, investment, other
   final String currency;
   final int balanceCents;
   final String? institutionName;
@@ -19,6 +20,7 @@ class BankAccountEntity extends Equatable {
     this.externalAccountId,
     this.iban,
     required this.accountName,
+    this.accountType = 'current',
     this.currency = 'EUR',
     required this.balanceCents,
     this.institutionName,
@@ -37,5 +39,5 @@ class BankAccountEntity extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, connectionId, externalAccountId, balanceCents];
+  List<Object?> get props => [id, connectionId, externalAccountId, accountType, balanceCents];
 }

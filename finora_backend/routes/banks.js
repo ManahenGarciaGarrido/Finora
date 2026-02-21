@@ -46,6 +46,7 @@ const authenticateToken = (req, res, next) => {
 // Helper: construir URL base desde la petición
 // ============================================
 function baseUrl(req) {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
   return `${req.protocol}://${req.get('host')}`;
 }
 
@@ -75,46 +76,30 @@ router.post('/connect', authenticateToken, async (req, res) => {
 
   try {
     // 1. Obtener o crear el Salt Edge Customer para este usuario.
-    //    Reutilizamos el customer si ya existe en otra conexión del mismo usuario.
     let saltedgeCustomerId = null;
     const existingConn = await db.query(
       `SELECT saltedge_customer_id FROM bank_connections
        WHERE user_id = $1 AND saltedge_customer_id IS NOT NULL
        LIMIT 1`,
-      [req.user.id]
+      [req.user.userId]
     );
     if (existingConn.rows.length > 0) {
       saltedgeCustomerId = existingConn.rows[0].saltedge_customer_id;
     } else {
-      saltedgeCustomerId = await saltedge.getOrCreateCustomer(req.user.id);
+      saltedgeCustomerId = await saltedge.getOrCreateCustomer(req.user.userId);
     }
 
-    // 2. Insertar registro de conexión pendiente para obtener su UUID
+    // 2. Insertar registro de conexión
     const insertResult = await db.query(
       `INSERT INTO bank_connections
          (user_id, institution_id, status, saltedge_customer_id)
        VALUES ($1, $2, 'pending', $3)
        RETURNING id`,
-      [req.user.id, institution_id, saltedgeCustomerId]
+      [req.user.userId, institution_id, saltedgeCustomerId]
     );
     const connectionId = insertResult.rows[0].id;
 
-    // 3. Determinar URL de callback
-    //    Mock mode → nuestra página mock-auth
-    //    Real mode → Salt Edge redirigirá aquí añadiendo ?connection_id={id}
-    const redirectUrl = saltedge.isMockMode()
-      ? `${baseUrl(req)}/api/v1/banks/mock-auth?ref=${connectionId}`
-      : `${baseUrl(req)}/api/v1/banks/callback?ref=${connectionId}`;
-
-    // 4. Crear sesión de conexión Salt Edge
-    //    institution_id == provider_code en Salt Edge (ej: 'bbva_es')
-    const { requisitionId, authUrl } = await saltedge.createRequisition(
-      saltedgeCustomerId,
-      redirectUrl,
-      saltedge.isMockMode() ? null : institution_id
-    );
-
-    // 5. Obtener nombre/logo del banco
+    // 3. Obtener nombre/logo del banco
     let institutionName = institution_id;
     let institutionLogo = null;
     try {
@@ -126,7 +111,31 @@ router.post('/connect', authenticateToken, async (req, res) => {
       }
     } catch (_) { /* no crítico */ }
 
-    // 6. Actualizar conexión con URL de auth y datos del banco
+    // 4. Mock mode: devolver connection_id para que el usuario configure la cuenta
+    if (saltedge.isMockMode()) {
+      console.log(`[mock/connect] userId=${req.user.userId} connectionId=${connectionId} institution=${institution_id}`);
+      await db.query(
+        `UPDATE bank_connections
+         SET institution_name = $1, institution_logo = $2
+         WHERE id = $3`,
+        [institutionName, institutionLogo, connectionId]
+      );
+      return res.json({
+        connection_id: connectionId,
+        is_mock: true,
+        institution_name: institutionName,
+        // auth_url ausente → Flutter navega a página de setup de cuenta
+      });
+    }
+
+    // 5. Real mode: crear sesión OAuth con Salt Edge
+    const redirectUrl = `${baseUrl(req)}/api/v1/banks/callback?ref=${connectionId}`;
+    const { requisitionId, authUrl } = await saltedge.createRequisition(
+      saltedgeCustomerId,
+      redirectUrl,
+      institution_id
+    );
+
     await db.query(
       `UPDATE bank_connections
        SET requisition_id = $1, auth_url = $2, institution_name = $3, institution_logo = $4
@@ -138,7 +147,7 @@ router.post('/connect', authenticateToken, async (req, res) => {
       connection_id: connectionId,
       auth_url: authUrl,
       institution_name: institutionName,
-      is_mock: saltedge.isMockMode(),
+      is_mock: false,
     });
   } catch (err) {
     console.error('banks/connect error:', err);
@@ -304,7 +313,7 @@ router.get('/mock-callback', async (req, res) => {
           `INSERT INTO bank_accounts
              (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
-           ON CONFLICT DO NOTHING`,
+           ON CONFLICT (external_account_id) DO NOTHING`,
           [connectionId, conn.user_id, acct.externalAccountId, acct.iban,
             acct.name, acct.currency, acct.balanceCents]
         );
@@ -347,7 +356,13 @@ router.get('/callback-success', (req, res) => {
             text-align: center; }
     .icon { font-size: 64px; margin-bottom: 24px; }
     h1 { font-size: 24px; color: #1e293b; margin-bottom: 12px; }
-    p { font-size: 14px; color: #64748b; line-height: 1.6; }
+    p { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 28px; }
+    .btn { display: inline-block; padding: 14px 32px; background: #3B82F6; color: white;
+           border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+           cursor: pointer; text-decoration: none; }
+    .btn:hover { background: #2563eb; }
+    .btn-error { background: #ef4444; }
+    .countdown { font-size: 12px; color: #94a3b8; margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -356,9 +371,29 @@ router.get('/callback-success', (req, res) => {
     <h1>${isError ? 'Error al conectar' : '¡Banco conectado!'}</h1>
     <p>${isError
       ? 'No se pudo conectar el banco. Por favor, inténtalo de nuevo desde la app.'
-      : 'Tu banco se ha conectado correctamente. Puedes cerrar esta ventana y volver a Finora.'
+      : 'Tu banco se ha conectado correctamente. Ya puedes volver a Finora.'
     }</p>
+    <button class="btn${isError ? ' btn-error' : ''}" onclick="closeAndReturn()">
+      ← Volver a Finora
+    </button>
+    ${!isError ? '<p class="countdown" id="cd">Cerrando en <span id="s">3</span>s…</p>' : ''}
   </div>
+  <script>
+    function closeAndReturn() {
+      window.close();
+      // Fallback: go back in history (works when opened via in-app browser)
+      history.go(-999);
+    }
+    ${!isError ? `
+    let secs = 3;
+    const el = document.getElementById('s');
+    const timer = setInterval(() => {
+      secs--;
+      if (el) el.textContent = secs;
+      if (secs <= 0) { clearInterval(timer); closeAndReturn(); }
+    }, 1000);
+    ` : ''}
+  </script>
 </body>
 </html>`);
 });
@@ -368,21 +403,191 @@ router.get('/callback-success', (req, res) => {
 // ============================================
 router.get('/accounts', authenticateToken, async (req, res) => {
   try {
+    console.log(`[accounts] querying for userId=${req.user.userId}`);
     const result = await db.query(
       `SELECT ba.id, ba.connection_id, ba.external_account_id, ba.iban,
-              ba.account_name, ba.currency, ba.balance_cents,
+              ba.account_name, ba.account_type, ba.currency, ba.balance_cents,
               bc.institution_name, bc.institution_logo, bc.status as connection_status,
               bc.last_sync_at
        FROM bank_accounts ba
        JOIN bank_connections bc ON bc.id = ba.connection_id
        WHERE ba.user_id = $1 AND bc.status = 'linked'
        ORDER BY ba.created_at ASC`,
-      [req.user.id]
+      [req.user.userId]
     );
 
+    console.log(`[accounts] found ${result.rows.length} accounts for userId=${req.user.userId}`);
     res.json({ accounts: result.rows });
   } catch (err) {
     console.error('banks/accounts error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// POST /accounts/setup — crear cuenta bancaria desde página de configuración
+// Body: { connection_id, account_name, account_type, iban, balance_cents }
+// ============================================
+router.post('/accounts/setup', authenticateToken, async (req, res) => {
+  const { connection_id, account_name, account_type = 'current', iban, balance_cents = 0 } = req.body;
+  if (!connection_id || !account_name) {
+    return res.status(400).json({ error: 'Bad Request', message: 'connection_id y account_name son obligatorios' });
+  }
+
+  try {
+    // Verificar que la conexión pertenece al usuario
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [connection_id, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada' });
+    }
+
+    // Crear la cuenta bancaria
+    const accountResult = await db.query(
+      `INSERT INTO bank_accounts
+         (connection_id, user_id, account_name, account_type, iban, currency, balance_cents)
+       VALUES ($1, $2, $3, $4, $5, 'EUR', $6)
+       RETURNING *`,
+      [connection_id, req.user.userId, account_name, account_type, iban || null, Number(balance_cents) || 0]
+    );
+    const account = accountResult.rows[0];
+
+    // Marcar la conexión como linked
+    await db.query(
+      `UPDATE bank_connections
+       SET status = 'linked', linked_at = NOW(), last_sync_at = NOW()
+       WHERE id = $1`,
+      [connection_id]
+    );
+
+    const conn = connResult.rows[0];
+    res.status(201).json({
+      account: {
+        ...account,
+        institution_name: conn.institution_name,
+        institution_logo: conn.institution_logo,
+      },
+    });
+  } catch (err) {
+    console.error('banks/accounts/setup error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// GET /cards — listar tarjetas del usuario (RF-10)
+// ============================================
+router.get('/cards', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT bc.*, ba.account_name, ba.iban
+       FROM bank_cards bc
+       JOIN bank_accounts ba ON ba.id = bc.bank_account_id
+       WHERE bc.user_id = $1
+       ORDER BY bc.created_at ASC`,
+      [req.user.userId]
+    );
+    res.json({ cards: result.rows });
+  } catch (err) {
+    console.error('banks/cards error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// POST /accounts/:accountId/cards — añadir tarjeta a una cuenta
+// Body: { card_name, card_type, last_four }
+// ============================================
+router.post('/accounts/:accountId/cards', authenticateToken, async (req, res) => {
+  const { card_name, card_type = 'debit', last_four } = req.body;
+  if (!card_name) {
+    return res.status(400).json({ error: 'Bad Request', message: 'card_name es obligatorio' });
+  }
+
+  try {
+    // Verificar que la cuenta pertenece al usuario
+    const accResult = await db.query(
+      'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
+      [req.params.accountId, req.user.userId]
+    );
+    if (accResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Cuenta no encontrada' });
+    }
+
+    const cardResult = await db.query(
+      `INSERT INTO bank_cards (bank_account_id, user_id, card_name, card_type, last_four)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [req.params.accountId, req.user.userId, card_name, card_type, last_four || null]
+    );
+
+    res.status(201).json({ card: cardResult.rows[0] });
+  } catch (err) {
+    console.error('banks/accounts/cards error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ============================================
+// POST /accounts/:accountId/import-csv
+// Importar transacciones desde CSV (JSON rows con deduplicación)
+// Body: { rows: [{ date, description, amount, type, category? }] }
+// ============================================
+router.post('/accounts/:accountId/import-csv', authenticateToken, async (req, res) => {
+  const { rows } = req.body;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'rows debe ser un array no vacío' });
+  }
+
+  try {
+    // Verificar que la cuenta pertenece al usuario
+    const accResult = await db.query(
+      'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
+      [req.params.accountId, req.user.userId]
+    );
+    if (accResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Cuenta no encontrada' });
+    }
+
+    let imported = 0;
+    let skipped = 0;
+
+    for (const row of rows) {
+      const { date, description, amount, type, category } = row;
+      if (!date || amount === undefined || !type) continue;
+
+      const absAmount = Math.abs(Number(amount));
+      const txType = type === 'income' ? 'income' : 'expense';
+      const txCategory = category || (txType === 'expense' ? 'Otros' : 'Otros ingresos');
+      const txDate = date.slice(0, 10); // ensure YYYY-MM-DD
+
+      // Deduplicación: mismo usuario + fecha + descripción + cantidad + tipo
+      const existing = await db.query(
+        `SELECT id FROM transactions
+         WHERE user_id = $1 AND date = $2 AND amount = $3 AND type = $4
+           AND (description = $5 OR ($5 IS NULL AND description IS NULL))`,
+        [req.user.userId, txDate, absAmount, txType, description || null]
+      );
+
+      if (existing.rows.length > 0) {
+        skipped++;
+        continue;
+      }
+
+      await db.query(
+        `INSERT INTO transactions
+           (user_id, amount, type, category, description, date, payment_method, bank_account_id)
+         VALUES ($1, $2, $3, $4, $5, $6, 'transfer', $7)`,
+        [req.user.userId, absAmount, txType, txCategory, description || null, txDate, req.params.accountId]
+      );
+      imported++;
+    }
+
+    res.json({ imported, skipped });
+  } catch (err) {
+    console.error('banks/accounts/import-csv error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
   }
 });
@@ -394,7 +599,7 @@ router.get('/:id/sync-status', authenticateToken, async (req, res) => {
   try {
     const connResult = await db.query(
       'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.userId]
     );
 
     if (connResult.rows.length === 0) {
@@ -433,7 +638,7 @@ router.post('/:id/sync', authenticateToken, async (req, res) => {
   try {
     const connResult = await db.query(
       "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.userId]
     );
 
     if (connResult.rows.length === 0) {
@@ -485,7 +690,7 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
   try {
     const connResult = await db.query(
       "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.userId]
     );
 
     if (connResult.rows.length === 0) {
@@ -567,7 +772,7 @@ router.delete('/:id/disconnect', authenticateToken, async (req, res) => {
   try {
     const connResult = await db.query(
       'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.userId]
     );
 
     if (connResult.rows.length === 0) {

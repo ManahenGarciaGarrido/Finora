@@ -7,6 +7,7 @@ class BankAccountModel extends BankAccountEntity {
     super.externalAccountId,
     super.iban,
     required super.accountName,
+    super.accountType,
     super.currency,
     required super.balanceCents,
     super.institutionName,
@@ -21,8 +22,9 @@ class BankAccountModel extends BankAccountEntity {
       externalAccountId: json['external_account_id'] as String?,
       iban: json['iban'] as String?,
       accountName: (json['account_name'] as String?) ?? 'Cuenta bancaria',
+      accountType: (json['account_type'] as String?) ?? 'current',
       currency: (json['currency'] as String?) ?? 'EUR',
-      balanceCents: (json['balance_cents'] as num?)?.toInt() ?? 0,
+      balanceCents: int.tryParse(json['balance_cents'].toString()) ?? 0,
       institutionName: json['institution_name'] as String?,
       institutionLogo: json['institution_logo'] as String?,
       lastSyncAt: json['last_sync_at'] != null

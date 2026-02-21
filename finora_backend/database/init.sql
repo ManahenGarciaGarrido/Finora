@@ -100,7 +100,13 @@ CREATE TABLE IF NOT EXISTS transactions (
     category VARCHAR(100) NOT NULL,
     description TEXT,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
-    payment_method VARCHAR(20) NOT NULL CHECK (payment_method IN ('cash', 'card', 'transfer')),
+    payment_method VARCHAR(30) NOT NULL DEFAULT 'cash' CHECK (payment_method IN (
+        'cash', 'card', 'transfer',
+        'debit_card', 'credit_card', 'prepaid_card',
+        'bank_transfer', 'bizum', 'paypal',
+        'apple_pay', 'google_pay', 'direct_debit',
+        'cheque', 'crypto', 'voucher', 'sepa', 'wire'
+    )),
     external_tx_id VARCHAR(255) UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -288,6 +294,7 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
     external_account_id VARCHAR(255) UNIQUE,
     iban VARCHAR(34),
     account_name VARCHAR(255),
+    account_type VARCHAR(30) NOT NULL DEFAULT 'current' CHECK (account_type IN ('current', 'savings', 'investment', 'other')),
     currency VARCHAR(3) DEFAULT 'EUR',
     balance_cents BIGINT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -301,3 +308,59 @@ DROP TRIGGER IF EXISTS update_bank_accounts_updated_at ON bank_accounts;
 CREATE TRIGGER update_bank_accounts_updated_at
     BEFORE UPDATE ON bank_accounts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- RF-10: BANK CARDS TABLE
+-- Tarjetas asociadas a cuentas bancarias
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS bank_cards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bank_account_id UUID NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    card_name VARCHAR(255) NOT NULL,
+    card_type VARCHAR(20) NOT NULL DEFAULT 'debit' CHECK (card_type IN ('debit', 'credit', 'prepaid')),
+    last_four VARCHAR(4),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_cards_bank_account_id ON bank_cards(bank_account_id);
+CREATE INDEX IF NOT EXISTS idx_bank_cards_user_id ON bank_cards(user_id);
+
+DROP TRIGGER IF EXISTS update_bank_cards_updated_at ON bank_cards;
+CREATE TRIGGER update_bank_cards_updated_at
+    BEFORE UPDATE ON bank_cards
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- Add bank_account_id and card_id to transactions (safe for re-runs)
+-- ============================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'transactions' AND column_name = 'bank_account_id'
+  ) THEN
+    ALTER TABLE transactions
+      ADD COLUMN bank_account_id UUID REFERENCES bank_accounts(id) ON DELETE SET NULL;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'transactions' AND column_name = 'card_id'
+  ) THEN
+    ALTER TABLE transactions
+      ADD COLUMN card_id UUID REFERENCES bank_cards(id) ON DELETE SET NULL;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'bank_accounts' AND column_name = 'account_type'
+  ) THEN
+    ALTER TABLE bank_accounts
+      ADD COLUMN account_type VARCHAR(30) NOT NULL DEFAULT 'current'
+        CHECK (account_type IN ('current', 'savings', 'investment', 'other'));
+  END IF;
+END$$;

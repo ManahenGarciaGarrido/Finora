@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/bank_institution_entity.dart';
 import '../../domain/entities/bank_account_entity.dart';
+import '../../domain/entities/bank_card_entity.dart';
 
 abstract class BankState extends Equatable {
   const BankState();
@@ -124,4 +125,100 @@ class BankSyncing extends BankState {
 
 class BankDisconnecting extends BankState {
   const BankDisconnecting();
+}
+
+// ============================================================
+// ACCOUNT SETUP (mock mode setup page)
+// ============================================================
+
+/// Mock connect returned a pending connection — navigate to setup page
+class BankConnectPendingSetup extends BankState {
+  final String connectionId;
+  final String institutionName;
+  final String? institutionLogo;
+  const BankConnectPendingSetup({
+    required this.connectionId,
+    required this.institutionName,
+    this.institutionLogo,
+  });
+
+  @override
+  List<Object?> get props => [connectionId, institutionName];
+}
+
+class BankAccountSetupInProgress extends BankState {
+  const BankAccountSetupInProgress();
+}
+
+class BankAccountSetupSuccess extends BankState {
+  final BankAccountEntity account;
+  const BankAccountSetupSuccess(this.account);
+
+  @override
+  List<Object?> get props => [account];
+}
+
+class BankAccountSetupFailure extends BankState {
+  final String message;
+  const BankAccountSetupFailure(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+// ============================================================
+// BANK CARDS
+// ============================================================
+
+class BankCardsLoaded extends BankState {
+  final List<BankCardEntity> cards;
+  const BankCardsLoaded(this.cards);
+
+  @override
+  List<Object?> get props => [cards];
+}
+
+class BankCardAdding extends BankState {
+  const BankCardAdding();
+}
+
+class BankCardAdded extends BankState {
+  final BankCardEntity card;
+  const BankCardAdded(this.card);
+
+  @override
+  List<Object?> get props => [card];
+}
+
+class BankCardAddFailure extends BankState {
+  final String message;
+  const BankCardAddFailure(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+// ============================================================
+// CSV IMPORT
+// ============================================================
+
+class BankCsvImportInProgress extends BankState {
+  const BankCsvImportInProgress();
+}
+
+class BankCsvImportSuccess extends BankState {
+  final int imported;
+  final int skipped;
+  const BankCsvImportSuccess({required this.imported, required this.skipped});
+
+  @override
+  List<Object?> get props => [imported, skipped];
+}
+
+class BankCsvImportFailure extends BankState {
+  final String message;
+  const BankCsvImportFailure(this.message);
+
+  @override
+  List<Object?> get props => [message];
 }
