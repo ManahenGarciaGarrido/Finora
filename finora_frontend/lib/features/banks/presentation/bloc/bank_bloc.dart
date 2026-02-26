@@ -154,7 +154,9 @@ class BankBloc extends Bloc<BankEvent, BankState> {
         } catch (e) {
           // RF-11: Manejo de token expirado — la cuenta requiere re-autenticación
           final msg = e.toString().toLowerCase();
-          if (msg.contains('401') || msg.contains('unauthorized') || msg.contains('token')) {
+          if (msg.contains('401') ||
+              msg.contains('unauthorized') ||
+              msg.contains('token')) {
             emit(BankTokenExpired(connId));
             return;
           }
@@ -164,17 +166,22 @@ class BankBloc extends Bloc<BankEvent, BankState> {
 
       // Guardar timestamp de última importación
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('last_bank_import_ms', DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+        'last_bank_import_ms',
+        DateTime.now().millisecondsSinceEpoch,
+      );
 
       // Recargar cuentas con saldos actualizados
       final updatedAccounts = await getBankAccounts();
 
-      emit(BankImportSuccess(
-        imported: totalImported,
-        skipped: totalSkipped,
-        lastSyncAt: lastSyncAt ?? DateTime.now(),
-        accounts: updatedAccounts,
-      ));
+      emit(
+        BankImportSuccess(
+          imported: totalImported,
+          skipped: totalSkipped,
+          lastSyncAt: lastSyncAt ?? DateTime.now(),
+          accounts: updatedAccounts,
+        ),
+      );
     } catch (e) {
       // Volver al estado de cuentas cargadas sin bloquear la UI
       try {
@@ -195,8 +202,37 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       final institutions = await getInstitutions(country: 'ES');
       emit(InstitutionsLoaded(institutions));
     } catch (e) {
-      emit(InstitutionsError(e.toString()));
+      // RNF-16: Mensaje informativo según el tipo de error
+      emit(InstitutionsError(_humanReadableError(e)));
     }
+  }
+
+  /// RNF-16: Convierte excepciones técnicas en mensajes comprensibles para el usuario.
+  static String _humanReadableError(Object e) {
+    final msg = e.toString().toLowerCase();
+
+    if (msg.contains('timeout') || msg.contains('timed out')) {
+      return 'La conexión tardó demasiado. Comprueba tu conexión a Internet e inténtalo de nuevo.';
+    }
+    if (msg.contains('connection') ||
+        msg.contains('socket') ||
+        msg.contains('network') ||
+        msg.contains('unreachable') ||
+        msg.contains('refused')) {
+      return 'Sin conexión a Internet. Verifica tu red y vuelve a intentarlo.';
+    }
+    if (msg.contains('401') || msg.contains('unauthorized')) {
+      return 'Tu sesión ha expirado. Vuelve a iniciar sesión.';
+    }
+    if (msg.contains('503') ||
+        msg.contains('service unavailable') ||
+        msg.contains('circuit')) {
+      return 'El servicio bancario no está disponible temporalmente. Inténtalo en unos minutos.';
+    }
+    if (msg.contains('500') || msg.contains('server error')) {
+      return 'Error en el servidor. Inténtalo de nuevo más tarde.';
+    }
+    return 'No se pudo completar la operación. Comprueba tu conexión e inténtalo de nuevo.';
   }
 
   Future<void> _onConnectBankRequested(
@@ -207,37 +243,46 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       final result = await connectBank(event.institutionId);
       final connectionId = result['connectionId'] as String;
       final authUrl = result['authUrl'] as String? ?? '';
-      final institutionName = result['institutionName'] as String? ?? event.institutionId;
+      final institutionName =
+          result['institutionName'] as String? ?? event.institutionId;
       final isMock = result['isMock'] == 'true';
-      final pendingAccounts = result['pendingAccounts'] as List<PendingBankAccountEntity>? ?? [];
+      final pendingAccounts =
+          result['pendingAccounts'] as List<PendingBankAccountEntity>? ?? [];
 
       if (authUrl.isEmpty) {
         if (isMock) {
           // Mock mode: setup manual de cuenta
-          emit(BankConnectPendingSetup(
-            connectionId: connectionId,
-            institutionName: institutionName,
-          ));
+          emit(
+            BankConnectPendingSetup(
+              connectionId: connectionId,
+              institutionName: institutionName,
+            ),
+          );
         } else {
           // Sandbox mode: mostrar pantalla de selección de cuentas
-          emit(BankPendingAccountsReady(
-            connectionId: connectionId,
-            institutionName: institutionName,
-            pendingAccounts: pendingAccounts,
-          ));
+          emit(
+            BankPendingAccountsReady(
+              connectionId: connectionId,
+              institutionName: institutionName,
+              pendingAccounts: pendingAccounts,
+            ),
+          );
         }
         return;
       }
 
       // Flujo OAuth completo (producción futura)
-      emit(BankConnectAuthUrlReady(
-        connectionId: connectionId,
-        authUrl: authUrl,
-        institutionName: institutionName,
-      ));
+      emit(
+        BankConnectAuthUrlReady(
+          connectionId: connectionId,
+          authUrl: authUrl,
+          institutionName: institutionName,
+        ),
+      );
       _startPolling(connectionId);
     } catch (e) {
-      emit(BankConnectFailure(e.toString()));
+      // RNF-16: Mensaje informativo con sugerencia de acción
+      emit(BankConnectFailure(_humanReadableError(e)));
     }
   }
 
@@ -249,16 +294,18 @@ class BankBloc extends Bloc<BankEvent, BankState> {
     // Mostrar spinner en la misma página de selección
     if (state is BankPendingAccountsReady) {
       final s = state as BankPendingAccountsReady;
-      emit(BankPendingAccountsReady(
-        connectionId:    s.connectionId,
-        institutionName: s.institutionName,
-        pendingAccounts: s.pendingAccounts,
-        isImporting:     true,
-      ));
+      emit(
+        BankPendingAccountsReady(
+          connectionId: s.connectionId,
+          institutionName: s.institutionName,
+          pendingAccounts: s.pendingAccounts,
+          isImporting: true,
+        ),
+      );
     }
     try {
       final accounts = await importSelectedAccounts(
-        connectionId:       event.connectionId,
+        connectionId: event.connectionId,
         selectedAccountIds: event.selectedAccountIds,
       );
       emit(BankConnectSuccess(accounts));
@@ -308,7 +355,11 @@ class BankBloc extends Bloc<BankEvent, BankState> {
   ) async {
     if (event.attempt >= _maxPollAttempts) {
       _pollingTimer?.cancel();
-      emit(const BankConnectFailure('Tiempo de espera agotado. Por favor, inténtalo de nuevo.'));
+      emit(
+        const BankConnectFailure(
+          'Tiempo de espera agotado. Por favor, inténtalo de nuevo.',
+        ),
+      );
       return;
     }
 
@@ -320,19 +371,25 @@ class BankBloc extends Bloc<BankEvent, BankState> {
         emit(BankConnectSuccess(accounts));
       } else if (syncStatus.status == BankConnectionStatus.failed) {
         _pollingTimer?.cancel();
-        emit(const BankConnectFailure('Error al conectar el banco. Por favor, inténtalo de nuevo.'));
+        emit(
+          const BankConnectFailure(
+            'Error al conectar el banco. Por favor, inténtalo de nuevo.',
+          ),
+        );
       } else {
         final currentState = state;
         final institutionName = currentState is BankConnectAuthUrlReady
             ? currentState.institutionName
             : currentState is BankConnectPolling
-                ? currentState.institutionName
-                : 'tu banco';
-        emit(BankConnectPolling(
-          connectionId: event.connectionId,
-          institutionName: institutionName,
-          attempt: event.attempt,
-        ));
+            ? currentState.institutionName
+            : 'tu banco';
+        emit(
+          BankConnectPolling(
+            connectionId: event.connectionId,
+            institutionName: institutionName,
+            attempt: event.attempt,
+          ),
+        );
       }
     } catch (_) {
       // Network error during poll — silently continue
@@ -460,10 +517,12 @@ class BankBloc extends Bloc<BankEvent, BankState> {
         bankAccountId: event.bankAccountId,
         rows: event.rows,
       );
-      emit(BankCsvImportSuccess(
-        imported: result['imported'] ?? 0,
-        skipped: result['skipped'] ?? 0,
-      ));
+      emit(
+        BankCsvImportSuccess(
+          imported: result['imported'] ?? 0,
+          skipped: result['skipped'] ?? 0,
+        ),
+      );
     } catch (e) {
       emit(BankCsvImportFailure(e.toString()));
     }
