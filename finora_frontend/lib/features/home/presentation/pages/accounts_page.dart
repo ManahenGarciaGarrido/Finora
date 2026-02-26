@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -41,6 +42,9 @@ class _AccountsPageState extends State<AccountsPage> {
 
   /// HU-06: Cantidad de transacciones importadas en la última sync.
   int _lastImportedCount = 0;
+
+  /// RNF-07: Duración de la última sync en milisegundos.
+  int? _lastSyncDurationMs;
 
   @override
   void initState() {
@@ -651,10 +655,11 @@ class _AccountsPageState extends State<AccountsPage> {
           );
           // RF-11 + HU-06: Actualizar indicador de última sync y contador de nuevas transacciones
         } else if (state is BankImportSuccess) {
-          // HU-06: actualizar indicador global de última sync
+          // HU-06 + RNF-07: actualizar indicador global de última sync + duración
           setState(() {
             _lastGlobalSyncAt = state.lastSyncAt ?? DateTime.now();
             _lastImportedCount = state.imported;
+            _lastSyncDurationMs = state.durationMs;
           });
           // RNF-05: mostrar aviso de renovación de consentimiento si quedan ≤14 días
           if (state.consentDaysRemaining != null &&
@@ -809,12 +814,13 @@ class _AccountsPageState extends State<AccountsPage> {
                   ),
               ],
             ),
-            // HU-06: Indicador global de última sincronización
+            // HU-06 + RNF-07: Indicador global de última sincronización con duración
             if (_lastGlobalSyncAt != null) ...[
               const SizedBox(height: 6),
               _GlobalSyncBar(
                 lastSyncAt: _lastGlobalSyncAt!,
                 isSyncing: isLoading,
+                durationMs: _lastSyncDurationMs,
                 onSyncNow: () => context.read<BankBloc>().add(
                   const ImportBankTransactionsRequested(),
                 ),
@@ -822,7 +828,10 @@ class _AccountsPageState extends State<AccountsPage> {
             ],
             const SizedBox(height: 12),
 
-            if (isLoading)
+            // RNF-07: Tarjeta de progreso visible mientras se sincroniza
+            if (state is BankImportInProgress)
+              const _SyncProgressCard()
+            else if (isLoading)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
@@ -1165,6 +1174,105 @@ class _AccountsPageState extends State<AccountsPage> {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// RNF-07: Sync progress card (shown while BankImportInProgress)
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _SyncProgressCard extends StatefulWidget {
+  const _SyncProgressCard();
+
+  @override
+  State<_SyncProgressCard> createState() => _SyncProgressCardState();
+}
+
+class _SyncProgressCardState extends State<_SyncProgressCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  int _elapsed = 0;
+  late final _timer = Stream.periodic(const Duration(seconds: 1), (i) => i + 1);
+  StreamSubscription<int>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+    _sub = _timer.listen((s) {
+      if (mounted) setState(() => _elapsed = s);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AnimatedBuilder(
+                animation: _controller,
+                builder: (_, child) => Transform.rotate(
+                  angle: _controller.value * 6.28,
+                  child: child,
+                ),
+                child: const Icon(
+                  Icons.sync_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Importando transacciones...',
+                style: AppTypography.labelMedium(color: AppColors.primary),
+              ),
+              const Spacer(),
+              Text(
+                '${_elapsed}s',
+                style: AppTypography.labelSmall(color: AppColors.primary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: const LinearProgressIndicator(
+              value: null, // indeterminate
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              minHeight: 3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sincronizando con tu banco mediante Open Banking PSD2...',
+            style: AppTypography.labelSmall(
+              color: AppColors.textSecondaryLight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // HU-06: Global sync status bar
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -1173,10 +1281,14 @@ class _GlobalSyncBar extends StatelessWidget {
   final bool isSyncing;
   final VoidCallback onSyncNow;
 
+  /// RNF-07: Duración de la última sync en ms (null si no disponible).
+  final int? durationMs;
+
   const _GlobalSyncBar({
     required this.lastSyncAt,
     required this.isSyncing,
     required this.onSyncNow,
+    this.durationMs,
   });
 
   String _formatRelative(DateTime dt) {
@@ -1205,6 +1317,14 @@ class _GlobalSyncBar extends StatelessWidget {
           'Última sync: ${_formatRelative(lastSyncAt)}',
           style: AppTypography.labelSmall(color: AppColors.textTertiaryLight),
         ),
+        // RNF-07: Mostrar duración real de la última sync
+        if (durationMs != null && durationMs! > 0) ...[
+          const SizedBox(width: 4),
+          Text(
+            '(${(durationMs! / 1000).toStringAsFixed(1)}s)',
+            style: AppTypography.labelSmall(color: AppColors.textTertiaryLight),
+          ),
+        ],
         const Spacer(),
         if (isSyncing)
           const SizedBox(

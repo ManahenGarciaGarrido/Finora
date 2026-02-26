@@ -75,6 +75,8 @@ class ApiEndpoints {
   static String importBankAccounts(String id) => '/banks/$id/import-accounts';
   // RNF-05: PSD2 consent management
   static const String bankConsents = '/banks/consents';
+  // RNF-07: Historial de sincronizaciones (sync logs)
+  static const String bankSyncLogs = '/banks/sync-logs';
   static String renewBankConsent(String id) => '/banks/$id/consent/renew';
   static String revokeBankConsent(String id) => '/banks/$id/consent';
   // RNF-16: Circuit breaker health check
