@@ -5,9 +5,10 @@ import '../constants/api_endpoints.dart';
 import '../errors/exceptions.dart';
 import 'secure_http_client.dart';
 import 'tls_validator.dart';
+import 'retry_interceptor.dart';
 
-/// HTTP client for API communication with secure TLS 1.3 enforcement
-/// Singleton pattern ensures single instance throughout the app
+/// HTTP client for API communication with secure TLS 1.3 enforcement.
+/// RNF-16: Incluye RetryInterceptor con backoff exponencial para errores recuperables.
 class ApiClient {
   late final Dio _dio;
   String? _accessToken;
@@ -40,6 +41,18 @@ class ApiClient {
   void _setupInterceptors() {
     // Add security interceptor first (validates HTTPS and TLS)
     _dio.interceptors.add(TlsValidator.createSecurityInterceptor());
+
+    // RNF-16: Retry automático con backoff exponencial (máx 3 reintentos)
+    // Se añade ANTES del interceptor de auth para que los reintentos
+    // incluyan el token de autorización vigente.
+    _dio.interceptors.add(
+      RetryInterceptor(
+        dio: _dio,
+        maxRetries: 3,
+        baseDelayMs: 500,
+        maxDelayMs: 30000,
+      ),
+    );
 
     // Add authentication interceptor
     _dio.interceptors.add(
@@ -204,10 +217,7 @@ class ApiClient {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return TimeoutException(
-          message: 'Connection timeout',
-          details: error,
-        );
+        return TimeoutException(message: 'Connection timeout', details: error);
 
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode;
@@ -255,19 +265,13 @@ class ApiClient {
         }
 
       case DioExceptionType.cancel:
-        return const UnexpectedException(
-          message: 'Request was cancelled',
-        );
+        return const UnexpectedException(message: 'Request was cancelled');
 
       case DioExceptionType.connectionError:
-        return const NetworkException(
-          message: 'Connection error',
-        );
+        return const NetworkException(message: 'Connection error');
 
       case DioExceptionType.badCertificate:
-        return const NetworkException(
-          message: 'SSL certificate error',
-        );
+        return const NetworkException(message: 'SSL certificate error');
 
       case DioExceptionType.unknown:
         return NetworkException(
@@ -286,10 +290,7 @@ class ApiClient {
     if (data == null) return null;
 
     if (data is Map<String, dynamic>) {
-      return data['message'] ??
-             data['error'] ??
-             data['detail'] ??
-             data['msg'];
+      return data['message'] ?? data['error'] ?? data['detail'] ?? data['msg'];
     }
 
     if (data is String) {
