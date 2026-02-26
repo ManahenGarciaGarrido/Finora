@@ -26,31 +26,62 @@
  * Credenciales de prueba en sandbox:
  *   usuario: user_good   contraseña: pass_good
  *   (válidos para cualquier institución del sandbox de Plaid)
+ *
+ * RNF-16: Circuit breaker + backoff exponencial + caché
+ *   - plaidBreaker protege todas las llamadas a la API de Plaid
+ *   - withRetry envuelve plaidPost con hasta 3 reintentos y backoff exponencial
+ *   - withCache cachea la lista de instituciones (TTL 1h) con fallback stale
  */
 
-const PLAID_BASE = 'https://sandbox.plaid.com';
+const { withRetry, withCache, plaidBreaker } = require('./circuitBreaker');
+
+// Producción: usar production.plaid.com cuando PLAID_ENV=production
+const PLAID_ENV  = process.env.PLAID_ENV || 'sandbox';
+const PLAID_BASE = PLAID_ENV === 'production'
+  ? 'https://production.plaid.com'
+  : 'https://sandbox.plaid.com';
 
 const isMockMode = () => !process.env.PLAID_CLIENT_ID;
 
-// ─── HTTP helper ──────────────────────────────────────────────────────────────
+// ─── HTTP helper con circuit breaker + retry (RNF-16) ─────────────────────────
 
+/**
+ * Realiza un POST a la API de Plaid con:
+ *  - Timeout de 30s (RNF-07)
+ *  - Circuit breaker (RNF-16)
+ *  - Backoff exponencial en caso de error transitorio (RNF-16)
+ */
 async function plaidPost(path, body = {}) {
-  const res = await fetch(`${PLAID_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: process.env.PLAID_CLIENT_ID,
-      secret: process.env.PLAID_SECRET,
-      ...body,
+  return withRetry(
+    () => plaidBreaker.call(async () => {
+      // AbortController para timeout de 30s (RNF-07)
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30_000);
+
+      try {
+        const res = await fetch(`${PLAID_BASE}${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            client_id: process.env.PLAID_CLIENT_ID,
+            secret: process.env.PLAID_SECRET,
+            ...body,
+          }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Plaid API error ${res.status}: ${text}`);
+        }
+
+        return res.json();
+      } finally {
+        clearTimeout(timer);
+      }
     }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Plaid API error ${res.status}: ${text}`);
-  }
-
-  return res.json();
+    { maxAttempts: 3, baseDelayMs: 500, maxDelayMs: 10_000 }
+  );
 }
 
 // ─── Plaid sandbox institutions ──────────────────────────────────────────────
@@ -114,16 +145,26 @@ const MOCK_TRANSACTIONS = [
  * Lista de instituciones para el selector de la app.
  * - Real mode: devuelve las instituciones sandbox de Plaid (IDs ins_*)
  * - Mock mode: devuelve los bancos decorativos españoles/europeos
+ *
+ * RNF-07: La lista se cachea 1 hora para evitar peticiones repetidas.
+ * RNF-16: Si el servicio falla, se devuelven los datos en caché (stale fallback).
  */
 async function listInstitutions(country = null) {
-  if (!isMockMode()) {
-    // En modo real, mostrar instituciones reales del sandbox de Plaid
-    return PLAID_SANDBOX_INSTITUTIONS;
-  }
-  // Mock mode: bancos decorativos filtrados por país si se especifica
-  return country
-    ? MOCK_INSTITUTIONS.filter(i => i.country === country.toUpperCase())
-    : MOCK_INSTITUTIONS;
+  const cacheKey = `institutions_${country || 'all'}`;
+
+  return withCache(
+    cacheKey,
+    async () => {
+      if (!isMockMode()) {
+        return PLAID_SANDBOX_INSTITUTIONS;
+      }
+      return country
+        ? MOCK_INSTITUTIONS.filter(i => i.country === country.toUpperCase())
+        : MOCK_INSTITUTIONS;
+    },
+    60 * 60 * 1000, // TTL: 1 hora (RNF-07: reduce peticiones repetidas)
+    { allowStale: true }  // RNF-16: fallback a datos obsoletos si falla
+  );
 }
 
 /**

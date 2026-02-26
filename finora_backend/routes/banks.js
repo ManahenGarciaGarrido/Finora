@@ -29,6 +29,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../services/db');
 const plaid = require('../services/plaid');
 const { autoCategory } = require('../services/categoryMapper');
+const { withRetry, withCache, ratesBreaker } = require('../services/circuitBreaker');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -56,23 +57,44 @@ function baseUrl(req) {
   return `${req.protocol}://${req.get('host')}`;
 }
 
-// Caché en memoria de tasas de cambio (se resetea al reiniciar el servidor).
-// Usa la API pública de Frankfurter (BCE) — sin API key, sin límites.
-const _rateCache = new Map();
-
+/**
+ * Convierte amountCents a EUR usando la API pública de Frankfurter (BCE).
+ *
+ * RNF-16: La tasa de cambio se cachea 1 hora (withCache con allowStale=true).
+ *         Si la API de tasas falla, se usa la última tasa conocida (stale fallback).
+ *         El circuit breaker de tasas evita saturar el servicio en caso de error.
+ *
+ * @param {number} amountCents   Importe en centavos en la moneda origen
+ * @param {string} currency      Código ISO 4217 (ej: 'USD', 'GBP')
+ * @returns {Promise<number>}    Importe en céntimos de EUR
+ */
 async function toEurCents(amountCents, currency) {
   if (!currency || currency.toUpperCase() === 'EUR') return amountCents;
   const key = currency.toUpperCase();
-  if (!_rateCache.has(key)) {
-    try {
-      const r = await fetch(`https://api.frankfurter.app/latest?from=${key}&to=EUR`);
-      const data = r.ok ? await r.json() : null;
-      _rateCache.set(key, data?.rates?.EUR ?? 1);
-    } catch {
-      _rateCache.set(key, 1); // fallback sin conversión
-    }
-  }
-  return Math.round(amountCents * _rateCache.get(key));
+
+  const rate = await withCache(
+    `rate_${key}_EUR`,
+    () => ratesBreaker.call(async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000); // 10s timeout
+      try {
+        const r = await fetch(
+          `https://api.frankfurter.app/latest?from=${key}&to=EUR`,
+          { signal: controller.signal }
+        );
+        const data = r.ok ? await r.json() : null;
+        const fetchedRate = data?.rates?.EUR;
+        if (!fetchedRate) throw new Error(`Tasa no disponible para ${key}`);
+        return fetchedRate;
+      } finally {
+        clearTimeout(timer);
+      }
+    }),
+    60 * 60 * 1000, // TTL: 1 hora
+    { allowStale: true }  // RNF-16: fallback a última tasa conocida si falla
+  ).catch(() => 1); // Si no hay stale y falla → 1:1 (sin conversión)
+
+  return Math.round(amountCents * rate);
 }
 
 // Generador de transacciones demo para cuentas recién importadas.
@@ -1268,6 +1290,22 @@ router.delete('/:id/disconnect', authenticateToken, async (req, res) => {
     console.error('banks/disconnect error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
   }
+});
+
+// ─── GET /health/circuit-breaker (RNF-16) ─────────────────────────────────────
+//
+// Endpoint de monitorización del circuit breaker de servicios externos.
+// Permite detectar si Plaid o la API de tasas están degradados.
+// No requiere autenticación (es un health check interno).
+
+const { plaidBreaker: _plaidBreaker, ratesBreaker: _ratesBreaker } = require('../services/circuitBreaker');
+
+router.get('/health/circuit-breaker', (req, res) => {
+  res.json({
+    plaid:   _plaidBreaker.status(),
+    rates:   _ratesBreaker.status(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 module.exports = router;
