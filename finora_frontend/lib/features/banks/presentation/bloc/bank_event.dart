@@ -158,15 +158,18 @@ class DeleteBankCardRequested extends BankEvent {
   List<Object?> get props => [cardId];
 }
 
+/// CU-02 FA2: El usuario canceló explícitamente el flujo de autorización
+/// en la pantalla del banco (sin completar ni rechazar permisos formalmente).
+class CancelledByUser extends BankEvent {
+  const CancelledByUser();
+}
+
 /// Import CSV transactions for a bank account
 class ImportCsvRequested extends BankEvent {
   final String bankAccountId;
   final List<Map<String, dynamic>> rows;
 
-  const ImportCsvRequested({
-    required this.bankAccountId,
-    required this.rows,
-  });
+  const ImportCsvRequested({required this.bankAccountId, required this.rows});
 
   @override
   List<Object?> get props => [bankAccountId, rows.length];

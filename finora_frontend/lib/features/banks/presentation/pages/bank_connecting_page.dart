@@ -57,6 +57,9 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                 institutionName: tokenData['institution_name'] ?? 'Banco',
               ),
             );
+          } else if (tokenData != null && tokenData['cancelled'] == 'true') {
+            // CU-02 FA2: Usuario canceló explícitamente → mostrar mensaje informativo
+            context.read<BankBloc>().add(const CancelledByUser());
           } else {
             context.read<BankBloc>().add(
               PollSyncStatus(widget.connectionId, 0),
@@ -537,6 +540,33 @@ class _TroubleshootingView extends StatelessWidget {
             'Tus datos se sincronizarán automáticamente en unos minutos.',
             'También puedes forzar la sincronización desde la pantalla de cuentas.',
             'Si ves las cuentas en tu banco pero no aquí, espera unos minutos.',
+          ],
+          showRetry: false,
+        );
+      // CU-02 FA2: Cancelación explícita del usuario
+      case BankConnectErrorType.cancelledByUser:
+        return _TroubleshootingConfig(
+          icon: Icons.cancel_outlined,
+          iconColor: AppColors.gray500,
+          title: 'Conexión cancelada',
+          steps: [
+            'Has cancelado el proceso antes de completar la autorización.',
+            'Puedes volver a intentarlo cuando quieras.',
+            'Si tienes dudas sobre la seguridad, revisa la sección PSD2 antes de continuar.',
+          ],
+          showRetry: true,
+        );
+      // CU-02 FA1: Límite de 3 intentos fallidos alcanzado
+      case BankConnectErrorType.maxAttemptsReached:
+        return _TroubleshootingConfig(
+          icon: Icons.lock_clock_outlined,
+          iconColor: AppColors.error,
+          title: 'Demasiados intentos fallidos',
+          steps: [
+            'Has alcanzado el límite de 3 intentos fallidos para este banco.',
+            'Por seguridad, debes esperar 1 hora antes de volver a intentarlo.',
+            'Si crees que es un error, contacta con soporte.',
+            'Prueba a conectar un banco diferente mientras esperas.',
           ],
           showRetry: false,
         );
