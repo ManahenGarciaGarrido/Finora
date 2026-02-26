@@ -276,12 +276,16 @@ class BankImportSuccess extends BankState {
   /// RNF-05: Días restantes del consentimiento (si quedan ≤14)
   final int? consentDaysRemaining;
 
+  /// RNF-07: Duración real de la sincronización en milisegundos
+  final int? durationMs;
+
   const BankImportSuccess({
     required this.imported,
     required this.skipped,
     this.lastSyncAt,
     required this.accounts,
     this.consentDaysRemaining,
+    this.durationMs,
   });
 
   @override
@@ -291,6 +295,7 @@ class BankImportSuccess extends BankState {
     lastSyncAt,
     accounts,
     consentDaysRemaining,
+    durationMs,
   ];
 }
 

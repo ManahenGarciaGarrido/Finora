@@ -144,6 +144,7 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       DateTime? lastSyncAt;
 
       int? consentDaysRemaining;
+      int totalDurationMs = 0; // RNF-07: acumular duración total
 
       for (final connId in connectionIds) {
         try {
@@ -153,6 +154,8 @@ class BankBloc extends Bloc<BankEvent, BankState> {
           if (result['last_sync_at'] != null) {
             lastSyncAt = DateTime.tryParse(result['last_sync_at'] as String);
           }
+          // RNF-07: Acumular duración real reportada por el backend
+          totalDurationMs += (result['duration_ms'] as int?) ?? 0;
           // RNF-05: Verificar aviso de renovación de consentimiento
           final warning = result['consent_renewal_warning'];
           if (warning != null && warning is Map) {
@@ -198,6 +201,7 @@ class BankBloc extends Bloc<BankEvent, BankState> {
           lastSyncAt: lastSyncAt ?? DateTime.now(),
           accounts: updatedAccounts,
           consentDaysRemaining: consentDaysRemaining,
+          durationMs: totalDurationMs > 0 ? totalDurationMs : null, // RNF-07
         ),
       );
     } catch (e) {
