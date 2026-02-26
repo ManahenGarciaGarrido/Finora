@@ -5,11 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
+import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/network/api_client.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
 import '../../../categories/presentation/pages/categories_page.dart';
 import '../../../settings/presentation/pages/privacy_page.dart';
+import '../../../banks/presentation/pages/psd2_consent_management_page.dart';
 
 /// Página de Ajustes
 ///
@@ -59,8 +62,10 @@ class SettingsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 16,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                16,
+                responsive.horizontalPadding,
+                0,
               ),
               child: Text('Ajustes', style: AppTypography.headlineSmall()),
             ),
@@ -70,8 +75,10 @@ class SettingsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 20,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                20,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildProfileSection(context),
             ),
@@ -81,8 +88,10 @@ class SettingsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 24,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                24,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildSettingsSection(
                 title: 'General',
@@ -127,8 +136,10 @@ class SettingsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 16,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                16,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildSettingsSection(
                 title: 'Seguridad',
@@ -160,8 +171,10 @@ class SettingsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 16,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                16,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildSettingsSection(
                 title: 'Datos y privacidad',
@@ -173,15 +186,28 @@ class SettingsPage extends StatelessWidget {
                     isDeveloping: true,
                   ),
                   _SettingsItem(
+                    icon: Icons.account_balance_outlined,
+                    title: 'Consentimientos PSD2',
+                    subtitle: 'Gestionar accesos bancarios autorizados',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Psd2ConsentManagementPage(
+                            apiClient: di.sl<ApiClient>(),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _SettingsItem(
                     icon: Icons.privacy_tip_outlined,
                     title: 'Política de privacidad',
                     subtitle: 'Consultar política GDPR',
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const PrivacyPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const PrivacyPage()),
                       );
                     },
                   ),
@@ -201,8 +227,10 @@ class SettingsPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding, 24,
-                responsive.horizontalPadding, 0,
+                responsive.horizontalPadding,
+                24,
+                responsive.horizontalPadding,
+                0,
               ),
               child: _buildLogoutButton(context),
             ),
@@ -215,7 +243,9 @@ class SettingsPage extends StatelessWidget {
               child: Center(
                 child: Text(
                   'Finora v1.0.0',
-                  style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textTertiaryLight,
+                  ),
                 ),
               ),
             ),
@@ -264,7 +294,9 @@ class SettingsPage extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   _getUserEmail(context),
-                  style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textSecondaryLight,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -309,7 +341,9 @@ class SettingsPage extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             title,
-            style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
+            style: AppTypography.labelMedium(
+              color: AppColors.textSecondaryLight,
+            ),
           ),
         ),
         Container(
@@ -351,7 +385,9 @@ class SettingsPage extends StatelessWidget {
             child: Icon(
               item.icon,
               size: 20,
-              color: item.isDanger ? AppColors.error : AppColors.textSecondaryLight,
+              color: item.isDanger
+                  ? AppColors.error
+                  : AppColors.textSecondaryLight,
             ),
           ),
           const SizedBox(width: 12),
@@ -362,13 +398,17 @@ class SettingsPage extends StatelessWidget {
                 Text(
                   item.title,
                   style: AppTypography.titleSmall(
-                    color: item.isDanger ? AppColors.error : AppColors.textPrimaryLight,
+                    color: item.isDanger
+                        ? AppColors.error
+                        : AppColors.textPrimaryLight,
                   ),
                 ),
                 const SizedBox(height: 1),
                 Text(
                   item.subtitle,
-                  style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textTertiaryLight,
+                  ),
                 ),
               ],
             ),
@@ -416,7 +456,11 @@ class SettingsPage extends StatelessWidget {
             ),
             title: Row(
               children: [
-                const Icon(Icons.logout_rounded, color: AppColors.error, size: 24),
+                const Icon(
+                  Icons.logout_rounded,
+                  color: AppColors.error,
+                  size: 24,
+                ),
                 const SizedBox(width: 12),
                 const Text('Cerrar sesión'),
               ],

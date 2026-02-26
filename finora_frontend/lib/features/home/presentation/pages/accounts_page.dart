@@ -346,7 +346,8 @@ class _AccountsPageState extends State<AccountsPage> {
         final expenses = state is TransactionsLoaded
             ? state.totalExpenses
             : 0.0;
-        final balance = income - expenses;
+        // El efectivo inicial configurado no es una transacción, se suma aparte
+        final balance = income - expenses + (_cashInitialCents / 100.0);
 
         return Container(
           padding: const EdgeInsets.all(20),
