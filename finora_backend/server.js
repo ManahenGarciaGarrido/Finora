@@ -13,6 +13,7 @@ const gdprRoutes = require('./routes/gdpr');
 const transactionRoutes = require('./routes/transactions');
 const categoryRoutes = require('./routes/categories');
 const bankRoutes = require('./routes/banks');
+const notificationRoutes = require('./routes/notifications'); // HU-06
 
 // Import services
 const emailService = require('./services/email');
@@ -115,6 +116,7 @@ app.use('/api/v1/gdpr', gdprRoutes);
 app.use('/api/v1/transactions', transactionRoutes);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/banks', bankRoutes);
+app.use('/api/v1/notifications', notificationRoutes); // HU-06
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -250,6 +252,29 @@ const startServer = async () => {
     } catch (migrateErr) {
       console.warn('[auto-migrate] sync_logs migration warning:', migrateErr.message);
     }
+
+    // HU-06: Tabla de notificaciones in-app
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          type         VARCHAR(50) NOT NULL DEFAULT 'bank_sync',
+          title        VARCHAR(255) NOT NULL,
+          body         TEXT NOT NULL,
+          metadata     JSONB,
+          read_at      TIMESTAMP,
+          created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_notifications_user_id  ON notifications(user_id);
+        CREATE INDEX IF NOT EXISTS idx_notifications_read_at  ON notifications(user_id, read_at) WHERE read_at IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_notifications_created  ON notifications(created_at DESC);
+      `);
+      console.log('[auto-migrate] ✓ notifications table (HU-06)');
+    } catch (migrateErr) {
+      console.warn('[auto-migrate] notifications migration warning:', migrateErr.message);
+    }
+
     if (dbHealth.status !== 'healthy') {
       console.error('Database connection failed:', dbHealth.error);
       // Continue anyway, health endpoint will report unhealthy
