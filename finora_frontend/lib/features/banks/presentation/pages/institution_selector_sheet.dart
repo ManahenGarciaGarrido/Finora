@@ -6,13 +6,23 @@ import '../../domain/entities/bank_institution_entity.dart';
 import '../bloc/bank_bloc.dart';
 import '../bloc/bank_event.dart';
 import '../bloc/bank_state.dart';
+import 'bank_connection_tutorial.dart';
+import 'psd2_consent_dialog.dart';
 
 /// Bottom sheet that lists available banking institutions (RF-10).
 /// Opened from AccountsPage when the user taps "Conectar banco".
+///
+/// HU-05: Muestra el tutorial en la primera conexión y el dialog
+///        de consentimiento PSD2 antes de iniciar el flujo OAuth.
 class InstitutionSelectorSheet extends StatefulWidget {
   const InstitutionSelectorSheet({super.key});
 
-  static Future<void> show(BuildContext context) {
+  /// HU-05: Abre el tutorial si es la primera vez, luego el selector de bancos.
+  static Future<void> show(BuildContext context) async {
+    // Tutorial de primera conexión (HU-05 AC: "tutorial opcional")
+    final proceed = await BankConnectionTutorial.showIfNeeded(context);
+    if (!proceed || !context.mounted) return;
+
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -25,7 +35,8 @@ class InstitutionSelectorSheet extends StatefulWidget {
   }
 
   @override
-  State<InstitutionSelectorSheet> createState() => _InstitutionSelectorSheetState();
+  State<InstitutionSelectorSheet> createState() =>
+      _InstitutionSelectorSheetState();
 }
 
 class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
@@ -84,15 +95,21 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                         color: AppColors.primarySoft,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.account_balance_rounded,
-                          color: AppColors.primary, size: 20),
+                      child: const Icon(
+                        Icons.account_balance_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Elige tu banco', style: AppTypography.titleLarge()),
+                          Text(
+                            'Elige tu banco',
+                            style: AppTypography.titleLarge(),
+                          ),
                           Text(
                             'Conexión segura PSD2 / Open Banking',
                             style: AppTypography.bodySmall(
@@ -104,7 +121,10 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded, color: AppColors.textSecondaryLight),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: AppColors.textSecondaryLight,
+                      ),
                     ),
                   ],
                 ),
@@ -123,12 +143,18 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                     hintStyle: AppTypography.bodyMedium(
                       color: AppColors.textTertiaryLight,
                     ),
-                    prefixIcon: const Icon(Icons.search_rounded,
-                        color: AppColors.gray400, size: 20),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.gray400,
+                      size: 20,
+                    ),
                     suffixIcon: _query.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear_rounded,
-                                color: AppColors.gray400, size: 18),
+                            icon: const Icon(
+                              Icons.clear_rounded,
+                              color: AppColors.gray400,
+                              size: 18,
+                            ),
                             onPressed: () {
                               _searchCtrl.clear();
                               setState(() => _query = '');
@@ -147,11 +173,15 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide:
-                          const BorderSide(color: AppColors.primary, width: 1.5),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.5,
+                      ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ),
@@ -182,16 +212,21 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.error_outline_rounded,
-                                size: 40, color: AppColors.error),
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              size: 40,
+                              color: AppColors.error,
+                            ),
                             const SizedBox(height: 12),
-                            Text('Error al cargar bancos',
-                                style: AppTypography.titleSmall()),
+                            Text(
+                              'Error al cargar bancos',
+                              style: AppTypography.titleSmall(),
+                            ),
                             const SizedBox(height: 8),
                             TextButton(
-                              onPressed: () => context
-                                  .read<BankBloc>()
-                                  .add(const LoadInstitutions()),
+                              onPressed: () => context.read<BankBloc>().add(
+                                const LoadInstitutions(),
+                              ),
                               child: const Text('Reintentar'),
                             ),
                           ],
@@ -246,10 +281,16 @@ class _InstitutionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
+        // HU-05: Mostrar dialog de consentimiento PSD2 antes de conectar.
+        // El dialog explica claramente los permisos solicitados.
+        final accepted = await Psd2ConsentDialog.show(
+          context,
+          institution.name,
+        );
+        if (!accepted || !context.mounted) return;
+
         // Close the sheet immediately, then dispatch the event.
-        // This avoids race conditions where state changes blank the list
-        // before Navigator.pop fires from a BlocConsumer listener.
         Navigator.pop(context);
         context.read<BankBloc>().add(ConnectBankRequested(institution.id));
       },
@@ -302,8 +343,11 @@ class _InstitutionTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.gray400, size: 20),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.gray400,
+              size: 20,
+            ),
           ],
         ),
       ),
