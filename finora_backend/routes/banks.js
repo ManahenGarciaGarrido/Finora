@@ -134,67 +134,87 @@ const _TX_INCOMES = [
 // Las transacciones se generan para sumar exactamente ese importe, así ambas vistas
 // (selección y detalle de cuenta) muestran siempre el mismo número.
 async function generateRandomTransactions(bankAccountId, userId, targetBalanceCents) {
-  const count = 20 + Math.floor(Math.random() * 11); // 20–30 transacciones
   const today = new Date();
+  // Historial de 18 a 24 meses para que haya suficiente contexto histórico
+  const monthsBack = 18 + Math.floor(Math.random() * 7);
 
-  // 1. Generar transacciones aleatorias
   const txList = [];
   let totalIncomeCents  = 0;
   let totalExpenseCents = 0;
 
-  for (let i = 0; i < count; i++) {
-    const daysAgo = Math.floor(Math.random() * 89) + 1; // 1–89 días atrás
-    const txDate = new Date(today);
-    txDate.setDate(txDate.getDate() - daysAgo);
+  // ── 1. Generar mes a mes ──────────────────────────────────────────────────
+  for (let m = monthsBack; m >= 0; m--) {
+    const monthBase = new Date(today.getFullYear(), today.getMonth() - m, 1);
 
-    const isExpense = Math.random() < 0.65;
-    const amountCents = isExpense
-      ? Math.floor((5  + Math.random() * 295)  * 100) // 5 – 300 €
-      : Math.floor((300 + Math.random() * 1700) * 100); // 300 – 2000 €
+    // Ingresos del mes: 1-2 (nómina + eventual extra)
+    const incomeCount = m === monthsBack ? 1 : 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < incomeCount; i++) {
+      const day = 1 + Math.floor(Math.random() * 5);
+      const txDate = new Date(monthBase.getFullYear(), monthBase.getMonth(), day);
+      if (txDate > today) continue;
+      const amountCents = Math.floor((900 + Math.random() * 1600) * 100); // 900–2500 €
+      const { desc, cat, pm } = _TX_INCOMES[Math.floor(Math.random() * _TX_INCOMES.length)];
+      totalIncomeCents += amountCents;
+      txList.push({ amountCents, isExpense: false, desc, cat, pm,
+        dateStr: txDate.toISOString().split('T')[0] });
+    }
 
-    const pool = isExpense ? _TX_EXPENSES : _TX_INCOMES;
-    const { desc, cat, pm } = pool[Math.floor(Math.random() * pool.length)];
-
-    if (isExpense) totalExpenseCents += amountCents;
-    else           totalIncomeCents  += amountCents;
-
-    txList.push({ amountCents, isExpense, desc, cat, pm, dateStr: txDate.toISOString().split('T')[0] });
+    // Gastos del mes: 6-14 (más realista)
+    const expenseCount = 6 + Math.floor(Math.random() * 9);
+    for (let i = 0; i < expenseCount; i++) {
+      const day = 1 + Math.floor(Math.random() * 28);
+      const txDate = new Date(monthBase.getFullYear(), monthBase.getMonth(), day);
+      if (txDate > today) continue;
+      const amountCents = Math.floor((5 + Math.random() * 595) * 100); // 5–600 €
+      const { desc, cat, pm } = _TX_EXPENSES[Math.floor(Math.random() * _TX_EXPENSES.length)];
+      totalExpenseCents += amountCents;
+      txList.push({ amountCents, isExpense: true, desc, cat, pm,
+        dateStr: txDate.toISOString().split('T')[0] });
+    }
   }
 
-  // 2. Ajustar con un ingreso inicial (día 90) para que ingresos - gastos = targetBalanceCents exacto.
-  //    El objetivo es el saldo EUR real de la cuenta (el mismo que se mostró en la selección).
-  const netCents = totalIncomeCents - totalExpenseCents;
-  const extraIncomeCents = targetBalanceCents - netCents;
+  // ── 2. Cuadrar exactamente con el saldo objetivo ─────────────────────────
+  //    Se añade UNA transacción de ajuste en la fecha de apertura para que
+  //    ingresos – gastos = targetBalanceCents sin excepción.
+  const netCents  = totalIncomeCents - totalExpenseCents;
+  const diffCents = targetBalanceCents - netCents;
 
-  if (extraIncomeCents > 0) {
-    // Dispersar la apertura entre 3 y 18 meses atrás (con variación de día)
-    // para que 12 cuentas vinculadas no tengan todas la misma fecha.
-    const openingDate = new Date(today);
-    const monthsBack = 3 + Math.floor(Math.random() * 16); // 3–18 meses
-    const extraDays  = Math.floor(Math.random() * 28);      // 0–27 días adicionales
-    openingDate.setMonth(openingDate.getMonth() - monthsBack);
-    openingDate.setDate(openingDate.getDate() - extraDays);
+  // Fecha de apertura: primer día del primer mes del historial
+  const openingDate = new Date(today.getFullYear(), today.getMonth() - monthsBack, 1);
+  const openingDateStr = openingDate.toISOString().split('T')[0];
+
+  if (diffCents > 0) {
+    // Faltan ingresos → depósito inicial de apertura
     txList.push({
-      amountCents: extraIncomeCents,
+      amountCents: diffCents,
       isExpense:   false,
       desc:        'Apertura de cuenta',
       cat:         'Otros ingresos',
       pm:          'bank_transfer',
-      dateStr:     openingDate.toISOString().split('T')[0],
+      dateStr:     openingDateStr,
     });
-    totalIncomeCents += extraIncomeCents;
+  } else if (diffCents < 0) {
+    // Exceso de ingresos → cargo de ajuste (ej. cuota mantenimiento inicial)
+    txList.push({
+      amountCents: -diffCents,
+      isExpense:   true,
+      desc:        'Cargo apertura de cuenta',
+      cat:         'Servicios',
+      pm:          'bank_transfer',
+      dateStr:     openingDateStr,
+    });
   }
-  // Si extraIncomeCents <= 0 el net ya supera el objetivo; el balance se dejará en netCents
-  // (siempre positivo por diseño: los ingresos son de 300-2000€ y los gastos de 5-300€).
+  // diffCents === 0 → perfecto, no hace falta ajuste
 
-  // 3. Insertar todas las transacciones
+  // ── 3. Insertar todas las transacciones ──────────────────────────────────
   for (const tx of txList) {
     const amount = (tx.amountCents / 100).toFixed(2);
     await db.query(
       `INSERT INTO transactions
          (user_id, bank_account_id, amount, type, description, category, date, payment_method)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [userId, bankAccountId, amount, tx.isExpense ? 'expense' : 'income', tx.desc, tx.cat, tx.dateStr, tx.pm]
+      [userId, bankAccountId, amount, tx.isExpense ? 'expense' : 'income',
+       tx.desc, tx.cat, tx.dateStr, tx.pm]
     );
   }
 }
@@ -1098,6 +1118,17 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
     let totalImported = 0;
     let totalSkipped = 0;
 
+    // Detectar cuentas que NO tienen todavía ninguna transacción con external_tx_id
+    // (primera importación real → hay que reemplazar las transacciones demo).
+    const firstImportAccountIds = new Set();
+    for (const account of accResult.rows) {
+      const check = await db.query(
+        'SELECT 1 FROM transactions WHERE bank_account_id = $1 AND external_tx_id IS NOT NULL LIMIT 1',
+        [account.id]
+      );
+      if (check.rows.length === 0) firstImportAccountIds.add(account.id);
+    }
+
     // Plaid: un access_token cubre todas las cuentas del Item
     // Obtenemos transacciones por access_token, luego las distribuimos por account_id
     const accessToken = conn.requisition_id;
@@ -1136,6 +1167,46 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
 
       if (insertResult.rows.length > 0) totalImported++;
       else totalSkipped++;
+    }
+
+    // Primera importación real: eliminar transacciones demo (sin external_tx_id)
+    // y añadir "Saldo de apertura" para que suma_tx == balance_cents del banco.
+    for (const accountId of firstImportAccountIds) {
+      const account = accResult.rows.find(a => a.id === accountId);
+      if (!account) continue;
+
+      // Eliminar transacciones demo (generadas automáticamente, sin ID externo)
+      await db.query(
+        'DELETE FROM transactions WHERE bank_account_id = $1 AND external_tx_id IS NULL',
+        [accountId]
+      );
+
+      // Calcular neto de transacciones reales recién importadas
+      const netResult = await db.query(
+        `SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) AS net
+         FROM transactions WHERE bank_account_id = $1`,
+        [accountId]
+      );
+      const txNetCents = Math.round(parseFloat(netResult.rows[0].net) * 100);
+      const diffCents = (account.balance_cents || 0) - txNetCents;
+
+      // Si la diferencia es mayor de 1 céntimo, añadir ajuste de saldo inicial
+      if (Math.abs(diffCents) > 1) {
+        const adjAmount = (Math.abs(diffCents) / 100).toFixed(2);
+        const adjType  = diffCents > 0 ? 'income' : 'expense';
+        // Fecha anterior a la ventana importada para que aparezca primero
+        const openingDate = new Date(fromDate);
+        openingDate.setDate(openingDate.getDate() - 1);
+        const openingDateStr = openingDate.toISOString().split('T')[0];
+
+        await db.query(
+          `INSERT INTO transactions
+             (user_id, bank_account_id, amount, type, description, category, date, payment_method)
+           VALUES ($1, $2, $3, $4, 'Saldo de apertura', 'Otros ingresos', $5, 'bank_transfer')`,
+          [conn.user_id, accountId, adjAmount, adjType, openingDateStr]
+        );
+        console.log(`[import-transactions] Saldo apertura cuenta=${accountId} diff=${diffCents}c type=${adjType}`);
+      }
     }
 
     await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
