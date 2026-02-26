@@ -143,6 +143,8 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       int totalSkipped = 0;
       DateTime? lastSyncAt;
 
+      int? consentDaysRemaining;
+
       for (final connId in connectionIds) {
         try {
           final result = await importBankTransactions(connId);
@@ -151,9 +153,24 @@ class BankBloc extends Bloc<BankEvent, BankState> {
           if (result['last_sync_at'] != null) {
             lastSyncAt = DateTime.tryParse(result['last_sync_at'] as String);
           }
+          // RNF-05: Verificar aviso de renovación de consentimiento
+          final warning = result['consent_renewal_warning'];
+          if (warning != null && warning is Map) {
+            final days = (warning['daysRemaining'] as num?)?.toInt();
+            if (days != null &&
+                (consentDaysRemaining == null || days < consentDaysRemaining)) {
+              consentDaysRemaining = days;
+            }
+          }
         } catch (e) {
-          // RF-11: Manejo de token expirado — la cuenta requiere re-autenticación
           final msg = e.toString().toLowerCase();
+          // RNF-05: Manejo de consentimiento expirado/revocado
+          if (msg.contains('consent_expired') ||
+              msg.contains('consentimiento') && msg.contains('expirado')) {
+            emit(BankConsentExpired(connectionId: connId, bankName: ''));
+            return;
+          }
+          // RF-11: Manejo de token expirado — la cuenta requiere re-autenticación
           if (msg.contains('401') ||
               msg.contains('unauthorized') ||
               msg.contains('token')) {
@@ -180,6 +197,7 @@ class BankBloc extends Bloc<BankEvent, BankState> {
           skipped: totalSkipped,
           lastSyncAt: lastSyncAt ?? DateTime.now(),
           accounts: updatedAccounts,
+          consentDaysRemaining: consentDaysRemaining,
         ),
       );
     } catch (e) {

@@ -449,6 +449,9 @@ router.post('/plaid-authorize', async (req, res) => {
       [connectionId]
     );
 
+    // RNF-05: Crear consentimiento PSD2 (90 días según normativa SCA)
+    await createPsd2Consent(connectionId, conn.user_id);
+
     console.log(`[plaid-authorize] connectionId=${connectionId} userId=${conn.user_id} accounts=${accounts.length}`);
     res.redirect(`${base}/api/v1/banks/callback-success`);
   } catch (err) {
@@ -517,6 +520,9 @@ router.post('/plaid-exchange', authenticateToken, async (req, res) => {
        WHERE id = $2`,
       [instName, connectionId]
     );
+
+    // RNF-05: Crear consentimiento PSD2 (90 días según normativa SCA)
+    await createPsd2Consent(connectionId, conn.user_id);
 
     console.log(`[plaid-exchange] connectionId=${connectionId} userId=${conn.user_id} accounts=${accounts.length}`);
     res.json({ ok: true, accounts: accounts.length });
@@ -657,6 +663,9 @@ router.get('/mock-callback', async (req, res) => {
          WHERE id = $1`,
         [connectionId]
       );
+
+      // RNF-05: Crear consentimiento PSD2
+      await createPsd2Consent(connectionId, conn.user_id);
     }
   } catch (err) {
     console.error('banks/mock-callback error:', err);
@@ -1014,6 +1023,47 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
     }
     const conn = connResult.rows[0];
 
+    // RNF-05: Verificar estado del consentimiento PSD2
+    const consentResult = await db.query(
+      `SELECT *, EXTRACT(DAY FROM (expires_at - NOW())) AS days_remaining
+       FROM psd2_consents WHERE connection_id = $1`,
+      [req.params.id]
+    );
+    if (consentResult.rows.length > 0) {
+      const consent = consentResult.rows[0];
+      const daysLeft = Math.floor(Number(consent.days_remaining));
+
+      if (consent.status === 'revoked') {
+        return res.status(403).json({
+          error: 'CONSENT_REVOKED',
+          message: 'El consentimiento bancario ha sido revocado. Reconecta el banco para continuar.',
+          code: 'CONSENT_REVOKED',
+        });
+      }
+      if (consent.status === 'expired' || daysLeft <= 0) {
+        // Marcar como expirado si no lo estaba ya
+        await db.query(
+          "UPDATE psd2_consents SET status = 'expired' WHERE connection_id = $1",
+          [req.params.id]
+        );
+        return res.status(403).json({
+          error: 'CONSENT_EXPIRED',
+          message: 'El consentimiento PSD2 ha expirado (90 días). Renueva el acceso en la configuración.',
+          code: 'CONSENT_EXPIRED',
+          renewalUrl: `${req.protocol}://${req.get('host')}/api/v1/banks/${req.params.id}/consent/renew`,
+        });
+      }
+      // Avisar si quedan ≤14 días para la expiración
+      if (daysLeft <= 14 && !consent.renewal_notified_at) {
+        await db.query(
+          'UPDATE psd2_consents SET renewal_notified_at = NOW() WHERE connection_id = $1',
+          [req.params.id]
+        );
+        // renewal_warning se incluye en la respuesta abajo
+        req._consentRenewalDays = daysLeft;
+      }
+    }
+
     const accResult = await db.query(
       'SELECT * FROM bank_accounts WHERE connection_id = $1',
       [req.params.id]
@@ -1070,12 +1120,23 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
 
     await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
 
-    res.json({
+    const responseBody = {
       message: 'Import completed',
       imported: totalImported,
       skipped: totalSkipped,
       last_sync_at: new Date().toISOString(),
-    });
+    };
+
+    // RNF-05: Avisar si el consentimiento está próximo a expirar
+    if (req._consentRenewalDays !== undefined) {
+      responseBody.consent_renewal_warning = {
+        message: `Tu consentimiento bancario expira en ${req._consentRenewalDays} días. Renuévalo para mantener la sincronización.`,
+        daysRemaining: req._consentRenewalDays,
+        renewEndpoint: `/${req.params.id}/consent/renew`,
+      };
+    }
+
+    res.json(responseBody);
   } catch (err) {
     console.error('banks/import-transactions error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
@@ -1259,6 +1320,9 @@ router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
       [connectionId]
     );
 
+    // RNF-05: Crear consentimiento PSD2 (90 días)
+    await createPsd2Consent(connectionId, conn.user_id);
+
     console.log(`[import-accounts] userId=${conn.user_id} connectionId=${connectionId} imported=${importedAccounts.length}`);
     res.json({ ok: true, accounts: importedAccounts.length });
   } catch (err) {
@@ -1292,11 +1356,153 @@ router.delete('/:id/disconnect', authenticateToken, async (req, res) => {
   }
 });
 
+// ─── RNF-05: Gestión de consentimientos PSD2 ─────────────────────────────────
+
+/**
+ * Crea o actualiza el registro de consentimiento PSD2 para una conexión bancaria.
+ * Llamado internamente cuando una conexión pasa a estado 'linked'.
+ * PSD2: el consentimiento expira a los 90 días (SCA obligatoria cada 90 días).
+ *
+ * @param {string} connectionId
+ * @param {string} userId
+ * @param {string} [scope]
+ */
+async function createPsd2Consent(connectionId, userId, scope = 'read_accounts,read_transactions') {
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 90);
+
+  await db.query(
+    `INSERT INTO psd2_consents (user_id, connection_id, scope, expires_at)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (connection_id)
+     DO UPDATE SET status = 'active', expires_at = EXCLUDED.expires_at,
+                   revoked_at = NULL, updated_at = NOW()`,
+    [userId, connectionId, scope, expiresAt.toISOString()]
+  ).catch(err => {
+    console.warn(`[psd2] No se pudo crear consentimiento para ${connectionId}:`, err.message);
+  });
+}
+
+// ─── GET /consents (RNF-05) ───────────────────────────────────────────────────
+//
+// Lista todos los consentimientos PSD2 activos del usuario.
+// Incluye: estado, scope, fecha de concesión, expiración y días restantes.
+
+router.get('/consents', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT pc.*, bc.institution_name, bc.institution_logo,
+              EXTRACT(DAY FROM (pc.expires_at - NOW())) AS days_remaining
+       FROM psd2_consents pc
+       JOIN bank_connections bc ON bc.id = pc.connection_id
+       WHERE pc.user_id = $1
+       ORDER BY pc.expires_at ASC`,
+      [req.user.userId]
+    );
+
+    const consents = result.rows.map(row => ({
+      id:              row.id,
+      connectionId:    row.connection_id,
+      institutionName: row.institution_name,
+      institutionLogo: row.institution_logo,
+      status:          row.status,
+      scope:           row.scope,
+      grantedAt:       row.granted_at,
+      expiresAt:       row.expires_at,
+      daysRemaining:   Math.max(0, Math.floor(Number(row.days_remaining))),
+      renewalRequired: Number(row.days_remaining) <= 14,
+      revokedAt:       row.revoked_at,
+    }));
+
+    res.json({ consents });
+  } catch (err) {
+    console.error('banks/consents error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /:id/consent/renew (RNF-05) ─────────────────────────────────────────
+//
+// Renueva el consentimiento PSD2 para una conexión bancaria.
+// Reinicia el período de 90 días (PSD2 SCA).
+
+router.post('/:id/consent/renew', authenticateToken, async (req, res) => {
+  const connectionId = req.params.id;
+  try {
+    const connResult = await db.query(
+      "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
+      [connectionId, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada o no activa' });
+    }
+
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 90);
+
+    await db.query(
+      `INSERT INTO psd2_consents (user_id, connection_id, scope, expires_at)
+       VALUES ($1, $2, 'read_accounts,read_transactions', $3)
+       ON CONFLICT (connection_id)
+       DO UPDATE SET status = 'active', expires_at = EXCLUDED.expires_at,
+                     revoked_at = NULL, renewal_notified_at = NULL, updated_at = NOW()`,
+      [req.user.userId, connectionId, newExpiresAt.toISOString()]
+    );
+
+    console.log(`[consent/renew] userId=${req.user.userId} connectionId=${connectionId} expires=${newExpiresAt.toISOString()}`);
+    res.json({
+      ok: true,
+      message: 'Consentimiento renovado. Acceso garantizado por 90 días más.',
+      expiresAt: newExpiresAt.toISOString(),
+      daysGranted: 90,
+    });
+  } catch (err) {
+    console.error('banks/consent/renew error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── DELETE /:id/consent (RNF-05) ─────────────────────────────────────────────
+//
+// Revoca el consentimiento PSD2. PSD2: revocación implica cese de acceso a datos.
+// La conexión pasa a estado 'disconnected'.
+
+router.delete('/:id/consent', authenticateToken, async (req, res) => {
+  const connectionId = req.params.id;
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [connectionId, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada' });
+    }
+
+    await db.query(
+      `UPDATE psd2_consents
+       SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+       WHERE connection_id = $1`,
+      [connectionId]
+    );
+    await db.query(
+      "UPDATE bank_connections SET status = 'disconnected' WHERE id = $1",
+      [connectionId]
+    );
+
+    console.log(`[consent/revoke] userId=${req.user.userId} connectionId=${connectionId}`);
+    res.json({
+      ok: true,
+      message: 'Consentimiento revocado. El banco ha sido desconectado conforme a PSD2.',
+    });
+  } catch (err) {
+    console.error('banks/consent/revoke error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
 // ─── GET /health/circuit-breaker (RNF-16) ─────────────────────────────────────
 //
 // Endpoint de monitorización del circuit breaker de servicios externos.
-// Permite detectar si Plaid o la API de tasas están degradados.
-// No requiere autenticación (es un health check interno).
 
 const { plaidBreaker: _plaidBreaker, ratesBreaker: _ratesBreaker } = require('../services/circuitBreaker');
 
@@ -1309,3 +1515,4 @@ router.get('/health/circuit-breaker', (req, res) => {
 });
 
 module.exports = router;
+module.exports.createPsd2Consent = createPsd2Consent;
