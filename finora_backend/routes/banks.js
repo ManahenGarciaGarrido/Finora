@@ -1013,6 +1013,9 @@ router.post('/:id/sync', authenticateToken, async (req, res) => {
 // Convención Plaid: amount > 0 = gasto (débito), amount < 0 = ingreso (crédito).
 
 router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
+  // RNF-07: Medir duración total de la sincronización
+  const syncStart = Date.now();
+
   try {
     const connResult = await db.query(
       "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
@@ -1120,6 +1123,19 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
 
     await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
 
+    // RNF-07: Registrar log de sincronización con duración real
+    const syncDurationMs = Date.now() - syncStart;
+    try {
+      await db.query(
+        `INSERT INTO sync_logs
+           (connection_id, user_id, trigger_type, status, imported_count, skipped_count, duration_ms)
+         VALUES ($1, $2, 'manual', 'success', $3, $4, $5)`,
+        [req.params.id, conn.user_id, totalImported, totalSkipped, syncDurationMs]
+      );
+    } catch (logErr) {
+      console.warn('sync_logs insert warning:', logErr.message);
+    }
+
     // HU-06: Crear notificación in-app si se importaron nuevas transacciones
     if (totalImported > 0) {
       try {
@@ -1143,6 +1159,7 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
       imported: totalImported,
       skipped: totalSkipped,
       last_sync_at: new Date().toISOString(),
+      duration_ms: Date.now() - syncStart, // RNF-07: duración real para el frontend
     };
 
     // RNF-05: Avisar si el consentimiento está próximo a expirar
@@ -1172,6 +1189,9 @@ router.post('/sync-all', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden', message: 'Invalid cron secret' });
   }
 
+  // RNF-07: Medir duración total del sync masivo
+  const syncAllStart = Date.now();
+
   try {
     const connsResult = await db.query(
       "SELECT * FROM bank_connections WHERE status = 'linked'"
@@ -1181,8 +1201,10 @@ router.post('/sync-all', async (req, res) => {
     let totalImported = 0;
     let totalSkipped = 0;
     const errors = [];
+    const progress = []; // RNF-07: progreso por conexión
 
     for (const conn of connsResult.rows) {
+      const connSyncStart = Date.now(); // RNF-07: medir duración por conexión
       try {
         totalConnections++;
         const accessToken = conn.requisition_id;
@@ -1243,19 +1265,48 @@ router.post('/sync-all', async (req, res) => {
         }
 
         await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [conn.id]);
+
+        // RNF-07: Registrar log de cron sync por conexión
+        const connDurationMs = Date.now() - connSyncStart;
+        try {
+          await db.query(
+            `INSERT INTO sync_logs
+               (connection_id, user_id, trigger_type, status, imported_count, skipped_count, duration_ms)
+             VALUES ($1, $2, 'cron', 'success', $3, $4, $5)`,
+            [conn.id, conn.user_id, 0, 0, connDurationMs]
+          );
+        } catch (_) { /* non-critical */ }
+
+        progress.push({ connection_id: conn.id, status: 'success', duration_ms: connDurationMs });
       } catch (connErr) {
+        const connDurationMs = Date.now() - connSyncStart;
         console.error(`[sync-all] Error syncing connection ${conn.id}:`, connErr.message);
         errors.push({ connectionId: conn.id, error: connErr.message });
+
+        // RNF-07: Log de error por conexión
+        try {
+          await db.query(
+            `INSERT INTO sync_logs
+               (connection_id, user_id, trigger_type, status, imported_count, skipped_count, duration_ms, error_message)
+             VALUES ($1, $2, 'cron', 'error', 0, 0, $3, $4)`,
+            [conn.id, conn.user_id, connDurationMs, connErr.message.substring(0, 255)]
+          );
+        } catch (_) { /* non-critical */ }
+
+        progress.push({ connection_id: conn.id, status: 'error', error: connErr.message, duration_ms: connDurationMs });
       }
     }
 
-    console.log(`[sync-all] Done: ${totalConnections} connections, ${totalImported} imported, ${totalSkipped} skipped`);
+    const totalDurationMs = Date.now() - syncAllStart;
+    console.log(`[sync-all] Done: ${totalConnections} connections, ${totalImported} imported, ${totalSkipped} skipped, ${totalDurationMs}ms`);
     res.json({
       message: 'Sync-all completed',
       connections: totalConnections,
       imported: totalImported,
       skipped: totalSkipped,
       errors,
+      progress,                       // RNF-07: progreso por conexión
+      duration_ms: totalDurationMs,   // RNF-07: duración total
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
@@ -1514,6 +1565,38 @@ router.delete('/:id/consent', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error('banks/consent/revoke error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── GET /sync-logs (RNF-07) ─────────────────────────────────────────────────
+//
+// Devuelve el historial de sincronizaciones del usuario (para el indicador de
+// progreso en el frontend). Incluye duración, estado y contador de importadas.
+
+router.get('/sync-logs', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 20, connection_id } = req.query;
+    const userId = req.user.userId;
+
+    let query = `SELECT sl.*, bc.institution_name
+                 FROM sync_logs sl
+                 LEFT JOIN bank_connections bc ON bc.id = sl.connection_id
+                 WHERE sl.user_id = $1`;
+    const params = [userId];
+
+    if (connection_id) {
+      params.push(connection_id);
+      query += ` AND sl.connection_id = $${params.length}`;
+    }
+
+    query += ` ORDER BY sl.synced_at DESC LIMIT $${params.length + 1}`;
+    params.push(parseInt(limit));
+
+    const result = await db.query(query, params);
+    res.json({ sync_logs: result.rows });
+  } catch (err) {
+    console.error('sync-logs error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
   }
 });
