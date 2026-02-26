@@ -8,8 +8,14 @@ abstract class BankRepository {
   /// List available banking institutions
   Future<List<BankInstitutionEntity>> getInstitutions({String country = 'ES'});
 
-  /// Start OAuth connection — returns {connectionId, authUrl, institutionName}
-  Future<Map<String, String>> connectBank(String institutionId);
+  /// Start connection — returns {connectionId, authUrl, isMock, pendingAccounts}
+  Future<Map<String, dynamic>> connectBank(String institutionId);
+
+  /// Import selected accounts after user confirms selection
+  Future<List<BankAccountEntity>> importSelectedBankAccounts({
+    required String connectionId,
+    required List<String> selectedAccountIds,
+  });
 
   /// Get all linked bank accounts for the user
   Future<List<BankAccountEntity>> getBankAccounts();
@@ -35,6 +41,9 @@ abstract class BankRepository {
   /// Get all bank cards for the user
   Future<List<BankCardEntity>> getBankCards();
 
+  /// Delete a card by id
+  Future<void> deleteBankCard(String cardId);
+
   /// Add a card to a bank account
   Future<BankCardEntity> addBankCard({
     required String bankAccountId,
@@ -47,5 +56,19 @@ abstract class BankRepository {
   Future<Map<String, int>> importCsvTransactions({
     required String bankAccountId,
     required List<Map<String, dynamic>> rows,
+  });
+
+  /// RF-11: Import bank transactions from Salt Edge for a connection
+  Future<Map<String, dynamic>> importBankTransactions(
+    String connectionId, {
+    String? fromDate,
+  });
+
+  /// RF-10: Exchange Plaid public_token for access_token (called from Flutter,
+  /// not from the WebView, to avoid Android WebView network restrictions).
+  Future<void> exchangePublicToken({
+    required String connectionId,
+    required String publicToken,
+    required String institutionName,
   });
 }

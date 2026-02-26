@@ -102,6 +102,62 @@ class AddBankCardRequested extends BankEvent {
   List<Object?> get props => [bankAccountId, cardName, cardType];
 }
 
+/// RF-11: Importar transacciones desde Salt Edge para una conexión bancaria
+class ImportBankTransactionsRequested extends BankEvent {
+  /// [connectionId] identifica la conexión. Si es null, importa todas.
+  final String? connectionId;
+  const ImportBankTransactionsRequested({this.connectionId});
+
+  @override
+  List<Object?> get props => [connectionId];
+}
+
+/// RF-11: Comprobar si corresponde realizar sincronización periódica
+/// (se dispara al arrancar la app y al volver al tab Cuentas)
+class CheckPeriodicSyncRequested extends BankEvent {
+  const CheckPeriodicSyncRequested();
+}
+
+/// RF-10: Flutter recibió el public_token de Plaid Link vía canal JS.
+/// Lanza el intercambio desde el cliente HTTP Dart (no desde el WebView).
+class ExchangePublicToken extends BankEvent {
+  final String connectionId;
+  final String publicToken;
+  final String institutionName;
+
+  const ExchangePublicToken({
+    required this.connectionId,
+    required this.publicToken,
+    required this.institutionName,
+  });
+
+  @override
+  List<Object?> get props => [connectionId, publicToken];
+}
+
+/// Usuario confirmó las cuentas que quiere vincular desde la pantalla de selección
+class ConfirmBankAccountSelection extends BankEvent {
+  final String connectionId;
+  final List<String> selectedAccountIds;
+
+  const ConfirmBankAccountSelection({
+    required this.connectionId,
+    required this.selectedAccountIds,
+  });
+
+  @override
+  List<Object?> get props => [connectionId, selectedAccountIds];
+}
+
+/// Delete a bank card by id
+class DeleteBankCardRequested extends BankEvent {
+  final String cardId;
+  const DeleteBankCardRequested(this.cardId);
+
+  @override
+  List<Object?> get props => [cardId];
+}
+
 /// Import CSV transactions for a bank account
 class ImportCsvRequested extends BankEvent {
   final String bankAccountId;

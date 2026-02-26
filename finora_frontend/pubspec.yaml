@@ -70,6 +70,12 @@ dependencies:
   # RF-10: Open Banking PSD2 — abrir URL de autenticación en browser externo
   url_launcher: ^6.2.5
 
+  # RF-10: WebView interno para Plaid Link (permite HTTP local, evita Chrome HTTPS-first)
+  # Pinned a 4.4.4: versión estable y ampliamente probada; 4.9.x causa errores de canal
+  # Pigeon ("Unable to establish connection on channel: webview_flutter_android...")
+  # cuando el plugin nativo no se registra correctamente tras hot-reload.
+  webview_flutter: ^4.4.4
+
   # RNF-08: Splash screen nativo optimizado
   # Muestra el splash antes de que el motor de Flutter arranque,
   # eliminando la pantalla en blanco del cold start.

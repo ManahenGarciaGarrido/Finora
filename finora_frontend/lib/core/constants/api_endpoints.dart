@@ -60,10 +60,17 @@ class ApiEndpoints {
   static const String bankAccountSetup = '/banks/accounts/setup';
   static const String bankCards = '/banks/cards';
   static String bankAccountCards(String id) => '/banks/accounts/$id/cards';
+  static String bankCardById(String id) => '/banks/cards/$id';
   static String bankAccountImportCsv(String id) => '/banks/accounts/$id/import-csv';
   static String disconnectBank(String id) => '/banks/$id/disconnect';
   static String syncBank(String id) => '/banks/$id/sync';
   static String bankSyncStatus(String id) => '/banks/$id/sync-status';
+  // RF-11: importar transacciones desde Salt Edge
+  static String importBankTransactions(String id) => '/banks/$id/import-transactions';
+  // RF-10: intercambiar public_token de Plaid Link por access_token
+  static const String plaidExchange = '/banks/plaid-exchange';
+  // RF-10: importar cuentas seleccionadas tras pantalla de selección
+  static String importBankAccounts(String id) => '/banks/$id/import-accounts';
 
   // Categories endpoints
   static const String categories = '/categories';

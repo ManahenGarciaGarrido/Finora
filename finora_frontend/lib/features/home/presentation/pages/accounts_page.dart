@@ -7,15 +7,18 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
+import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../banks/presentation/bloc/bank_bloc.dart';
 import '../../../banks/presentation/bloc/bank_event.dart';
 import '../../../banks/presentation/bloc/bank_state.dart';
 import '../../../banks/domain/entities/bank_account_entity.dart';
+import '../../../banks/domain/entities/bank_card_entity.dart';
 import '../../../banks/presentation/pages/institution_selector_sheet.dart';
 import '../../../banks/presentation/pages/bank_connecting_page.dart';
 import '../../../banks/presentation/pages/bank_account_setup_page.dart';
+import '../../../banks/presentation/pages/bank_account_selection_page.dart';
 
 /// Página de Cuentas (RF-10)
 ///
@@ -39,8 +42,20 @@ class _AccountsPageState extends State<AccountsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<BankBloc>().add(const LoadBankAccounts());
+        // RF-11: comprobar si procede sincronización periódica
+        context.read<BankBloc>().add(const CheckPeriodicSyncRequested());
       }
     });
+  }
+
+  /// RF-11: Pull-to-refresh — importa transacciones de todas las conexiones
+  Future<void> _onPullToRefresh(BuildContext context) async {
+    context.read<BankBloc>().add(const ImportBankTransactionsRequested());
+    // Esperar hasta que el bloc resuelva el estado (máximo 30 s)
+    await context.read<BankBloc>().stream.firstWhere(
+      (s) => s is BankImportSuccess || s is BankAccountsLoaded || s is BankAccountsError || s is BankTokenExpired,
+      orElse: () => const BankAccountsLoaded([]),
+    ).timeout(const Duration(seconds: 30), onTimeout: () => const BankAccountsLoaded([]));
   }
 
   Future<void> _loadCashPrefs() async {
@@ -85,9 +100,7 @@ class _AccountsPageState extends State<AccountsPage> {
 
   Future<void> _showCashSetupDialog(BuildContext context) async {
     final controller = TextEditingController(
-      text: _cashSetupDone
-          ? (_cashInitialCents / 100.0).toStringAsFixed(2)
-          : '',
+      text: _cashSetupDone ? (_cashInitialCents / 100.0).toStringAsFixed(2) : '',
     );
     final result = await showDialog<int>(
       context: context,
@@ -105,16 +118,12 @@ class _AccountsPageState extends State<AccountsPage> {
             const SizedBox(height: 4),
             Text(
               'A partir de aquí, Finora irá sumando tus ingresos y restando tus gastos en efectivo.',
-              style: AppTypography.bodySmall(
-                color: AppColors.textSecondaryLight,
-              ),
+              style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
               ],
@@ -134,9 +143,7 @@ class _AccountsPageState extends State<AccountsPage> {
           ),
           FilledButton(
             onPressed: () {
-              final raw = controller.text
-                  .replaceAll('.', '')
-                  .replaceAll(',', '.');
+              final raw = controller.text.replaceAll('.', '').replaceAll(',', '.');
               final amount = double.tryParse(raw) ?? 0.0;
               Navigator.pop(ctx, (amount * 100).round());
             },
@@ -169,17 +176,20 @@ class _AccountsPageState extends State<AccountsPage> {
     final responsive = ResponsiveUtils(context);
 
     return SafeArea(
-      child: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
+      child: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () => _onPullToRefresh(context),
+        child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         slivers: [
           // Header
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding,
-                16,
-                responsive.horizontalPadding,
-                0,
+                responsive.horizontalPadding, 16,
+                responsive.horizontalPadding, 0,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -194,10 +204,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       icon: const Icon(Icons.add_rounded),
                       onPressed: () => _connectBank(context),
                       color: AppColors.white,
-                      constraints: const BoxConstraints(
-                        minWidth: 44,
-                        minHeight: 44,
-                      ),
+                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                     ),
                   ),
                 ],
@@ -209,10 +216,8 @@ class _AccountsPageState extends State<AccountsPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding,
-                20,
-                responsive.horizontalPadding,
-                0,
+                responsive.horizontalPadding, 20,
+                responsive.horizontalPadding, 0,
               ),
               child: _buildTransactionBalance(context),
             ),
@@ -222,10 +227,8 @@ class _AccountsPageState extends State<AccountsPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding,
-                16,
-                responsive.horizontalPadding,
-                0,
+                responsive.horizontalPadding, 16,
+                responsive.horizontalPadding, 0,
               ),
               child: _buildCashCard(context),
             ),
@@ -235,10 +238,8 @@ class _AccountsPageState extends State<AccountsPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding,
-                20,
-                responsive.horizontalPadding,
-                0,
+                responsive.horizontalPadding, 20,
+                responsive.horizontalPadding, 0,
               ),
               child: _buildBankAccountsSection(context),
             ),
@@ -248,10 +249,8 @@ class _AccountsPageState extends State<AccountsPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding,
-                20,
-                responsive.horizontalPadding,
-                0,
+                responsive.horizontalPadding, 20,
+                responsive.horizontalPadding, 0,
               ),
               child: _buildConnectBankCard(context),
             ),
@@ -261,10 +260,8 @@ class _AccountsPageState extends State<AccountsPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding,
-                20,
-                responsive.horizontalPadding,
-                0,
+                responsive.horizontalPadding, 20,
+                responsive.horizontalPadding, 0,
               ),
               child: _buildPaymentMethodsSummary(context),
             ),
@@ -272,7 +269,8 @@ class _AccountsPageState extends State<AccountsPage> {
 
           SliverToBoxAdapter(child: SizedBox(height: responsive.hp(12))),
         ],
-      ),
+        ),  // CustomScrollView
+      ),  // RefreshIndicator
     );
   }
 
@@ -280,9 +278,7 @@ class _AccountsPageState extends State<AccountsPage> {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
         final income = state is TransactionsLoaded ? state.totalIncome : 0.0;
-        final expenses = state is TransactionsLoaded
-            ? state.totalExpenses
-            : 0.0;
+        final expenses = state is TransactionsLoaded ? state.totalExpenses : 0.0;
         final balance = income - expenses;
 
         return Container(
@@ -305,10 +301,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
@@ -341,9 +334,7 @@ class _AccountsPageState extends State<AccountsPage> {
                           Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: AppColors.successLight.withValues(
-                                alpha: 0.2,
-                              ),
+                              color: AppColors.successLight.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
@@ -360,16 +351,12 @@ class _AccountsPageState extends State<AccountsPage> {
                                 Text(
                                   'Ingresos',
                                   style: AppTypography.labelSmall(
-                                    color: AppColors.white.withValues(
-                                      alpha: 0.6,
-                                    ),
+                                    color: AppColors.white.withValues(alpha: 0.6),
                                   ),
                                 ),
                                 Text(
                                   _formatCurrency(income),
-                                  style: AppTypography.titleSmall(
-                                    color: AppColors.white,
-                                  ),
+                                  style: AppTypography.titleSmall(color: AppColors.white),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -390,9 +377,7 @@ class _AccountsPageState extends State<AccountsPage> {
                           Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: AppColors.errorLight.withValues(
-                                alpha: 0.2,
-                              ),
+                              color: AppColors.errorLight.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
@@ -409,16 +394,12 @@ class _AccountsPageState extends State<AccountsPage> {
                                 Text(
                                   'Gastos',
                                   style: AppTypography.labelSmall(
-                                    color: AppColors.white.withValues(
-                                      alpha: 0.6,
-                                    ),
+                                    color: AppColors.white.withValues(alpha: 0.6),
                                   ),
                                 ),
                                 Text(
                                   _formatCurrency(expenses),
-                                  style: AppTypography.titleSmall(
-                                    color: AppColors.white,
-                                  ),
+                                  style: AppTypography.titleSmall(color: AppColors.white),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -471,11 +452,8 @@ class _AccountsPageState extends State<AccountsPage> {
                     color: AppColors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.payments_rounded,
-                    color: AppColors.white,
-                    size: 22,
-                  ),
+                  child: const Icon(Icons.payments_rounded,
+                      color: AppColors.white, size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -485,8 +463,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       Text(
                         'Efectivo',
                         style: AppTypography.bodySmall(
-                          color: AppColors.white.withValues(alpha: 0.8),
-                        ),
+                            color: AppColors.white.withValues(alpha: 0.8)),
                       ),
                       Text(
                         _formatCurrency(cashBalance),
@@ -519,7 +496,24 @@ class _AccountsPageState extends State<AccountsPage> {
   Widget _buildBankAccountsSection(BuildContext context) {
     return BlocConsumer<BankBloc, BankState>(
       listener: (context, state) {
-        if (state is BankConnectPendingSetup) {
+        if (state is BankPendingAccountsReady && !state.isImporting) {
+          // Sandbox mode: dejar al usuario elegir qué cuentas vincular
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: context.read<BankBloc>(),
+                child: BankAccountSelectionPage(
+                  connectionId:    state.connectionId,
+                  institutionName: state.institutionName,
+                  pendingAccounts: state.pendingAccounts,
+                ),
+              ),
+            ),
+          ).then((_) {
+            context.read<BankBloc>().add(const LoadBankAccounts());
+          });
+        } else if (state is BankConnectPendingSetup) {
           // Mock mode: navigate to setup page to configure the account
           Navigator.push(
             context,
@@ -543,14 +537,19 @@ class _AccountsPageState extends State<AccountsPage> {
                 child: BankConnectingPage(
                   connectionId: state.connectionId,
                   institutionName: state.institutionName,
+                  authUrl: state.authUrl,
                 ),
               ),
             ),
           ).then((_) {
             context.read<BankBloc>().add(const LoadBankAccounts());
           });
-        } else if (state is BankConnectSuccess || state is BankAccountsLoaded) {
-          // Accounts updated — nothing extra needed (builder handles display)
+        } else if (state is BankConnectSuccess) {
+          // Reload transactions immediately so the dashboard and history
+          // reflect the newly imported demo transactions without restart.
+          context.read<TransactionBloc>().add(LoadTransactions());
+        } else if (state is BankAccountsLoaded) {
+          // builder handles display
         } else if (state is BankConnectFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -565,16 +564,63 @@ class _AccountsPageState extends State<AccountsPage> {
               backgroundColor: AppColors.error,
             ),
           );
+        // RF-11: Notificación de nuevas transacciones detectadas
+        } else if (state is BankImportSuccess) {
+          final msg = state.imported > 0
+              ? '${state.imported} nueva${state.imported == 1 ? '' : 's'} transacci${state.imported == 1 ? 'ón' : 'ones'} importada${state.imported == 1 ? '' : 's'}'
+              : 'Sincronización completada — sin novedades';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.sync_rounded, color: AppColors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Text(msg),
+                ],
+              ),
+              backgroundColor: state.imported > 0 ? AppColors.success : AppColors.gray400,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        // RF-11: Token expirado — pedir re-autenticación
+        } else if (state is BankTokenExpired) {
+          showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Sesión bancaria expirada'),
+              content: const Text(
+                'Tu sesión con el banco ha caducado. '
+                'Reconecta la cuenta para seguir importando transacciones automáticamente.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Ahora no'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _connectBank(context);
+                  },
+                  child: const Text('Reconectar'),
+                ),
+              ],
+            ),
+          );
         }
       },
       builder: (context, state) {
         final accounts = state is BankAccountsLoaded
             ? state.accounts
-            : <BankAccountEntity>[];
-        final isLoading =
-            state is BankAccountsLoading ||
+            : state is BankImportSuccess
+                ? state.accounts
+                : state is BankConnectSuccess
+                    ? state.accounts
+                    : <BankAccountEntity>[];
+        final isLoading = state is BankAccountsLoading ||
             state is BankSyncing ||
-            state is BankDisconnecting;
+            state is BankDisconnecting ||
+            state is BankImportInProgress; // RF-11
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -586,10 +632,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 const Spacer(),
                 if (accounts.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.successSoft,
                       borderRadius: BorderRadius.circular(6),
@@ -597,11 +640,8 @@ class _AccountsPageState extends State<AccountsPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.check_circle_rounded,
-                          size: 10,
-                          color: AppColors.success,
-                        ),
+                        const Icon(Icons.check_circle_rounded,
+                            size: 10, color: AppColors.success),
                         const SizedBox(width: 4),
                         Text(
                           '${accounts.length} conectada${accounts.length == 1 ? '' : 's'}',
@@ -619,20 +659,18 @@ class _AccountsPageState extends State<AccountsPage> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                    strokeWidth: 2,
+                    color: AppColors.primary, strokeWidth: 2,
                   ),
                 ),
               )
             else if (accounts.isEmpty)
               _buildEmptyBanksCard(context)
             else
-              ...accounts.map(
-                (acct) => _BankAccountCard(
-                  account: acct,
-                  onDisconnect: () => _confirmDisconnect(context, acct),
-                ),
-              ),
+              ...accounts.map((acct) => _BankAccountCard(
+                    account: acct,
+                    onDisconnect: () => _confirmDisconnect(context, acct),
+                    onEdit: () => _openEditCardsSheet(context, acct),
+                  )),
           ],
         );
       },
@@ -642,8 +680,8 @@ class _AccountsPageState extends State<AccountsPage> {
   Widget _buildConnectBankCard(BuildContext context) {
     return BlocBuilder<BankBloc, BankState>(
       builder: (context, state) {
-        final hasAccounts =
-            state is BankAccountsLoaded && state.accounts.isNotEmpty;
+        final hasAccounts = (state is BankAccountsLoaded && state.accounts.isNotEmpty) ||
+            (state is BankImportSuccess && state.accounts.isNotEmpty);
         if (hasAccounts) return const SizedBox.shrink();
 
         return Container(
@@ -651,9 +689,7 @@ class _AccountsPageState extends State<AccountsPage> {
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.15),
-            ),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
           ),
           child: Column(
             children: [
@@ -664,11 +700,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   color: AppColors.primarySoft,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
-                  Icons.link_rounded,
-                  color: AppColors.primary,
-                  size: 28,
-                ),
+                child: const Icon(Icons.link_rounded, color: AppColors.primary, size: 28),
               ),
               const SizedBox(height: 14),
               Text('Conecta tu banco', style: AppTypography.titleMedium()),
@@ -676,18 +708,13 @@ class _AccountsPageState extends State<AccountsPage> {
               Text(
                 'Sincroniza automáticamente tus cuentas bancarias mediante Open Banking PSD2.',
                 textAlign: TextAlign.center,
-                style: AppTypography.bodySmall(
-                  color: AppColors.textSecondaryLight,
-                ),
+                style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
               ),
               const SizedBox(height: 16),
               GestureDetector(
                 onTap: () => _connectBank(context),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(12),
@@ -695,16 +722,10 @@ class _AccountsPageState extends State<AccountsPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.add_link_rounded,
-                        color: AppColors.white,
-                        size: 18,
-                      ),
+                      const Icon(Icons.add_link_rounded, color: AppColors.white, size: 18),
                       const SizedBox(width: 8),
-                      Text(
-                        'Conectar cuenta',
-                        style: AppTypography.labelLarge(color: AppColors.white),
-                      ),
+                      Text('Conectar cuenta',
+                          style: AppTypography.labelLarge(color: AppColors.white)),
                     ],
                   ),
                 ),
@@ -726,17 +747,11 @@ class _AccountsPageState extends State<AccountsPage> {
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.account_balance_outlined,
-            size: 40,
-            color: AppColors.gray300,
-          ),
+          Icon(Icons.account_balance_outlined, size: 40, color: AppColors.gray300),
           const SizedBox(height: 12),
           Text(
             'Sin cuentas conectadas',
-            style: AppTypography.titleSmall(
-              color: AppColors.textSecondaryLight,
-            ),
+            style: AppTypography.titleSmall(color: AppColors.textSecondaryLight),
           ),
           const SizedBox(height: 4),
           Text(
@@ -751,6 +766,20 @@ class _AccountsPageState extends State<AccountsPage> {
 
   void _connectBank(BuildContext context) {
     InstitutionSelectorSheet.show(context);
+  }
+
+  void _openEditCardsSheet(BuildContext context, BankAccountEntity account) {
+    final bankBloc = context.read<BankBloc>();
+    bankBloc.add(const LoadBankCards());
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BlocProvider.value(
+        value: bankBloc,
+        child: _EditCardsSheet(account: account),
+      ),
+    );
   }
 
   void _confirmDisconnect(BuildContext context, BankAccountEntity account) {
@@ -770,9 +799,9 @@ class _AccountsPageState extends State<AccountsPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              context.read<BankBloc>().add(
-                DisconnectBankRequested(account.connectionId),
-              );
+              context
+                  .read<BankBloc>()
+                  .add(DisconnectBankRequested(account.connectionId));
             },
             child: Text(
               'Desconectar',
@@ -813,10 +842,7 @@ class _AccountsPageState extends State<AccountsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Uso por método de pago',
-                style: AppTypography.titleMedium(),
-              ),
+              Text('Uso por método de pago', style: AppTypography.titleMedium()),
               const SizedBox(height: 16),
               ...sortedMethods.map((method) {
                 final count = methodCounts[method]!;
@@ -845,9 +871,7 @@ class _AccountsPageState extends State<AccountsPage> {
                             Text(method, style: AppTypography.titleSmall()),
                             Text(
                               '$count transacciones',
-                              style: AppTypography.bodySmall(
-                                color: AppColors.textTertiaryLight,
-                              ),
+                              style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
                             ),
                           ],
                         ),
@@ -938,6 +962,7 @@ class _AccountsPageState extends State<AccountsPage> {
         return AppColors.gray500;
     }
   }
+
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -947,8 +972,36 @@ class _AccountsPageState extends State<AccountsPage> {
 class _BankAccountCard extends StatelessWidget {
   final BankAccountEntity account;
   final VoidCallback onDisconnect;
+  final VoidCallback onEdit;
 
-  const _BankAccountCard({required this.account, required this.onDisconnect});
+  const _BankAccountCard({
+    required this.account,
+    required this.onDisconnect,
+    required this.onEdit,
+  });
+
+  /// Returns a human-readable relative time string for the last sync.
+  String _formatSyncTime(DateTime lastSyncAt) {
+    final diff = DateTime.now().difference(lastSyncAt);
+    if (diff.inSeconds < 60) return 'hace un momento';
+    if (diff.inMinutes < 60) {
+      final m = diff.inMinutes;
+      return 'hace $m min';
+    }
+    if (diff.inHours < 24) {
+      final h = diff.inHours;
+      return 'hace $h h';
+    }
+    if (diff.inDays == 1) return 'ayer';
+    if (diff.inDays < 7) {
+      return 'hace ${diff.inDays} días';
+    }
+    // Fallback to dd/MM/yyyy
+    final d = lastSyncAt.day.toString().padLeft(2, '0');
+    final mo = lastSyncAt.month.toString().padLeft(2, '0');
+    final y = lastSyncAt.year;
+    return '$d/$mo/$y';
+  }
 
   String _formatBalance(double balance) {
     final isNeg = balance < 0;
@@ -1014,10 +1067,7 @@ class _BankAccountCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      account.accountName,
-                      style: AppTypography.titleSmall(),
-                    ),
+                    Text(account.accountName, style: AppTypography.titleSmall()),
                     if (account.institutionName != null)
                       Text(
                         account.institutionName!,
@@ -1031,32 +1081,37 @@ class _BankAccountCard extends StatelessWidget {
               // Options menu
               PopupMenuButton<String>(
                 onSelected: (v) {
+                  if (v == 'edit') onEdit();
                   if (v == 'disconnect') onDisconnect();
                 },
                 itemBuilder: (_) => [
                   const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.credit_card_rounded, size: 18,
+                            color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text('Editar tarjetas'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
                     value: 'disconnect',
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.link_off_rounded,
-                          size: 18,
-                          color: AppColors.error,
-                        ),
+                        Icon(Icons.link_off_rounded, size: 18,
+                            color: AppColors.error),
                         SizedBox(width: 8),
-                        Text(
-                          'Desconectar',
-                          style: TextStyle(color: AppColors.error),
-                        ),
+                        Text('Desconectar',
+                            style: TextStyle(color: AppColors.error)),
                       ],
                     ),
                   ),
                 ],
-                child: const Icon(
-                  Icons.more_vert_rounded,
-                  color: AppColors.gray400,
-                  size: 20,
-                ),
+                child: const Icon(Icons.more_vert_rounded,
+                    color: AppColors.gray400, size: 20),
               ),
             ],
           ),
@@ -1071,8 +1126,7 @@ class _BankAccountCard extends StatelessWidget {
                   Text(
                     'Saldo disponible',
                     style: AppTypography.labelSmall(
-                      color: AppColors.textTertiaryLight,
-                    ),
+                        color: AppColors.textTertiaryLight),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -1087,40 +1141,412 @@ class _BankAccountCard extends StatelessWidget {
                   Text(
                     'IBAN',
                     style: AppTypography.labelSmall(
-                      color: AppColors.textTertiaryLight,
-                    ),
+                        color: AppColors.textTertiaryLight),
                   ),
                   const SizedBox(height: 2),
-                  Text(account.maskedIban, style: AppTypography.bodySmall()),
+                  Text(
+                    account.maskedIban,
+                    style: AppTypography.bodySmall(),
+                  ),
                 ],
               ),
             ],
           ),
           if (account.lastSyncAt != null) ...[
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.successSoft,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    size: 10,
-                    color: AppColors.success,
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.successSoft,
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Sincronizado',
-                    style: AppTypography.badge(color: AppColors.success),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.sync_rounded,
+                          size: 10, color: AppColors.success),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Sincronizado ${_formatSyncTime(account.lastSyncAt!)}',
+                        style: AppTypography.badge(color: AppColors.success),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Edit cards bottom sheet
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _EditCardsSheet extends StatefulWidget {
+  final BankAccountEntity account;
+  const _EditCardsSheet({required this.account});
+
+  @override
+  State<_EditCardsSheet> createState() => _EditCardsSheetState();
+}
+
+class _EditCardsSheetState extends State<_EditCardsSheet> {
+  List<BankCardEntity> _cards = [];
+  bool _loading = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<BankBloc, BankState>(
+      listener: (ctx, state) {
+        if (state is BankCardsLoaded) {
+          setState(() {
+            _cards = state.cards
+                .where((c) => c.bankAccountId == widget.account.id)
+                .toList();
+            _loading = false;
+          });
+        } else if (state is BankCardAdded || state is BankCardDeleted) {
+          ctx.read<BankBloc>().add(const LoadBankCards());
+        }
+      },
+      builder: (ctx, state) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.backgroundLight,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+              20, 16, 20, MediaQuery.of(ctx).viewInsets.bottom + 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.gray300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Tarjetas', style: AppTypography.titleLarge()),
+                        Text(
+                          widget.account.accountName,
+                          style: AppTypography.bodySmall(
+                              color: AppColors.textSecondaryLight),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _showAddCardSheet(ctx),
+                    icon: const Icon(Icons.add_card_rounded,
+                        size: 18, color: AppColors.primary),
+                    label: Text('Añadir',
+                        style: AppTypography.labelMedium(
+                            color: AppColors.primary)),
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              if (_loading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: CircularProgressIndicator(
+                        color: AppColors.primary, strokeWidth: 2),
+                  ),
+                )
+              else if (_cards.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.gray100),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.credit_card_outlined,
+                          color: AppColors.gray300, size: 24),
+                      const SizedBox(width: 12),
+                      Text('Sin tarjetas — pulsa Añadir',
+                          style: AppTypography.bodyMedium(
+                              color: AppColors.textSecondaryLight)),
+                    ],
+                  ),
+                )
+              else
+                ...(_cards.map((card) => _buildCardTile(ctx, card))),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCardTile(BuildContext ctx, BankCardEntity card) {
+    final icon = card.cardType == 'credit'
+        ? Icons.credit_card_rounded
+        : card.cardType == 'prepaid'
+            ? Icons.contactless_rounded
+            : Icons.payment_rounded;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.gray100),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.primary, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(card.cardName, style: AppTypography.titleSmall()),
+                Text(
+                  '${card.cardTypeLabel}${card.lastFour != null ? ' ••••${card.lastFour}' : ''}',
+                  style: AppTypography.bodySmall(
+                      color: AppColors.textSecondaryLight),
+                ),
+              ],
             ),
-          ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded,
+                color: AppColors.error, size: 20),
+            onPressed: () =>
+                ctx.read<BankBloc>().add(DeleteBankCardRequested(card.id)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddCardSheet(BuildContext ctx) {
+    showModalBottomSheet<_CardData>(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AddCardInSheet(),
+    ).then((data) {
+      if (data != null && mounted) {
+        ctx.read<BankBloc>().add(AddBankCardRequested(
+              bankAccountId: widget.account.id,
+              cardName: data.name,
+              cardType: data.type,
+              lastFour: data.lastFour,
+            ));
+      }
+    });
+  }
+
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Simple data class for the add-card sheet result
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _CardData {
+  final String name;
+  final String type;
+  final String? lastFour;
+  _CardData({required this.name, required this.type, this.lastFour});
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Add card bottom sheet (used from the edit sheet)
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _AddCardInSheet extends StatefulWidget {
+  @override
+  State<_AddCardInSheet> createState() => _AddCardInSheetState();
+}
+
+class _AddCardInSheetState extends State<_AddCardInSheet> {
+  final _nameCtrl = TextEditingController();
+  final _lastFourCtrl = TextEditingController();
+  String _cardType = 'debit';
+
+  static const _cardTypes = [
+    ('debit', 'Débito'),
+    ('credit', 'Crédito'),
+    ('prepaid', 'Prepago'),
+  ];
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _lastFourCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.backgroundLight,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: AppColors.gray300,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Añadir tarjeta', style: AppTypography.titleLarge()),
+          const SizedBox(height: 20),
+          Text('Tipo',
+              style: AppTypography.labelMedium(
+                  color: AppColors.textSecondaryLight)),
+          const SizedBox(height: 8),
+          Row(
+            children: _cardTypes.map((t) {
+              final selected = _cardType == t.$1;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _cardType = t.$1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? AppColors.primary : AppColors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: selected
+                              ? AppColors.primary
+                              : AppColors.gray200),
+                    ),
+                    child: Text(t.$2,
+                        style: AppTypography.labelMedium(
+                            color: selected
+                                ? AppColors.white
+                                : AppColors.textSecondaryLight)),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          Text('Nombre',
+              style: AppTypography.labelMedium(
+                  color: AppColors.textSecondaryLight)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _nameCtrl,
+            style: AppTypography.bodyMedium(),
+            decoration: InputDecoration(
+              hintText: 'Ej. Visa BBVA',
+              hintStyle:
+                  AppTypography.bodyMedium(color: AppColors.textTertiaryLight),
+              filled: true,
+              fillColor: AppColors.white,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.gray200)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.gray200)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                      color: AppColors.primary, width: 1.5)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Últimos 4 dígitos (opcional)',
+              style: AppTypography.labelMedium(
+                  color: AppColors.textSecondaryLight)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _lastFourCtrl,
+            style: AppTypography.bodyMedium(),
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            decoration: InputDecoration(
+              hintText: '1234',
+              counterText: '',
+              hintStyle:
+                  AppTypography.bodyMedium(color: AppColors.textTertiaryLight),
+              filled: true,
+              fillColor: AppColors.white,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.gray200)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.gray200)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                      color: AppColors.primary, width: 1.5)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+          ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: () {
+              final name = _nameCtrl.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Introduce un nombre')));
+                return;
+              }
+              Navigator.pop(
+                  context,
+                  _CardData(
+                    name: name,
+                    type: _cardType,
+                    lastFour: _lastFourCtrl.text.trim().isNotEmpty
+                        ? _lastFourCtrl.text.trim()
+                        : null,
+                  ));
+            },
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(14)),
+              child: Center(
+                child: Text('Añadir tarjeta',
+                    style: AppTypography.labelLarge(color: AppColors.white)),
+              ),
+            ),
+          ),
         ],
       ),
     );

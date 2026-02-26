@@ -1,17 +1,25 @@
 /**
- * Bank connection routes — RF-10
+ * Bank connection routes — RF-10 / RF-11
  *
  * Endpoints:
- *  GET  /institutions               – Listar bancos soportados (Salt Edge)
- *  POST /connect                    – Iniciar flujo de consentimiento
- *  GET  /callback?ref={id}          – Callback de Salt Edge (?connection_id={id})
+ *  GET  /institutions               – Listar bancos (selector visual)
+ *  POST /connect                    – Iniciar flujo de consentimiento Plaid
+ *  GET  /plaid-link                 – Página HTML con botón de autorización (real mode)
+ *  POST /plaid-authorize            – Crear sandbox token + exchange server-side → linked
+ *  POST /plaid-exchange             – Intercambiar public_token → access_token (Dart HTTP)
+ *  GET  /callback                   – (legacy / compatibilidad Salt Edge)
  *  GET  /mock-auth?ref={id}         – Página mock de autenticación bancaria
  *  GET  /mock-callback?ref={id}     – Mock callback: crea cuentas demo
  *  GET  /callback-success           – HTML estático "¡Banco conectado!"
  *  GET  /accounts                   – Listar cuentas vinculadas del usuario
+ *  POST /accounts/setup             – Crear cuenta bancaria manualmente
+ *  GET  /cards                      – Listar tarjetas del usuario
+ *  POST /accounts/:accountId/cards  – Añadir tarjeta a una cuenta
+ *  POST /accounts/:accountId/import-csv – Importar CSV
  *  GET  /:id/sync-status            – Polling del estado de conexión
  *  POST /:id/sync                   – Forzar re-sync de saldos
- *  POST /:id/import-transactions    – Importar transacciones reales de Salt Edge
+ *  POST /:id/import-transactions    – Importar transacciones Plaid (RF-11)
+ *  POST /sync-all                   – Sync masivo para cron job interno (RF-11)
  *  DELETE /:id/disconnect           – Eliminar conexión y cuentas
  */
 
@@ -19,13 +27,12 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const db = require('../services/db');
-const saltedge = require('../services/saltedge');
+const plaid = require('../services/plaid');
+const { autoCategory } = require('../services/categoryMapper');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-// ============================================
-// AUTH MIDDLEWARE
-// ============================================
+// ─── Auth middleware ───────────────────────────────────────────────────────────
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -42,22 +49,140 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-// ============================================
-// Helper: construir URL base desde la petición
-// ============================================
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function baseUrl(req) {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
   return `${req.protocol}://${req.get('host')}`;
 }
 
-// ============================================
-// GET /institutions — listar bancos (RF-10)
-// ============================================
+// Caché en memoria de tasas de cambio (se resetea al reiniciar el servidor).
+// Usa la API pública de Frankfurter (BCE) — sin API key, sin límites.
+const _rateCache = new Map();
+
+async function toEurCents(amountCents, currency) {
+  if (!currency || currency.toUpperCase() === 'EUR') return amountCents;
+  const key = currency.toUpperCase();
+  if (!_rateCache.has(key)) {
+    try {
+      const r = await fetch(`https://api.frankfurter.app/latest?from=${key}&to=EUR`);
+      const data = r.ok ? await r.json() : null;
+      _rateCache.set(key, data?.rates?.EUR ?? 1);
+    } catch {
+      _rateCache.set(key, 1); // fallback sin conversión
+    }
+  }
+  return Math.round(amountCents * _rateCache.get(key));
+}
+
+// Generador de transacciones demo para cuentas recién importadas.
+// cat: categoría tal como aparece en la BD (nombre en español, seeded en seed_categories_for_user)
+// pm:  payment_method — valores aceptados por el CHECK constraint de la tabla transactions
+const _TX_EXPENSES = [
+  { desc: 'Mercadona',         cat: 'Alimentación', pm: 'debit_card'   },
+  { desc: 'Carrefour',         cat: 'Alimentación', pm: 'debit_card'   },
+  { desc: 'Cafetería',         cat: 'Alimentación', pm: 'debit_card'   },
+  { desc: 'Restaurante',       cat: 'Alimentación', pm: 'debit_card'   },
+  { desc: 'Repsol',            cat: 'Transporte',   pm: 'debit_card'   },
+  { desc: 'Gasolinera BP',     cat: 'Transporte',   pm: 'debit_card'   },
+  { desc: 'Renfe',             cat: 'Transporte',   pm: 'debit_card'   },
+  { desc: 'Zara',              cat: 'Ropa',         pm: 'debit_card'   },
+  { desc: 'H&M',               cat: 'Ropa',         pm: 'credit_card'  },
+  { desc: 'Amazon',            cat: 'Otros',        pm: 'credit_card'  },
+  { desc: 'El Corte Inglés',   cat: 'Otros',        pm: 'credit_card'  },
+  { desc: 'Netflix',           cat: 'Ocio',         pm: 'direct_debit' },
+  { desc: 'Spotify',           cat: 'Ocio',         pm: 'direct_debit' },
+  { desc: 'Farmacia',          cat: 'Salud',        pm: 'debit_card'   },
+  { desc: 'Gimnasio',          cat: 'Salud',        pm: 'direct_debit' },
+  { desc: 'Vodafone',          cat: 'Servicios',    pm: 'direct_debit' },
+  { desc: 'Iberdrola',         cat: 'Servicios',    pm: 'direct_debit' },
+  { desc: 'Alquiler mensual',  cat: 'Vivienda',     pm: 'bank_transfer'},
+  { desc: 'Seguro coche',      cat: 'Servicios',    pm: 'direct_debit' },
+];
+const _TX_INCOMES = [
+  { desc: 'Nómina',                 cat: 'Salario',        pm: 'bank_transfer' },
+  { desc: 'Bonus trimestral',       cat: 'Salario',        pm: 'bank_transfer' },
+  { desc: 'Freelance cliente',      cat: 'Freelance',      pm: 'bank_transfer' },
+  { desc: 'Transferencia recibida', cat: 'Otros ingresos', pm: 'bizum'         },
+  { desc: 'Devolución Hacienda',    cat: 'Otros ingresos', pm: 'bank_transfer' },
+  { desc: 'Dividendos',             cat: 'Otros ingresos', pm: 'bank_transfer' },
+];
+
+// targetBalanceCents: saldo EUR ya convertido y mostrado al usuario en la pantalla de selección.
+// Las transacciones se generan para sumar exactamente ese importe, así ambas vistas
+// (selección y detalle de cuenta) muestran siempre el mismo número.
+async function generateRandomTransactions(bankAccountId, userId, targetBalanceCents) {
+  const count = 20 + Math.floor(Math.random() * 11); // 20–30 transacciones
+  const today = new Date();
+
+  // 1. Generar transacciones aleatorias
+  const txList = [];
+  let totalIncomeCents  = 0;
+  let totalExpenseCents = 0;
+
+  for (let i = 0; i < count; i++) {
+    const daysAgo = Math.floor(Math.random() * 89) + 1; // 1–89 días atrás
+    const txDate = new Date(today);
+    txDate.setDate(txDate.getDate() - daysAgo);
+
+    const isExpense = Math.random() < 0.65;
+    const amountCents = isExpense
+      ? Math.floor((5  + Math.random() * 295)  * 100) // 5 – 300 €
+      : Math.floor((300 + Math.random() * 1700) * 100); // 300 – 2000 €
+
+    const pool = isExpense ? _TX_EXPENSES : _TX_INCOMES;
+    const { desc, cat, pm } = pool[Math.floor(Math.random() * pool.length)];
+
+    if (isExpense) totalExpenseCents += amountCents;
+    else           totalIncomeCents  += amountCents;
+
+    txList.push({ amountCents, isExpense, desc, cat, pm, dateStr: txDate.toISOString().split('T')[0] });
+  }
+
+  // 2. Ajustar con un ingreso inicial (día 90) para que ingresos - gastos = targetBalanceCents exacto.
+  //    El objetivo es el saldo EUR real de la cuenta (el mismo que se mostró en la selección).
+  const netCents = totalIncomeCents - totalExpenseCents;
+  const extraIncomeCents = targetBalanceCents - netCents;
+
+  if (extraIncomeCents > 0) {
+    // Dispersar la apertura entre 3 y 18 meses atrás (con variación de día)
+    // para que 12 cuentas vinculadas no tengan todas la misma fecha.
+    const openingDate = new Date(today);
+    const monthsBack = 3 + Math.floor(Math.random() * 16); // 3–18 meses
+    const extraDays  = Math.floor(Math.random() * 28);      // 0–27 días adicionales
+    openingDate.setMonth(openingDate.getMonth() - monthsBack);
+    openingDate.setDate(openingDate.getDate() - extraDays);
+    txList.push({
+      amountCents: extraIncomeCents,
+      isExpense:   false,
+      desc:        'Apertura de cuenta',
+      cat:         'Otros ingresos',
+      pm:          'bank_transfer',
+      dateStr:     openingDate.toISOString().split('T')[0],
+    });
+    totalIncomeCents += extraIncomeCents;
+  }
+  // Si extraIncomeCents <= 0 el net ya supera el objetivo; el balance se dejará en netCents
+  // (siempre positivo por diseño: los ingresos son de 300-2000€ y los gastos de 5-300€).
+
+  // 3. Insertar todas las transacciones
+  for (const tx of txList) {
+    const amount = (tx.amountCents / 100).toFixed(2);
+    await db.query(
+      `INSERT INTO transactions
+         (user_id, bank_account_id, amount, type, description, category, date, payment_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [userId, bankAccountId, amount, tx.isExpense ? 'expense' : 'income', tx.desc, tx.cat, tx.dateStr, tx.pm]
+    );
+  }
+}
+
+// ─── GET /institutions ────────────────────────────────────────────────────────
+
 router.get('/institutions', authenticateToken, async (req, res) => {
   try {
-    // country es opcional: sin él devuelve todos los bancos soportados
     const country = req.query.country || null;
-    const institutions = await saltedge.listInstitutions(country);
+    const institutions = await plaid.listInstitutions(country);
     res.json({ institutions });
   } catch (err) {
     console.error('banks/institutions error:', err);
@@ -65,9 +190,12 @@ router.get('/institutions', authenticateToken, async (req, res) => {
   }
 });
 
-// ============================================
-// POST /connect — iniciar OAuth (RF-10)
-// ============================================
+// ─── POST /connect ─────────────────────────────────────────────────────────────
+//
+// Inicia el flujo Plaid:
+//  - Mock mode  → devuelve is_mock:true (Flutter navega a setup manual)
+//  - Real mode  → crea link_token y devuelve auth_url apuntando a /plaid-link
+
 router.post('/connect', authenticateToken, async (req, res) => {
   const { institution_id } = req.body;
   if (!institution_id) {
@@ -75,35 +203,11 @@ router.post('/connect', authenticateToken, async (req, res) => {
   }
 
   try {
-    // 1. Obtener o crear el Salt Edge Customer para este usuario.
-    let saltedgeCustomerId = null;
-    const existingConn = await db.query(
-      `SELECT saltedge_customer_id FROM bank_connections
-       WHERE user_id = $1 AND saltedge_customer_id IS NOT NULL
-       LIMIT 1`,
-      [req.user.userId]
-    );
-    if (existingConn.rows.length > 0) {
-      saltedgeCustomerId = existingConn.rows[0].saltedge_customer_id;
-    } else {
-      saltedgeCustomerId = await saltedge.getOrCreateCustomer(req.user.userId);
-    }
-
-    // 2. Insertar registro de conexión
-    const insertResult = await db.query(
-      `INSERT INTO bank_connections
-         (user_id, institution_id, status, saltedge_customer_id)
-       VALUES ($1, $2, 'pending', $3)
-       RETURNING id`,
-      [req.user.userId, institution_id, saltedgeCustomerId]
-    );
-    const connectionId = insertResult.rows[0].id;
-
-    // 3. Obtener nombre/logo del banco
+    // Obtener nombre/logo del banco para mostrarlo en la UI
     let institutionName = institution_id;
     let institutionLogo = null;
     try {
-      const institutions = await saltedge.listInstitutions();
+      const institutions = await plaid.listInstitutions();
       const inst = institutions.find(i => i.id === institution_id);
       if (inst) {
         institutionName = inst.name;
@@ -111,43 +215,55 @@ router.post('/connect', authenticateToken, async (req, res) => {
       }
     } catch (_) { /* no crítico */ }
 
-    // 4. Mock mode: devolver connection_id para que el usuario configure la cuenta
-    if (saltedge.isMockMode()) {
+    // Insertar registro de conexión en estado pending
+    const insertResult = await db.query(
+      `INSERT INTO bank_connections (user_id, institution_id, status, institution_name, institution_logo)
+       VALUES ($1, $2, 'pending', $3, $4)
+       RETURNING id`,
+      [req.user.userId, institution_id, institutionName, institutionLogo]
+    );
+    const connectionId = insertResult.rows[0].id;
+
+    // Mock mode: Flutter navega a la página de setup manual
+    if (plaid.isMockMode()) {
       console.log(`[mock/connect] userId=${req.user.userId} connectionId=${connectionId} institution=${institution_id}`);
-      await db.query(
-        `UPDATE bank_connections
-         SET institution_name = $1, institution_logo = $2
-         WHERE id = $3`,
-        [institutionName, institutionLogo, connectionId]
-      );
       return res.json({
         connection_id: connectionId,
         is_mock: true,
         institution_name: institutionName,
-        // auth_url ausente → Flutter navega a página de setup de cuenta
       });
     }
 
-    // 5. Real mode: crear sesión OAuth con Salt Edge
-    const redirectUrl = `${baseUrl(req)}/api/v1/banks/callback?ref=${connectionId}`;
-    const { requisitionId, authUrl } = await saltedge.createRequisition(
-      saltedgeCustomerId,
-      redirectUrl,
-      institution_id
-    );
+    // Sandbox mode: crear token server-side, obtener lista de cuentas con tasas
+    // de cambio reales y devolver a Flutter para que el usuario elija cuáles vincular.
+    const publicToken = await plaid.createSandboxPublicToken(institution_id);
+    const { access_token } = await plaid.exchangePublicToken(publicToken);
 
+    // Guardar access_token para usarlo después en /import-accounts
     await db.query(
-      `UPDATE bank_connections
-       SET requisition_id = $1, auth_url = $2, institution_name = $3, institution_logo = $4
-       WHERE id = $5`,
-      [requisitionId, authUrl, institutionName, institutionLogo, connectionId]
+      'UPDATE bank_connections SET requisition_id = $1 WHERE id = $2',
+      [access_token, connectionId]
     );
 
+    const rawAccounts = await plaid.fetchAccounts(access_token);
+
+    // Convertir saldos a EUR con tasa de cambio real (frankfurter.app / BCE)
+    const pendingAccounts = await Promise.all(rawAccounts.map(async acct => ({
+      external_account_id: acct.externalAccountId,
+      name:                acct.name,
+      currency:            acct.currency,
+      balance_cents:       acct.balanceCents,
+      balance_eur_cents:   await toEurCents(acct.balanceCents, acct.currency),
+      iban:                acct.iban,
+    })));
+
+    console.log(`[sandbox/connect] userId=${req.user.userId} connectionId=${connectionId} pending=${pendingAccounts.length}`);
     res.json({
-      connection_id: connectionId,
-      auth_url: authUrl,
+      connection_id:    connectionId,
+      auth_url:         '',
       institution_name: institutionName,
-      is_mock: false,
+      is_mock:          false,
+      pending_accounts: pendingAccounts,
     });
   } catch (err) {
     console.error('banks/connect error:', err);
@@ -155,10 +271,244 @@ router.post('/connect', authenticateToken, async (req, res) => {
   }
 });
 
-// ============================================
-// GET /callback?ref={connectionId}&connection_id={saltEdgeConnectionId}
-// Salt Edge redirige aquí tras la autenticación en el banco (RF-10)
-// ============================================
+// ─── GET /plaid-link ──────────────────────────────────────────────────────────
+//
+// Página de autorización bancaria para el WebView de Flutter.
+//
+// Reemplaza el flujo anterior basado en el SDK de Plaid Link JS, que en
+// Android WebView realizaba una redirección de página completa a los
+// servidores de Plaid, descargando el contexto JavaScript de la página
+// original y haciendo que onSuccess nunca se disparara.
+//
+// Solución: botón simple → form POST → /plaid-authorize (sin JS externo).
+// El backend crea el public_token vía API de sandbox de Plaid,
+// intercambia el token y redirige a /callback-success.
+// Flutter detecta callback-success en onPageFinished y cierra el WebView.
+
+router.get('/plaid-link', (req, res) => {
+  const connectionId = req.query.ref || '';
+  const base = baseUrl(req);
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conectar banco — Finora</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f0f4f8; display: flex; justify-content: center;
+           align-items: center; min-height: 100vh; padding: 16px; }
+    .card { background: white; border-radius: 16px; padding: 40px 32px;
+            max-width: 400px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            text-align: center; }
+    .logo { font-size: 56px; margin-bottom: 20px; }
+    h1 { font-size: 22px; color: #1e293b; margin-bottom: 10px; }
+    p  { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px; }
+    .badge { display: inline-block; background: #dbeafe; color: #1d4ed8;
+             font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px;
+             text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+    .perms { background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 28px;
+             text-align: left; }
+    .perm { display: flex; align-items: center; gap: 10px; padding: 5px 0;
+            font-size: 13px; color: #374151; }
+    .perm::before { content: '✓'; color: #22c55e; font-weight: bold; flex-shrink: 0; }
+    .btn { display: block; width: 100%; padding: 14px; background: #3B82F6; color: white;
+           border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+           cursor: pointer; margin-bottom: 12px; }
+    .btn:hover { background: #2563eb; }
+    .btn:active { opacity: 0.85; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .spinner { display: none; width: 18px; height: 18px;
+               border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+               border-radius: 50%; animation: spin 0.8s linear infinite;
+               vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🏦</div>
+    <div><span class="badge">Plaid · Sandbox</span></div>
+    <h1>Autorizar acceso bancario</h1>
+    <p>Finora solicitará acceso de solo lectura a tu información bancaria.</p>
+    <div class="perms">
+      <div class="perm">Ver saldo de cuentas</div>
+      <div class="perm">Ver movimientos (últimos 90 días)</div>
+      <div class="perm">Datos cifrados · Solo lectura</div>
+    </div>
+    <form action="${base}/api/v1/banks/plaid-authorize" method="POST"
+          onsubmit="handleSubmit(this)">
+      <input type="hidden" name="ref" value="${connectionId}">
+      <button type="submit" class="btn" id="authBtn">
+        <span class="spinner" id="sp"></span>Autorizar acceso
+      </button>
+    </form>
+  </div>
+  <script>
+    function handleSubmit(form) {
+      const btn = document.getElementById('authBtn');
+      const sp  = document.getElementById('sp');
+      btn.disabled = true;
+      sp.style.display = 'inline-block';
+      btn.childNodes[btn.childNodes.length - 1].textContent = 'Conectando…';
+    }
+  </script>
+</body>
+</html>`);
+});
+
+// ─── POST /plaid-authorize ────────────────────────────────────────────────────
+//
+// Autorización bancaria sin redirección en el WebView.
+// Recibe el connectionId vía form POST desde /plaid-link.
+// Crea un public_token de sandbox directamente en el servidor usando la API
+// de Plaid (/sandbox/public_token/create), lo intercambia por un access_token,
+// persiste las cuentas y marca la conexión como linked.
+// Redirige a /callback-success → Flutter detecta la URL en onNavigationRequest
+// y cierra el WebView automáticamente.
+//
+// Sin autenticación JWT: la seguridad proviene del connectionId opaco (UUID).
+
+router.post('/plaid-authorize', async (req, res) => {
+  const connectionId = req.body.ref;
+  const base = baseUrl(req);
+
+  if (!connectionId) {
+    return res.redirect(`${base}/api/v1/banks/callback-success?error=1`);
+  }
+
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1',
+      [connectionId]
+    );
+    if (connResult.rows.length === 0) {
+      console.warn(`[plaid-authorize] connectionId=${connectionId} not found`);
+      return res.redirect(`${base}/api/v1/banks/callback-success?error=1`);
+    }
+    const conn = connResult.rows[0];
+
+    // Crear public_token de sandbox en el servidor (sin SDK de Plaid Link)
+    const institutionId = conn.institution_id || 'ins_109508';
+    const publicToken = await plaid.createSandboxPublicToken(institutionId);
+
+    // Intercambiar public_token → access_token
+    const { access_token } = await plaid.exchangePublicToken(publicToken);
+
+    // Guardar access_token en requisition_id
+    await db.query(
+      'UPDATE bank_connections SET requisition_id = $1 WHERE id = $2',
+      [access_token, connectionId]
+    );
+
+    // Obtener cuentas desde Plaid
+    const accounts = await plaid.fetchAccounts(access_token);
+    for (const acct of accounts) {
+      await db.query(
+        `INSERT INTO bank_accounts
+           (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (external_account_id) DO UPDATE
+           SET balance_cents = EXCLUDED.balance_cents,
+               account_name  = EXCLUDED.account_name`,
+        [connectionId, conn.user_id, acct.externalAccountId, acct.iban,
+          acct.name, acct.currency, acct.balanceCents]
+      );
+    }
+
+    // Marcar conexión como linked
+    await db.query(
+      `UPDATE bank_connections
+       SET status = 'linked', linked_at = NOW(), last_sync_at = NOW()
+       WHERE id = $1`,
+      [connectionId]
+    );
+
+    console.log(`[plaid-authorize] connectionId=${connectionId} userId=${conn.user_id} accounts=${accounts.length}`);
+    res.redirect(`${base}/api/v1/banks/callback-success`);
+  } catch (err) {
+    console.error('banks/plaid-authorize error:', err);
+    res.redirect(`${base}/api/v1/banks/callback-success?error=1`);
+  }
+});
+
+// ─── POST /plaid-exchange ─────────────────────────────────────────────────────
+//
+// Intercambia el public_token de Plaid Link por un access_token permanente.
+// Llamado por el cliente HTTP Dart de Flutter (ya no desde el WebView),
+// lo que garantiza que el JWT y la red funcionan correctamente.
+
+router.post('/plaid-exchange', authenticateToken, async (req, res) => {
+  const { public_token, ref: connectionId, institution_name } = req.body;
+
+  if (!connectionId || !public_token) {
+    return res.status(400).json({ error: 'Bad Request', message: 'public_token y ref son requeridos' });
+  }
+
+  try {
+    // 1. Obtener la conexión de la BD (verificar que pertenece al usuario autenticado)
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [connectionId, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
+    }
+    const conn = connResult.rows[0];
+
+    // 2. Intercambiar public_token → access_token
+    const { access_token } = await plaid.exchangePublicToken(public_token);
+
+    // Guardar el access_token en requisition_id (campo de propósito genérico)
+    await db.query(
+      'UPDATE bank_connections SET requisition_id = $1 WHERE id = $2',
+      [access_token, connectionId]
+    );
+
+    // 3. Obtener cuentas desde Plaid
+    const accounts = await plaid.fetchAccounts(access_token);
+
+    // Usar institution_name enviado por el browser (viene de Plaid metadata)
+    const instName = institution_name || conn.institution_name || 'Banco';
+
+    for (const acct of accounts) {
+      await db.query(
+        `INSERT INTO bank_accounts
+           (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (external_account_id) DO UPDATE
+           SET balance_cents = EXCLUDED.balance_cents,
+               account_name  = EXCLUDED.account_name`,
+        [connectionId, conn.user_id, acct.externalAccountId, acct.iban,
+          acct.name, acct.currency, acct.balanceCents]
+      );
+    }
+
+    // 4. Marcar conexión como linked
+    await db.query(
+      `UPDATE bank_connections
+       SET status = 'linked', institution_name = $1,
+           linked_at = NOW(), last_sync_at = NOW()
+       WHERE id = $2`,
+      [instName, connectionId]
+    );
+
+    console.log(`[plaid-exchange] connectionId=${connectionId} userId=${conn.user_id} accounts=${accounts.length}`);
+    res.json({ ok: true, accounts: accounts.length });
+  } catch (err) {
+    console.error('banks/plaid-exchange error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── GET /callback ────────────────────────────────────────────────────────────
+//
+// Callback de compatibilidad (ya no es el flujo principal con Plaid).
+// Se mantiene por si algún proveedor futuro redirige aquí.
+
 router.get('/callback', async (req, res) => {
   const connectionId = req.query.ref;
   if (!connectionId) {
@@ -178,56 +528,16 @@ router.get('/callback', async (req, res) => {
       return res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success`);
     }
 
-    // Salt Edge envía el connection_id en el callback
-    const saltEdgeConnectionId = req.query.connection_id;
-    if (!saltEdgeConnectionId) {
-      await db.query("UPDATE bank_connections SET status = 'failed' WHERE id = $1", [connectionId]).catch(() => {});
-      return res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success?error=1`);
-    }
-
-    // Guardar el Salt Edge connection_id como requisition_id para futuros syncs
-    await db.query(
-      'UPDATE bank_connections SET requisition_id = $1 WHERE id = $2',
-      [saltEdgeConnectionId, connectionId]
-    );
-
-    // Obtener cuentas de Salt Edge
-    const accounts = await saltedge.fetchAccounts(saltEdgeConnectionId);
-
-    for (const acct of accounts) {
-      await db.query(
-        `INSERT INTO bank_accounts
-           (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (external_account_id) DO UPDATE
-           SET balance_cents = EXCLUDED.balance_cents,
-               account_name  = EXCLUDED.account_name`,
-        [connectionId, conn.user_id, acct.externalAccountId, acct.iban,
-          acct.name, acct.currency, acct.balanceCents]
-      );
-    }
-
-    await db.query(
-      `UPDATE bank_connections
-       SET status = 'linked', linked_at = NOW(), last_sync_at = NOW()
-       WHERE id = $1`,
-      [connectionId]
-    );
-
-    res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success`);
+    await db.query("UPDATE bank_connections SET status = 'failed' WHERE id = $1", [connectionId]).catch(() => {});
+    res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success?error=1`);
   } catch (err) {
     console.error('banks/callback error:', err);
-    await db.query(
-      "UPDATE bank_connections SET status = 'failed' WHERE id = $1",
-      [connectionId]
-    ).catch(() => {});
     res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success?error=1`);
   }
 });
 
-// ============================================
-// GET /mock-auth?ref={connectionId} — página mock de autenticación (RF-10)
-// ============================================
+// ─── GET /mock-auth ───────────────────────────────────────────────────────────
+
 router.get('/mock-auth', (req, res) => {
   const ref = req.query.ref || '';
   const callbackUrl = `${baseUrl(req)}/api/v1/banks/mock-callback?ref=${encodeURIComponent(ref)}`;
@@ -272,7 +582,7 @@ router.get('/mock-auth', (req, res) => {
     <div class="logo">🏦</div>
     <div class="center"><span class="badge">Entorno de pruebas</span></div>
     <h1>Banco Demo</h1>
-    <p>Finora solicita acceso de solo lectura a tu información bancaria a través de Salt Edge.</p>
+    <p>Finora solicita acceso de solo lectura a tu información bancaria.</p>
     <div class="perms">
       <div class="perm">Ver saldo de cuentas</div>
       <div class="perm">Ver movimientos (12 meses)</div>
@@ -285,9 +595,8 @@ router.get('/mock-auth', (req, res) => {
 </html>`);
 });
 
-// ============================================
-// GET /mock-callback?ref={connectionId} — crear cuentas mock + redirigir (RF-10)
-// ============================================
+// ─── GET /mock-callback ───────────────────────────────────────────────────────
+
 router.get('/mock-callback', async (req, res) => {
   const connectionId = req.query.ref;
   if (!connectionId) {
@@ -305,8 +614,8 @@ router.get('/mock-callback', async (req, res) => {
     const conn = connResult.rows[0];
 
     if (conn.status !== 'linked') {
-      const mockConnectionId = conn.requisition_id || connectionId;
-      const accounts = await saltedge.fetchAccounts(mockConnectionId);
+      const mockAccessToken = conn.requisition_id || connectionId;
+      const accounts = await plaid.fetchAccounts(mockAccessToken);
 
       for (const acct of accounts) {
         await db.query(
@@ -334,9 +643,8 @@ router.get('/mock-callback', async (req, res) => {
   res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success`);
 });
 
-// ============================================
-// GET /callback-success — página de éxito estática (RF-10)
-// ============================================
+// ─── GET /callback-success ────────────────────────────────────────────────────
+
 router.get('/callback-success', (req, res) => {
   const isError = req.query.error === '1';
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -381,7 +689,6 @@ router.get('/callback-success', (req, res) => {
   <script>
     function closeAndReturn() {
       window.close();
-      // Fallback: go back in history (works when opened via in-app browser)
       history.go(-999);
     }
     ${!isError ? `
@@ -398,9 +705,8 @@ router.get('/callback-success', (req, res) => {
 </html>`);
 });
 
-// ============================================
-// GET /accounts — listar cuentas bancarias vinculadas (RF-10)
-// ============================================
+// ─── GET /accounts ────────────────────────────────────────────────────────────
+
 router.get('/accounts', authenticateToken, async (req, res) => {
   try {
     console.log(`[accounts] querying for userId=${req.user.userId}`);
@@ -415,7 +721,6 @@ router.get('/accounts', authenticateToken, async (req, res) => {
        ORDER BY ba.created_at ASC`,
       [req.user.userId]
     );
-
     console.log(`[accounts] found ${result.rows.length} accounts for userId=${req.user.userId}`);
     res.json({ accounts: result.rows });
   } catch (err) {
@@ -424,10 +729,8 @@ router.get('/accounts', authenticateToken, async (req, res) => {
   }
 });
 
-// ============================================
-// POST /accounts/setup — crear cuenta bancaria desde página de configuración
-// Body: { connection_id, account_name, account_type, iban, balance_cents }
-// ============================================
+// ─── POST /accounts/setup ─────────────────────────────────────────────────────
+
 router.post('/accounts/setup', authenticateToken, async (req, res) => {
   const { connection_id, account_name, account_type = 'current', iban, balance_cents = 0 } = req.body;
   if (!connection_id || !account_name) {
@@ -435,7 +738,6 @@ router.post('/accounts/setup', authenticateToken, async (req, res) => {
   }
 
   try {
-    // Verificar que la conexión pertenece al usuario
     const connResult = await db.query(
       'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
       [connection_id, req.user.userId]
@@ -444,7 +746,6 @@ router.post('/accounts/setup', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada' });
     }
 
-    // Crear la cuenta bancaria
     const accountResult = await db.query(
       `INSERT INTO bank_accounts
          (connection_id, user_id, account_name, account_type, iban, currency, balance_cents)
@@ -454,7 +755,6 @@ router.post('/accounts/setup', authenticateToken, async (req, res) => {
     );
     const account = accountResult.rows[0];
 
-    // Marcar la conexión como linked
     await db.query(
       `UPDATE bank_connections
        SET status = 'linked', linked_at = NOW(), last_sync_at = NOW()
@@ -476,9 +776,8 @@ router.post('/accounts/setup', authenticateToken, async (req, res) => {
   }
 });
 
-// ============================================
-// GET /cards — listar tarjetas del usuario (RF-10)
-// ============================================
+// ─── GET /cards ───────────────────────────────────────────────────────────────
+
 router.get('/cards', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(
@@ -496,10 +795,8 @@ router.get('/cards', authenticateToken, async (req, res) => {
   }
 });
 
-// ============================================
-// POST /accounts/:accountId/cards — añadir tarjeta a una cuenta
-// Body: { card_name, card_type, last_four }
-// ============================================
+// ─── POST /accounts/:accountId/cards ──────────────────────────────────────────
+
 router.post('/accounts/:accountId/cards', authenticateToken, async (req, res) => {
   const { card_name, card_type = 'debit', last_four } = req.body;
   if (!card_name) {
@@ -507,7 +804,6 @@ router.post('/accounts/:accountId/cards', authenticateToken, async (req, res) =>
   }
 
   try {
-    // Verificar que la cuenta pertenece al usuario
     const accResult = await db.query(
       'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
       [req.params.accountId, req.user.userId]
@@ -530,11 +826,26 @@ router.post('/accounts/:accountId/cards', authenticateToken, async (req, res) =>
   }
 });
 
-// ============================================
-// POST /accounts/:accountId/import-csv
-// Importar transacciones desde CSV (JSON rows con deduplicación)
-// Body: { rows: [{ date, description, amount, type, category? }] }
-// ============================================
+// ─── DELETE /cards/:cardId ─────────────────────────────────────────────────────
+
+router.delete('/cards/:cardId', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      'DELETE FROM bank_cards WHERE id = $1 AND user_id = $2 RETURNING id',
+      [req.params.cardId, req.user.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Tarjeta no encontrada' });
+    }
+    res.json({ deleted: true });
+  } catch (err) {
+    console.error('banks/cards/delete error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /accounts/:accountId/import-csv ─────────────────────────────────────
+
 router.post('/accounts/:accountId/import-csv', authenticateToken, async (req, res) => {
   const { rows } = req.body;
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -542,7 +853,6 @@ router.post('/accounts/:accountId/import-csv', authenticateToken, async (req, re
   }
 
   try {
-    // Verificar que la cuenta pertenece al usuario
     const accResult = await db.query(
       'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
       [req.params.accountId, req.user.userId]
@@ -561,9 +871,8 @@ router.post('/accounts/:accountId/import-csv', authenticateToken, async (req, re
       const absAmount = Math.abs(Number(amount));
       const txType = type === 'income' ? 'income' : 'expense';
       const txCategory = category || (txType === 'expense' ? 'Otros' : 'Otros ingresos');
-      const txDate = date.slice(0, 10); // ensure YYYY-MM-DD
+      const txDate = date.slice(0, 10);
 
-      // Deduplicación: mismo usuario + fecha + descripción + cantidad + tipo
       const existing = await db.query(
         `SELECT id FROM transactions
          WHERE user_id = $1 AND date = $2 AND amount = $3 AND type = $4
@@ -571,15 +880,12 @@ router.post('/accounts/:accountId/import-csv', authenticateToken, async (req, re
         [req.user.userId, txDate, absAmount, txType, description || null]
       );
 
-      if (existing.rows.length > 0) {
-        skipped++;
-        continue;
-      }
+      if (existing.rows.length > 0) { skipped++; continue; }
 
       await db.query(
         `INSERT INTO transactions
            (user_id, amount, type, category, description, date, payment_method, bank_account_id)
-         VALUES ($1, $2, $3, $4, $5, $6, 'transfer', $7)`,
+         VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer', $7)`,
         [req.user.userId, absAmount, txType, txCategory, description || null, txDate, req.params.accountId]
       );
       imported++;
@@ -592,23 +898,20 @@ router.post('/accounts/:accountId/import-csv', authenticateToken, async (req, re
   }
 });
 
-// ============================================
-// GET /:id/sync-status — polling del estado de conexión (RF-10)
-// ============================================
+// ─── GET /:id/sync-status ─────────────────────────────────────────────────────
+
 router.get('/:id/sync-status', authenticateToken, async (req, res) => {
   try {
     const connResult = await db.query(
       'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
       [req.params.id, req.user.userId]
     );
-
     if (connResult.rows.length === 0) {
       return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
     }
 
     const conn = connResult.rows[0];
     let accounts = [];
-
     if (conn.status === 'linked') {
       const accResult = await db.query(
         'SELECT * FROM bank_accounts WHERE connection_id = $1 ORDER BY created_at ASC',
@@ -631,23 +934,21 @@ router.get('/:id/sync-status', authenticateToken, async (req, res) => {
   }
 });
 
-// ============================================
-// POST /:id/sync — re-sincronizar saldos desde Salt Edge (RF-10)
-// ============================================
+// ─── POST /:id/sync ───────────────────────────────────────────────────────────
+
 router.post('/:id/sync', authenticateToken, async (req, res) => {
   try {
     const connResult = await db.query(
       "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
       [req.params.id, req.user.userId]
     );
-
     if (connResult.rows.length === 0) {
       return res.status(404).json({ error: 'Not Found', message: 'Connection not found or not linked' });
     }
 
     const conn = connResult.rows[0];
-    // requisition_id almacena el Salt Edge connection_id tras el callback
-    const accounts = await saltedge.fetchAccounts(conn.requisition_id);
+    // requisition_id almacena el Plaid access_token tras el intercambio
+    const accounts = await plaid.fetchAccounts(conn.requisition_id);
 
     for (const acct of accounts) {
       await db.query(
@@ -662,16 +963,12 @@ router.post('/:id/sync', authenticateToken, async (req, res) => {
       );
     }
 
-    await db.query(
-      'UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1',
-      [req.params.id]
-    );
+    await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
 
     const accResult = await db.query(
       'SELECT * FROM bank_accounts WHERE connection_id = $1 ORDER BY created_at ASC',
       [req.params.id]
     );
-
     res.json({ message: 'Sync completed', accounts: accResult.rows });
   } catch (err) {
     console.error('banks/sync error:', err);
@@ -679,33 +976,27 @@ router.post('/:id/sync', authenticateToken, async (req, res) => {
   }
 });
 
-// ============================================
-// POST /:id/import-transactions — importar transacciones desde Salt Edge (RF-10)
+// ─── POST /:id/import-transactions (RF-11) ────────────────────────────────────
 //
-// Descarga las transacciones reales de cada cuenta vinculada a esta conexión
-// y las inserta en la tabla transactions del usuario, evitando duplicados
-// mediante external_tx_id.
-// ============================================
+// Importa transacciones reales de Plaid para todas las cuentas de esta conexión.
+// Convención Plaid: amount > 0 = gasto (débito), amount < 0 = ingreso (crédito).
+
 router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
   try {
     const connResult = await db.query(
       "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
       [req.params.id, req.user.userId]
     );
-
     if (connResult.rows.length === 0) {
       return res.status(404).json({ error: 'Not Found', message: 'Connection not found or not linked' });
     }
-
     const conn = connResult.rows[0];
 
-    // Obtener todas las cuentas de esta conexión
     const accResult = await db.query(
       'SELECT * FROM bank_accounts WHERE connection_id = $1',
       [req.params.id]
     );
 
-    // Fecha desde la que importar (por defecto 90 días)
     const fromDate = req.body.from_date || (() => {
       const d = new Date();
       d.setDate(d.getDate() - 90);
@@ -715,49 +1006,53 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
     let totalImported = 0;
     let totalSkipped = 0;
 
+    // Plaid: un access_token cubre todas las cuentas del Item
+    // Obtenemos transacciones por access_token, luego las distribuimos por account_id
+    const accessToken = conn.requisition_id;
+    const allTransactions = await plaid.fetchTransactions(accessToken, fromDate);
+
+    // Mapa: account_id de Plaid → id interno de bank_accounts
+    const accountMap = {};
     for (const account of accResult.rows) {
-      const transactions = await saltedge.fetchTransactions(
-        account.external_account_id,
-        fromDate
-      );
-
-      for (const tx of transactions) {
-        // Convertir al formato de la app:
-        //   amount < 0 → type='expense', amount=abs(amount)
-        //   amount >= 0 → type='income', amount=amount
-        const absAmount = Math.abs(tx.amount);
-        const txType = tx.amount < 0 ? 'expense' : 'income';
-
-        // Insertar solo si no existe ya (deduplicación por external_tx_id)
-        const insertResult = await db.query(
-          `INSERT INTO transactions
-             (user_id, amount, type, category, description, date, payment_method, external_tx_id)
-           VALUES ($1, $2, $3, $4, $5, $6, 'transfer', $7)
-           ON CONFLICT (external_tx_id) DO NOTHING
-           RETURNING id`,
-          [
-            conn.user_id,
-            absAmount,
-            txType,
-            txType === 'expense' ? 'Otros' : 'Otros ingresos',
-            tx.description,
-            tx.date,
-            tx.id,
-          ]
-        );
-
-        if (insertResult.rows.length > 0) {
-          totalImported++;
-        } else {
-          totalSkipped++;
-        }
+      if (account.external_account_id) {
+        accountMap[account.external_account_id] = account.id;
       }
     }
+    // Fallback: si solo hay una cuenta, asignar todas las transacciones a ella
+    const fallbackAccountId = accResult.rows.length === 1 ? accResult.rows[0].id : null;
+
+    for (const tx of allTransactions) {
+      // Plaid: amount > 0 → gasto, amount < 0 → ingreso
+      const absAmount = Math.abs(tx.amount);
+      const txType = tx.amount > 0 ? 'expense' : 'income';
+      const category = autoCategory(tx.description, txType);
+
+      // Resolver bank_account_id por account_id de Plaid (si disponible)
+      const bankAccountId = (tx.account_id && accountMap[tx.account_id])
+        || fallbackAccountId
+        || (accResult.rows[0]?.id || null);
+
+      const insertResult = await db.query(
+        `INSERT INTO transactions
+           (user_id, amount, type, category, description, date, payment_method, external_tx_id, bank_account_id)
+         VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer', $7, $8)
+         ON CONFLICT (external_tx_id) WHERE external_tx_id IS NOT NULL DO NOTHING
+         RETURNING id`,
+        [conn.user_id, absAmount, txType, category, tx.description,
+          tx.date, tx.id, bankAccountId]
+      );
+
+      if (insertResult.rows.length > 0) totalImported++;
+      else totalSkipped++;
+    }
+
+    await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
 
     res.json({
       message: 'Import completed',
       imported: totalImported,
       skipped: totalSkipped,
+      last_sync_at: new Date().toISOString(),
     });
   } catch (err) {
     console.error('banks/import-transactions error:', err);
@@ -765,23 +1060,204 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
   }
 });
 
-// ============================================
-// DELETE /:id/disconnect — eliminar conexión y cuentas (RF-10)
-// ============================================
+// ─── POST /sync-all (RF-11) ───────────────────────────────────────────────────
+//
+// Endpoint interno para cron job. NO requiere JWT de usuario.
+// Protegido por X-Cron-Secret.
+
+router.post('/sync-all', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.headers['x-cron-secret'] !== cronSecret) {
+    return res.status(403).json({ error: 'Forbidden', message: 'Invalid cron secret' });
+  }
+
+  try {
+    const connsResult = await db.query(
+      "SELECT * FROM bank_connections WHERE status = 'linked'"
+    );
+
+    let totalConnections = 0;
+    let totalImported = 0;
+    let totalSkipped = 0;
+    const errors = [];
+
+    for (const conn of connsResult.rows) {
+      try {
+        totalConnections++;
+        const accessToken = conn.requisition_id;
+
+        // 1. Actualizar saldos
+        const accounts = await plaid.fetchAccounts(accessToken);
+        for (const acct of accounts) {
+          await db.query(
+            `INSERT INTO bank_accounts
+               (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (external_account_id) DO UPDATE
+               SET balance_cents = EXCLUDED.balance_cents,
+                   account_name  = EXCLUDED.account_name,
+                   updated_at    = NOW()`,
+            [conn.id, conn.user_id, acct.externalAccountId, acct.iban,
+              acct.name, acct.currency, acct.balanceCents]
+          );
+        }
+
+        // 2. Importar transacciones de los últimos 7 días
+        const since = new Date();
+        since.setDate(since.getDate() - 7);
+        const fromDate = since.toISOString().split('T')[0];
+
+        const accResult = await db.query(
+          'SELECT * FROM bank_accounts WHERE connection_id = $1',
+          [conn.id]
+        );
+
+        const accountMap = {};
+        for (const account of accResult.rows) {
+          if (account.external_account_id) accountMap[account.external_account_id] = account.id;
+        }
+        const fallbackAccountId = accResult.rows.length === 1 ? accResult.rows[0].id : null;
+
+        const transactions = await plaid.fetchTransactions(accessToken, fromDate);
+        for (const tx of transactions) {
+          const absAmount = Math.abs(tx.amount);
+          const txType = tx.amount > 0 ? 'expense' : 'income';
+          const category = autoCategory(tx.description, txType);
+          const bankAccountId = (tx.account_id && accountMap[tx.account_id])
+            || fallbackAccountId
+            || (accResult.rows[0]?.id || null);
+
+          const insertResult = await db.query(
+            `INSERT INTO transactions
+               (user_id, amount, type, category, description, date, payment_method, external_tx_id, bank_account_id)
+             VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer', $7, $8)
+             ON CONFLICT (external_tx_id) WHERE external_tx_id IS NOT NULL DO NOTHING
+             RETURNING id`,
+            [conn.user_id, absAmount, txType, category, tx.description,
+              tx.date, tx.id, bankAccountId]
+          );
+
+          if (insertResult.rows.length > 0) totalImported++;
+          else totalSkipped++;
+        }
+
+        await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [conn.id]);
+      } catch (connErr) {
+        console.error(`[sync-all] Error syncing connection ${conn.id}:`, connErr.message);
+        errors.push({ connectionId: conn.id, error: connErr.message });
+      }
+    }
+
+    console.log(`[sync-all] Done: ${totalConnections} connections, ${totalImported} imported, ${totalSkipped} skipped`);
+    res.json({
+      message: 'Sync-all completed',
+      connections: totalConnections,
+      imported: totalImported,
+      skipped: totalSkipped,
+      errors,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[sync-all] Fatal error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /:id/import-accounts ───────────────────────────────────────────────
+//
+// El usuario confirmó qué cuentas quiere vincular desde la pantalla de selección.
+// Importa solo las cuentas seleccionadas, convierte saldos a EUR con tasa real
+// y genera transacciones demo para que el balance tenga sentido.
+// Marca la conexión como 'linked'.
+
+router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
+  const connectionId = req.params.id;
+  const { selected_account_ids } = req.body;
+
+  if (!Array.isArray(selected_account_ids) || selected_account_ids.length === 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'selected_account_ids requerido' });
+  }
+
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [connectionId, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada' });
+    }
+    const conn = connResult.rows[0];
+    const accessToken = conn.requisition_id;
+
+    // Obtener todas las cuentas del proveedor y filtrar las seleccionadas
+    const allAccounts = await plaid.fetchAccounts(accessToken);
+    const selected = allAccounts.filter(a => selected_account_ids.includes(a.externalAccountId));
+
+    if (selected.length === 0) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Ninguna cuenta válida seleccionada' });
+    }
+
+    // Limpiar transacciones y cuentas previas de esta conexión
+    // (bank_account_id usa ON DELETE SET NULL, así que hay que borrar transacciones primero
+    //  para evitar que transacciones demo antiguas contaminen el balance del usuario)
+    await db.query(
+      `DELETE FROM transactions
+       WHERE bank_account_id IN (
+         SELECT id FROM bank_accounts WHERE connection_id = $1
+       )`,
+      [connectionId]
+    );
+    await db.query('DELETE FROM bank_accounts WHERE connection_id = $1', [connectionId]);
+
+    const importedAccounts = [];
+    for (const acct of selected) {
+      const eurCents = await toEurCents(acct.balanceCents, acct.currency);
+
+      const result = await db.query(
+        `INSERT INTO bank_accounts
+           (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+         VALUES ($1, $2, $3, $4, $5, 'EUR', $6)
+         RETURNING *`,
+        [connectionId, conn.user_id, acct.externalAccountId, acct.iban, acct.name, eurCents]
+      );
+      const bankAccount = result.rows[0];
+      importedAccounts.push(bankAccount);
+
+      // Generar transacciones demo cuya suma coincide exactamente con eurCents,
+      // el mismo saldo que el usuario vio en la pantalla de selección de cuentas.
+      // balance_cents ya fue insertado correctamente arriba — no hace falta UPDATE.
+      await generateRandomTransactions(bankAccount.id, conn.user_id, eurCents);
+    }
+
+    // Marcar conexión como linked
+    await db.query(
+      `UPDATE bank_connections
+       SET status = 'linked', linked_at = NOW(), last_sync_at = NOW()
+       WHERE id = $1`,
+      [connectionId]
+    );
+
+    console.log(`[import-accounts] userId=${conn.user_id} connectionId=${connectionId} imported=${importedAccounts.length}`);
+    res.json({ ok: true, accounts: importedAccounts.length });
+  } catch (err) {
+    console.error('[import-accounts] error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── DELETE /:id/disconnect ───────────────────────────────────────────────────
+
 router.delete('/:id/disconnect', authenticateToken, async (req, res) => {
   try {
     const connResult = await db.query(
       'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
       [req.params.id, req.user.userId]
     );
-
     if (connResult.rows.length === 0) {
       return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
     }
 
     await db.query('DELETE FROM bank_accounts WHERE connection_id = $1', [req.params.id]);
-
-    // Marcar como desconectado (conserva traza de auditoría)
     await db.query(
       "UPDATE bank_connections SET status = 'disconnected' WHERE id = $1",
       [req.params.id]
