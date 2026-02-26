@@ -19,6 +19,7 @@ import '../../../banks/presentation/pages/institution_selector_sheet.dart';
 import '../../../banks/presentation/pages/bank_connecting_page.dart';
 import '../../../banks/presentation/pages/bank_account_setup_page.dart';
 import '../../../banks/presentation/pages/bank_account_selection_page.dart';
+import '../../../banks/presentation/widgets/notification_bell.dart';
 
 /// Página de Cuentas (RF-10)
 ///
@@ -234,20 +235,28 @@ class _AccountsPageState extends State<AccountsPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Cuentas', style: AppTypography.headlineSmall()),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.add_rounded),
-                        onPressed: () => _connectBank(context),
-                        color: AppColors.white,
-                        constraints: const BoxConstraints(
-                          minWidth: 44,
-                          minHeight: 44,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // HU-06: Campana de notificaciones in-app
+                        const NotificationBell(),
+                        const SizedBox(width: 4),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.add_rounded),
+                            onPressed: () => _connectBank(context),
+                            color: AppColors.white,
+                            constraints: const BoxConstraints(
+                              minWidth: 44,
+                              minHeight: 44,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),

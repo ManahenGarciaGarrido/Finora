@@ -116,9 +116,10 @@ class ApiEndpoints {
   static const String timeSeries = '/analytics/time-series';
   static const String financialSummary = '/analytics/summary';
 
-  // Notifications endpoints
+  // Notifications endpoints (HU-06)
   static const String notifications = '/notifications';
   static String markAsRead(String id) => '/notifications/$id/read';
+  static const String markAllNotificationsRead = '/notifications/read-all';
   static const String notificationSettings = '/notifications/settings';
   static const String registerPushToken = '/notifications/register-token';
 
