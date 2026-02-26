@@ -253,6 +253,42 @@ class BankBloc extends Bloc<BankEvent, BankState> {
     return 'No se pudo completar la operación. Comprueba tu conexión e inténtalo de nuevo.';
   }
 
+  /// HU-05: Clasifica un error en un BankConnectErrorType para el troubleshooting UI.
+  static BankConnectErrorType _categorizeError(Object e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('timeout') || msg.contains('timed out')) {
+      return BankConnectErrorType.timeout;
+    }
+    if (msg.contains('connection') ||
+        msg.contains('socket') ||
+        msg.contains('network') ||
+        msg.contains('unreachable') ||
+        msg.contains('refused')) {
+      return BankConnectErrorType.connectionError;
+    }
+    if (msg.contains('401') || msg.contains('unauthorized')) {
+      return BankConnectErrorType.sessionExpired;
+    }
+    if (msg.contains('503') ||
+        msg.contains('service unavailable') ||
+        msg.contains('circuit')) {
+      return BankConnectErrorType.serviceUnavailable;
+    }
+    if (msg.contains('denied') ||
+        msg.contains('rechaz') ||
+        msg.contains('cancelled') ||
+        msg.contains('access_denied') ||
+        msg.contains('permission')) {
+      return BankConnectErrorType.permissionDenied;
+    }
+    if (msg.contains('import') ||
+        msg.contains('sync') ||
+        msg.contains('cuentas')) {
+      return BankConnectErrorType.syncFailed;
+    }
+    return BankConnectErrorType.unknown;
+  }
+
   Future<void> _onConnectBankRequested(
     ConnectBankRequested event,
     Emitter<BankState> emit,
@@ -299,8 +335,13 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       );
       _startPolling(connectionId);
     } catch (e) {
-      // RNF-16: Mensaje informativo con sugerencia de acción
-      emit(BankConnectFailure(_humanReadableError(e)));
+      // RNF-16 + HU-05: Mensaje informativo con categoría para troubleshooting
+      emit(
+        BankConnectFailure(
+          _humanReadableError(e),
+          errorType: _categorizeError(e),
+        ),
+      );
     }
   }
 
@@ -328,7 +369,13 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       );
       emit(BankConnectSuccess(accounts));
     } catch (e) {
-      emit(BankConnectFailure(e.toString()));
+      // HU-05: categorizar el error para mostrar troubleshooting específico
+      emit(
+        BankConnectFailure(
+          _humanReadableError(e),
+          errorType: _categorizeError(e),
+        ),
+      );
     }
   }
 
@@ -349,7 +396,12 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       final accounts = await getBankAccounts();
       emit(BankConnectSuccess(accounts));
     } catch (e) {
-      emit(BankConnectFailure('Error al conectar: $e'));
+      emit(
+        BankConnectFailure(
+          _humanReadableError(e),
+          errorType: BankConnectErrorType.syncFailed,
+        ),
+      );
     }
   }
 
@@ -376,6 +428,7 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       emit(
         const BankConnectFailure(
           'Tiempo de espera agotado. Por favor, inténtalo de nuevo.',
+          errorType: BankConnectErrorType.timeout,
         ),
       );
       return;
@@ -391,7 +444,8 @@ class BankBloc extends Bloc<BankEvent, BankState> {
         _pollingTimer?.cancel();
         emit(
           const BankConnectFailure(
-            'Error al conectar el banco. Por favor, inténtalo de nuevo.',
+            'Error al conectar el banco. El banco reportó un fallo en la autorización.',
+            errorType: BankConnectErrorType.permissionDenied,
           ),
         );
       } else {

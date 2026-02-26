@@ -4,6 +4,17 @@ import '../../domain/entities/bank_account_entity.dart';
 import '../../domain/entities/bank_card_entity.dart';
 import '../../domain/entities/pending_bank_account_entity.dart';
 
+/// HU-05: Categorías de error para mostrar UI de solución de problemas específica.
+enum BankConnectErrorType {
+  timeout, // La autorización tardó demasiado
+  permissionDenied, // El usuario rechazó permisos en el banco
+  connectionError, // Sin red o backend inaccesible
+  sessionExpired, // Token de sesión Finora expirado
+  serviceUnavailable, // Servicio bancario temporalmente no disponible
+  syncFailed, // OAuth OK pero falló la importación de cuentas
+  unknown, // Error genérico
+}
+
 abstract class BankState extends Equatable {
   const BankState();
 
@@ -104,10 +115,17 @@ class BankConnectSuccess extends BankState {
 /// OAuth failed or timed out
 class BankConnectFailure extends BankState {
   final String message;
-  const BankConnectFailure(this.message);
+
+  /// HU-05: Tipo de error para mostrar troubleshooting específico.
+  final BankConnectErrorType errorType;
+
+  const BankConnectFailure(
+    this.message, {
+    this.errorType = BankConnectErrorType.unknown,
+  });
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [message, errorType];
 }
 
 // ============================================================
