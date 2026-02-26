@@ -419,3 +419,23 @@ CREATE TABLE IF NOT EXISTS sync_logs (
 CREATE INDEX IF NOT EXISTS idx_sync_logs_connection_id ON sync_logs(connection_id);
 CREATE INDEX IF NOT EXISTS idx_sync_logs_synced_at ON sync_logs(synced_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_logs_user_id ON sync_logs(user_id);
+
+
+-- ============================================
+-- HU-06: In-app notifications table
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type        VARCHAR(50)  NOT NULL DEFAULT 'bank_sync',
+    title       VARCHAR(255) NOT NULL,
+    body        TEXT         NOT NULL,
+    metadata    JSONB,
+    read_at     TIMESTAMP,
+    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread  ON notifications(user_id, read_at) WHERE read_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);

@@ -1120,6 +1120,24 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
 
     await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
 
+    // HU-06: Crear notificación in-app si se importaron nuevas transacciones
+    if (totalImported > 0) {
+      try {
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_sync', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Nuevas transacciones',
+            `Se ${totalImported === 1 ? 'ha importado 1 transacción' : `han importado ${totalImported} transacciones`} de tu banco`,
+            JSON.stringify({ imported: totalImported, skipped: totalSkipped, connection_id: req.params.id }),
+          ]
+        );
+      } catch (notifErr) {
+        console.warn('notifications insert warning:', notifErr.message);
+      }
+    }
+
     const responseBody = {
       message: 'Import completed',
       imported: totalImported,
