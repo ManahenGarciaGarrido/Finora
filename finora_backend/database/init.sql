@@ -364,3 +364,58 @@ BEGIN
         CHECK (account_type IN ('current', 'savings', 'investment', 'other'));
   END IF;
 END$$;
+
+-- ============================================
+-- RNF-05: PSD2 CONSENTS TABLE
+-- Gestión de consentimientos bancarios con expiración (90 días SCA)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS psd2_consents (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    connection_id UUID NOT NULL REFERENCES bank_connections(id) ON DELETE CASCADE,
+    consent_reference VARCHAR(255),
+    status VARCHAR(20) NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active', 'expired', 'revoked')),
+    scope TEXT NOT NULL DEFAULT 'read_accounts,read_transactions',
+    granted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP,
+    renewal_notified_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(connection_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_psd2_consents_user_id ON psd2_consents(user_id);
+CREATE INDEX IF NOT EXISTS idx_psd2_consents_expires_at ON psd2_consents(expires_at);
+CREATE INDEX IF NOT EXISTS idx_psd2_consents_status ON psd2_consents(status);
+
+DROP TRIGGER IF EXISTS update_psd2_consents_updated_at ON psd2_consents;
+CREATE TRIGGER update_psd2_consents_updated_at
+    BEFORE UPDATE ON psd2_consents
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- RNF-07: SYNC LOGS TABLE
+-- Historial de sincronizaciones para monitorización y debugging
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS sync_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    connection_id UUID REFERENCES bank_connections(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    trigger_type VARCHAR(20) NOT NULL DEFAULT 'cron'
+        CHECK (trigger_type IN ('cron', 'manual', 'initial')),
+    status VARCHAR(20) NOT NULL DEFAULT 'success'
+        CHECK (status IN ('success', 'error', 'partial')),
+    imported_count INTEGER DEFAULT 0,
+    skipped_count INTEGER DEFAULT 0,
+    duration_ms INTEGER,
+    error_message TEXT,
+    synced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_logs_connection_id ON sync_logs(connection_id);
+CREATE INDEX IF NOT EXISTS idx_sync_logs_synced_at ON sync_logs(synced_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sync_logs_user_id ON sync_logs(user_id);
