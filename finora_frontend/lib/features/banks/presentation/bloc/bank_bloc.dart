@@ -77,6 +77,8 @@ class BankBloc extends Bloc<BankEvent, BankState> {
     // RF-11
     on<ImportBankTransactionsRequested>(_onImportBankTransactions);
     on<CheckPeriodicSyncRequested>(_onCheckPeriodicSync);
+    // CU-02 FA2
+    on<CancelledByUser>(_onCancelledByUser);
 
     // RF-11: iniciar timer de sincronización periódica
     _startPeriodicSyncTimer();
@@ -278,6 +280,11 @@ class BankBloc extends Bloc<BankEvent, BankState> {
         msg.contains('circuit')) {
       return BankConnectErrorType.serviceUnavailable;
     }
+    if (msg.contains('max_attempts') ||
+        msg.contains('máximo de') ||
+        msg.contains('3 intentos')) {
+      return BankConnectErrorType.maxAttemptsReached;
+    }
     if (msg.contains('denied') ||
         msg.contains('rechaz') ||
         msg.contains('cancelled') ||
@@ -397,13 +404,20 @@ class BankBloc extends Bloc<BankEvent, BankState> {
       );
       // Intercambio exitoso: la conexión ya está linked en el backend.
       _pollingTimer?.cancel();
-      final accounts = await getBankAccounts();
-      emit(BankConnectSuccess(accounts));
+      try {
+        final accounts = await getBankAccounts();
+        emit(BankConnectSuccess(accounts));
+      } catch (_) {
+        // CU-02 FE2: El intercambio de token fue exitoso pero la carga de
+        // cuentas falló. Emitir éxito con lista vacía — la sync se hará
+        // automáticamente en el próximo ciclo periódico.
+        emit(const BankConnectSuccess([]));
+      }
     } catch (e) {
       emit(
         BankConnectFailure(
           _humanReadableError(e),
-          errorType: BankConnectErrorType.syncFailed,
+          errorType: _categorizeError(e),
         ),
       );
     }
@@ -602,5 +616,21 @@ class BankBloc extends Bloc<BankEvent, BankState> {
     } catch (e) {
       emit(BankCsvImportFailure(e.toString()));
     }
+  }
+
+  /// CU-02 FA2: El usuario canceló explícitamente la pantalla del banco.
+  /// Se emite BankConnectFailure con tipo cancelledByUser para mostrar
+  /// un mensaje informativo (no es un error técnico).
+  Future<void> _onCancelledByUser(
+    CancelledByUser event,
+    Emitter<BankState> emit,
+  ) async {
+    _pollingTimer?.cancel();
+    emit(
+      const BankConnectFailure(
+        'Has cancelado la conexión. Puedes intentarlo de nuevo cuando quieras.',
+        errorType: BankConnectErrorType.cancelledByUser,
+      ),
+    );
   }
 }
