@@ -24,6 +24,7 @@ import 'features/home/presentation/pages/home_page.dart';
 import 'features/transactions/presentation/pages/add_transaction_page.dart';
 import 'features/transactions/presentation/pages/edit_transaction_page.dart';
 import 'features/transactions/domain/entities/transaction_entity.dart';
+import 'core/theme/app_theme.dart';
 import 'shared/widgets/offline_indicator.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
@@ -173,10 +174,8 @@ class _MyAppState extends State<MyApp> {
         navigatorKey: _navigatorKey,
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-          useMaterial3: true,
-        ),
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
         home: const SplashPage(),
         routes: {
           '/splash': (context) => const SplashPage(),

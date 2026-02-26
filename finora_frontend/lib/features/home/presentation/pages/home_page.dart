@@ -83,6 +83,22 @@ class _HomePageState extends State<HomePage> {
         mobile: (context) => _buildMobileLayout(context),
         tablet: (context) => _buildTabletLayout(context),
       ),
+      floatingActionButton: context.isMobile
+          ? FloatingActionButton(
+              onPressed: () => Navigator.pushNamed(context, '/add-transaction'),
+              backgroundColor: AppColors.primary,
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: AppColors.white,
+                size: 28,
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: context.isMobile ? _buildBottomNav() : null,
     );
   }
@@ -160,66 +176,38 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Expanded(
-                child: _buildNavItem(
-                  Icons.home_outlined,
-                  Icons.home_rounded,
-                  'Inicio',
-                  0,
-                ),
-              ),
-              Expanded(
-                child: _buildNavItem(
-                  Icons.analytics_outlined,
-                  Icons.analytics_rounded,
-                  'Estadísticas',
-                  1,
-                ),
-              ),
-              _buildAddButton(),
-              Expanded(
-                child: _buildNavItem(
-                  Icons.receipt_long_outlined,
-                  Icons.receipt_long_rounded,
-                  'Movimientos',
-                  2,
-                ),
-              ),
-              Expanded(
-                child: _buildNavItem(
-                  Icons.account_balance_wallet_outlined,
-                  Icons.account_balance_wallet_rounded,
-                  'Cuentas',
-                  3,
-                ),
-              ),
-              Expanded(
-                child: _buildNavItem(
-                  Icons.settings_outlined,
-                  Icons.settings_rounded,
-                  'Ajustes',
-                  4,
-                ),
-              ),
-            ],
-          ),
+    return BottomAppBar(
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8,
+      color: AppColors.white,
+      elevation: 8,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(Icons.home_outlined, Icons.home_rounded, 'Inicio', 0),
+            _buildNavItem(
+              Icons.analytics_outlined,
+              Icons.analytics_rounded,
+              'Análisis',
+              1,
+            ),
+            // Espacio central para el FAB
+            const SizedBox(width: 64),
+            _buildNavItem(
+              Icons.account_balance_wallet_outlined,
+              Icons.account_balance_wallet_rounded,
+              'Cuentas',
+              3,
+            ),
+            _buildNavItem(
+              Icons.settings_outlined,
+              Icons.settings_rounded,
+              'Ajustes',
+              4,
+            ),
+          ],
         ),
       ),
     );
@@ -236,17 +224,17 @@ class _HomePageState extends State<HomePage> {
     return InkWell(
       onTap: () => _onTabSelected(index),
       borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isSelected ? activeIcon : icon,
               color: isSelected ? AppColors.primary : AppColors.gray400,
-              size: 24,
+              size: 22,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               label,
               style: AppTypography.labelSmall(
@@ -255,25 +243,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildAddButton() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(context, '/add-transaction');
-      },
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          // Al usar el nuevo gradiente, este botón será azul oscuro/negro
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppColors.shadowColor(AppColors.primary),
-        ),
-        child: const Icon(Icons.add_rounded, color: AppColors.white, size: 28),
       ),
     );
   }
