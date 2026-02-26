@@ -133,33 +133,47 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         await _syncManager.processQueue();
       }
 
-      final response = await _apiClient.get(
-        ApiEndpoints.transactions,
-        queryParameters: {'limit': 100},
-      );
+      // Obtener todas las páginas para que el usuario vea todas sus transacciones.
+      const int pageSize = 500;
+      int currentPage = 1;
+      int totalPages = 1;
+      final List<Map<String, dynamic>> serverTransactions = [];
 
-      final data = response.data;
-      if (data != null && data['transactions'] != null) {
-        _transactions.clear();
-        final List<Map<String, dynamic>> serverTransactions = [];
+      do {
+        final response = await _apiClient.get(
+          ApiEndpoints.transactions,
+          queryParameters: {'limit': pageSize, 'page': currentPage},
+        );
+        final data = response.data;
+        if (data == null || data['transactions'] == null) break;
 
-        for (final json in data['transactions']) {
-          final entity = _fromJson(json);
-          _transactions.add(entity);
+        for (final json in data['transactions'] as List) {
+          final entity = _fromJson(json as Map<String, dynamic>);
           serverTransactions.add(entity.toMap());
         }
 
+        final pagination = data['pagination'];
+        if (pagination != null && pagination['totalPages'] != null) {
+          totalPages = (pagination['totalPages'] as num).toInt();
+        }
+        currentPage++;
+      } while (currentPage <= totalPages);
+
+      if (serverTransactions.isNotEmpty) {
         // Añadir transacciones locales pendientes que no están en el servidor
         final localPending = _localDatabase.getAllTransactions()
             .where((t) => t['sync_status'] == 'pending')
             .toList();
         for (final pendingMap in localPending) {
           final pending = TransactionEntity.fromMap(pendingMap);
-          // Solo añadir si no existe ya (por ID)
-          if (!_transactions.any((t) => t.id == pending.id)) {
-            _transactions.add(pending);
+          if (!serverTransactions.any((t) => t['id'] == pending.id)) {
             serverTransactions.add(pendingMap);
           }
+        }
+
+        _transactions.clear();
+        for (final map in serverTransactions) {
+          _transactions.add(TransactionEntity.fromMap(map));
         }
 
         // Ordenar por fecha

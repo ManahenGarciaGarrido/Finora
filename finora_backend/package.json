@@ -31,7 +31,8 @@
     "nodemailer": "^6.9.7",
     "pg": "^8.11.3",
     "uuid": "^9.0.1",
-    "crypto": "^1.0.1"
+    "crypto": "^1.0.1",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

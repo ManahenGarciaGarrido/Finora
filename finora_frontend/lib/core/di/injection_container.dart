@@ -39,7 +39,11 @@ import '../../features/banks/domain/usecases/sync_bank_usecase.dart';
 import '../../features/banks/domain/usecases/setup_bank_account_usecase.dart';
 import '../../features/banks/domain/usecases/get_bank_cards_usecase.dart';
 import '../../features/banks/domain/usecases/add_bank_card_usecase.dart';
+import '../../features/banks/domain/usecases/delete_bank_card_usecase.dart';
 import '../../features/banks/domain/usecases/import_csv_usecase.dart';
+import '../../features/banks/domain/usecases/import_bank_transactions_usecase.dart';
+import '../../features/banks/domain/usecases/exchange_public_token_usecase.dart';
+import '../../features/banks/domain/usecases/import_selected_accounts_usecase.dart';
 import '../../features/banks/presentation/bloc/bank_bloc.dart';
 
 final sl = GetIt.instance;
@@ -183,7 +187,11 @@ Future<void> _initBanks() async {
       setupBankAccount: sl(),
       getBankCards: sl(),
       addBankCard: sl(),
+      deleteBankCard: sl(),
       importCsv: sl(),
+      importBankTransactions: sl(),
+      exchangePublicToken: sl(),
+      importSelectedAccounts: sl(),
     ),
   );
 
@@ -197,7 +205,11 @@ Future<void> _initBanks() async {
   sl.registerLazySingleton(() => SetupBankAccountUseCase(sl()));
   sl.registerLazySingleton(() => GetBankCardsUseCase(sl()));
   sl.registerLazySingleton(() => AddBankCardUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteBankCardUseCase(sl()));
   sl.registerLazySingleton(() => ImportCsvUseCase(sl()));
+  sl.registerLazySingleton(() => ImportBankTransactionsUseCase(sl())); // RF-11
+  sl.registerLazySingleton(() => ExchangePublicTokenUseCase(sl())); // RF-10 Plaid
+  sl.registerLazySingleton(() => ImportSelectedAccountsUseCase(sl())); // RF-10 selección
 
   // Repository
   sl.registerLazySingleton<BankRepository>(

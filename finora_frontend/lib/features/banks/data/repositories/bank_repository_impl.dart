@@ -19,8 +19,19 @@ class BankRepositoryImpl implements BankRepository {
   }
 
   @override
-  Future<Map<String, String>> connectBank(String institutionId) {
+  Future<Map<String, dynamic>> connectBank(String institutionId) {
     return _remoteDataSource.connectBank(institutionId);
+  }
+
+  @override
+  Future<List<BankAccountEntity>> importSelectedBankAccounts({
+    required String connectionId,
+    required List<String> selectedAccountIds,
+  }) {
+    return _remoteDataSource.importSelectedBankAccounts(
+      connectionId: connectionId,
+      selectedAccountIds: selectedAccountIds,
+    );
   }
 
   @override
@@ -88,6 +99,11 @@ class BankRepositoryImpl implements BankRepository {
   }
 
   @override
+  Future<void> deleteBankCard(String cardId) {
+    return _remoteDataSource.deleteBankCard(cardId);
+  }
+
+  @override
   Future<BankCardEntity> addBankCard({
     required String bankAccountId,
     required String cardName,
@@ -110,6 +126,30 @@ class BankRepositoryImpl implements BankRepository {
     return _remoteDataSource.importCsvTransactions(
       bankAccountId: bankAccountId,
       rows: rows,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> importBankTransactions(
+    String connectionId, {
+    String? fromDate,
+  }) {
+    return _remoteDataSource.importBankTransactions(
+      connectionId,
+      fromDate: fromDate,
+    );
+  }
+
+  @override
+  Future<void> exchangePublicToken({
+    required String connectionId,
+    required String publicToken,
+    required String institutionName,
+  }) {
+    return _remoteDataSource.exchangePublicToken(
+      connectionId: connectionId,
+      publicToken: publicToken,
+      institutionName: institutionName,
     );
   }
 }

@@ -113,6 +113,19 @@ async function migrate() {
     });
     console.log('[migrate] ✓ payment_method constraint expanded');
 
+    // 6. Add external_tx_id to transactions (deduplicación de transacciones bancarias Plaid)
+    await db.query(`
+      ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS external_tx_id VARCHAR(255)
+    `);
+    // Índice único parcial (solo filas donde external_tx_id no es NULL)
+    await db.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_external_tx_id
+        ON transactions(external_tx_id)
+        WHERE external_tx_id IS NOT NULL
+    `);
+    console.log('[migrate] ✓ transactions.external_tx_id');
+
     console.log('[migrate] Migration completed successfully.');
   } catch (err) {
     console.error('[migrate] Migration failed:', err.message);
