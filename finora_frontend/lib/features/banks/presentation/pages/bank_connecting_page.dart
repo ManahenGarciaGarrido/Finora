@@ -5,17 +5,21 @@ import '../../../../core/theme/app_typography.dart';
 import '../bloc/bank_bloc.dart';
 import '../bloc/bank_event.dart';
 import '../bloc/bank_state.dart';
+import 'plaid_link_screen.dart';
 
 /// Full-screen page shown while waiting for OAuth callback (RF-10).
 /// Polls /banks/:id/sync-status via BankBloc until status == 'linked'.
 class BankConnectingPage extends StatefulWidget {
   final String connectionId;
   final String institutionName;
+  /// URL de autenticación Plaid Link. Si no está vacía, abre PlaidLinkScreen.
+  final String authUrl;
 
   const BankConnectingPage({
     super.key,
     required this.connectionId,
     required this.institutionName,
+    this.authUrl = '',
   });
 
   @override
@@ -28,6 +32,36 @@ class _BankConnectingPageState extends State<BankConnectingPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Abrir el WebView de Plaid Link justo después del primer frame.
+    // Usa el WebView interno del app (no Chrome Custom Tab) para permitir
+    // tráfico HTTP en redes locales y evitar ERR_SSL_PROTOCOL_ERROR.
+    if (widget.authUrl.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PlaidLinkScreen(authUrl: widget.authUrl),
+          ),
+        ).then((result) {
+          if (!mounted) return;
+          final tokenData = result as Map<String, String>?;
+          if (tokenData != null && tokenData['public_token'] != null) {
+            // El WebView capturó el token vía canal JS. Flutter hace el
+            // intercambio con el cliente HTTP Dart (que sí llega al backend).
+            context.read<BankBloc>().add(ExchangePublicToken(
+              connectionId: widget.connectionId,
+              publicToken: tokenData['public_token']!,
+              institutionName: tokenData['institution_name'] ?? 'Banco',
+            ));
+          } else {
+            // Sin token (usuario canceló o error): poll para ver si hay linked
+            context.read<BankBloc>().add(PollSyncStatus(widget.connectionId, 0));
+          }
+        });
+      });
+    }
   }
 
   @override

@@ -4,7 +4,7 @@ class ConnectBankUseCase {
   final BankRepository repository;
   ConnectBankUseCase(this.repository);
 
-  /// Returns {connectionId, authUrl}
-  Future<Map<String, String>> call(String institutionId) =>
+  /// Returns {connectionId, authUrl, isMock, pendingAccounts}
+  Future<Map<String, dynamic>> call(String institutionId) =>
       repository.connectBank(institutionId);
 }

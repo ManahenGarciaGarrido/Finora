@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/bank_institution_entity.dart';
 import '../../domain/entities/bank_account_entity.dart';
 import '../../domain/entities/bank_card_entity.dart';
+import '../../domain/entities/pending_bank_account_entity.dart';
 
 abstract class BankState extends Equatable {
   const BankState();
@@ -56,6 +57,24 @@ class BankConnectAuthUrlReady extends BankState {
 
   @override
   List<Object?> get props => [connectionId, authUrl, institutionName];
+}
+
+/// Sandbox mode: cuentas recuperadas de Plaid, esperando selección del usuario
+class BankPendingAccountsReady extends BankState {
+  final String connectionId;
+  final String institutionName;
+  final List<PendingBankAccountEntity> pendingAccounts;
+  final bool isImporting;
+
+  const BankPendingAccountsReady({
+    required this.connectionId,
+    required this.institutionName,
+    required this.pendingAccounts,
+    this.isImporting = false,
+  });
+
+  @override
+  List<Object?> get props => [connectionId, pendingAccounts, isImporting];
 }
 
 /// Waiting for the user to complete OAuth in browser
@@ -196,6 +215,63 @@ class BankCardAddFailure extends BankState {
 
   @override
   List<Object?> get props => [message];
+}
+
+class BankCardDeleting extends BankState {
+  const BankCardDeleting();
+}
+
+class BankCardDeleted extends BankState {
+  final String cardId;
+  const BankCardDeleted(this.cardId);
+
+  @override
+  List<Object?> get props => [cardId];
+}
+
+class BankCardDeleteFailure extends BankState {
+  final String message;
+  const BankCardDeleteFailure(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+// ============================================================
+// BANK TRANSACTION IMPORT (RF-11)
+// ============================================================
+
+/// Importando transacciones desde Salt Edge
+class BankImportInProgress extends BankState {
+  const BankImportInProgress();
+}
+
+/// Importación completada — incluye contador de nuevas operaciones
+class BankImportSuccess extends BankState {
+  final int imported;
+  final int skipped;
+  final DateTime? lastSyncAt;
+  /// Cuentas actualizadas tras la importación
+  final List<BankAccountEntity> accounts;
+
+  const BankImportSuccess({
+    required this.imported,
+    required this.skipped,
+    this.lastSyncAt,
+    required this.accounts,
+  });
+
+  @override
+  List<Object?> get props => [imported, skipped, lastSyncAt, accounts];
+}
+
+/// Token de Salt Edge expirado — requiere re-autenticación
+class BankTokenExpired extends BankState {
+  final String connectionId;
+  const BankTokenExpired(this.connectionId);
+
+  @override
+  List<Object?> get props => [connectionId];
 }
 
 // ============================================================

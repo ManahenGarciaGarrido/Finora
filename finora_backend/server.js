@@ -18,6 +18,9 @@ const bankRoutes = require('./routes/banks');
 const emailService = require('./services/email');
 const db = require('./services/db');
 
+// RF-11: Background sync scheduler
+const cron = require('node-cron');
+
 // Import GDPR middleware
 const { gdprAuditMiddleware } = require('./middleware/gdprAudit');
 
@@ -38,8 +41,14 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // Plaid Link JS SDK se sirve desde cdn.plaid.com
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.plaid.com'],
       styleSrc: ["'self'", "'unsafe-inline'"],
+      // Plaid Link hace llamadas internas a sandbox.plaid.com
+      connectSrc: ["'self'", 'https://*.plaid.com'],
+      // Plaid Link usa iframes para el flujo de OAuth bancario
+      frameSrc: ["'self'", 'https://*.plaid.com'],
+      imgSrc: ["'self'", 'data:', 'https://*.plaid.com', 'https://placehold.co'],
     },
   },
 }));
@@ -163,6 +172,23 @@ const startServer = async () => {
   try {
     // Test database connection
     const dbHealth = await db.healthCheck();
+
+    // Auto-migraciones idempotentes: añade columnas que pueden faltar en BDs antiguas.
+    // Seguro ejecutar en cada arranque (IF NOT EXISTS).
+    try {
+      await db.query(`
+        ALTER TABLE transactions
+          ADD COLUMN IF NOT EXISTS external_tx_id VARCHAR(255)
+      `);
+      await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_external_tx_id
+          ON transactions(external_tx_id)
+          WHERE external_tx_id IS NOT NULL
+      `);
+      console.log('[auto-migrate] ✓ transactions.external_tx_id');
+    } catch (migrateErr) {
+      console.warn('[auto-migrate] external_tx_id migration warning:', migrateErr.message);
+    }
     if (dbHealth.status !== 'healthy') {
       console.error('Database connection failed:', dbHealth.error);
       // Continue anyway, health endpoint will report unhealthy
@@ -180,6 +206,42 @@ const startServer = async () => {
       console.log(`HTTPS/TLS: ${process.env.NODE_ENV === 'production' ? 'Enabled' : 'Disabled (dev)'}`);
       console.log(`Started at: ${new Date().toISOString()}`);
       console.log('='.repeat(50));
+    });
+
+    // RF-11: Sincronización automática en background cada 6 horas
+    // Expresión cron: "0 */6 * * *" → en punto cada 6 horas (0h, 6h, 12h, 18h)
+    cron.schedule('0 */6 * * *', async () => {
+      console.log(`[RF-11][cron] Iniciando sincronización automática — ${new Date().toISOString()}`);
+      try {
+        const http = require('http');
+        const cronSecret = process.env.CRON_SECRET || '';
+        const options = {
+          hostname: 'localhost',
+          port: PORT,
+          path: '/api/v1/banks/sync-all',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Cron-Secret': cronSecret,
+          },
+        };
+        const req = http.request(options, (res) => {
+          let body = '';
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('end', () => {
+            try {
+              const data = JSON.parse(body);
+              console.log(`[RF-11][cron] Completado: ${data.imported} nuevas, ${data.skipped} repetidas, ${data.connections} conexiones`);
+            } catch (_) {
+              console.log('[RF-11][cron] Completado (respuesta no parseable)');
+            }
+          });
+        });
+        req.on('error', (err) => console.error('[RF-11][cron] Error HTTP:', err.message));
+        req.end();
+      } catch (err) {
+        console.error('[RF-11][cron] Error inesperado:', err.message);
+      }
     });
   } catch (error) {
     console.error('Failed to start server:', error);

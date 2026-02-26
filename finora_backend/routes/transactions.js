@@ -138,7 +138,7 @@ router.get('/',
   authenticateToken,
   [
     query('page').optional().isInt({ min: 1 }).withMessage('La página debe ser un número positivo'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('El límite debe ser entre 1 y 100'),
+    query('limit').optional().isInt({ min: 1, max: 500 }).withMessage('El límite debe ser entre 1 y 500'),
     query('type').optional().isIn(['income', 'expense']).withMessage('Tipo inválido'),
     query('category').optional().trim(),
     query('categories').optional().trim(),
