@@ -52,7 +52,10 @@ class _PlaidLinkScreenState extends State<PlaidLinkScreen> {
             final publicToken = data['public_token'] as String?;
             final instName = (data['institution_name'] as String?) ?? 'Banco';
             if (publicToken != null && publicToken.isNotEmpty) {
-              _closeScreen({'public_token': publicToken, 'institution_name': instName});
+              _closeScreen({
+                'public_token': publicToken,
+                'institution_name': instName,
+              });
               return;
             }
           } catch (_) {}
@@ -97,9 +100,14 @@ class _PlaidLinkScreenState extends State<PlaidLinkScreen> {
         elevation: 0,
         surfaceTintColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textPrimaryLight),
+          icon: const Icon(
+            Icons.close_rounded,
+            color: AppColors.textPrimaryLight,
+          ),
           tooltip: 'Cancelar',
-          onPressed: () => Navigator.pop(context),
+          // CU-02 FA2: Devolver {'cancelled':'true'} para distinguir cancelación
+          // explícita del usuario de otros tipos de cierre (error, timeout).
+          onPressed: () => _closeScreen({'cancelled': 'true'}),
         ),
         title: Text('Conectar banco', style: AppTypography.titleMedium()),
         bottom: _isLoading
