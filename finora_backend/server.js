@@ -189,6 +189,67 @@ const startServer = async () => {
     } catch (migrateErr) {
       console.warn('[auto-migrate] external_tx_id migration warning:', migrateErr.message);
     }
+
+    // RNF-05: PSD2 consent management table
+    // Almacena consentimientos bancarios con fecha de expiración (90 días, norma PSD2 SCA)
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS psd2_consents (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          connection_id UUID NOT NULL REFERENCES bank_connections(id) ON DELETE CASCADE,
+          consent_reference VARCHAR(255),
+          status VARCHAR(20) NOT NULL DEFAULT 'active'
+            CHECK (status IN ('active', 'expired', 'revoked')),
+          scope TEXT NOT NULL DEFAULT 'read_accounts,read_transactions',
+          granted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP NOT NULL,
+          revoked_at TIMESTAMP,
+          renewal_notified_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(connection_id)
+        )
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS idx_psd2_consents_user_id ON psd2_consents(user_id)
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS idx_psd2_consents_expires_at ON psd2_consents(expires_at)
+      `);
+      console.log('[auto-migrate] ✓ psd2_consents table (RNF-05)');
+    } catch (migrateErr) {
+      console.warn('[auto-migrate] psd2_consents migration warning:', migrateErr.message);
+    }
+
+    // RNF-07: Tabla de log de sincronización (historial y monitorización)
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS sync_logs (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          connection_id UUID REFERENCES bank_connections(id) ON DELETE SET NULL,
+          user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+          trigger_type VARCHAR(20) NOT NULL DEFAULT 'cron'
+            CHECK (trigger_type IN ('cron', 'manual', 'initial')),
+          status VARCHAR(20) NOT NULL DEFAULT 'success'
+            CHECK (status IN ('success', 'error', 'partial')),
+          imported_count INTEGER DEFAULT 0,
+          skipped_count INTEGER DEFAULT 0,
+          duration_ms INTEGER,
+          error_message TEXT,
+          synced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS idx_sync_logs_connection_id ON sync_logs(connection_id)
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS idx_sync_logs_synced_at ON sync_logs(synced_at DESC)
+      `);
+      console.log('[auto-migrate] ✓ sync_logs table (RNF-07)');
+    } catch (migrateErr) {
+      console.warn('[auto-migrate] sync_logs migration warning:', migrateErr.message);
+    }
     if (dbHealth.status !== 'healthy') {
       console.error('Database connection failed:', dbHealth.error);
       // Continue anyway, health endpoint will report unhealthy
@@ -241,6 +302,25 @@ const startServer = async () => {
         req.end();
       } catch (err) {
         console.error('[RF-11][cron] Error inesperado:', err.message);
+      }
+    });
+
+    // RNF-05: Expiración automática de consentimientos PSD2 (diario a las 3am)
+    // Marca como 'expired' los consentimientos que han superado su fecha de vencimiento.
+    cron.schedule('0 3 * * *', async () => {
+      console.log(`[RNF-05][cron] Verificando consentimientos PSD2 expirados — ${new Date().toISOString()}`);
+      try {
+        const result = await db.query(
+          `UPDATE psd2_consents
+           SET status = 'expired', updated_at = NOW()
+           WHERE status = 'active' AND expires_at < NOW()
+           RETURNING connection_id`
+        );
+        if (result.rows.length > 0) {
+          console.log(`[RNF-05][cron] ${result.rows.length} consentimientos marcados como expirados`);
+        }
+      } catch (err) {
+        console.error('[RNF-05][cron] Error al verificar consentimientos:', err.message);
       }
     });
   } catch (error) {

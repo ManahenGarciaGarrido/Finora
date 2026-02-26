@@ -251,18 +251,29 @@ class BankImportSuccess extends BankState {
   final int imported;
   final int skipped;
   final DateTime? lastSyncAt;
+
   /// Cuentas actualizadas tras la importación
   final List<BankAccountEntity> accounts;
+
+  /// RNF-05: Días restantes del consentimiento (si quedan ≤14)
+  final int? consentDaysRemaining;
 
   const BankImportSuccess({
     required this.imported,
     required this.skipped,
     this.lastSyncAt,
     required this.accounts,
+    this.consentDaysRemaining,
   });
 
   @override
-  List<Object?> get props => [imported, skipped, lastSyncAt, accounts];
+  List<Object?> get props => [
+    imported,
+    skipped,
+    lastSyncAt,
+    accounts,
+    consentDaysRemaining,
+  ];
 }
 
 /// Token de Salt Edge expirado — requiere re-autenticación
@@ -297,4 +308,36 @@ class BankCsvImportFailure extends BankState {
 
   @override
   List<Object?> get props => [message];
+}
+
+// ============================================================
+// PSD2 CONSENT (RNF-05)
+// ============================================================
+
+/// El consentimiento PSD2 ha expirado. Se requiere renovación.
+class BankConsentExpired extends BankState {
+  final String connectionId;
+  final String bankName;
+  const BankConsentExpired({
+    required this.connectionId,
+    required this.bankName,
+  });
+
+  @override
+  List<Object?> get props => [connectionId, bankName];
+}
+
+/// El consentimiento está próximo a expirar (≤14 días).
+class BankConsentRenewalWarning extends BankState {
+  final int daysRemaining;
+  final String connectionId;
+  final String bankName;
+  const BankConsentRenewalWarning({
+    required this.daysRemaining,
+    required this.connectionId,
+    required this.bankName,
+  });
+
+  @override
+  List<Object?> get props => [daysRemaining, connectionId, bankName];
 }
