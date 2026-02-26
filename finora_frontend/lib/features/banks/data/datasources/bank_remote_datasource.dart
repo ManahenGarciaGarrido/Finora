@@ -51,23 +51,36 @@ abstract class BankRemoteDataSource {
     required String publicToken,
     required String institutionName,
   });
+
+  /// RNF-05: Obtiene los consentimientos PSD2 activos del usuario.
+  Future<List<Map<String, dynamic>>> getPsd2Consents();
+
+  /// RNF-05: Renueva el consentimiento PSD2 de una conexión bancaria (90 días).
+  Future<void> renewPsd2Consent(String connectionId);
+
+  /// RNF-05: Revoca el consentimiento PSD2 de una conexión bancaria.
+  Future<void> revokePsd2Consent(String connectionId);
 }
 
 class BankRemoteDataSourceImpl implements BankRemoteDataSource {
   final ApiClient _apiClient;
 
   BankRemoteDataSourceImpl({required ApiClient apiClient})
-      : _apiClient = apiClient;
+    : _apiClient = apiClient;
 
   @override
-  Future<List<BankInstitutionModel>> getInstitutions({String country = 'ES'}) async {
+  Future<List<BankInstitutionModel>> getInstitutions({
+    String country = 'ES',
+  }) async {
     final response = await _apiClient.get(
       ApiEndpoints.bankInstitutions,
       queryParameters: {'country': country},
     );
     final List<dynamic> list = response.data['institutions'] ?? [];
     return list
-        .map((json) => BankInstitutionModel.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => BankInstitutionModel.fromJson(json as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -81,23 +94,25 @@ class BankRemoteDataSourceImpl implements BankRemoteDataSource {
 
     // Parsear cuentas pendientes de selección (modo sandbox)
     final rawPending = data['pending_accounts'] as List<dynamic>?;
-    final pendingAccounts = rawPending?.map((a) {
-      final m = a as Map<String, dynamic>;
-      return PendingBankAccountEntity(
-        externalAccountId:    m['external_account_id'] as String,
-        name:                 m['name'] as String,
-        originalCurrency:     (m['currency'] as String?) ?? 'USD',
-        originalBalanceCents: ((m['balance_cents'] as num?) ?? 0).toInt(),
-        balanceEurCents:      ((m['balance_eur_cents'] as num?) ?? 0).toInt(),
-        iban:                 m['iban'] as String?,
-      );
-    }).toList() ?? <PendingBankAccountEntity>[];
+    final pendingAccounts =
+        rawPending?.map((a) {
+          final m = a as Map<String, dynamic>;
+          return PendingBankAccountEntity(
+            externalAccountId: m['external_account_id'] as String,
+            name: m['name'] as String,
+            originalCurrency: (m['currency'] as String?) ?? 'USD',
+            originalBalanceCents: ((m['balance_cents'] as num?) ?? 0).toInt(),
+            balanceEurCents: ((m['balance_eur_cents'] as num?) ?? 0).toInt(),
+            iban: m['iban'] as String?,
+          );
+        }).toList() ??
+        <PendingBankAccountEntity>[];
 
     return {
-      'connectionId':    data['connection_id'] as String,
-      'authUrl':         (data['auth_url'] as String?) ?? '',
+      'connectionId': data['connection_id'] as String,
+      'authUrl': (data['auth_url'] as String?) ?? '',
       'institutionName': (data['institution_name'] as String?) ?? institutionId,
-      'isMock':          ((data['is_mock'] as bool?) ?? false).toString(),
+      'isMock': ((data['is_mock'] as bool?) ?? false).toString(),
       'pendingAccounts': pendingAccounts,
     };
   }
@@ -130,7 +145,9 @@ class BankRemoteDataSourceImpl implements BankRemoteDataSource {
 
   @override
   Future<Map<String, dynamic>> getSyncStatus(String connectionId) async {
-    final response = await _apiClient.get(ApiEndpoints.bankSyncStatus(connectionId));
+    final response = await _apiClient.get(
+      ApiEndpoints.bankSyncStatus(connectionId),
+    );
     return response.data as Map<String, dynamic>;
   }
 
@@ -252,5 +269,23 @@ class BankRemoteDataSourceImpl implements BankRemoteDataSource {
         'institution_name': institutionName,
       },
     );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPsd2Consents() async {
+    final response = await _apiClient.get(ApiEndpoints.bankConsents);
+    final List<dynamic> list =
+        (response.data as Map<String, dynamic>)['consents'] ?? [];
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  @override
+  Future<void> renewPsd2Consent(String connectionId) async {
+    await _apiClient.post(ApiEndpoints.renewBankConsent(connectionId));
+  }
+
+  @override
+  Future<void> revokePsd2Consent(String connectionId) async {
+    await _apiClient.delete(ApiEndpoints.revokeBankConsent(connectionId));
   }
 }
