@@ -225,6 +225,23 @@ router.post('/connect', authenticateToken, async (req, res) => {
   }
 
   try {
+    // CU-02 FA1: Verificar límite de 3 intentos fallidos en la última hora
+    const failedAttempts = await db.query(
+      `SELECT COUNT(*) AS cnt FROM bank_connections
+       WHERE user_id = $1 AND institution_id = $2 AND status = 'failed'
+         AND created_at > NOW() - INTERVAL '1 hour'`,
+      [req.user.userId, institution_id]
+    );
+    const attemptCount = parseInt(failedAttempts.rows[0].cnt);
+    if (attemptCount >= 3) {
+      return res.status(429).json({
+        error: 'MAX_ATTEMPTS_REACHED',
+        message: 'Has alcanzado el límite de 3 intentos fallidos para este banco. Espera 1 hora o contacta con soporte.',
+        code: 'MAX_ATTEMPTS_REACHED',
+        retry_after_minutes: 60,
+      });
+    }
+
     // Obtener nombre/logo del banco para mostrarlo en la UI
     let institutionName = institution_id;
     let institutionLogo = null;
