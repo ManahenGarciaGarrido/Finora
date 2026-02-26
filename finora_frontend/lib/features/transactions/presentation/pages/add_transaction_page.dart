@@ -996,8 +996,9 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                 onTap: () => setState(() {
                   _selectedPaymentMethod = method;
                   if (!method.isCard) _selectedBankCardId = null;
-                  if (!method.isCard && !method.isBank)
+                  if (!method.isCard && !method.isBank) {
                     _selectedBankAccountId = null;
+                  }
                 }),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
