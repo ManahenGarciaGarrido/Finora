@@ -18,6 +18,9 @@ class TransactionsLoaded extends TransactionState {
   final bool isOffline;
   final int pendingSyncCount;
 
+  /// RNF-20: indica si el servidor tiene más páginas por cargar
+  final bool hasMorePages;
+
   TransactionsLoaded({
     required this.transactions,
     required this.balance,
@@ -25,6 +28,7 @@ class TransactionsLoaded extends TransactionState {
     required this.totalExpenses,
     this.isOffline = false,
     this.pendingSyncCount = 0,
+    this.hasMorePages = false,
   });
 }
 

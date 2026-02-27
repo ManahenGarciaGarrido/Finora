@@ -29,3 +29,7 @@ class DeleteTransaction extends TransactionEvent {
 
 /// Sincronizar transacciones pendientes con el servidor (RNF-15)
 class SyncTransactions extends TransactionEvent {}
+
+/// RNF-20: Cargar la siguiente página de transacciones desde el servidor
+/// Se dispara cuando el usuario llega al final de la lista cargada en memoria.
+class LoadMoreTransactions extends TransactionEvent {}
