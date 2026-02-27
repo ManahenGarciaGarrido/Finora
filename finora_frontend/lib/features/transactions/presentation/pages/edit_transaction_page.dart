@@ -527,6 +527,33 @@ class _EditTransactionPageState extends State<EditTransactionPage>
       EditTransaction(transaction: finalTransaction),
     );
 
+    // RF-17: Si la categoría cambió, registrar feedback para IA y ofrecer
+    // recategorizar transacciones similares en bloque
+    final categoryChanged = _selectedCategory != widget.transaction.category;
+    if (categoryChanged && description != null && description.isNotEmpty) {
+      // Enviar feedback silenciosamente (mejora el modelo IA)
+      context.read<CategoryBloc>().add(
+        SubmitCategoryFeedback(
+          description: description,
+          type: _selectedType.apiValue,
+          correctedCategory: _selectedCategory!,
+          originalCategory: widget.transaction.category,
+          transactionId: widget.transaction.id,
+        ),
+      );
+
+      // Ofrecer recategorización masiva de similares
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (mounted) {
+        _offerBulkRecategorize(
+          context,
+          description: description,
+          type: _selectedType.apiValue,
+          newCategory: _selectedCategory!,
+        );
+      }
+    }
+
     await Future.delayed(const Duration(milliseconds: 400));
 
     setState(() {
@@ -539,6 +566,39 @@ class _EditTransactionPageState extends State<EditTransactionPage>
     if (mounted) {
       Navigator.pop(context, true);
     }
+  }
+
+  // RF-17: Ofrecer recategorizar transacciones similares en bloque
+  void _offerBulkRecategorize(
+    BuildContext context, {
+    required String description,
+    required String type,
+    required String newCategory,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '¿Recategorizar todas las transacciones similares a "$newCategory"?',
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        action: SnackBarAction(
+          label: 'Recategorizar todas',
+          textColor: AppColors.white,
+          onPressed: () {
+            context.read<CategoryBloc>().add(
+              RecategorizeSimilar(
+                description: description,
+                type: type,
+                newCategory: newCategory,
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   String _formatDate(DateTime date) {
