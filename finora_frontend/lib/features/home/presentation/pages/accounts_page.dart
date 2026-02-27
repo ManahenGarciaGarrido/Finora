@@ -844,7 +844,9 @@ class _AccountsPageState extends State<AccountsPage> {
               )
             else if (accounts.isEmpty)
               _buildEmptyBanksCard(context)
-            else
+            else ...[
+              // RF-12: Balance consolidado cuando hay múltiples cuentas
+              if (accounts.length > 1) _buildConsolidatedBalance(accounts),
               ...accounts.map(
                 (acct) => _BankAccountCard(
                   account: acct,
@@ -852,6 +854,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   onEdit: () => _openEditCardsSheet(context, acct),
                 ),
               ),
+            ],
           ],
         );
       },
@@ -969,6 +972,79 @@ class _AccountsPageState extends State<AccountsPage> {
     );
   }
 
+  // RF-12: Balance consolidado de todas las cuentas bancarias conectadas
+  Widget _buildConsolidatedBalance(List<BankAccountEntity> accounts) {
+    final totalCents = accounts.fold<int>(0, (sum, a) => sum + a.balanceCents);
+    final total = totalCents / 100.0;
+    final isNegative = total < 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.08),
+            AppColors.primaryDark.withValues(alpha: 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.account_balance_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Balance bancario total',
+                  style: AppTypography.labelSmall(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatCurrency(total),
+                  style: AppTypography.moneyMedium(
+                    color: isNegative ? AppColors.error : AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${accounts.length} cuentas',
+              style: AppTypography.badge(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _connectBank(BuildContext context) {
     InstitutionSelectorSheet.show(context);
   }
@@ -987,30 +1063,135 @@ class _AccountsPageState extends State<AccountsPage> {
     );
   }
 
+  // RF-13: Confirmación mejorada de desconexión bancaria
   void _confirmDisconnect(BuildContext context, BankAccountEntity account) {
+    final bankName = account.institutionName ?? account.accountName;
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Desconectar banco'),
-        content: Text(
-          '¿Seguro que quieres desconectar "${account.institutionName ?? account.accountName}"? '
-          'Se eliminarán las cuentas asociadas.',
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.link_off_rounded,
+                color: AppColors.error,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Desconectar banco',
+                style: AppTypography.titleMedium(),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Desconectar "$bankName"?',
+              style: AppTypography.bodyMedium(),
+            ),
+            const SizedBox(height: 12),
+            // RF-13: Informar explícitamente qué pasa con las transacciones
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '¿Qué ocurre al desconectar?',
+                        style: AppTypography.labelSmall(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _buildDisconnectInfoRow(
+                    Icons.check_circle_outline_rounded,
+                    AppColors.success,
+                    'El historial de transacciones se conserva',
+                  ),
+                  _buildDisconnectInfoRow(
+                    Icons.sync_disabled_rounded,
+                    AppColors.warning,
+                    'La sincronización automática se detendrá',
+                  ),
+                  _buildDisconnectInfoRow(
+                    Icons.delete_outline_rounded,
+                    AppColors.error,
+                    'Se revocan los permisos de acceso al banco',
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: AppColors.textSecondaryLight),
+            ),
           ),
-          TextButton(
+          ElevatedButton.icon(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               context.read<BankBloc>().add(
                 DisconnectBankRequested(account.connectionId),
               );
             },
+            icon: const Icon(Icons.link_off_rounded, size: 16),
+            label: const Text('Desconectar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisconnectInfoRow(IconData icon, Color color, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 6),
+          Expanded(
             child: Text(
-              'Desconectar',
-              style: TextStyle(color: AppColors.error),
+              text,
+              style: AppTypography.bodySmall(
+                color: AppColors.textSecondaryLight,
+              ),
             ),
           ),
         ],

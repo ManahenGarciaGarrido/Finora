@@ -204,6 +204,13 @@ router.get('/',
         paramIndex++;
       }
 
+      // RF-12: Filtrar por cuenta bancaria específica
+      if (req.query.bank_account_id) {
+        whereClause += ` AND bank_account_id = $${paramIndex}`;
+        params.push(req.query.bank_account_id);
+        paramIndex++;
+      }
+
       // Get total count
       const countResult = await db.query(
         `SELECT COUNT(*) FROM transactions ${whereClause}`,

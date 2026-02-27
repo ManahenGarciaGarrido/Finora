@@ -50,6 +50,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
   final Set<String> _filterCategories = {};
   final Set<PaymentMethod> _filterPaymentMethods = {};
 
+  // ─── RF-12: Filtro por cuenta bancaria ───────────────────────────────────
+  String? _filterBankAccountId;
+  String? _filterBankAccountName;
+
   // ─── Scroll infinito (RF-08) ─────────────────────────────────────────────
   static const int _pageSize = 20;
   int _displayCount = _pageSize;
@@ -82,7 +86,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
       _filterDateFrom != null ||
       _filterDateTo != null ||
       _filterCategories.isNotEmpty ||
-      _filterPaymentMethods.isNotEmpty;
+      _filterPaymentMethods.isNotEmpty ||
+      _filterBankAccountId != null;
 
   /// Número de filtros avanzados activos (para el badge)
   int get _activeFilterCount {
@@ -90,6 +95,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
     if (_filterDateFrom != null || _filterDateTo != null) count++;
     count += _filterCategories.length;
     count += _filterPaymentMethods.length;
+    if (_filterBankAccountId != null) count++;
     return count;
   }
 
@@ -105,6 +111,17 @@ class _TransactionsPageState extends State<TransactionsPage> {
       _filterDateTo = null;
       _filterCategories.clear();
       _filterPaymentMethods.clear();
+      _filterBankAccountId = null;
+      _filterBankAccountName = null;
+      _displayCount = _pageSize;
+    });
+  }
+
+  /// RF-12: Filtrar transacciones por cuenta bancaria
+  void filterByBankAccount(String accountId, String accountName) {
+    setState(() {
+      _filterBankAccountId = accountId;
+      _filterBankAccountName = accountName;
       _displayCount = _pageSize;
     });
   }
@@ -330,6 +347,12 @@ class _TransactionsPageState extends State<TransactionsPage> {
       // Filtro por método de pago (RF-08)
       if (_filterPaymentMethods.isNotEmpty &&
           !_filterPaymentMethods.contains(t.paymentMethod)) {
+        return false;
+      }
+
+      // RF-12: Filtro por cuenta bancaria específica
+      if (_filterBankAccountId != null &&
+          t.bankAccountId != _filterBankAccountId) {
         return false;
       }
 
@@ -984,6 +1007,40 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                   color: AppColors.primary,
                                 ),
                                 overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      // RF-12: Indicador de filtro por cuenta bancaria activo
+                      if (_filterBankAccountId != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.account_balance_rounded,
+                              size: 14,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Cuenta: ${_filterBankAccountName ?? 'Bancaria'}',
+                                style: AppTypography.badge(
+                                  color: AppColors.primary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => setState(() {
+                                _filterBankAccountId = null;
+                                _filterBankAccountName = null;
+                              }),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 14,
+                                color: AppColors.primary,
                               ),
                             ),
                           ],
