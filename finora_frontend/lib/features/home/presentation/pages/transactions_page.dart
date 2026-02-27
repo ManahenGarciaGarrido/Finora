@@ -30,7 +30,6 @@ class TransactionsPage extends StatefulWidget {
   State<TransactionsPage> createState() => TransactionsPageState();
 }
 
-// RF-12: clase pública para permitir GlobalKey<TransactionsPageState> desde home_page.dart
 class TransactionsPageState extends State<TransactionsPage> {
   // ─── Filtro básico de tipo ───────────────────────────────────────────────
   String _selectedFilter = 'Todas';
@@ -74,10 +73,18 @@ class TransactionsPageState extends State<TransactionsPage> {
     super.dispose();
   }
 
-  /// Detecta cuando el usuario llega al final de la lista y carga más elementos
+  /// Detecta cuando el usuario llega al final de la lista y carga más elementos.
+  /// RNF-20: cuando se agotan los datos en memoria y el servidor tiene más
+  /// páginas, se despacha LoadMoreTransactions para cargar el siguiente lote.
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
+      final state = context.read<TransactionBloc>().state;
+      if (state is TransactionsLoaded &&
+          state.hasMorePages &&
+          _displayCount >= state.transactions.length - _pageSize) {
+        context.read<TransactionBloc>().add(LoadMoreTransactions());
+      }
       setState(() => _displayCount += _pageSize);
     }
   }
