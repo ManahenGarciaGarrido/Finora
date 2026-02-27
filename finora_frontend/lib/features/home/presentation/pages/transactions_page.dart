@@ -1403,8 +1403,60 @@ class _TransactionsPageState extends State<TransactionsPage> {
       },
       onDismissed: (_) {
         if (t.id != null) {
+          // RF-07: Guardar copia de la transacción para opción de deshacer
+          final deletedTransaction = t;
           context.read<TransactionBloc>().add(
             DeleteTransaction(transactionId: t.id!),
+          );
+          // RF-07: Feedback visual + opción de deshacer (nice-to-have)
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.white,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Transacción eliminada',
+                      style: const TextStyle(color: AppColors.white),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              action: SnackBarAction(
+                label: 'Deshacer',
+                textColor: AppColors.white,
+                onPressed: () {
+                  // RF-07 (nice-to-have): Restaurar transacción eliminada
+                  context.read<TransactionBloc>().add(
+                    AddTransaction(
+                      transaction: TransactionEntity(
+                        amount: deletedTransaction.amount,
+                        type: deletedTransaction.type,
+                        category: deletedTransaction.category,
+                        description: deletedTransaction.description,
+                        date: deletedTransaction.date,
+                        paymentMethod: deletedTransaction.paymentMethod,
+                        photoPath: deletedTransaction.photoPath,
+                        bankAccountId: deletedTransaction.bankAccountId,
+                        cardId: deletedTransaction.cardId,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           );
         }
       },
