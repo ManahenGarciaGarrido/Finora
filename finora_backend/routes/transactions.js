@@ -211,26 +211,34 @@ router.get('/',
         paramIndex++;
       }
 
-      // Get total count
-      const countResult = await db.query(
-        `SELECT COUNT(*) FROM transactions ${whereClause}`,
-        params
-      );
-      const total = parseInt(countResult.rows[0].count);
-
-      // Get transactions
+      // RNF-20: Count y datos en una sola consulta usando window function
+      // Evita dos round-trips a la BD y usa los mismos índices
       const result = await db.query(
-        `SELECT * FROM transactions ${whereClause} ORDER BY date DESC, created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+        `SELECT *, COUNT(*) OVER () AS _total_count
+         FROM transactions
+         ${whereClause}
+         ORDER BY date DESC, created_at DESC
+         LIMIT $${paramIndex}
+         OFFSET $${paramIndex + 1}`,
         [...params, limit, offset]
       );
 
+      // Extraer total de la primera fila (si hay resultados)
+      const total = result.rows.length > 0
+        ? parseInt(result.rows[0]._total_count)
+        : 0;
+
+      // Limpiar la columna auxiliar antes de devolver
+      const transactions = result.rows.map(({ _total_count, ...tx }) => tx);
+
       res.json({
-        transactions: result.rows,
+        transactions,
         pagination: {
           page,
           limit,
           total,
-          totalPages: Math.ceil(total / limit)
+          totalPages: Math.ceil(total / limit),
+          hasMore: offset + transactions.length < total,
         }
       });
     } catch (error) {
