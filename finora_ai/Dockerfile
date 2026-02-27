@@ -20,12 +20,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código de la aplicación
 COPY app.py .
 COPY train_model.py .
+COPY entrypoint.sh .
 
 # Directorio para modelos (se monta como volumen o se generan al inicio)
 RUN mkdir -p /app/models && chown finora-ai:finora-ai /app/models
 
-# Copiar modelo pre-entrenado si existe
-COPY models/ /app/models/ 2>/dev/null || true
+# Copiar modelo pre-entrenado si existe (el vectorizador TF-IDF del notebook)
+COPY models/ /app/models/
 
 USER finora-ai
 
@@ -34,8 +35,8 @@ ENV PORT=5001
 
 EXPOSE 5001
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"
 
-# Usar gunicorn en producción para múltiples workers
-CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "2", "--timeout", "60", "app:app"]
+# Entrypoint: entrena el modelo si no existe, luego arranca el servidor
+ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]
