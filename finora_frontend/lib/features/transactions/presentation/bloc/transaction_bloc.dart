@@ -30,6 +30,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   DateTime? _lastApiLoadTime;
   static const Duration _cacheTtl = Duration(seconds: 30);
 
+  /// RNF-20: Paginación server-side. Tamaño de página inicial (100 en vez de
+  /// cargar todo). Se amplía bajo demanda con LoadMoreTransactions.
+  static const int _serverPageSize = 100;
+  int _currentServerPage = 1;
+  bool _hasMorePages = false;
+  bool _isLoadingMore = false;
+
   bool get _isCacheValid =>
       _lastApiLoadTime != null &&
       DateTime.now().difference(_lastApiLoadTime!) < _cacheTtl;
@@ -39,16 +46,17 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     required LocalDatabase localDatabase,
     required NetworkInfo networkInfo,
     required SyncManager syncManager,
-  })  : _apiClient = apiClient,
-        _localDatabase = localDatabase,
-        _networkInfo = networkInfo,
-        _syncManager = syncManager,
-        super(TransactionInitial()) {
+  }) : _apiClient = apiClient,
+       _localDatabase = localDatabase,
+       _networkInfo = networkInfo,
+       _syncManager = syncManager,
+       super(TransactionInitial()) {
     on<LoadTransactions>(_onLoadTransactions);
     on<AddTransaction>(_onAddTransaction);
     on<EditTransaction>(_onEditTransaction);
     on<DeleteTransaction>(_onDeleteTransaction);
     on<SyncTransactions>(_onSyncTransactions);
+    on<LoadMoreTransactions>(_onLoadMoreTransactions);
   }
 
   List<TransactionEntity> get transactions => List.unmodifiable(_transactions);
@@ -110,7 +118,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     // Paso 2: Cache inteligente — si los datos son recientes (< 30 s),
     // evitar llamada a la API y devolver los datos de Hive (Nota Técnica HU-15)
     if (localData.isNotEmpty && _isCacheValid) {
-      debugPrint('TransactionBloc: Cache válida (${DateTime.now().difference(_lastApiLoadTime!).inSeconds}s), usando datos locales');
+      debugPrint(
+        'TransactionBloc: Cache válida (${DateTime.now().difference(_lastApiLoadTime!).inSeconds}s), usando datos locales',
+      );
       _emitLoaded(emit, isOffline: false);
       return;
     }
@@ -133,35 +143,32 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         await _syncManager.processQueue();
       }
 
-      // Obtener todas las páginas para que el usuario vea todas sus transacciones.
-      const int pageSize = 500;
-      int currentPage = 1;
-      int totalPages = 1;
+      // RNF-20: Cargar solo la primera página (100 transacciones).
+      // Páginas adicionales se cargan bajo demanda con LoadMoreTransactions.
+      _currentServerPage = 1;
+      _hasMorePages = false;
       final List<Map<String, dynamic>> serverTransactions = [];
 
-      do {
-        final response = await _apiClient.get(
-          ApiEndpoints.transactions,
-          queryParameters: {'limit': pageSize, 'page': currentPage},
-        );
-        final data = response.data;
-        if (data == null || data['transactions'] == null) break;
-
+      final response = await _apiClient.get(
+        ApiEndpoints.transactions,
+        queryParameters: {'limit': _serverPageSize, 'page': 1},
+      );
+      final data = response.data;
+      if (data != null && data['transactions'] != null) {
         for (final json in data['transactions'] as List) {
           final entity = _fromJson(json as Map<String, dynamic>);
           serverTransactions.add(entity.toMap());
         }
-
         final pagination = data['pagination'];
-        if (pagination != null && pagination['totalPages'] != null) {
-          totalPages = (pagination['totalPages'] as num).toInt();
+        if (pagination != null) {
+          _hasMorePages = pagination['hasMore'] == true;
         }
-        currentPage++;
-      } while (currentPage <= totalPages);
+      }
 
       if (serverTransactions.isNotEmpty) {
         // Añadir transacciones locales pendientes que no están en el servidor
-        final localPending = _localDatabase.getAllTransactions()
+        final localPending = _localDatabase
+            .getAllTransactions()
             .where((t) => t['sync_status'] == 'pending')
             .toList();
         for (final pendingMap in localPending) {
@@ -193,8 +200,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     }
   }
 
-  /// Invalida la cache para forzar recarga desde API en el próximo LoadTransactions
-  void _invalidateCache() => _lastApiLoadTime = null;
+  /// Invalida la cache para forzar recarga desde API en el próximo LoadTransactions.
+  /// También reinicia el estado de paginación server-side (RNF-20).
+  void _invalidateCache() {
+    _lastApiLoadTime = null;
+    _currentServerPage = 1;
+    _hasMorePages = false;
+  }
 
   /// Agregar transacción: guardar en Hive primero, luego API si hay conexión
   Future<void> _onAddTransaction(
@@ -263,11 +275,11 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
     // Emitir estado con información de guardado offline
     if (!isConnected) {
-      emit(TransactionAdded(
-        transaction: transaction,
-      ));
+      emit(TransactionAdded(transaction: transaction));
       // Mostrar SnackBar informativo de guardado offline
-      debugPrint('TransactionBloc: Transacción guardada offline, se sincronizará cuando haya conexión');
+      debugPrint(
+        'TransactionBloc: Transacción guardada offline, se sincronizará cuando haya conexión',
+      );
     } else {
       emit(TransactionAdded(transaction: transaction));
     }
@@ -426,15 +438,72 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     }
   }
 
+  /// RNF-20: Carga la siguiente página de transacciones del servidor y la añade
+  /// a la lista en memoria. Se llama cuando el usuario llega al final de la lista.
+  Future<void> _onLoadMoreTransactions(
+    LoadMoreTransactions event,
+    Emitter<TransactionState> emit,
+  ) async {
+    if (!_hasMorePages || _isLoadingMore) return;
+
+    _isLoadingMore = true;
+    try {
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        _isLoadingMore = false;
+        return;
+      }
+
+      final nextPage = _currentServerPage + 1;
+      final response = await _apiClient.get(
+        ApiEndpoints.transactions,
+        queryParameters: {'limit': _serverPageSize, 'page': nextPage},
+      );
+      final data = response.data;
+      if (data != null && data['transactions'] != null) {
+        final incoming = <TransactionEntity>[];
+        for (final json in data['transactions'] as List) {
+          incoming.add(_fromJson(json as Map<String, dynamic>));
+        }
+
+        // Añadir solo los que no existen ya (evita duplicados en edge cases)
+        final existingIds = _transactions.map((t) => t.id).toSet();
+        for (final t in incoming) {
+          if (!existingIds.contains(t.id)) _transactions.add(t);
+        }
+
+        // Mantener orden cronológico descendente
+        _transactions.sort((a, b) => b.date.compareTo(a.date));
+
+        _currentServerPage = nextPage;
+        final pagination = data['pagination'];
+        _hasMorePages = pagination?['hasMore'] == true;
+
+        // Persistir en caché local los nuevos elementos
+        final allMaps = _transactions.map((t) => t.toMap()).toList();
+        await _localDatabase.saveAllTransactions(allMaps);
+      }
+    } catch (e) {
+      debugPrint('TransactionBloc: Error cargando más transacciones: $e');
+      // Fallo silencioso - no bloquear la UI
+    } finally {
+      _isLoadingMore = false;
+      _emitLoaded(emit);
+    }
+  }
+
   void _emitLoaded(Emitter<TransactionState> emit, {bool isOffline = false}) {
-    emit(TransactionsLoaded(
-      transactions: List.unmodifiable(_transactions),
-      balance: totalBalance,
-      totalIncome: totalIncome,
-      totalExpenses: totalExpenses,
-      isOffline: isOffline,
-      pendingSyncCount: _syncManager.pendingCount,
-    ));
+    emit(
+      TransactionsLoaded(
+        transactions: List.unmodifiable(_transactions),
+        balance: totalBalance,
+        totalIncome: totalIncome,
+        totalExpenses: totalExpenses,
+        isOffline: isOffline,
+        pendingSyncCount: _syncManager.pendingCount,
+        hasMorePages: _hasMorePages,
+      ),
+    );
   }
 
   TransactionEntity _fromJson(Map<String, dynamic> json) {
