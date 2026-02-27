@@ -378,6 +378,13 @@ class BankBloc extends Bloc<BankEvent, BankState> {
         connectionId: event.connectionId,
         selectedAccountIds: event.selectedAccountIds,
       );
+      // Guardar timestamp para evitar que CheckPeriodicSyncRequested dispare
+      // import-transactions de inmediato y sobreescriba las transacciones demo.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+        'last_bank_import_ms',
+        DateTime.now().millisecondsSinceEpoch,
+      );
       emit(BankConnectSuccess(accounts));
     } catch (e) {
       // HU-05: categorizar el error para mostrar troubleshooting específico

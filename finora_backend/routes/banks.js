@@ -57,6 +57,39 @@ async function smartCategorize(description, txType) {
   }
   return autoCategorySimple(description, txType);
 }
+
+/**
+ * RF-14: Categoriza un lote de transacciones en un solo round-trip al servicio de IA.
+ * Más eficiente que smartCategorize() individual para importaciones masivas.
+ * Fallback automático a smartCategorize() uno a uno si el batch falla.
+ * @param {{ description: string, type: string }[]} items
+ * @returns {Promise<string[]>} Array de categorías en el mismo orden
+ */
+async function batchCategorize(items) {
+  if (items.length === 0) return [];
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const resp = await fetch(`${AI_SERVICE_URL}/categorize/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactions: items }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.results && data.results.length === items.length) {
+        return data.results.map(r => r.category);
+      }
+    }
+  } catch (e) {
+    console.warn('[batchCategorize] AI batch failed, fallback individual:', e.message);
+  }
+  // Fallback: categorizar uno a uno
+  return Promise.all(items.map(item => smartCategorize(item.description, item.type)));
+}
+
 const { withRetry, withCache, ratesBreaker } = require('../services/circuitBreaker');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -234,15 +267,28 @@ async function generateRandomTransactions(bankAccountId, userId, targetBalanceCe
   }
   // diffCents === 0 → perfecto, no hace falta ajuste
 
-  // ── 3. Insertar todas las transacciones ──────────────────────────────────
-  for (const tx of txList) {
+  // ── 3. Categorizar con IA en lote y luego insertar ───────────────────────
+  //    Las transacciones de ajuste (apertura / cargo) usan categoría fija.
+  //    Solo las transacciones generadas aleatoriamente pasan por el modelo.
+  const batchItems = txList.map(tx => ({ description: tx.desc, type: tx.isExpense ? 'expense' : 'income' }));
+  let aiCategories;
+  try {
+    aiCategories = await batchCategorize(batchItems);
+  } catch {
+    aiCategories = txList.map(tx => tx.cat); // fallback a categorías hardcoded
+  }
+
+  for (let i = 0; i < txList.length; i++) {
+    const tx = txList[i];
     const amount = (tx.amountCents / 100).toFixed(2);
+    // Usar categoría de IA si está disponible y no está vacía; sino, la hardcoded
+    const category = (aiCategories[i] && aiCategories[i].trim()) ? aiCategories[i] : tx.cat;
     await db.query(
       `INSERT INTO transactions
          (user_id, bank_account_id, amount, type, description, category, date, payment_method)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [userId, bankAccountId, amount, tx.isExpense ? 'expense' : 'income',
-       tx.desc, tx.cat, tx.dateStr, tx.pm]
+       tx.desc, category, tx.dateStr, tx.pm]
     );
   }
 }
@@ -1214,11 +1260,26 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
     // Fallback: si solo hay una cuenta, asignar todas las transacciones a ella
     const fallbackAccountId = accResult.rows.length === 1 ? accResult.rows[0].id : null;
 
-    for (const tx of allTransactions) {
+    // Categorizar todas las transacciones en un solo round-trip a la IA (RF-14)
+    const batchInput = allTransactions.map(tx => ({
+      description: tx.description,
+      type: tx.amount > 0 ? 'expense' : 'income',
+    }));
+    let plaidCategories;
+    try {
+      plaidCategories = await batchCategorize(batchInput);
+    } catch {
+      plaidCategories = batchInput.map(() => 'Otros gastos');
+    }
+
+    for (let i = 0; i < allTransactions.length; i++) {
+      const tx = allTransactions[i];
       // Plaid: amount > 0 → gasto, amount < 0 → ingreso
       const absAmount = Math.abs(tx.amount);
       const txType = tx.amount > 0 ? 'expense' : 'income';
-      const category = await smartCategorize(tx.description, txType);
+      const category = (plaidCategories[i] && plaidCategories[i].trim())
+        ? plaidCategories[i]
+        : await smartCategorize(tx.description, txType);
 
       // Resolver bank_account_id por account_id de Plaid (si disponible)
       const bankAccountId = (tx.account_id && accountMap[tx.account_id])
@@ -1551,7 +1612,9 @@ router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
     await createPsd2Consent(connectionId, conn.user_id);
 
     console.log(`[import-accounts] userId=${conn.user_id} connectionId=${connectionId} imported=${importedAccounts.length}`);
-    res.json({ ok: true, accounts: importedAccounts.length });
+    // last_sync_at se incluye para que el cliente Flutter pueda actualizar
+    // SharedPreferences y evitar que CheckPeriodicSyncRequested dispare de inmediato.
+    res.json({ ok: true, accounts: importedAccounts.length, last_sync_at: new Date().toISOString() });
   } catch (err) {
     console.error('[import-accounts] error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
