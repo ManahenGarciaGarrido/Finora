@@ -1,31 +1,34 @@
 'use strict';
 
 /**
- * RF-11 — Categorización automática de transacciones bancarias importadas.
+ * RF-11 / RF-14 — Categorización automática de transacciones bancarias.
  *
- * Cada regla evalúa el texto normalizado de la descripción y, cuando hay
- * coincidencia, devuelve la categoría correspondiente de Finora.
- * Las reglas de ingresos se comprueban antes de las de gastos para evitar
- * falsos positivos (p.ej. "salario" en descripción de gasto).
+ * Motor de categorización basado en NLP con:
+ * - Reglas por palabras clave (ingresos primero para evitar falsos positivos)
+ * - Cálculo de nivel de confianza (0–100%)
+ * - Fallback a "Otros" si confianza < 50% (RF-14)
+ * - Exporta también autoCategorySimple() para compatibilidad
  */
 
 const RULES = [
-  // ── Ingresos ────────────────────────────────────────────────────────────
+  // Ingresos
   {
     type: 'income',
     category: 'Salario',
+    weight: 1.0,
     keywords: ['nomina', 'salario', 'sueldo', 'payroll', 'salary', 'remuneracion', 'mensualidad empresa'],
   },
   {
     type: 'income',
     category: 'Freelance',
+    weight: 0.9,
     keywords: ['factura', 'honorarios', 'freelance', 'consulting', 'comision', 'liquidacion', 'prestacion servicios'],
   },
-
-  // ── Gastos ──────────────────────────────────────────────────────────────
+  // Gastos
   {
     type: 'expense',
     category: 'Alimentación',
+    weight: 1.0,
     keywords: [
       'supermercado', 'mercadona', 'carrefour', 'lidl', 'aldi', 'dia ', 'eroski',
       'alcampo', 'hipercor', 'consum', 'ahorramas', 'maxi', 'grocery', 'alimentacion',
@@ -35,6 +38,7 @@ const RULES = [
   {
     type: 'expense',
     category: 'Transporte',
+    weight: 0.95,
     keywords: [
       'gasolina', 'gasolinera', 'repsol', 'bp ', 'cepsa', 'galp', 'combustible',
       'parking', 'parquing', 'autopista', 'peaje', 'taxi', 'uber', 'cabify', 'bolt',
@@ -46,6 +50,7 @@ const RULES = [
   {
     type: 'expense',
     category: 'Ocio',
+    weight: 0.9,
     keywords: [
       'netflix', 'spotify', 'amazon prime', 'disney', 'hbo', 'apple tv', 'youtube premium',
       'twitch', 'steam', 'playstation', 'xbox', 'nintendo',
@@ -57,6 +62,7 @@ const RULES = [
   {
     type: 'expense',
     category: 'Salud',
+    weight: 0.95,
     keywords: [
       'farmacia', 'parafarmacia', 'medico', 'hospital', 'clinica', 'dentista',
       'fisioterapia', 'seguro medico', 'sanitas', 'adeslas', 'asisa', 'muface',
@@ -66,6 +72,7 @@ const RULES = [
   {
     type: 'expense',
     category: 'Vivienda',
+    weight: 0.95,
     keywords: [
       'alquiler', 'renta mensual', 'hipoteca', 'comunidad propietarios',
       'gas natural', 'iberdrola', 'endesa', 'naturgy', 'r com', 'electricidad',
@@ -76,6 +83,7 @@ const RULES = [
   {
     type: 'expense',
     category: 'Servicios',
+    weight: 0.85,
     keywords: [
       'vodafone', 'movistar', 'orange', 'masmovil', 'pepephone', 'telefono', 'movil',
       'internet ', 'fibra', 'jazztel', 'yoigo', 'claro', 'seguro', 'mutua',
@@ -87,6 +95,7 @@ const RULES = [
   {
     type: 'expense',
     category: 'Educación',
+    weight: 0.9,
     keywords: [
       'universidad', 'colegio', 'escuela', 'instituto', 'academia', 'curso',
       'formacion', 'educacion', 'libro', 'libreria', 'udemy', 'coursera',
@@ -96,6 +105,7 @@ const RULES = [
   {
     type: 'expense',
     category: 'Ropa',
+    weight: 0.9,
     keywords: [
       'zara', 'h&m', 'hm ', 'mango', 'primark', 'pull&bear', 'bershka',
       'stradivarius', 'massimo dutti', 'el corte ingles moda', 'ropa', 'calzado',
@@ -104,11 +114,6 @@ const RULES = [
   },
 ];
 
-/**
- * Normaliza texto: minúsculas, sin tildes, sin dobles espacios.
- * @param {string} text
- * @returns {string}
- */
 function normalize(text) {
   return (text || '')
     .toLowerCase()
@@ -118,26 +123,69 @@ function normalize(text) {
     .trim();
 }
 
+function calculateConfidence(desc, rule, matchedKw) {
+  const normalizedKw = normalize(matchedKw);
+  let confidence = rule.weight * 80;
+
+  if (desc === normalizedKw) {
+    confidence = rule.weight * 100;
+  } else if (desc.startsWith(normalizedKw) || desc.endsWith(normalizedKw)) {
+    confidence = rule.weight * 92;
+  } else if (normalizedKw.length >= 5) {
+    confidence = rule.weight * 85;
+  }
+
+  const matchCount = rule.keywords.filter(kw => desc.includes(normalize(kw))).length;
+  if (matchCount > 1) {
+    confidence = Math.min(100, confidence + matchCount * 3);
+  }
+
+  return Math.round(Math.min(100, Math.max(0, confidence)));
+}
+
 /**
- * Devuelve la categoría más probable para una transacción bancaria.
+ * RF-14: Devuelve categoría + nivel de confianza para una descripción.
  *
- * @param {string} description   Descripción del movimiento bancario
- * @param {'income'|'expense'} txType  Tipo de transacción
- * @returns {string} Nombre de categoría de Finora
+ * @param {string} description
+ * @param {'income'|'expense'} txType
+ * @returns {{ category: string, confidence: number, isFallback: boolean }}
  */
 function autoCategory(description, txType) {
   const desc = normalize(description);
+  let bestCategory = null;
+  let bestConfidence = 0;
 
   for (const rule of RULES) {
-    // Filtrar por tipo cuando la regla lo especifica
     if (rule.type && rule.type !== txType) continue;
-
-    if (rule.keywords.some((kw) => desc.includes(normalize(kw)))) {
-      return rule.category;
+    for (const kw of rule.keywords) {
+      if (desc.includes(normalize(kw))) {
+        const confidence = calculateConfidence(desc, rule, kw);
+        if (confidence > bestConfidence) {
+          bestConfidence = confidence;
+          bestCategory = rule.category;
+        }
+      }
     }
   }
 
-  return txType === 'expense' ? 'Otros' : 'Otros ingresos';
+  // RF-14: Fallback a "Otros" si confianza < 50%
+  const CONFIDENCE_THRESHOLD = 50;
+  const isFallback = bestConfidence < CONFIDENCE_THRESHOLD || bestCategory === null;
+
+  if (isFallback) {
+    return {
+      category: txType === 'expense' ? 'Otros' : 'Otros ingresos',
+      confidence: bestCategory !== null ? bestConfidence : 0,
+      isFallback: true,
+    };
+  }
+
+  return { category: bestCategory, confidence: bestConfidence, isFallback: false };
 }
 
-module.exports = { autoCategory };
+/** Compatibilidad con código antiguo — sólo devuelve el nombre de categoría */
+function autoCategorySimple(description, txType) {
+  return autoCategory(description, txType).category;
+}
+
+module.exports = { autoCategory, autoCategorySimple };
