@@ -166,6 +166,15 @@ class BankDisconnecting extends BankState {
   const BankDisconnecting();
 }
 
+/// RF-13: desconexión completada con éxito — token de acceso revocado en el
+/// proveedor bancario (Plaid / SaltEdge) y consentimiento PSD2 eliminado en BD.
+/// El historial de transacciones se conserva.
+class BankDisconnected extends BankState {
+  /// Nombre de la cuenta desconectada, para mostrarlo en el mensaje de éxito.
+  final String accountName;
+  const BankDisconnected({required this.accountName});
+}
+
 // ============================================================
 // ACCOUNT SETUP (mock mode setup page)
 // ============================================================
