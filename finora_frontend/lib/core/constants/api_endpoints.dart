@@ -75,20 +75,23 @@ class ApiEndpoints {
   static String importBankAccounts(String id) => '/banks/$id/import-accounts';
   // RNF-05: PSD2 consent management
   static const String bankConsents = '/banks/consents';
-  // RNF-07: Historial de sincronizaciones (sync logs)
-  static const String bankSyncLogs = '/banks/sync-logs';
   static String renewBankConsent(String id) => '/banks/$id/consent/renew';
   static String revokeBankConsent(String id) => '/banks/$id/consent';
+  // RNF-07: Historial de sincronizaciones (sync logs)
+  static const String bankSyncLogs = '/banks/sync-logs';
   // RNF-16: Circuit breaker health check
   static const String bankCircuitBreakerHealth =
       '/banks/health/circuit-breaker';
 
   // Categories endpoints
   static const String categories = '/categories';
-  static const String categoryFeedback = '/categories/feedback';
   static String categoryById(String id) => '/categories/$id';
   static const String autoCategorize = '/categories/auto-categorize';
   static const String recategorize = '/categories/recategorize';
+  static const String categoryFeedback = '/categories/feedback';
+
+  // RF-12: Bank accounts consolidated summary
+  static const String bankAccountsSummary = '/banks/accounts/summary';
 
   // Savings goals endpoints
   static const String savingsGoals = '/goals';
