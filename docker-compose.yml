@@ -32,6 +32,30 @@ services:
     networks:
       - finora-network
 
+  # RF-14 / RF-21 / RF-22: Finora AI Service (Python Flask)
+  # Motor de categorización automática con IA + predicciones de gastos + ahorro
+  ai:
+    build:
+      context: ./finora_ai
+      dockerfile: Dockerfile
+    container_name: finora-ai
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: production
+      PORT: 5001
+    ports:
+      - "5001:5001"
+    volumes:
+      - ai_models:/app/models
+    networks:
+      - finora-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
   # Finora Backend API
   backend:
     build:
@@ -44,6 +68,8 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
+      ai:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -58,6 +84,8 @@ services:
       APP_URL: http://192.168.100.88:3000
       FRONTEND_URL: http://localhost:8080
       ALLOWED_ORIGINS: "*"
+      # RF-14: URL del servicio de IA para categorización
+      AI_SERVICE_URL: http://ai:5001
     ports:
       - "3000:3000"
     networks:
@@ -74,4 +102,6 @@ networks:
 
 volumes:
   postgres_data:
+    driver: local
+  ai_models:
     driver: local

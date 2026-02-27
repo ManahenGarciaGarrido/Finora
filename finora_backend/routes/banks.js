@@ -29,6 +29,34 @@ const jwt = require('jsonwebtoken');
 const db = require('../services/db');
 const plaid = require('../services/plaid');
 const { autoCategory, autoCategorySimple } = require('../services/categoryMapper');
+
+// RF-14: URL del servicio Python de IA (configurable via env)
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+
+/**
+ * RF-14: Categoriza con el servicio Python si está disponible.
+ * Fallback automático al motor de reglas (autoCategorySimple).
+ */
+async function smartCategorize(description, txType) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000); // 2s timeout
+    const resp = await fetch(`${AI_SERVICE_URL}/categorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, type: txType }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.category;
+    }
+  } catch {
+    // Servicio AI no disponible
+  }
+  return autoCategorySimple(description, txType);
+}
 const { withRetry, withCache, ratesBreaker } = require('../services/circuitBreaker');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -1190,7 +1218,7 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
       // Plaid: amount > 0 → gasto, amount < 0 → ingreso
       const absAmount = Math.abs(tx.amount);
       const txType = tx.amount > 0 ? 'expense' : 'income';
-      const category = autoCategorySimple(tx.description, txType);
+      const category = await smartCategorize(tx.description, txType);
 
       // Resolver bank_account_id por account_id de Plaid (si disponible)
       const bankAccountId = (tx.account_id && accountMap[tx.account_id])
@@ -1375,7 +1403,7 @@ router.post('/sync-all', async (req, res) => {
         for (const tx of transactions) {
           const absAmount = Math.abs(tx.amount);
           const txType = tx.amount > 0 ? 'expense' : 'income';
-          const category = autoCategorySimple(tx.description, txType);
+          const category = await smartCategorize(tx.description, txType);
           const bankAccountId = (tx.account_id && accountMap[tx.account_id])
             || fallbackAccountId
             || (accResult.rows[0]?.id || null);

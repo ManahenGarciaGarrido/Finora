@@ -5,6 +5,40 @@ const { body, param, validationResult } = require('express-validator');
 const db = require('../services/db');
 const { autoCategory } = require('../services/categoryMapper');
 
+// RF-14: URL del servicio Python de IA (configurable via env)
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+
+/**
+ * RF-14: Llama al servicio Python de IA para categorización.
+ * Fallback automático al motor de reglas si el servicio no está disponible.
+ */
+async function autoCategoryWithAI(description, type) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+    const response = await fetch(`${AI_SERVICE_URL}/categorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, type }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        category:   data.category,
+        confidence: data.confidence,
+        isFallback: data.is_fallback,
+        method:     data.method || 'ai',
+      };
+    }
+  } catch (e) {
+    // Servicio AI no disponible — usar motor de reglas local
+  }
+  // Fallback al motor de reglas (categoryMapper.js)
+  return autoCategory(description, type);
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Authentication middleware
@@ -379,12 +413,14 @@ router.post('/auto-categorize',
       }
 
       const { description, type } = req.body;
-      const result = autoCategory(description, type);
+      // RF-14: Intentar con servicio Python de IA primero, fallback a reglas
+      const result = await autoCategoryWithAI(description, type);
 
       res.json({
-        category: result.category,
+        category:   result.category,
         confidence: result.confidence,
-        is_fallback: result.isFallback
+        is_fallback: result.isFallback,
+        method:     result.method || 'rules',
       });
     } catch (error) {
       console.error('Error en auto-categorize:', error);
