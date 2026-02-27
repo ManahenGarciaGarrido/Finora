@@ -28,7 +28,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const db = require('../services/db');
 const plaid = require('../services/plaid');
-const { autoCategory } = require('../services/categoryMapper');
+const { autoCategory, autoCategorySimple } = require('../services/categoryMapper');
 const { withRetry, withCache, ratesBreaker } = require('../services/circuitBreaker');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -1148,7 +1148,7 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
       // Plaid: amount > 0 → gasto, amount < 0 → ingreso
       const absAmount = Math.abs(tx.amount);
       const txType = tx.amount > 0 ? 'expense' : 'income';
-      const category = autoCategory(tx.description, txType);
+      const category = autoCategorySimple(tx.description, txType);
 
       // Resolver bank_account_id por account_id de Plaid (si disponible)
       const bankAccountId = (tx.account_id && accountMap[tx.account_id])
@@ -1333,7 +1333,7 @@ router.post('/sync-all', async (req, res) => {
         for (const tx of transactions) {
           const absAmount = Math.abs(tx.amount);
           const txType = tx.amount > 0 ? 'expense' : 'income';
-          const category = autoCategory(tx.description, txType);
+          const category = autoCategorySimple(tx.description, txType);
           const bankAccountId = (tx.account_id && accountMap[tx.account_id])
             || fallbackAccountId
             || (accResult.rows[0]?.id || null);
