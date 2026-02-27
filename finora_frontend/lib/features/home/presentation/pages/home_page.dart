@@ -30,6 +30,10 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedNavIndex = 0;
 
+  /// RF-12: GlobalKey para acceder a TransactionsPageState y aplicar filtros
+  /// de cuenta bancaria desde otras pestañas (e.g., AccountsPage).
+  final _txPageKey = GlobalKey<TransactionsPageState>();
+
   /// Páginas preconstruidas para navegación instantánea (RNF-06)
   /// IndexedStack mantiene todas las páginas en memoria,
   /// eliminando el tiempo de reconstrucción al cambiar de sección.
@@ -44,8 +48,16 @@ class _HomePageState extends State<HomePage> {
         onNavigateToTransactions: () => setState(() => _selectedNavIndex = 2),
       ),
       const StatsPage(),
-      const TransactionsPage(),
-      const AccountsPage(),
+      // RF-12: key pública para filtrar transacciones por cuenta desde accounts_page
+      TransactionsPage(key: _txPageKey),
+      AccountsPage(
+        onViewAccountTransactions: (accountId, accountName) {
+          // Aplicar filtro de cuenta en la página de transacciones
+          _txPageKey.currentState?.filterByBankAccount(accountId, accountName);
+          // Navegar a la pestaña de transacciones (index 2)
+          setState(() => _selectedNavIndex = 2);
+        },
+      ),
       const SettingsPage(),
     ];
 
