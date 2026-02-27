@@ -27,7 +27,12 @@ import '../../../banks/presentation/widgets/notification_bell.dart';
 /// Muestra el balance calculado desde transacciones y las cuentas bancarias
 /// conectadas a través de Open Banking PSD2 (GoCardless).
 class AccountsPage extends StatefulWidget {
-  const AccountsPage({super.key});
+  /// RF-12: callback que se llama cuando el usuario quiere ver las transacciones
+  /// de una cuenta bancaria específica. Recibe accountId y accountName.
+  final void Function(String accountId, String accountName)?
+  onViewAccountTransactions;
+
+  const AccountsPage({super.key, this.onViewAccountTransactions});
 
   @override
   State<AccountsPage> createState() => _AccountsPageState();
@@ -852,6 +857,13 @@ class _AccountsPageState extends State<AccountsPage> {
                   account: acct,
                   onDisconnect: () => _confirmDisconnect(context, acct),
                   onEdit: () => _openEditCardsSheet(context, acct),
+                  // RF-12: navegar a transacciones filtradas por esta cuenta
+                  onViewTransactions: widget.onViewAccountTransactions != null
+                      ? () => widget.onViewAccountTransactions!(
+                          acct.id,
+                          acct.accountName,
+                        )
+                      : null,
                 ),
               ),
             ],
@@ -1550,10 +1562,14 @@ class _BankAccountCard extends StatelessWidget {
   final VoidCallback onDisconnect;
   final VoidCallback onEdit;
 
+  /// RF-12: navega a la pestaña de transacciones filtrada por esta cuenta
+  final VoidCallback? onViewTransactions;
+
   const _BankAccountCard({
     required this.account,
     required this.onDisconnect,
     required this.onEdit,
+    this.onViewTransactions,
   });
 
   /// Returns a human-readable relative time string for the last sync.
@@ -1660,10 +1676,28 @@ class _BankAccountCard extends StatelessWidget {
               // Options menu
               PopupMenuButton<String>(
                 onSelected: (v) {
+                  if (v == 'transactions') onViewTransactions?.call();
                   if (v == 'edit') onEdit();
                   if (v == 'disconnect') onDisconnect();
                 },
                 itemBuilder: (_) => [
+                  // RF-12: Ver transacciones de esta cuenta
+                  if (onViewTransactions != null)
+                    const PopupMenuItem(
+                      value: 'transactions',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.receipt_long_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                          SizedBox(width: 8),
+                          Text('Ver transacciones'),
+                        ],
+                      ),
+                    ),
+                  if (onViewTransactions != null) const PopupMenuDivider(),
                   const PopupMenuItem(
                     value: 'edit',
                     child: Row(

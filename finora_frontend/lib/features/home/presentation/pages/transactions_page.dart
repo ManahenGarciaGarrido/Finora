@@ -27,10 +27,11 @@ class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key});
 
   @override
-  State<TransactionsPage> createState() => _TransactionsPageState();
+  State<TransactionsPage> createState() => TransactionsPageState();
 }
 
-class _TransactionsPageState extends State<TransactionsPage> {
+// RF-12: clase pública para permitir GlobalKey<TransactionsPageState> desde home_page.dart
+class TransactionsPageState extends State<TransactionsPage> {
   // ─── Filtro básico de tipo ───────────────────────────────────────────────
   String _selectedFilter = 'Todas';
 
