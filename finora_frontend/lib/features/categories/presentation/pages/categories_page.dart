@@ -459,336 +459,345 @@ class _CategoriesPageState extends State<CategoriesPage>
                 ),
                 const Divider(height: 1),
                 // Body
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Preview
-                        Center(
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: Color(
-                                int.parse(
-                                  selectedColor.replaceFirst('#', '0xFF'),
-                                ),
-                              ).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Preview
+                          Center(
+                            child: Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
                                 color: Color(
                                   int.parse(
                                     selectedColor.replaceFirst('#', '0xFF'),
                                   ),
-                                ).withValues(alpha: 0.4),
+                                ).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: Color(
+                                    int.parse(
+                                      selectedColor.replaceFirst('#', '0xFF'),
+                                    ),
+                                  ).withValues(alpha: 0.4),
+                                ),
                               ),
-                            ),
-                            child: Icon(
-                              CategoryEntity(
-                                id: '',
-                                name: '',
-                                type: selectedType,
-                                icon: selectedIcon,
-                                color: selectedColor,
-                              ).iconData,
-                              size: 32,
-                              color: Color(
-                                int.parse(
-                                  selectedColor.replaceFirst('#', '0xFF'),
+                              child: Icon(
+                                CategoryEntity(
+                                  id: '',
+                                  name: '',
+                                  type: selectedType,
+                                  icon: selectedIcon,
+                                  color: selectedColor,
+                                ).iconData,
+                                size: 32,
+                                color: Color(
+                                  int.parse(
+                                    selectedColor.replaceFirst('#', '0xFF'),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        // Nombre
-                        Text('Nombre', style: AppTypography.labelMedium()),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: nameController,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: InputDecoration(
-                            hintText: 'Ej: Mascotas, Fitness...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: AppColors.gray200,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: AppColors.gray200,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) {
-                              return 'El nombre es requerido';
-                            }
-                            if (v.trim().length > 100) {
-                              return 'El nombre no puede superar 100 caracteres';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        // Tipo (solo al crear)
-                        if (!isEditing) ...[
-                          Text('Tipo', style: AppTypography.labelMedium()),
+                          const SizedBox(height: 20),
+                          // Nombre
+                          Text('Nombre', style: AppTypography.labelMedium()),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => setSheetState(
-                                    () => selectedType = 'expense',
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
+                          TextFormField(
+                            controller: nameController,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: InputDecoration(
+                              hintText: 'Ej: Mascotas, Fitness...',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: AppColors.gray200,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: AppColors.gray200,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'El nombre es requerido';
+                              }
+                              if (v.trim().length > 100) {
+                                return 'El nombre no puede superar 100 caracteres';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          // Tipo (solo al crear)
+                          if (!isEditing) ...[
+                            Text('Tipo', style: AppTypography.labelMedium()),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => setSheetState(
+                                      () => selectedType = 'expense',
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: selectedType == 'expense'
-                                          ? AppColors.errorLight.withValues(
-                                              alpha: 0.1,
-                                            )
-                                          : AppColors.gray100,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: selectedType == 'expense'
-                                            ? AppColors.error
-                                            : AppColors.gray200,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
                                       ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.north_east_rounded,
-                                          size: 16,
+                                      decoration: BoxDecoration(
+                                        color: selectedType == 'expense'
+                                            ? AppColors.errorLight.withValues(
+                                                alpha: 0.1,
+                                              )
+                                            : AppColors.gray100,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
                                           color: selectedType == 'expense'
                                               ? AppColors.error
-                                              : AppColors.textTertiaryLight,
+                                              : AppColors.gray200,
                                         ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Gasto',
-                                          style: AppTypography.labelMedium(
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.north_east_rounded,
+                                            size: 16,
                                             color: selectedType == 'expense'
                                                 ? AppColors.error
                                                 : AppColors.textTertiaryLight,
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Gasto',
+                                            style: AppTypography.labelMedium(
+                                              color: selectedType == 'expense'
+                                                  ? AppColors.error
+                                                  : AppColors.textTertiaryLight,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => setSheetState(
-                                    () => selectedType = 'income',
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => setSheetState(
+                                      () => selectedType = 'income',
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: selectedType == 'income'
-                                          ? AppColors.successSoft
-                                          : AppColors.gray100,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: selectedType == 'income'
-                                            ? AppColors.success
-                                            : AppColors.gray200,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
                                       ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.south_west_rounded,
-                                          size: 16,
+                                      decoration: BoxDecoration(
+                                        color: selectedType == 'income'
+                                            ? AppColors.successSoft
+                                            : AppColors.gray100,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
                                           color: selectedType == 'income'
                                               ? AppColors.success
-                                              : AppColors.textTertiaryLight,
+                                              : AppColors.gray200,
                                         ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Ingreso',
-                                          style: AppTypography.labelMedium(
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.south_west_rounded,
+                                            size: 16,
                                             color: selectedType == 'income'
                                                 ? AppColors.success
                                                 : AppColors.textTertiaryLight,
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Ingreso',
+                                            style: AppTypography.labelMedium(
+                                              color: selectedType == 'income'
+                                                  ? AppColors.success
+                                                  : AppColors.textTertiaryLight,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        // Selector de icono (RF-16)
-                        Text('Icono', style: AppTypography.labelMedium()),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _availableIcons.map((iconData) {
-                            final iconName = iconData['icon'] as String;
-                            final isSelected = selectedIcon == iconName;
-                            final color = Color(
-                              int.parse(
-                                selectedColor.replaceFirst('#', '0xFF'),
-                              ),
-                            );
-                            return GestureDetector(
-                              onTap: () =>
-                                  setSheetState(() => selectedIcon = iconName),
-                              child: Tooltip(
-                                message: iconData['label'] as String,
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? color.withValues(alpha: 0.15)
-                                        : AppColors.gray100,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          // Selector de icono (RF-16)
+                          Text('Icono', style: AppTypography.labelMedium()),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _availableIcons.map((iconData) {
+                              final iconName = iconData['icon'] as String;
+                              final isSelected = selectedIcon == iconName;
+                              final color = Color(
+                                int.parse(
+                                  selectedColor.replaceFirst('#', '0xFF'),
+                                ),
+                              );
+                              return GestureDetector(
+                                onTap: () => setSheetState(
+                                  () => selectedIcon = iconName,
+                                ),
+                                child: Tooltip(
+                                  message: iconData['label'] as String,
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? color.withValues(alpha: 0.15)
+                                          : AppColors.gray100,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? color
+                                            : AppColors.gray200,
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      CategoryEntity(
+                                        id: '',
+                                        name: '',
+                                        type: 'expense',
+                                        icon: iconName,
+                                        color: selectedColor,
+                                      ).iconData,
+                                      size: 20,
                                       color: isSelected
                                           ? color
-                                          : AppColors.gray200,
-                                      width: isSelected ? 2 : 1,
+                                          : AppColors.gray400,
                                     ),
                                   ),
-                                  child: Icon(
-                                    CategoryEntity(
-                                      id: '',
-                                      name: '',
-                                      type: 'expense',
-                                      icon: iconName,
-                                      color: selectedColor,
-                                    ).iconData,
-                                    size: 20,
-                                    color: isSelected
-                                        ? color
-                                        : AppColors.gray400,
-                                  ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 16),
-                        // Selector de color (RF-16)
-                        Text('Color', style: AppTypography.labelMedium()),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _availableColors.map((hex) {
-                            final isSelected = selectedColor == hex;
-                            final color = Color(
-                              int.parse(hex.replaceFirst('#', '0xFF')),
-                            );
-                            return GestureDetector(
-                              onTap: () =>
-                                  setSheetState(() => selectedColor = hex),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppColors.textPrimaryLight
-                                        : Colors.transparent,
-                                    width: 2,
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 16),
+                          // Selector de color (RF-16)
+                          Text('Color', style: AppTypography.labelMedium()),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _availableColors.map((hex) {
+                              final isSelected = selectedColor == hex;
+                              final color = Color(
+                                int.parse(hex.replaceFirst('#', '0xFF')),
+                              );
+                              return GestureDetector(
+                                onTap: () =>
+                                    setSheetState(() => selectedColor = hex),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppColors.textPrimaryLight
+                                          : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: color.withValues(
+                                                alpha: 0.5,
+                                              ),
+                                              blurRadius: 6,
+                                            ),
+                                          ]
+                                        : null,
                                   ),
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: color.withValues(alpha: 0.5),
-                                            blurRadius: 6,
-                                          ),
-                                        ]
+                                  child: isSelected
+                                      ? const Icon(
+                                          Icons.check_rounded,
+                                          size: 18,
+                                          color: Colors.white,
+                                        )
                                       : null,
                                 ),
-                                child: isSelected
-                                    ? const Icon(
-                                        Icons.check_rounded,
-                                        size: 18,
-                                        color: Colors.white,
-                                      )
-                                    : null,
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 24),
+                          // Botón guardar
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: () {
+                                if (!formKey.currentState!.validate()) return;
+                                Navigator.pop(ctx);
+                                if (isEditing) {
+                                  context.read<CategoryBloc>().add(
+                                    UpdateCategory(
+                                      id: existing.id,
+                                      name: nameController.text.trim(),
+                                      icon: selectedIcon,
+                                      color: selectedColor,
+                                    ),
+                                  );
+                                } else {
+                                  context.read<CategoryBloc>().add(
+                                    CreateCategory(
+                                      name: nameController.text.trim(),
+                                      type: selectedType,
+                                      icon: selectedIcon,
+                                      color: selectedColor,
+                                    ),
+                                  );
+                                }
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                               ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 24),
-                        // Botón guardar
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: () {
-                              if (!formKey.currentState!.validate()) return;
-                              Navigator.pop(ctx);
-                              if (isEditing) {
-                                context.read<CategoryBloc>().add(
-                                  UpdateCategory(
-                                    id: existing.id,
-                                    name: nameController.text.trim(),
-                                    icon: selectedIcon,
-                                    color: selectedColor,
-                                  ),
-                                );
-                              } else {
-                                context.read<CategoryBloc>().add(
-                                  CreateCategory(
-                                    name: nameController.text.trim(),
-                                    type: selectedType,
-                                    icon: selectedIcon,
-                                    color: selectedColor,
-                                  ),
-                                );
-                              }
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: Text(
-                              isEditing ? 'Guardar cambios' : 'Crear categoría',
-                              style: AppTypography.labelLarge(
-                                color: AppColors.white,
+                              child: Text(
+                                isEditing
+                                    ? 'Guardar cambios'
+                                    : 'Crear categoría',
+                                style: AppTypography.labelLarge(
+                                  color: AppColors.white,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                ), // Flexible
               ],
             ),
           ),

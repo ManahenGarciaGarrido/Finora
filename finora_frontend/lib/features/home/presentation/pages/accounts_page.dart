@@ -787,8 +787,14 @@ class _AccountsPageState extends State<AccountsPage> {
             // Section header
             Row(
               children: [
-                Text('Cuentas bancarias', style: AppTypography.titleMedium()),
-                const Spacer(),
+                Expanded(
+                  child: Text(
+                    'Cuentas bancarias',
+                    style: AppTypography.titleMedium(),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 // HU-06: Badge de nuevas transacciones (visible tras la última sync)
                 if (_lastImportedCount > 0) ...[
                   Container(
@@ -1772,24 +1778,27 @@ class _BankAccountCard extends StatelessWidget {
           const SizedBox(height: 14),
           // Balance
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Saldo disponible',
-                    style: AppTypography.labelSmall(
-                      color: AppColors.textTertiaryLight,
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Saldo disponible',
+                      style: AppTypography.labelSmall(
+                        color: AppColors.textTertiaryLight,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatBalance(account.balance),
-                    style: AppTypography.moneyMedium(),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatBalance(account.balance),
+                      style: AppTypography.moneyMedium(),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

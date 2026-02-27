@@ -37,6 +37,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   bool _hasMorePages = false;
   bool _isLoadingMore = false;
 
+  /// Totales autoritativos del servidor (calculados con window functions sobre
+  /// TODAS las transacciones, no solo la página cargada). Evita el mismatch
+  /// de balance cuando hay más de 100 transacciones en BD.
+  double _serverTotalIncome = 0;
+  double _serverTotalExpenses = 0;
+  bool _hasServerTotals = false;
+
   bool get _isCacheValid =>
       _lastApiLoadTime != null &&
       DateTime.now().difference(_lastApiLoadTime!) < _cacheTtl;
@@ -163,6 +170,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         if (pagination != null) {
           _hasMorePages = pagination['hasMore'] == true;
         }
+        // Totales sobre el conjunto completo (window functions, pág 1 ya los conoce)
+        final totals = data['totals'];
+        if (totals != null) {
+          _serverTotalIncome = (totals['income'] as num?)?.toDouble() ?? 0;
+          _serverTotalExpenses = (totals['expense'] as num?)?.toDouble() ?? 0;
+          _hasServerTotals = true;
+        }
       }
 
       if (serverTransactions.isNotEmpty) {
@@ -206,6 +220,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     _lastApiLoadTime = null;
     _currentServerPage = 1;
     _hasMorePages = false;
+    _hasServerTotals = false;
   }
 
   /// Agregar transacción: guardar en Hive primero, luego API si hay conexión
@@ -493,12 +508,16 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   }
 
   void _emitLoaded(Emitter<TransactionState> emit, {bool isOffline = false}) {
+    // Preferir totales del servidor (incluyen transacciones no cargadas aún).
+    // Fallback a cálculo local si no hay respuesta del servidor todavía.
+    final income = _hasServerTotals ? _serverTotalIncome : totalIncome;
+    final expenses = _hasServerTotals ? _serverTotalExpenses : totalExpenses;
     emit(
       TransactionsLoaded(
         transactions: List.unmodifiable(_transactions),
-        balance: totalBalance,
-        totalIncome: totalIncome,
-        totalExpenses: totalExpenses,
+        balance: income - expenses,
+        totalIncome: income,
+        totalExpenses: expenses,
         isOffline: isOffline,
         pendingSyncCount: _syncManager.pendingCount,
         hasMorePages: _hasMorePages,

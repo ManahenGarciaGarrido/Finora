@@ -211,10 +211,14 @@ router.get('/',
         paramIndex++;
       }
 
-      // RNF-20: Count y datos en una sola consulta usando window function
-      // Evita dos round-trips a la BD y usa los mismos índices
+      // RNF-20: Count, totales y datos en una sola consulta usando window functions.
+      // Incluye SUM de ingresos/gastos sobre TODO el conjunto filtrado (no solo la página),
+      // para que el cliente pueda mostrar el balance real aunque solo haya cargado la pág 1.
       const result = await db.query(
-        `SELECT *, COUNT(*) OVER () AS _total_count
+        `SELECT *,
+                COUNT(*) OVER () AS _total_count,
+                SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) OVER () AS _total_income,
+                SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) OVER () AS _total_expense
          FROM transactions
          ${whereClause}
          ORDER BY date DESC, created_at DESC
@@ -223,13 +227,16 @@ router.get('/',
         [...params, limit, offset]
       );
 
-      // Extraer total de la primera fila (si hay resultados)
-      const total = result.rows.length > 0
-        ? parseInt(result.rows[0]._total_count)
-        : 0;
+      // Extraer totales de la primera fila (si hay resultados)
+      const firstRow = result.rows[0];
+      const total        = firstRow ? parseInt(firstRow._total_count)       : 0;
+      const totalIncome  = firstRow ? parseFloat(firstRow._total_income)    : 0;
+      const totalExpense = firstRow ? parseFloat(firstRow._total_expense)   : 0;
 
-      // Limpiar la columna auxiliar antes de devolver
-      const transactions = result.rows.map(({ _total_count, ...tx }) => tx);
+      // Limpiar columnas auxiliares antes de devolver
+      const transactions = result.rows.map(
+        ({ _total_count, _total_income, _total_expense, ...tx }) => tx
+      );
 
       res.json({
         transactions,
@@ -239,7 +246,9 @@ router.get('/',
           total,
           totalPages: Math.ceil(total / limit),
           hasMore: offset + transactions.length < total,
-        }
+        },
+        // Totales sobre el conjunto completo (respetan los filtros activos)
+        totals: { income: totalIncome, expense: totalExpense },
       });
     } catch (error) {
       console.error('Error fetching transactions:', error);
