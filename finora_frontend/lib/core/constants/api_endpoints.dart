@@ -85,6 +85,7 @@ class ApiEndpoints {
 
   // Categories endpoints
   static const String categories = '/categories';
+  static const String categoryFeedback = '/categories/feedback';
   static String categoryById(String id) => '/categories/$id';
   static const String autoCategorize = '/categories/auto-categorize';
   static const String recategorize = '/categories/recategorize';

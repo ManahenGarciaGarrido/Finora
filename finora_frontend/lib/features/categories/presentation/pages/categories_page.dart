@@ -9,10 +9,10 @@ import '../bloc/category_bloc.dart';
 import '../bloc/category_event.dart';
 import '../bloc/category_state.dart';
 
-/// Página de gestión de categorías (RF-15)
+/// Página de gestión de categorías (RF-15, RF-16)
 ///
 /// Muestra las categorías del usuario agrupadas por tipo (gastos e ingresos).
-/// Cada categoría se muestra con su icono y color correspondiente.
+/// Permite crear, editar y eliminar categorías personalizadas (RF-16).
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key});
 
@@ -41,89 +41,173 @@ class _CategoriesPageState extends State<CategoriesPage>
   Widget build(BuildContext context) {
     final responsive = ResponsiveUtils(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: AppColors.backgroundLight,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimaryLight),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text('Categorías', style: AppTypography.headlineSmall()),
-        centerTitle: false,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textTertiaryLight,
-          indicatorColor: AppColors.primary,
-          indicatorSize: TabBarIndicatorSize.label,
-          labelStyle: AppTypography.labelLarge(),
-          unselectedLabelStyle: AppTypography.labelLarge(),
-          tabs: const [
-            Tab(text: 'Gastos'),
-            Tab(text: 'Ingresos'),
-          ],
-        ),
-      ),
-      body: BlocBuilder<CategoryBloc, CategoryState>(
-        builder: (context, state) {
-          if (state is CategoryLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            );
-          }
-
-          if (state is CategoriesLoaded) {
-            return TabBarView(
-              controller: _tabController,
-              children: [
-                _buildCategoryList(
-                  state.expenseCategories,
-                  responsive,
-                  isExpense: true,
-                ),
-                _buildCategoryList(
-                  state.incomeCategories,
-                  responsive,
-                  isExpense: false,
-                ),
-              ],
-            );
-          }
-
-          if (state is CategoryError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return BlocConsumer<CategoryBloc, CategoryState>(
+      listener: (context, state) {
+        if (state is CategoryCreated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
                 children: [
-                  Icon(Icons.error_outline, size: 48, color: AppColors.gray400),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error al cargar categorías',
-                    style: AppTypography.titleMedium(color: AppColors.textSecondaryLight),
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.white,
+                    size: 18,
                   ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () {
-                      context.read<CategoryBloc>().add(LoadCategories());
-                    },
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Reintentar'),
-                  ),
+                  const SizedBox(width: 8),
+                  Text('Categoría "${state.category.name}" creada'),
                 ],
               ),
-            );
-          }
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        } else if (state is CategoryUpdated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Categoría actualizada'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        } else if (state is CategoryDeleted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Categoría eliminada'),
+              backgroundColor: AppColors.gray600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        } else if (state is CategoryError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          backgroundColor: AppColors.backgroundLight,
+          appBar: AppBar(
+            backgroundColor: AppColors.backgroundLight,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: AppColors.textPrimaryLight,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text('Categorías', style: AppTypography.headlineSmall()),
+            centerTitle: false,
+            bottom: TabBar(
+              controller: _tabController,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textTertiaryLight,
+              indicatorColor: AppColors.primary,
+              indicatorSize: TabBarIndicatorSize.label,
+              labelStyle: AppTypography.labelLarge(),
+              unselectedLabelStyle: AppTypography.labelLarge(),
+              tabs: const [
+                Tab(text: 'Gastos'),
+                Tab(text: 'Ingresos'),
+              ],
+            ),
+          ),
+          // RF-16: FAB para crear nueva categoría personalizada
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showCategoryForm(context, null),
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.white,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Nueva categoría'),
+          ),
+          body: Builder(
+            builder: (_) {
+              if (state is CategoryLoading) {
+                return const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                );
+              }
 
-          return const SizedBox.shrink();
-        },
-      ),
+              final categories = state is CategoriesLoaded
+                  ? state.categories
+                  : context.read<CategoryBloc>().categories;
+
+              final expenseCats = categories.where((c) => c.isExpense).toList();
+              final incomeCats = categories.where((c) => c.isIncome).toList();
+
+              if (state is CategoryError && categories.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: AppColors.gray400,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error al cargar categorías',
+                        style: AppTypography.titleMedium(
+                          color: AppColors.textSecondaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () {
+                          context.read<CategoryBloc>().add(LoadCategories());
+                        },
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Reintentar'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildCategoryList(
+                    context,
+                    expenseCats,
+                    responsive,
+                    isExpense: true,
+                  ),
+                  _buildCategoryList(
+                    context,
+                    incomeCats,
+                    responsive,
+                    isExpense: false,
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
   Widget _buildCategoryList(
+    BuildContext context,
     List<CategoryEntity> categories,
     ResponsiveUtils responsive, {
     required bool isExpense,
@@ -134,14 +218,30 @@ class _CategoriesPageState extends State<CategoriesPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isExpense ? Icons.receipt_long_outlined : Icons.account_balance_wallet_outlined,
+              isExpense
+                  ? Icons.receipt_long_outlined
+                  : Icons.account_balance_wallet_outlined,
               size: 48,
               color: AppColors.gray300,
             ),
             const SizedBox(height: 16),
             Text(
-              isExpense ? 'No hay categorías de gastos' : 'No hay categorías de ingresos',
-              style: AppTypography.titleMedium(color: AppColors.textSecondaryLight),
+              isExpense
+                  ? 'Sin categorías de gastos'
+                  : 'Sin categorías de ingresos',
+              style: AppTypography.titleMedium(
+                color: AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _showCategoryForm(
+                context,
+                null,
+                defaultType: isExpense ? 'expense' : 'income',
+              ),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Crear primera categoría'),
             ),
           ],
         ),
@@ -153,17 +253,17 @@ class _CategoriesPageState extends State<CategoriesPage>
         responsive.horizontalPadding,
         16,
         responsive.horizontalPadding,
-        responsive.hp(12),
+        100, // Espacio para el FAB
       ),
       itemCount: categories.length,
       itemBuilder: (context, index) {
         final category = categories[index];
-        return _buildCategoryCard(category);
+        return _buildCategoryCard(context, category);
       },
     );
   }
 
-  Widget _buildCategoryCard(CategoryEntity category) {
+  Widget _buildCategoryCard(BuildContext context, CategoryEntity category) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -174,6 +274,7 @@ class _CategoriesPageState extends State<CategoriesPage>
       ),
       child: Row(
         children: [
+          // Icono con color de categoría
           Container(
             width: 44,
             height: 44,
@@ -192,18 +293,18 @@ class _CategoriesPageState extends State<CategoriesPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  category.name,
-                  style: AppTypography.titleSmall(),
-                ),
+                Text(category.name, style: AppTypography.titleSmall()),
                 const SizedBox(height: 2),
                 Text(
                   category.isExpense ? 'Gasto' : 'Ingreso',
-                  style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textTertiaryLight,
+                  ),
                 ),
               ],
             ),
           ),
+          // Badge para predefinidas; botones para personalizadas
           if (category.isPredefined)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -215,9 +316,576 @@ class _CategoriesPageState extends State<CategoriesPage>
                 'Predefinida',
                 style: AppTypography.badge(color: AppColors.textTertiaryLight),
               ),
+            )
+          else ...[
+            // RF-16: Editar categoría personalizada
+            IconButton(
+              icon: const Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: AppColors.primary,
+              ),
+              onPressed: () => _showCategoryForm(context, category),
+              tooltip: 'Editar',
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              padding: EdgeInsets.zero,
             ),
+            // RF-16: Eliminar categoría personalizada
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+                color: AppColors.error,
+              ),
+              onPressed: () => _confirmDelete(context, category),
+              tooltip: 'Eliminar',
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              padding: EdgeInsets.zero,
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  // ── RF-16: Formulario de creación/edición ──────────────────────────────
+
+  /// Los iconos disponibles para categorías personalizadas (RF-16)
+  static const List<Map<String, dynamic>> _availableIcons = [
+    {'icon': 'restaurant', 'label': 'Comida'},
+    {'icon': 'directions_car', 'label': 'Coche'},
+    {'icon': 'sports_esports', 'label': 'Ocio'},
+    {'icon': 'local_hospital', 'label': 'Salud'},
+    {'icon': 'home', 'label': 'Hogar'},
+    {'icon': 'phone_android', 'label': 'Móvil'},
+    {'icon': 'school', 'label': 'Estudio'},
+    {'icon': 'checkroom', 'label': 'Ropa'},
+    {'icon': 'more_horiz', 'label': 'Otros'},
+    {'icon': 'work', 'label': 'Trabajo'},
+    {'icon': 'computer', 'label': 'Tech'},
+    {'icon': 'account_balance_wallet', 'label': 'Wallet'},
+    {'icon': 'fitness_center', 'label': 'Gym'},
+    {'icon': 'flight', 'label': 'Viaje'},
+    {'icon': 'pets', 'label': 'Mascotas'},
+    {'icon': 'shopping_cart', 'label': 'Compras'},
+    {'icon': 'local_cafe', 'label': 'Café'},
+    {'icon': 'movie', 'label': 'Cine'},
+    {'icon': 'music_note', 'label': 'Música'},
+    {'icon': 'celebration', 'label': 'Fiesta'},
+  ];
+
+  /// Paleta de colores para categorías personalizadas (RF-16)
+  static const List<String> _availableColors = [
+    '#F59E0B',
+    '#EF4444',
+    '#3B82F6',
+    '#22C55E',
+    '#8B5CF6',
+    '#EC4899',
+    '#06B6D4',
+    '#F97316',
+    '#6366F1',
+    '#14B8A6',
+    '#84CC16',
+    '#E11D48',
+    '#0EA5E9',
+    '#7C3AED',
+    '#10B981',
+    '#F43F5E',
+    '#6B7280',
+    '#92400E',
+    '#1D4ED8',
+    '#047857',
+  ];
+
+  Future<void> _showCategoryForm(
+    BuildContext context,
+    CategoryEntity? existing, {
+    String defaultType = 'expense',
+  }) async {
+    final isEditing = existing != null;
+    String selectedType = existing?.type ?? defaultType;
+    String selectedIcon = existing?.icon ?? 'more_horiz';
+    String selectedColor = existing?.color ?? '#6B7280';
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final formKey = GlobalKey<FormState>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.gray300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        isEditing ? 'Editar categoría' : 'Nueva categoría',
+                        style: AppTypography.titleLarge(),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                        color: AppColors.textSecondaryLight,
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Body
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Preview
+                        Center(
+                          child: Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: Color(
+                                int.parse(
+                                  selectedColor.replaceFirst('#', '0xFF'),
+                                ),
+                              ).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: Color(
+                                  int.parse(
+                                    selectedColor.replaceFirst('#', '0xFF'),
+                                  ),
+                                ).withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Icon(
+                              CategoryEntity(
+                                id: '',
+                                name: '',
+                                type: selectedType,
+                                icon: selectedIcon,
+                                color: selectedColor,
+                              ).iconData,
+                              size: 32,
+                              color: Color(
+                                int.parse(
+                                  selectedColor.replaceFirst('#', '0xFF'),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // Nombre
+                        Text('Nombre', style: AppTypography.labelMedium()),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: nameController,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText: 'Ej: Mascotas, Fitness...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.gray200,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.gray200,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'El nombre es requerido';
+                            }
+                            if (v.trim().length > 100) {
+                              return 'El nombre no puede superar 100 caracteres';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // Tipo (solo al crear)
+                        if (!isEditing) ...[
+                          Text('Tipo', style: AppTypography.labelMedium()),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setSheetState(
+                                    () => selectedType = 'expense',
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: selectedType == 'expense'
+                                          ? AppColors.errorLight.withValues(
+                                              alpha: 0.1,
+                                            )
+                                          : AppColors.gray100,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: selectedType == 'expense'
+                                            ? AppColors.error
+                                            : AppColors.gray200,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.north_east_rounded,
+                                          size: 16,
+                                          color: selectedType == 'expense'
+                                              ? AppColors.error
+                                              : AppColors.textTertiaryLight,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Gasto',
+                                          style: AppTypography.labelMedium(
+                                            color: selectedType == 'expense'
+                                                ? AppColors.error
+                                                : AppColors.textTertiaryLight,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setSheetState(
+                                    () => selectedType = 'income',
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: selectedType == 'income'
+                                          ? AppColors.successSoft
+                                          : AppColors.gray100,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: selectedType == 'income'
+                                            ? AppColors.success
+                                            : AppColors.gray200,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.south_west_rounded,
+                                          size: 16,
+                                          color: selectedType == 'income'
+                                              ? AppColors.success
+                                              : AppColors.textTertiaryLight,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Ingreso',
+                                          style: AppTypography.labelMedium(
+                                            color: selectedType == 'income'
+                                                ? AppColors.success
+                                                : AppColors.textTertiaryLight,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Selector de icono (RF-16)
+                        Text('Icono', style: AppTypography.labelMedium()),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _availableIcons.map((iconData) {
+                            final iconName = iconData['icon'] as String;
+                            final isSelected = selectedIcon == iconName;
+                            final color = Color(
+                              int.parse(
+                                selectedColor.replaceFirst('#', '0xFF'),
+                              ),
+                            );
+                            return GestureDetector(
+                              onTap: () =>
+                                  setSheetState(() => selectedIcon = iconName),
+                              child: Tooltip(
+                                message: iconData['label'] as String,
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? color.withValues(alpha: 0.15)
+                                        : AppColors.gray100,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? color
+                                          : AppColors.gray200,
+                                      width: isSelected ? 2 : 1,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    CategoryEntity(
+                                      id: '',
+                                      name: '',
+                                      type: 'expense',
+                                      icon: iconName,
+                                      color: selectedColor,
+                                    ).iconData,
+                                    size: 20,
+                                    color: isSelected
+                                        ? color
+                                        : AppColors.gray400,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        // Selector de color (RF-16)
+                        Text('Color', style: AppTypography.labelMedium()),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _availableColors.map((hex) {
+                            final isSelected = selectedColor == hex;
+                            final color = Color(
+                              int.parse(hex.replaceFirst('#', '0xFF')),
+                            );
+                            return GestureDetector(
+                              onTap: () =>
+                                  setSheetState(() => selectedColor = hex),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? AppColors.textPrimaryLight
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: color.withValues(alpha: 0.5),
+                                            blurRadius: 6,
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: isSelected
+                                    ? const Icon(
+                                        Icons.check_rounded,
+                                        size: 18,
+                                        color: Colors.white,
+                                      )
+                                    : null,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 24),
+                        // Botón guardar
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () {
+                              if (!formKey.currentState!.validate()) return;
+                              Navigator.pop(ctx);
+                              if (isEditing) {
+                                context.read<CategoryBloc>().add(
+                                  UpdateCategory(
+                                    id: existing.id,
+                                    name: nameController.text.trim(),
+                                    icon: selectedIcon,
+                                    color: selectedColor,
+                                  ),
+                                );
+                              } else {
+                                context.read<CategoryBloc>().add(
+                                  CreateCategory(
+                                    name: nameController.text.trim(),
+                                    type: selectedType,
+                                    icon: selectedIcon,
+                                    color: selectedColor,
+                                  ),
+                                );
+                              }
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: Text(
+                              isEditing ? 'Guardar cambios' : 'Crear categoría',
+                              style: AppTypography.labelLarge(
+                                color: AppColors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    nameController.dispose();
+  }
+
+  // RF-16: Confirmar eliminación de categoría personalizada
+  Future<void> _confirmDelete(
+    BuildContext context,
+    CategoryEntity category,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text('Eliminar categoría', style: AppTypography.titleMedium()),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Eliminar la categoría "${category.name}"?',
+              style: AppTypography.bodyMedium(),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.warningSoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: AppColors.warningDark,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Las transacciones con esta categoría no se eliminarán, pero quedarán sin categoría asignada.',
+                      style: AppTypography.bodySmall(
+                        color: AppColors.warningDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: AppColors.textSecondaryLight),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      context.read<CategoryBloc>().add(DeleteCategory(id: category.id));
+    }
   }
 }
