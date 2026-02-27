@@ -797,6 +797,48 @@ router.get('/accounts', authenticateToken, async (req, res) => {
   }
 });
 
+// ─── GET /accounts/summary — RF-12: Balance consolidado de todas las cuentas ──
+
+router.get('/accounts/summary', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Balance consolidado de todas las cuentas vinculadas
+    const summaryResult = await db.query(
+      `SELECT
+         COUNT(ba.id)::INT                                           AS account_count,
+         COALESCE(SUM(ba.balance_cents), 0)::BIGINT                 AS total_balance_cents,
+         json_agg(json_build_object(
+           'id',               ba.id,
+           'account_name',     ba.account_name,
+           'account_type',     ba.account_type,
+           'currency',         ba.currency,
+           'balance_cents',    ba.balance_cents,
+           'iban',             ba.iban,
+           'institution_name', bc.institution_name,
+           'institution_logo', bc.institution_logo,
+           'last_sync_at',     bc.last_sync_at,
+           'connection_status',bc.status
+         ) ORDER BY ba.created_at ASC) AS accounts
+       FROM bank_accounts ba
+       JOIN bank_connections bc ON bc.id = ba.connection_id
+       WHERE ba.user_id = $1 AND bc.status = 'linked'`,
+      [userId]
+    );
+
+    const row = summaryResult.rows[0];
+    res.json({
+      account_count:       row.account_count || 0,
+      total_balance_cents: Number(row.total_balance_cents) || 0,
+      total_balance_eur:   (Number(row.total_balance_cents) || 0) / 100,
+      accounts:            row.accounts || [],
+    });
+  } catch (err) {
+    console.error('banks/accounts/summary error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
 // ─── POST /accounts/setup ─────────────────────────────────────────────────────
 
 router.post('/accounts/setup', authenticateToken, async (req, res) => {
@@ -1488,7 +1530,7 @@ router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
   }
 });
 
-// ─── DELETE /:id/disconnect ───────────────────────────────────────────────────
+// ─── DELETE /:id/disconnect — RF-13: Desconexión con revocación de tokens ───
 
 router.delete('/:id/disconnect', authenticateToken, async (req, res) => {
   try {
@@ -1500,13 +1542,50 @@ router.delete('/:id/disconnect', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
     }
 
+    const conn = connResult.rows[0];
+    const errors = [];
+
+    // RF-13: Revocar access token en el proveedor bancario
+    // (Plaid: invalidItem, SaltEdge: remove connection, Yapily: delete consent)
+    if (conn.access_token) {
+      try {
+        if (conn.provider === 'plaid' || (!conn.provider && conn.access_token.startsWith('access-'))) {
+          // Plaid: invalidar el Item (corta acceso a la institución)
+          await plaid.removeItem(conn.access_token);
+        } else if (conn.provider === 'saltedge') {
+          // SaltEdge: eliminar la conexión en su plataforma
+          const saltedge = require('../services/saltedge');
+          await saltedge.removeConnection(conn.access_token).catch(() => {});
+        }
+      } catch (revokeErr) {
+        // Si falla la revocación remota, continuamos igualmente
+        // (el usuario puede haber revocado manualmente en el banco)
+        console.warn(`[disconnect] Token revocation failed for conn=${conn.id}:`, revokeErr.message);
+        errors.push('Token revocation skipped (provider may have already invalidated it)');
+      }
+    }
+
+    // RF-13: Revocar consentimiento PSD2 en la BD
+    await db.query(
+      `UPDATE psd2_consents
+       SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+       WHERE connection_id = $1`,
+      [req.params.id]
+    ).catch(() => {}); // Tabla puede no existir en entornos de desarrollo
+
+    // RF-13: NO eliminar transacciones — preservar historial (requisito RF-13)
+    // Solo eliminar la cuenta bancaria y marcar la conexión como desconectada
     await db.query('DELETE FROM bank_accounts WHERE connection_id = $1', [req.params.id]);
     await db.query(
-      "UPDATE bank_connections SET status = 'disconnected' WHERE id = $1",
+      "UPDATE bank_connections SET status = 'disconnected', updated_at = NOW() WHERE id = $1",
       [req.params.id]
     );
 
-    res.json({ message: 'Bank disconnected successfully' });
+    res.json({
+      message: 'Cuenta bancaria desconectada correctamente',
+      transaction_history_preserved: true,
+      warnings: errors.length > 0 ? errors : undefined,
+    });
   } catch (err) {
     console.error('banks/disconnect error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
