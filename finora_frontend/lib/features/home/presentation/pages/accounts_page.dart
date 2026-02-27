@@ -652,6 +652,32 @@ class _AccountsPageState extends State<AccountsPage> {
               backgroundColor: AppColors.error,
             ),
           );
+          // RF-13: confirmación de desconexión exitosa con revocación de token
+        } else if (state is BankDisconnected) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(
+                    Icons.link_off_rounded,
+                    color: AppColors.white,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      state.accountName.isNotEmpty
+                          ? '${state.accountName} desconectada. Acceso revocado.'
+                          : 'Cuenta desconectada. Acceso revocado.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.primary,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+            ),
+          );
         } else if (state is BankAccountsError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1172,8 +1198,12 @@ class _AccountsPageState extends State<AccountsPage> {
           ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(ctx);
+              // RF-13: pasar accountName para mostrarlo en el SnackBar de éxito
               context.read<BankBloc>().add(
-                DisconnectBankRequested(account.connectionId),
+                DisconnectBankRequested(
+                  account.connectionId,
+                  accountName: account.accountName,
+                ),
               );
             },
             icon: const Icon(Icons.link_off_rounded, size: 16),

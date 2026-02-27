@@ -528,6 +528,9 @@ class BankBloc extends Bloc<BankEvent, BankState> {
     emit(const BankDisconnecting());
     try {
       await disconnectBank(event.connectionId);
+      // RF-13: emitir estado de éxito con nombre de cuenta para el SnackBar
+      emit(BankDisconnected(accountName: event.accountName));
+      // Recargar lista de cuentas
       final accounts = await getBankAccounts();
       emit(BankAccountsLoaded(accounts));
     } catch (e) {
