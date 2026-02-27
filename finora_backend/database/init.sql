@@ -439,3 +439,46 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_unread  ON notifications(user_id, read_at) WHERE read_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
+
+-- ============================================
+-- RF-14 / RF-17: CATEGORY FEEDBACK TABLE
+-- Almacena correcciones del usuario para mejorar el modelo de IA
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS category_feedback (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    transaction_type VARCHAR(10) NOT NULL CHECK (transaction_type IN ('income', 'expense')),
+    corrected_category VARCHAR(100) NOT NULL,
+    original_category VARCHAR(100),
+    transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, description, transaction_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_category_feedback_user_id ON category_feedback(user_id);
+CREATE INDEX IF NOT EXISTS idx_category_feedback_description ON category_feedback(user_id, transaction_type);
+
+DROP TRIGGER IF EXISTS update_category_feedback_updated_at ON category_feedback;
+CREATE TRIGGER update_category_feedback_updated_at
+    BEFORE UPDATE ON category_feedback
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- RNF-20: Índices adicionales para escalabilidad con 10k+ transacciones
+-- ============================================
+
+-- Índice compuesto para filtros por cuenta bancaria (RF-12)
+CREATE INDEX IF NOT EXISTS idx_transactions_bank_account
+    ON transactions(user_id, bank_account_id)
+    WHERE bank_account_id IS NOT NULL;
+
+-- Índice compuesto para filtrar por tipo + fecha (consulta más frecuente)
+CREATE INDEX IF NOT EXISTS idx_transactions_user_type_date
+    ON transactions(user_id, type, date DESC);
+
+-- Índice para búsquedas combinadas usuario + categoría + fecha
+CREATE INDEX IF NOT EXISTS idx_transactions_user_category_date
+    ON transactions(user_id, category, date DESC);

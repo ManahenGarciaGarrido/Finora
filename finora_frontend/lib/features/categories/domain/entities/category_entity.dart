@@ -39,7 +39,7 @@ class CategoryEntity {
     }
   }
 
-  // Mapeo de nombres de icono a IconData
+  // Mapeo de nombres de icono a IconData (RF-15, RF-16)
   static const Map<String, IconData> _iconMap = {
     'restaurant': Icons.restaurant_outlined,
     'directions_car': Icons.directions_car_outlined,
@@ -53,7 +53,28 @@ class CategoryEntity {
     'work': Icons.work_outline_rounded,
     'computer': Icons.computer_outlined,
     'account_balance_wallet': Icons.account_balance_wallet_outlined,
+    // RF-16: Iconos adicionales para categorías personalizadas
+    'fitness_center': Icons.fitness_center_outlined,
+    'flight': Icons.flight_outlined,
+    'pets': Icons.pets_rounded,
+    'shopping_cart': Icons.shopping_cart_outlined,
+    'local_cafe': Icons.local_cafe_outlined,
+    'movie': Icons.movie_outlined,
+    'music_note': Icons.music_note_rounded,
+    'celebration': Icons.celebration_outlined,
   };
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'type': type,
+      'icon': icon,
+      'color': color,
+      'is_predefined': isPredefined,
+      'display_order': displayOrder,
+    };
+  }
 
   factory CategoryEntity.fromJson(Map<String, dynamic> json) {
     return CategoryEntity(
@@ -73,22 +94,118 @@ class CategoryEntity {
 
   /// Categorías de gastos predefinidas según RF-15
   static const List<CategoryEntity> defaultExpenseCategories = [
-    CategoryEntity(id: 'def_1', name: 'Alimentación', type: 'expense', icon: 'restaurant', color: '#F59E0B', isPredefined: true, displayOrder: 1),
-    CategoryEntity(id: 'def_2', name: 'Transporte', type: 'expense', icon: 'directions_car', color: '#3B82F6', isPredefined: true, displayOrder: 2),
-    CategoryEntity(id: 'def_3', name: 'Ocio', type: 'expense', icon: 'sports_esports', color: '#8B5CF6', isPredefined: true, displayOrder: 3),
-    CategoryEntity(id: 'def_4', name: 'Salud', type: 'expense', icon: 'local_hospital', color: '#EF4444', isPredefined: true, displayOrder: 4),
-    CategoryEntity(id: 'def_5', name: 'Vivienda', type: 'expense', icon: 'home', color: '#06B6D4', isPredefined: true, displayOrder: 5),
-    CategoryEntity(id: 'def_6', name: 'Servicios', type: 'expense', icon: 'phone_android', color: '#6366F1', isPredefined: true, displayOrder: 6),
-    CategoryEntity(id: 'def_7', name: 'Educación', type: 'expense', icon: 'school', color: '#F97316', isPredefined: true, displayOrder: 7),
-    CategoryEntity(id: 'def_8', name: 'Ropa', type: 'expense', icon: 'checkroom', color: '#EC4899', isPredefined: true, displayOrder: 8),
-    CategoryEntity(id: 'def_9', name: 'Otros', type: 'expense', icon: 'more_horiz', color: '#6B7280', isPredefined: true, displayOrder: 9),
+    CategoryEntity(
+      id: 'def_1',
+      name: 'Alimentación',
+      type: 'expense',
+      icon: 'restaurant',
+      color: '#F59E0B',
+      isPredefined: true,
+      displayOrder: 1,
+    ),
+    CategoryEntity(
+      id: 'def_2',
+      name: 'Transporte',
+      type: 'expense',
+      icon: 'directions_car',
+      color: '#3B82F6',
+      isPredefined: true,
+      displayOrder: 2,
+    ),
+    CategoryEntity(
+      id: 'def_3',
+      name: 'Ocio',
+      type: 'expense',
+      icon: 'sports_esports',
+      color: '#8B5CF6',
+      isPredefined: true,
+      displayOrder: 3,
+    ),
+    CategoryEntity(
+      id: 'def_4',
+      name: 'Salud',
+      type: 'expense',
+      icon: 'local_hospital',
+      color: '#EF4444',
+      isPredefined: true,
+      displayOrder: 4,
+    ),
+    CategoryEntity(
+      id: 'def_5',
+      name: 'Vivienda',
+      type: 'expense',
+      icon: 'home',
+      color: '#06B6D4',
+      isPredefined: true,
+      displayOrder: 5,
+    ),
+    CategoryEntity(
+      id: 'def_6',
+      name: 'Servicios',
+      type: 'expense',
+      icon: 'phone_android',
+      color: '#6366F1',
+      isPredefined: true,
+      displayOrder: 6,
+    ),
+    CategoryEntity(
+      id: 'def_7',
+      name: 'Educación',
+      type: 'expense',
+      icon: 'school',
+      color: '#F97316',
+      isPredefined: true,
+      displayOrder: 7,
+    ),
+    CategoryEntity(
+      id: 'def_8',
+      name: 'Ropa',
+      type: 'expense',
+      icon: 'checkroom',
+      color: '#EC4899',
+      isPredefined: true,
+      displayOrder: 8,
+    ),
+    CategoryEntity(
+      id: 'def_9',
+      name: 'Otros',
+      type: 'expense',
+      icon: 'more_horiz',
+      color: '#6B7280',
+      isPredefined: true,
+      displayOrder: 9,
+    ),
   ];
 
   /// Categorías de ingresos predefinidas según RF-15
   static const List<CategoryEntity> defaultIncomeCategories = [
-    CategoryEntity(id: 'def_10', name: 'Salario', type: 'income', icon: 'work', color: '#22C55E', isPredefined: true, displayOrder: 1),
-    CategoryEntity(id: 'def_11', name: 'Freelance', type: 'income', icon: 'computer', color: '#14B8A6', isPredefined: true, displayOrder: 2),
-    CategoryEntity(id: 'def_12', name: 'Otros ingresos', type: 'income', icon: 'account_balance_wallet', color: '#64748B', isPredefined: true, displayOrder: 3),
+    CategoryEntity(
+      id: 'def_10',
+      name: 'Salario',
+      type: 'income',
+      icon: 'work',
+      color: '#22C55E',
+      isPredefined: true,
+      displayOrder: 1,
+    ),
+    CategoryEntity(
+      id: 'def_11',
+      name: 'Freelance',
+      type: 'income',
+      icon: 'computer',
+      color: '#14B8A6',
+      isPredefined: true,
+      displayOrder: 2,
+    ),
+    CategoryEntity(
+      id: 'def_12',
+      name: 'Otros ingresos',
+      type: 'income',
+      icon: 'account_balance_wallet',
+      color: '#64748B',
+      isPredefined: true,
+      displayOrder: 3,
+    ),
   ];
 
   /// Todas las categorías predefinidas
