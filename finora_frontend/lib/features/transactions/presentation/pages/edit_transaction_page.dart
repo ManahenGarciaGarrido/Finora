@@ -566,6 +566,98 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   // =========================================================================
+  // RF-07: Confirmación y eliminación desde la página de edición
+  // =========================================================================
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text('Eliminar transacción', style: AppTypography.titleMedium()),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Estás seguro de que deseas eliminar esta transacción?',
+              style: AppTypography.bodyMedium(),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: AppColors.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Esta acción es permanente y no se puede deshacer.',
+                      style: AppTypography.bodySmall(color: AppColors.error),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: AppColors.textSecondaryLight),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      context.read<TransactionBloc>().add(
+        DeleteTransaction(transactionId: widget.transaction.id!),
+      );
+      Navigator.pop(context); // Cerrar página de edición
+    }
+  }
+
+  // =========================================================================
   // BUILD
   // =========================================================================
 
@@ -615,6 +707,17 @@ class _EditTransactionPageState extends State<EditTransactionPage>
           ),
           title: Text('Editar transacción', style: AppTypography.titleLarge()),
           centerTitle: true,
+          // RF-07: Botón de eliminar en la barra superior
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              tooltip: 'Eliminar transacción',
+              onPressed: () => _confirmDelete(context),
+            ),
+          ],
         ),
         body: ResponsiveBuilder(
           mobile: (context) => _buildMobileLayout(context),
@@ -1155,7 +1258,9 @@ class _EditTransactionPageState extends State<EditTransactionPage>
           children: [
             Text(
               'Método de pago',
-              style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
+              style: AppTypography.labelMedium(
+                color: AppColors.textSecondaryLight,
+              ),
             ),
             const Spacer(),
             Container(
@@ -1167,8 +1272,11 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(_getPaymentIcon(_selectedPaymentMethod),
-                      size: 14, color: AppColors.primary),
+                  Icon(
+                    _getPaymentIcon(_selectedPaymentMethod),
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     _selectedPaymentMethod.label,
@@ -1188,7 +1296,8 @@ class _EditTransactionPageState extends State<EditTransactionPage>
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, i) {
               final method = _displayMethods[i];
-              final isSelected = _selectedPaymentMethod == method ||
+              final isSelected =
+                  _selectedPaymentMethod == method ||
                   (_selectedPaymentMethod == PaymentMethod.card &&
                       method == PaymentMethod.debitCard) ||
                   (_selectedPaymentMethod == PaymentMethod.transfer &&
