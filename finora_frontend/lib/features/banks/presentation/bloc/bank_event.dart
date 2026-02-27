@@ -45,13 +45,16 @@ class SyncBankRequested extends BankEvent {
   List<Object?> get props => [connectionId];
 }
 
-/// User disconnected a bank
+/// User disconnected a bank (RF-13)
 class DisconnectBankRequested extends BankEvent {
   final String connectionId;
-  const DisconnectBankRequested(this.connectionId);
+
+  /// Nombre de la cuenta, para mostrarlo en la confirmación de éxito.
+  final String accountName;
+  const DisconnectBankRequested(this.connectionId, {this.accountName = ''});
 
   @override
-  List<Object?> get props => [connectionId];
+  List<Object?> get props => [connectionId, accountName];
 }
 
 /// User closed BankConnectingPage — cancel polling timer
