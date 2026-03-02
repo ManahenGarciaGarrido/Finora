@@ -1,3 +1,11 @@
+/// Página de Ajustes — incluye RF-03 Autenticación Biométrica
+///
+/// Muestra el perfil real del usuario obtenido desde AuthBloc.
+/// - Sección Seguridad: toggle funcional de biometría (RF-03)
+/// - Cerrar sesión: completamente funcional
+/// - Resto de opciones: marcadas como en desarrollo
+library;
+
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +15,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
+import '../../../../core/security/biometric_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
@@ -14,31 +23,119 @@ import '../../../categories/presentation/pages/categories_page.dart';
 import '../../../settings/presentation/pages/privacy_page.dart';
 import '../../../banks/presentation/pages/psd2_consent_management_page.dart';
 
-/// Página de Ajustes
-///
-/// Muestra el perfil real del usuario obtenido desde AuthBloc.
-/// Cerrar sesión está completamente funcional.
-/// Las demás opciones están marcadas como en desarrollo.
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
-  String _getUserName(BuildContext context) {
-    final authState = context.watch<AuthBloc>().state;
-    if (authState is Authenticated) {
-      return authState.user.name;
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  // RF-03: Biometric state
+  bool _biometricDeviceSupported = false;
+  bool _biometricEnabled = false;
+  bool _biometricLoading = false;
+  String _biometricLabel = 'Huella dactilar';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricStatus();
+  }
+
+  /// RF-03: Load biometric availability and user preference
+  Future<void> _loadBiometricStatus() async {
+    final service = di.sl<BiometricService>();
+    final isAvailable = await service.isAvailable();
+    if (!isAvailable) {
+      if (mounted) setState(() => _biometricDeviceSupported = false);
+      return;
     }
+    final isEnabled = await service.isBiometricEnabled();
+    final label = await service.getBiometricLabel();
+    if (mounted) {
+      setState(() {
+        _biometricDeviceSupported = true;
+        _biometricEnabled = isEnabled;
+        _biometricLabel = label;
+      });
+    }
+  }
+
+  /// RF-03: Toggle biometric — activa con autenticación, desactiva directamente
+  Future<void> _toggleBiometric(bool value) async {
+    final service = di.sl<BiometricService>();
+    setState(() => _biometricLoading = true);
+
+    if (value) {
+      // Al activar se pide autenticación biométrica por seguridad
+      final result = await service.enableBiometric();
+      if (!mounted) return;
+      switch (result) {
+        case BiometricResult.success:
+          setState(() {
+            _biometricEnabled = true;
+            _biometricLoading = false;
+          });
+          _showSnackBar(
+            '$_biometricLabel activado. Próximo inicio de sesión más rápido.',
+            AppColors.success,
+          );
+        case BiometricResult.canceled:
+          setState(() => _biometricLoading = false);
+          _showSnackBar('Activación cancelada', AppColors.gray700);
+        case BiometricResult.notAvailable:
+        case BiometricResult.notEnrolled:
+          setState(() => _biometricLoading = false);
+          _showSnackBar(
+            'Configura $_biometricLabel en los ajustes del dispositivo primero.',
+            AppColors.warning,
+          );
+        case BiometricResult.error:
+          setState(() => _biometricLoading = false);
+          _showSnackBar('Error al activar la biometría', AppColors.error);
+        case BiometricResult.disabled:
+          setState(() => _biometricLoading = false);
+      }
+    } else {
+      await service.disableBiometric();
+      if (!mounted) return;
+      setState(() {
+        _biometricEnabled = false;
+        _biometricLoading = false;
+      });
+      _showSnackBar(
+        'Inicio de sesión biométrico desactivado',
+        AppColors.gray700,
+      );
+    }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  String _getUserName() {
+    final authState = context.watch<AuthBloc>().state;
+    if (authState is Authenticated) return authState.user.name;
     return 'Usuario';
   }
 
-  String _getUserEmail(BuildContext context) {
+  String _getUserEmail() {
     final authState = context.watch<AuthBloc>().state;
-    if (authState is Authenticated) {
-      return authState.user.email;
-    }
+    if (authState is Authenticated) return authState.user.email;
     return '';
   }
 
-  String _getUserInitials(BuildContext context) {
+  String _getUserInitials() {
     final authState = context.watch<AuthBloc>().state;
     if (authState is Authenticated) {
       final parts = authState.user.name.split(' ');
@@ -58,7 +155,6 @@ class SettingsPage extends StatelessWidget {
       child: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // Header
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
@@ -71,7 +167,6 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
 
-          // Perfil con datos reales
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
@@ -80,7 +175,7 @@ class SettingsPage extends StatelessWidget {
                 responsive.horizontalPadding,
                 0,
               ),
-              child: _buildProfileSection(context),
+              child: _buildProfileSection(),
             ),
           ),
 
@@ -95,33 +190,32 @@ class SettingsPage extends StatelessWidget {
               ),
               child: _buildSettingsSection(
                 title: 'General',
-                items: [
-                  _SettingsItem(
+                children: [
+                  _buildSettingsRow(
                     icon: Icons.category_outlined,
                     title: 'Categorías',
                     subtitle: 'Gestionar categorías de gastos e ingresos',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const CategoriesPage(),
-                        ),
-                      );
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CategoriesPage()),
+                    ),
                   ),
-                  _SettingsItem(
+                  _divider(),
+                  _buildSettingsRow(
                     icon: Icons.notifications_outlined,
                     title: 'Notificaciones',
                     subtitle: 'Gestionar alertas y avisos',
                     isDeveloping: true,
                   ),
-                  _SettingsItem(
+                  _divider(),
+                  _buildSettingsRow(
                     icon: Icons.palette_outlined,
                     title: 'Apariencia',
                     subtitle: 'Tema, idioma y formato',
                     isDeveloping: true,
                   ),
-                  _SettingsItem(
+                  _divider(),
+                  _buildSettingsRow(
                     icon: Icons.currency_exchange_rounded,
                     title: 'Moneda y formato',
                     subtitle: 'EUR - Euros',
@@ -132,7 +226,7 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
 
-          // Seguridad
+          // Seguridad (RF-03: biometría funcional)
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
@@ -143,20 +237,18 @@ class SettingsPage extends StatelessWidget {
               ),
               child: _buildSettingsSection(
                 title: 'Seguridad',
-                items: [
-                  _SettingsItem(
+                children: [
+                  _buildSettingsRow(
                     icon: Icons.lock_outline_rounded,
                     title: 'Cambiar contraseña',
                     subtitle: 'Actualizar contraseña de acceso',
                     isDeveloping: true,
                   ),
-                  _SettingsItem(
-                    icon: Icons.fingerprint_rounded,
-                    title: 'Biometría',
-                    subtitle: 'Desbloqueo con huella dactilar',
-                    isDeveloping: true,
-                  ),
-                  _SettingsItem(
+                  _divider(),
+                  // RF-03: Biometric toggle — funcional
+                  _buildBiometricRow(),
+                  _divider(),
+                  _buildSettingsRow(
                     icon: Icons.security_rounded,
                     title: 'Autenticación 2FA',
                     subtitle: 'Verificación en dos pasos',
@@ -178,40 +270,39 @@ class SettingsPage extends StatelessWidget {
               ),
               child: _buildSettingsSection(
                 title: 'Datos y privacidad',
-                items: [
-                  _SettingsItem(
+                children: [
+                  _buildSettingsRow(
                     icon: Icons.download_rounded,
                     title: 'Exportar datos',
                     subtitle: 'Descargar transacciones en CSV/PDF',
                     isDeveloping: true,
                   ),
-                  _SettingsItem(
+                  _divider(),
+                  _buildSettingsRow(
                     icon: Icons.account_balance_outlined,
                     title: 'Consentimientos PSD2',
                     subtitle: 'Gestionar accesos bancarios autorizados',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => Psd2ConsentManagementPage(
-                            apiClient: di.sl<ApiClient>(),
-                          ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => Psd2ConsentManagementPage(
+                          apiClient: di.sl<ApiClient>(),
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   ),
-                  _SettingsItem(
+                  _divider(),
+                  _buildSettingsRow(
                     icon: Icons.privacy_tip_outlined,
                     title: 'Política de privacidad',
                     subtitle: 'Consultar política GDPR',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PrivacyPage()),
-                      );
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PrivacyPage()),
+                    ),
                   ),
-                  _SettingsItem(
+                  _divider(),
+                  _buildSettingsRow(
                     icon: Icons.delete_outline_rounded,
                     title: 'Eliminar cuenta',
                     subtitle: 'Borrar todos los datos',
@@ -232,11 +323,10 @@ class SettingsPage extends StatelessWidget {
                 responsive.horizontalPadding,
                 0,
               ),
-              child: _buildLogoutButton(context),
+              child: _buildLogoutButton(),
             ),
           ),
 
-          // Versión
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.all(responsive.horizontalPadding),
@@ -257,7 +347,9 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileSection(BuildContext context) {
+  Widget _divider() => Divider(height: 1, indent: 56, color: AppColors.gray100);
+
+  Widget _buildProfileSection() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -276,7 +368,7 @@ class SettingsPage extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                _getUserInitials(context),
+                _getUserInitials(),
                 style: const TextStyle(
                   color: AppColors.white,
                   fontWeight: FontWeight.bold,
@@ -290,10 +382,10 @@ class SettingsPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_getUserName(context), style: AppTypography.titleMedium()),
+                Text(_getUserName(), style: AppTypography.titleMedium()),
                 const SizedBox(height: 2),
                 Text(
-                  _getUserEmail(context),
+                  _getUserEmail(),
                   style: AppTypography.bodySmall(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -309,20 +401,12 @@ class SettingsPage extends StatelessWidget {
             ),
             child: IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Edición de perfil en desarrollo'),
-                    backgroundColor: AppColors.gray700,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
+              onPressed: () => _showSnackBar(
+                'Edición de perfil en desarrollo',
+                AppColors.gray700,
+              ),
               color: AppColors.textSecondaryLight,
+              tooltip: 'Editar perfil',
             ),
           ),
         ],
@@ -332,7 +416,7 @@ class SettingsPage extends StatelessWidget {
 
   Widget _buildSettingsSection({
     required String title,
-    required List<_SettingsItem> items,
+    required List<Widget> children,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,92 +436,92 @@ class SettingsPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.gray100),
           ),
-          child: Column(
-            children: items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return Column(
-                children: [
-                  _buildSettingsRow(item),
-                  if (index < items.length - 1)
-                    Divider(height: 1, indent: 56, color: AppColors.gray100),
-                ],
-              );
-            }).toList(),
-          ),
+          child: Column(children: children),
         ),
       ],
     );
   }
 
-  Widget _buildSettingsRow(_SettingsItem item) {
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: item.isDanger ? AppColors.errorSoft : AppColors.gray100,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              item.icon,
-              size: 20,
-              color: item.isDanger
-                  ? AppColors.error
-                  : AppColors.textSecondaryLight,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: AppTypography.titleSmall(
-                    color: item.isDanger
-                        ? AppColors.error
-                        : AppColors.textPrimaryLight,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  item.subtitle,
-                  style: AppTypography.bodySmall(
-                    color: AppColors.textTertiaryLight,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (item.isDeveloping)
+  Widget _buildSettingsRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    bool isDeveloping = false,
+    bool isDanger = false,
+    VoidCallback? onTap,
+  }) {
+    final content = Semantics(
+      label: title,
+      hint: subtitle,
+      button: onTap != null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: AppColors.warningSoft,
-                borderRadius: BorderRadius.circular(4),
+                color: isDanger ? AppColors.errorSoft : AppColors.gray100,
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
-                'Próximamente',
-                style: AppTypography.badge(color: AppColors.warningDark),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isDanger
+                    ? AppColors.error
+                    : AppColors.textSecondaryLight,
               ),
-            )
-          else
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.gray400,
-              size: 20,
             ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.titleSmall(
+                      color: isDanger
+                          ? AppColors.error
+                          : AppColors.textPrimaryLight,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: AppTypography.bodySmall(
+                      color: AppColors.textTertiaryLight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isDeveloping)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.warningSoft,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Próximamente',
+                  style: AppTypography.badge(color: AppColors.warningDark),
+                ),
+              )
+            else
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.gray400,
+                size: 20,
+              ),
+          ],
+        ),
       ),
     );
 
-    if (item.onTap != null) {
+    if (onTap != null) {
       return GestureDetector(
-        onTap: item.onTap,
+        onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: content,
       );
@@ -445,97 +529,169 @@ class SettingsPage extends StatelessWidget {
     return content;
   }
 
-  Widget _buildLogoutButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                const Icon(
-                  Icons.logout_rounded,
-                  color: AppColors.error,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                const Text('Cerrar sesión'),
-              ],
-            ),
-            content: const Text(
-              '¿Estás seguro de que quieres cerrar tu sesión?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(
-                  'Cancelar',
-                  style: TextStyle(color: AppColors.textSecondaryLight),
-                ),
+  // RF-03: Biometric settings row with functional Switch
+  Widget _buildBiometricRow() {
+    final isFaceId = _biometricLabel == 'Face ID';
+    final icon = isFaceId ? Icons.face_rounded : Icons.fingerprint_rounded;
+    final subtitle = _biometricDeviceSupported
+        ? (_biometricEnabled
+              ? '$_biometricLabel activado — toca para desactivar'
+              : 'Activa el acceso rápido con $_biometricLabel')
+        : 'No disponible en este dispositivo';
+
+    return Semantics(
+      label: 'Autenticación biométrica',
+      hint: subtitle,
+      toggled: _biometricEnabled,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _biometricEnabled
+                    ? AppColors.primarySoft
+                    : AppColors.gray100,
+                borderRadius: BorderRadius.circular(10),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  context.read<AuthBloc>().add(LogoutRequested());
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/login',
-                    (route) => false,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                  foregroundColor: AppColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              child: Icon(
+                icon,
+                size: 20,
+                color: _biometricEnabled
+                    ? AppColors.primary
+                    : AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_biometricLabel, style: AppTypography.titleSmall()),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: AppTypography.bodySmall(
+                      color: AppColors.textTertiaryLight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!_biometricDeviceSupported)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.gray100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'No disponible',
+                  style: AppTypography.badge(
+                    color: AppColors.textTertiaryLight,
                   ),
                 ),
-                child: const Text('Cerrar sesión'),
+              )
+            else if (_biometricLoading)
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              )
+            else
+              Switch.adaptive(
+                value: _biometricEnabled,
+                onChanged: _biometricDeviceSupported ? _toggleBiometric : null,
+                activeColor: AppColors.primary,
               ),
-            ],
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: AppColors.errorSoft,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.logout_rounded, color: AppColors.error, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'Cerrar sesión',
-              style: AppTypography.labelLarge(color: AppColors.error),
-            ),
           ],
         ),
       ),
     );
   }
-}
 
-class _SettingsItem {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool isDeveloping;
-  final bool isDanger;
-  final VoidCallback? onTap;
-
-  _SettingsItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.isDeveloping = false,
-    this.isDanger = false,
-    this.onTap,
-  });
+  Widget _buildLogoutButton() {
+    return Semantics(
+      label: 'Cerrar sesión',
+      button: true,
+      child: GestureDetector(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.logout_rounded, color: AppColors.error, size: 24),
+                  SizedBox(width: 12),
+                  Text('Cerrar sesión'),
+                ],
+              ),
+              content: const Text(
+                '¿Estás seguro de que quieres cerrar tu sesión?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(color: AppColors.textSecondaryLight),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    context.read<AuthBloc>().add(LogoutRequested());
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: AppColors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text('Cerrar sesión'),
+                ),
+              ],
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: AppColors.errorSoft,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.logout_rounded,
+                color: AppColors.error,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Cerrar sesión',
+                style: AppTypography.labelLarge(color: AppColors.error),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
