@@ -7,6 +7,7 @@ import '../network/network_info.dart';
 import '../database/local_database.dart';
 import '../sync/sync_manager.dart';
 import '../connectivity/connectivity_service.dart';
+import '../security/biometric_service.dart';
 
 // Features - Authentication
 import '../../features/authentication/data/datasources/auth_remote_datasource.dart';
@@ -109,19 +110,14 @@ Future<void> _initAuthentication() async {
   );
 
   sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(
-      apiClient: sl(),
-      localDataSource: sl(),
-    ),
+    () => AuthRemoteDataSourceImpl(apiClient: sl(), localDataSource: sl()),
   );
 }
 
 /// Initialize Core dependencies
 Future<void> _initCore() async {
   // Network
-  sl.registerLazySingleton<NetworkInfo>(
-    () => NetworkInfoImpl(sl()),
-  );
+  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
 
   sl.registerLazySingleton(() => ApiClient());
 
@@ -130,20 +126,16 @@ Future<void> _initCore() async {
 
   // Sync Manager (RNF-15)
   sl.registerLazySingleton(
-    () => SyncManager(
-      localDatabase: sl(),
-      apiClient: sl(),
-      networkInfo: sl(),
-    ),
+    () => SyncManager(localDatabase: sl(), apiClient: sl(), networkInfo: sl()),
   );
 
   // Connectivity Service (RNF-15)
   sl.registerLazySingleton(
-    () => ConnectivityService(
-      connectivity: sl(),
-      syncManager: sl(),
-    ),
+    () => ConnectivityService(connectivity: sl(), syncManager: sl()),
   );
+
+  // RF-03: Biometric Service
+  sl.registerLazySingleton(() => BiometricService());
 }
 
 /// Initialize Transaction and Category BLoCs (RNF-06, RNF-15)
@@ -159,12 +151,7 @@ Future<void> _initTransactions() async {
   );
 
   // Category BLoC - ahora con caché Hive
-  sl.registerFactory(
-    () => CategoryBloc(
-      apiClient: sl(),
-      localDatabase: sl(),
-    ),
-  );
+  sl.registerFactory(() => CategoryBloc(apiClient: sl(), localDatabase: sl()));
 }
 
 /// Initialize External dependencies
@@ -208,8 +195,12 @@ Future<void> _initBanks() async {
   sl.registerLazySingleton(() => DeleteBankCardUseCase(sl()));
   sl.registerLazySingleton(() => ImportCsvUseCase(sl()));
   sl.registerLazySingleton(() => ImportBankTransactionsUseCase(sl())); // RF-11
-  sl.registerLazySingleton(() => ExchangePublicTokenUseCase(sl())); // RF-10 Plaid
-  sl.registerLazySingleton(() => ImportSelectedAccountsUseCase(sl())); // RF-10 selección
+  sl.registerLazySingleton(
+    () => ExchangePublicTokenUseCase(sl()),
+  ); // RF-10 Plaid
+  sl.registerLazySingleton(
+    () => ImportSelectedAccountsUseCase(sl()),
+  ); // RF-10 selección
 
   // Repository
   sl.registerLazySingleton<BankRepository>(
