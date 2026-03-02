@@ -76,6 +76,14 @@ dependencies:
   # cuando el plugin nativo no se registra correctamente tras hot-reload.
   webview_flutter: ^4.4.4
 
+  # RF-03: Autenticaión biométrica (Touch ID, Face ID, huella Android)
+  # Almacenamiento seguro en Keychain/Keystore según plataforma
+  local_auth: ^2.1.7
+
+  # RF-29/RF-30: Gráficos interactivos (pie chart, bar chart, line chart)
+  # Inclute animaciones fluidas, tooltip y zoom
+  fl_chart: ^0.68.0
+
   # RNF-08: Splash screen nativo optimizado
   # Muestra el splash antes de que el motor de Flutter arranque,
   # eliminando la pantalla en blanco del cold start.

@@ -45,5 +45,8 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- RF-03: Autenticación biométrica - Face ID (iOS) -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Finora usa Face ID para un inicio de sesión seguro y rápido sin contraseña.</string>
 </dict>
 </plist>
