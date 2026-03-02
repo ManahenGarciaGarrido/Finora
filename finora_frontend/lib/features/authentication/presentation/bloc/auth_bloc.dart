@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
+import '../../../../core/security/biometric_service.dart';
 import '../../data/datasources/auth_local_datasource.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
@@ -37,6 +38,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<ResendVerificationRequested>(_onResendVerificationRequested);
     on<ForgotPasswordRequested>(_onForgotPasswordRequested);
     on<ResetPasswordRequested>(_onResetPasswordRequested);
+    // RF-03: Biometric auth handlers
+    on<BiometricLoginRequested>(_onBiometricLoginRequested);
+    on<CheckBiometricAvailability>(_onCheckBiometricAvailability);
   }
 
   /// Handle login request
@@ -47,10 +51,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
 
     final result = await loginUseCase(
-      LoginParams(
-        email: event.email,
-        password: event.password,
-      ),
+      LoginParams(email: event.email, password: event.password),
     );
 
     result.fold(
@@ -160,8 +161,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final map = json.decode(decoded) as Map<String, dynamic>;
       final exp = map['exp'] as int?;
       if (exp == null) return false;
-      return DateTime.fromMillisecondsSinceEpoch(exp * 1000)
-          .isBefore(DateTime.now());
+      return DateTime.fromMillisecondsSinceEpoch(
+        exp * 1000,
+      ).isBefore(DateTime.now());
     } catch (_) {
       // Si no podemos decodificar, no forzamos el cierre de sesión
       return false;
@@ -169,10 +171,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   /// Handle clear error
-  void _onClearAuthError(
-    ClearAuthError event,
-    Emitter<AuthState> emit,
-  ) {
+  void _onClearAuthError(ClearAuthError event, Emitter<AuthState> emit) {
     emit(const AuthInitial());
   }
 
@@ -218,15 +217,111 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
 
     final result = await resetPasswordUseCase(
-      ResetPasswordParams(
-        token: event.token,
-        newPassword: event.newPassword,
-      ),
+      ResetPasswordParams(token: event.token, newPassword: event.newPassword),
     );
 
     result.fold(
       (failure) => emit(AuthError(message: failure.message)),
       (_) => emit(const PasswordResetSuccess()),
     );
+  }
+
+  // ── RF-03: Biometric Authentication ─────────────────────────────────────
+
+  /// RF-03: Check if biometric authentication is available on this device
+  Future<void> _onCheckBiometricAvailability(
+    CheckBiometricAvailability event,
+    Emitter<AuthState> emit,
+  ) async {
+    try {
+      final biometricService = di.sl<BiometricService>();
+      final isAvailable = await biometricService.isAvailable();
+      if (!isAvailable) {
+        emit(const BiometricNotAvailable());
+        return;
+      }
+      final isEnabled = await biometricService.isBiometricEnabled();
+      final label = await biometricService.getBiometricLabel();
+      emit(BiometricAvailable(isEnabled: isEnabled, biometricLabel: label));
+    } catch (_) {
+      emit(const BiometricNotAvailable());
+    }
+  }
+
+  /// RF-03: Authenticate with biometric and restore session from secure storage.
+  ///
+  /// Flujo:
+  /// 1. Muestra el diálogo biométrico nativo (< 2 segundos en condiciones normales)
+  /// 2. Si es correcto, recupera el token guardado en SecureStorage
+  /// 3. Si el token sigue siendo válido, emite Authenticated sin red
+  /// 4. Si el token expiró, emite BiometricFailed con fallback a contraseña
+  Future<void> _onBiometricLoginRequested(
+    BiometricLoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const BiometricAuthenticating());
+
+    try {
+      final biometricService = di.sl<BiometricService>();
+      final result = await biometricService.authenticate(
+        reason: 'Accede a Finora con tu huella o Face ID',
+      );
+
+      switch (result) {
+        case BiometricResult.success:
+          // Restaurar sesión desde almacenamiento local
+          final localDataSource = di.sl<AuthLocalDataSource>();
+          final token = await localDataSource.getToken();
+
+          if (token == null || token.isEmpty || _isTokenExpired(token)) {
+            // Token expirado → pedir credenciales
+            emit(
+              const BiometricFailed(
+                reason:
+                    'Tu sesión ha expirado. Por favor inicia sesión con tu contraseña.',
+              ),
+            );
+            return;
+          }
+
+          final apiClient = di.sl<ApiClient>();
+          apiClient.setToken(token);
+
+          try {
+            final cachedUser = await localDataSource.getCachedUser();
+            emit(Authenticated(user: cachedUser));
+          } catch (_) {
+            final res = await loginUseCase.repository.getCurrentUser();
+            res.fold(
+              (_) => emit(
+                const BiometricFailed(
+                  reason:
+                      'No se pudo verificar tu sesión. Por favor inicia sesión con tu contraseña.',
+                ),
+              ),
+              (user) => emit(Authenticated(user: user)),
+            );
+          }
+
+        case BiometricResult.disabled:
+          emit(const BiometricNotAvailable());
+
+        case BiometricResult.notAvailable:
+        case BiometricResult.notEnrolled:
+          emit(const BiometricNotAvailable());
+
+        case BiometricResult.canceled:
+          emit(const BiometricFailed(reason: 'Autenticación cancelada'));
+
+        case BiometricResult.error:
+          emit(
+            const BiometricFailed(
+              reason: 'Error de autenticación. Por favor usa tu contraseña.',
+            ),
+          );
+      }
+    } catch (e) {
+      emit(BiometricFailed(reason: 'Error inesperado: ${e.toString()}'));
+    }
   }
 }

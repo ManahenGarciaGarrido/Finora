@@ -63,7 +63,9 @@ class LogoutSuccess extends AuthState {
 class EmailResent extends AuthState {
   final String message;
 
-  const EmailResent({this.message = 'Correo de verificación enviado exitosamente'});
+  const EmailResent({
+    this.message = 'Correo de verificación enviado exitosamente',
+  });
 
   @override
   List<Object?> get props => [message];
@@ -91,4 +93,38 @@ class PasswordResetSuccess extends AuthState {
 
   @override
   List<Object?> get props => [message];
+}
+
+/// RF-03: Biomeric authentication available state
+class BiometricAvailable extends AuthState {
+  final bool isEnabled;
+  final String biometricLabel;
+
+  const BiometricAvailable({
+    required this.isEnabled,
+    required this.biometricLabel,
+  });
+
+  @override
+  List<Object?> get props => [isEnabled, biometricLabel];
+}
+
+/// RF-03: Biometric authentication not available state
+class BiometricNotAvailable extends AuthState {
+  const BiometricNotAvailable();
+}
+
+/// RF-03: Biometric auth in progress
+class BiometricAuthenticating extends AuthState {
+  const BiometricAuthenticating();
+}
+
+/// rf-03: Biometric authentication failed/cancelled
+class BiometricFailed extends AuthState {
+  final String reason;
+
+  const BiometricFailed({this.reason = 'Autenticación biométrica cancelada'});
+
+  @override
+  List<Object?> get props => [reason];
 }

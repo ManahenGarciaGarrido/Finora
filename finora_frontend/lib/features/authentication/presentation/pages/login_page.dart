@@ -1,3 +1,13 @@
+/// Pantalla de Inicio de Sesión (RF-02 + RF-03)
+///
+/// Características:
+/// - Diseño responsive (RNF-12)
+/// - Animaciones fluidas
+/// - Validación en tiempo real
+/// - Autenticación biométrica (RF-03): Touch ID, Face ID, huella Android
+/// - Manejo de credenciales incorrectas
+/// - Sesión persistente con token seguro
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,15 +23,6 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
-/// Pantalla de Inicio de Sesión (RF-02)
-///
-/// Características:
-/// - Diseño responsive (RNF-12)
-/// - Animaciones fluidas
-/// - Validación en tiempo real
-/// - Manejo de credenciales incorrectas
-/// - Manejo de cuenta no verificada
-/// - Sesión persistente con token seguro
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -45,6 +46,12 @@ class _LoginPageState extends State<LoginPage>
   bool _isLoading = false;
   String? _emailError;
   String? _passwordError;
+
+  // RF-03: Biometric state
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
+  String _biometricLabel = 'Huella dactilar';
+  bool _biometricAuthenticating = false;
 
   @override
   void initState() {
@@ -71,6 +78,11 @@ class _LoginPageState extends State<LoginPage>
         );
 
     _animationController.forward();
+
+    // RF-03: Check biometric availability on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthBloc>().add(const CheckBiometricAvailability());
+    });
   }
 
   @override
@@ -102,17 +114,13 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Future<void> _handleLogin() async {
-    // Validar campos
     setState(() {
       _emailError = _validateEmail(_emailController.text);
       _passwordError = _validatePassword(_passwordController.text);
     });
 
-    if (_emailError != null || _passwordError != null) {
-      return;
-    }
+    if (_emailError != null || _passwordError != null) return;
 
-    // Enviar evento de login al BLoC
     context.read<AuthBloc>().add(
       LoginRequested(
         email: _emailController.text.trim(),
@@ -121,23 +129,66 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  void _handleAuthState(BuildContext context, AuthState state) {
-    if (state is AuthLoading) {
-      setState(() => _isLoading = true);
-    } else if (state is Authenticated) {
-      setState(() => _isLoading = false);
+  // RF-03: Trigger biometric authentication
+  void _handleBiometricLogin() {
+    context.read<AuthBloc>().add(const BiometricLoginRequested());
+  }
 
-      // Verificar si el email está verificado
+  void _handleAuthState(BuildContext context, AuthState state) {
+    if (state is AuthLoading || state is BiometricAuthenticating) {
+      setState(() {
+        _isLoading = state is AuthLoading;
+        _biometricAuthenticating = state is BiometricAuthenticating;
+      });
+    } else if (state is Authenticated) {
+      setState(() {
+        _isLoading = false;
+        _biometricAuthenticating = false;
+      });
+
       if (!state.user.isEmailVerified) {
-        // Mostrar diálogo de verificación pendiente
         _showEmailVerificationDialog(context);
       } else {
-        // Navegar al dashboard
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) Navigator.pushReplacementNamed(context, '/home');
         });
+      }
+    } else if (state is BiometricAvailable) {
+      setState(() {
+        _biometricAvailable = true;
+        _biometricEnabled = state.isEnabled;
+        _biometricLabel = state.biometricLabel;
+        _biometricAuthenticating = false;
+      });
+      // RF-03: Auto-trigger biometric if enabled (acceso < 2 segundos)
+      if (state.isEnabled) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _handleBiometricLogin();
+        });
+      }
+    } else if (state is BiometricNotAvailable) {
+      setState(() {
+        _biometricAvailable = false;
+        _biometricEnabled = false;
+        _biometricAuthenticating = false;
+      });
+    } else if (state is BiometricFailed) {
+      setState(() {
+        _isLoading = false;
+        _biometricAuthenticating = false;
+      });
+      // Show snackbar — fallback to password is automatic (form stays visible)
+      if (mounted &&
+          state.reason.isNotEmpty &&
+          !state.reason.contains('cancelada')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(state.reason),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     } else if (state is EmailResent) {
       setState(() => _isLoading = false);
@@ -149,9 +200,11 @@ class _LoginPageState extends State<LoginPage>
         ),
       );
     } else if (state is AuthError) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _biometricAuthenticating = false;
+      });
 
-      // Verificar si es error de cuenta no verificada
       if (state.message.contains('verifica tu correo') ||
           state.message.contains('Cuenta No Verificada')) {
         _showEmailVerificationDialog(context);
@@ -164,6 +217,11 @@ class _LoginPageState extends State<LoginPage>
           ),
         );
       }
+    } else {
+      setState(() {
+        _isLoading = false;
+        _biometricAuthenticating = false;
+      });
     }
   }
 
@@ -175,7 +233,7 @@ class _LoginPageState extends State<LoginPage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.mail_outline, color: AppColors.warning, size: 28),
+            const Icon(Icons.mail_outline, color: AppColors.warning, size: 28),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
@@ -188,13 +246,13 @@ class _LoginPageState extends State<LoginPage>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
+          children: const [
+            Text(
               'Tu correo electrónico aún no ha sido verificado.',
               style: TextStyle(fontSize: 14, height: 1.5),
             ),
-            const SizedBox(height: 12),
-            const Text(
+            SizedBox(height: 12),
+            Text(
               'Por favor, revisa tu bandeja de entrada y haz clic en el enlace de verificación que te enviamos.',
               style: TextStyle(fontSize: 14, height: 1.5),
             ),
@@ -204,7 +262,6 @@ class _LoginPageState extends State<LoginPage>
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Enviar evento para reenviar email de verificación
               context.read<AuthBloc>().add(
                 ResendVerificationRequested(
                   email: _emailController.text.trim(),
@@ -274,6 +331,13 @@ class _LoginPageState extends State<LoginPage>
                 _buildForgotPassword(context),
                 SizedBox(height: responsive.hp(4)),
                 _buildLoginButton(),
+                // RF-03: Biometric separator + button
+                if (_biometricAvailable && _biometricEnabled) ...[
+                  SizedBox(height: responsive.hp(2)),
+                  _buildBiometricDivider(),
+                  SizedBox(height: responsive.hp(2)),
+                  _buildBiometricButton(),
+                ],
                 SizedBox(height: responsive.hp(3)),
                 _buildRegisterLink(context),
                 SizedBox(height: responsive.hp(2)),
@@ -319,6 +383,12 @@ class _LoginPageState extends State<LoginPage>
                       _buildForgotPassword(context),
                       SizedBox(height: responsive.hp(4)),
                       _buildLoginButton(),
+                      if (_biometricAvailable && _biometricEnabled) ...[
+                        SizedBox(height: responsive.hp(2)),
+                        _buildBiometricDivider(),
+                        SizedBox(height: responsive.hp(2)),
+                        _buildBiometricButton(),
+                      ],
                       SizedBox(height: responsive.hp(3)),
                       _buildRegisterLink(context),
                     ],
@@ -336,7 +406,6 @@ class _LoginPageState extends State<LoginPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Logo o icono
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -368,9 +437,7 @@ class _LoginPageState extends State<LoginPage>
         const SizedBox(height: 8),
         Text(
           'Inicia sesión para continuar',
-          style: AppTypography.bodyLarge(
-            color: AppColors.textSecondaryLight,
-          ),
+          style: AppTypography.bodyLarge(color: AppColors.textSecondaryLight),
         ),
       ],
     );
@@ -381,48 +448,49 @@ class _LoginPageState extends State<LoginPage>
       key: _formKey,
       child: Column(
         children: [
-          // Email
-          CustomTextField(
-            controller: _emailController,
-            focusNode: _emailFocus,
-            label: 'Correo Electrónico',
-            hint: 'correo@ejemplo.com',
-            prefixIcon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            errorText: _emailError,
-            onChanged: (_) {
-              if (_emailError != null) {
-                setState(() => _emailError = null);
-              }
-            },
-            onSubmitted: (_) {
-              _emailFocus.unfocus();
-              _passwordFocus.requestFocus();
-            },
+          Semantics(
+            label: 'Campo de correo electrónico',
+            child: CustomTextField(
+              controller: _emailController,
+              focusNode: _emailFocus,
+              label: 'Correo Electrónico',
+              hint: 'correo@ejemplo.com',
+              prefixIcon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              errorText: _emailError,
+              onChanged: (_) {
+                if (_emailError != null) setState(() => _emailError = null);
+              },
+              onSubmitted: (_) {
+                _emailFocus.unfocus();
+                _passwordFocus.requestFocus();
+              },
+            ),
           ),
           const SizedBox(height: 20),
-
-          // Password
-          CustomTextField(
-            controller: _passwordController,
-            focusNode: _passwordFocus,
-            label: 'Contraseña',
-            hint: '••••••••',
-            prefixIcon: Icons.lock_outlined,
-            obscureText: true,
-            showPasswordToggle: true,
-            textInputAction: TextInputAction.done,
-            errorText: _passwordError,
-            onChanged: (_) {
-              if (_passwordError != null) {
-                setState(() => _passwordError = null);
-              }
-            },
-            onSubmitted: (_) {
-              _passwordFocus.unfocus();
-              _handleLogin();
-            },
+          Semantics(
+            label: 'Campo de contraseña',
+            child: CustomTextField(
+              controller: _passwordController,
+              focusNode: _passwordFocus,
+              label: 'Contraseña',
+              hint: '••••••••',
+              prefixIcon: Icons.lock_outlined,
+              obscureText: true,
+              showPasswordToggle: true,
+              textInputAction: TextInputAction.done,
+              errorText: _passwordError,
+              onChanged: (_) {
+                if (_passwordError != null) {
+                  setState(() => _passwordError = null);
+                }
+              },
+              onSubmitted: (_) {
+                _passwordFocus.unfocus();
+                _handleLogin();
+              },
+            ),
           ),
         ],
       ),
@@ -433,9 +501,7 @@ class _LoginPageState extends State<LoginPage>
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/forgot-password');
-        },
+        onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
         child: Text(
           '¿Olvidaste tu contraseña?',
           style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
@@ -445,11 +511,74 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Widget _buildLoginButton() {
-    return AnimatedButton(
-      onPressed: _isLoading ? null : _handleLogin,
-      isLoading: _isLoading,
-      text: 'Iniciar Sesión',
-      icon: Icons.login,
+    return Semantics(
+      label: 'Botón iniciar sesión con correo y contraseña',
+      button: true,
+      child: AnimatedButton(
+        onPressed: _isLoading ? null : _handleLogin,
+        isLoading: _isLoading,
+        text: 'Iniciar Sesión',
+        icon: Icons.login,
+      ),
+    );
+  }
+
+  // RF-03: Divisor "o" entre login normal y biométrico
+  Widget _buildBiometricDivider() {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: AppColors.gray200)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'o',
+            style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
+          ),
+        ),
+        const Expanded(child: Divider(color: AppColors.gray200)),
+      ],
+    );
+  }
+
+  // RF-03: Botón de autenticación biométrica
+  Widget _buildBiometricButton() {
+    final isFaceId = _biometricLabel == 'Face ID';
+    final icon = isFaceId ? Icons.face_rounded : Icons.fingerprint_rounded;
+
+    return Semantics(
+      label: 'Iniciar sesión con $_biometricLabel',
+      button: true,
+      hint: 'Activa la autenticación biométrica para acceder sin contraseña',
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: OutlinedButton.icon(
+          onPressed: _biometricAuthenticating ? null : _handleBiometricLogin,
+          icon: _biometricAuthenticating
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                )
+              : Icon(icon, size: 22, color: AppColors.primary),
+          label: Text(
+            _biometricAuthenticating
+                ? 'Autenticando...'
+                : 'Acceder con $_biometricLabel',
+            style: AppTypography.labelLarge(color: AppColors.primary),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: AppColors.primary, width: 1.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            backgroundColor: AppColors.primarySoft,
+          ),
+        ),
+      ),
     );
   }
 
@@ -458,17 +587,13 @@ class _LoginPageState extends State<LoginPage>
       child: RichText(
         text: TextSpan(
           text: '¿No tienes una cuenta? ',
-          style: AppTypography.bodyMedium(
-            color: AppColors.textSecondaryLight,
-          ),
+          style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
           children: [
             TextSpan(
               text: 'Regístrate',
               style: AppTypography.link(color: AppColors.primary),
               recognizer: TapGestureRecognizer()
-                ..onTap = () {
-                  Navigator.pushNamed(context, '/register');
-                },
+                ..onTap = () => Navigator.pushNamed(context, '/register'),
             ),
           ],
         ),
