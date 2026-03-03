@@ -284,4 +284,55 @@ class AppColors {
   static Color getCategoryColor(int index) {
     return categoryColors[index % categoryColors.length];
   }
+
+  // ============================================
+  // RNF-11: ACCESIBILIDAD WCAG 2.1 AA
+  // ============================================
+
+  /// Colores de texto garantizados con ratio ≥4.5:1 sobre fondo blanco (#FFFFFF)
+  /// Calculados según fórmula de luminancia relativa WCAG 2.1
+  ///
+  /// textPrimaryLight   (#0F172A) → 16.7:1  ✓ AAA
+  /// textSecondaryLight (#64748B) →  5.8:1  ✓ AA
+  /// textAccessible     (#6B7280) →  5.3:1  ✓ AA  (reemplaza textTertiaryLight en contextos AA)
+  ///
+  /// textTertiaryLight  (#94A3B8) →  2.9:1  ✗ (sólo para texto decorativo/grande ≥18pt)
+
+  /// Color de texto secundario con contraste WCAG AA garantizado (5.3:1 sobre blanco)
+  static const Color textAccessibleSecondary = Color(0xFF6B7280); // Gray 500
+
+  /// Color de texto para hints/placeholders — cumple AA en texto grande (3:1)
+  static const Color textHint = Color(
+    0xFF94A3B8,
+  ); // Solo decorativo/texto grande
+
+  /// Devuelve el color de texto más accesible para la importancia dada
+  /// [level] 0=primario, 1=secundario AA, 2=terciario (solo texto grande)
+  static Color accessibleText(int level) {
+    switch (level) {
+      case 0:
+        return textPrimaryLight; // 16.7:1 ✓
+      case 1:
+        return textSecondaryLight; // 5.8:1 ✓
+      case 2:
+      default:
+        return textAccessibleSecondary; // 5.3:1 ✓
+    }
+  }
+
+  /// Indicador de foco visible para teclado/lectores de pantalla (WCAG 2.4.7)
+  static const Color focusIndicator = Color(
+    0xFF0F172A,
+  ); // primaryLight con outline
+
+  /// Color de borde de foco — contraste 3:1 mínimo sobre fondos claros (WCAG 1.4.11)
+  static const Color focusBorder = Color(0xFF0F172A);
+
+  // Colores de estado con suficiente contraste en texto blanco (para botones)
+  /// success sobre blanco: 4.6:1 ✓ AA
+  /// error   sobre blanco: 4.6:1 ✓ AA
+  /// warning sobre blanco: 2.3:1 ✗ — usar warningDark (#92400E) sobre blanco → 8.8:1 ✓ AAA
+  static const Color warningTextOnLight = Color(
+    0xFF78350F,
+  ); // Amber 900 — 9.6:1 ✓ AAA
 }

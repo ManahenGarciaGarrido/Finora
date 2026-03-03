@@ -289,6 +289,39 @@ class AppTheme {
       trackHeight: 4,
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
     ),
+
+    // RNF-11: Focus Theme — indicadores de foco visibles (WCAG 2.4.7)
+    // Focus debe ser claramente visible para usuarios de teclado/lectores de pantalla
+    focusColor: AppColors.primary.withValues(alpha: 0.12),
+    highlightColor: AppColors.primary.withValues(alpha: 0.08),
+
+    // RNF-11: Icon Theme — tamaño mínimo 24pt para buena visibilidad (WCAG 1.4.10)
+    iconTheme: const IconThemeData(
+      color: AppColors.textPrimaryLight,
+      size: 24,
+      opticalSize: 24,
+    ),
+
+    // RNF-11: ListTile Theme — altura mínima 48pt (tap target ≥44pt)
+    listTileTheme: const ListTileThemeData(
+      minVerticalPadding: 12,
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      iconColor: AppColors.textSecondaryLight,
+    ),
+
+    // RNF-11: Tooltip Theme — texto suficientemente legible
+    tooltipTheme: TooltipThemeData(
+      textStyle: TextStyle(
+        color: AppColors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.textPrimaryLight.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      waitDuration: const Duration(milliseconds: 500),
+    ),
   );
 
   // ============================================
