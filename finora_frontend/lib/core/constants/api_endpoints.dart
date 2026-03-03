@@ -116,6 +116,12 @@ class ApiEndpoints {
   static String clearConversation(String conversationId) =>
       '/ai/conversation/$conversationId/clear';
 
+  // RF-29 / RF-30. statistics endpoints (backend /api/v1/stats/*)
+  static const String statsSummary = '/stats/summary';
+  static const String statsByCategory = '/stats/by-category';
+  static const String statsMonthly = '/stats/monthly';
+  static const String statsTrends = '/stats/trends';
+
   // Visualization endpoints
   static const String dashboard = '/analytics/dashboard';
   static const String categorySpending = '/analytics/category-spending';
