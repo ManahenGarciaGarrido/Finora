@@ -1,14 +1,13 @@
 """
-RF-14: Script para entrenar y guardar el modelo de categorización.
+Scripts de entrenamiento de modelos de Finora AI.
 
-Este script:
-1. Genera datos sintéticos de entrenamiento (o carga datos reales si existen)
-2. Entrena un modelo TF-IDF + RandomForest
-3. Guarda el vectorizador y el modelo en /app/models/
+Entrena y persiste:
+1. RF-14: TF-IDF + RandomForest para categorización automática de transacciones
+2. RF-22: Valida que scikit-learn puede entrenar Ridge/RF/GBM (los modelos de predicción
+          de gastos se entrenan on-demand por usuario en app.py, no se persisten)
 
-Ejecutar: python train_model.py
-También se ejecuta automáticamente la primera vez que arranca el contenedor
-si los modelos no existen (ver app.py).
+Ejecutar manualmente: python train_model.py
+Se llama automáticamente desde entrypoint.sh si no existen los modelos.
 """
 
 import os
@@ -18,6 +17,8 @@ import unicodedata
 import random
 import joblib
 import logging
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -119,44 +120,44 @@ def generate_training_data():
         ],
     }
 
-    # Generar variaciones
     descriptions, labels = [], []
     for category, examples in raw_data.items():
         for example in examples:
-            # Variación original
             descriptions.append(example)
             labels.append(category)
-            # Variantes con sufijos
             for _ in range(3):
-                suffix = random.choice(['', f' {random.randint(1, 999):03d}',
-                                        f' REF{random.randint(100, 999)}',
-                                        f' {random.choice(["MADRID","BARCELONA","VALENCIA","SEVILLA"])}'])
+                suffix = random.choice([
+                    '',
+                    f' {random.randint(1, 999):03d}',
+                    f' REF{random.randint(100, 999)}',
+                    f' {random.choice(["MADRID","BARCELONA","VALENCIA","SEVILLA"])}',
+                ])
                 descriptions.append(example + suffix)
                 labels.append(category)
 
     return descriptions, labels
 
 
-def train_and_save():
-    """Entrena el modelo y lo guarda en disco."""
+def train_categorization_model():
+    """
+    RF-14: Entrena TF-IDF + RandomForest para categorización.
+    Guarda model.joblib y tfidf_vectorizer.joblib en /app/models/.
+    """
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.pipeline import Pipeline
     from sklearn.model_selection import train_test_split
 
     os.makedirs(MODEL_DIR, exist_ok=True)
 
-    logger.info("Generando datos de entrenamiento...")
+    logger.info("RF-14: Generando datos de entrenamiento para categorización...")
     descriptions, labels = generate_training_data()
     clean_descs = [clean_text(d) for d in descriptions]
-
-    logger.info(f"  {len(descriptions)} ejemplos de entrenamiento generados")
+    logger.info(f"  {len(descriptions)} ejemplos de entrenamiento")
 
     X_train, X_test, y_train, y_test = train_test_split(
         clean_descs, labels, test_size=0.2, random_state=42, stratify=labels
     )
 
-    # Vectorizador TF-IDF
     vectorizer = TfidfVectorizer(
         max_features=5000,
         ngram_range=(1, 2),
@@ -164,7 +165,6 @@ def train_and_save():
         sublinear_tf=True,
     )
 
-    # Clasificador Random Forest
     classifier = RandomForestClassifier(
         n_estimators=200,
         max_depth=None,
@@ -173,29 +173,79 @@ def train_and_save():
         n_jobs=-1,
     )
 
-    # Entrenar
-    logger.info("Entrenando modelo TF-IDF + RandomForest...")
+    logger.info("RF-14: Entrenando TF-IDF + RandomForest...")
     X_train_vec = vectorizer.fit_transform(X_train)
     classifier.fit(X_train_vec, y_train)
 
-    # Evaluar
     X_test_vec = vectorizer.transform(X_test)
     accuracy = classifier.score(X_test_vec, y_test)
     logger.info(f"  Precisión en test: {accuracy:.1%}")
 
-    # Guardar
     joblib.dump(vectorizer, VECTORIZER_PATH)
     joblib.dump(classifier, MODEL_PATH)
-    logger.info(f"  Vectorizador guardado en {VECTORIZER_PATH}")
-    logger.info(f"  Modelo guardado en {MODEL_PATH}")
+    logger.info(f"  Vectorizador → {VECTORIZER_PATH}")
+    logger.info(f"  Modelo       → {MODEL_PATH}")
 
     return accuracy
 
 
+def validate_expense_prediction_models():
+    """
+    RF-22: Valida que Ridge/RandomForest/GradientBoosting están disponibles.
+    Los modelos de predicción de gastos se entrenan on-demand en app.py
+    (son específicos de cada usuario, no se persisten).
+    """
+    from sklearn.linear_model import Ridge
+    from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+    from sklearn.metrics import mean_absolute_error
+
+    logger.info("RF-22: Validando modelos de predicción de gastos...")
+
+    # Serie sintética de prueba
+    serie_test = [450.0, 520.0, 480.0, 510.0, 490.0, 530.0, 505.0]
+    meses_test = [
+        '2024-01', '2024-02', '2024-03', '2024-04',
+        '2024-05', '2024-06', '2024-07',
+    ]
+
+    for ModelClass, nombre in [
+        (Ridge(alpha=1.0), 'Ridge'),
+        (RandomForestRegressor(n_estimators=50, max_depth=3, random_state=42), 'RandomForest'),
+        (GradientBoostingRegressor(n_estimators=50, max_depth=2, random_state=42), 'GradientBoosting'),
+    ]:
+        # Construir features de prueba
+        ventana = 2
+        X, y = [], []
+        for i in range(ventana, len(serie_test)):
+            lags = serie_test[i - ventana: i]
+            fila = list(lags) + [np.mean(lags), lags[-1] - lags[0], i,
+                                  int(meses_test[i].split('-')[1])]
+            X.append(fila)
+            y.append(serie_test[i])
+        X_arr, y_arr = np.array(X), np.array(y)
+
+        ModelClass.fit(X_arr[:-1], y_arr[:-1])
+        pred = ModelClass.predict(X_arr[-1:])
+        mae = mean_absolute_error([y_arr[-1]], pred)
+        logger.info(f"  {nombre}: pred={pred[0]:.2f}€ | MAE={mae:.2f}€ ✓")
+
+    logger.info("RF-22: Todos los modelos de predicción disponibles ✓")
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(message)s')
-    accuracy = train_and_save()
-    print(f"\nModelo entrenado con éxito — precisión: {accuracy:.1%}")
-    print("Archivos generados:")
-    print(f"  - {VECTORIZER_PATH}")
-    print(f"  - {MODEL_PATH}")
+
+    print("=" * 60)
+    print("Finora AI — Entrenamiento de modelos")
+    print("=" * 60)
+
+    accuracy = train_categorization_model()
+    print(f"\nRF-14 Categorización: precisión {accuracy:.1%}")
+    print(f"  → {VECTORIZER_PATH}")
+    print(f"  → {MODEL_PATH}")
+
+    print()
+    validate_expense_prediction_models()
+    print("\nRF-22 Predicción de gastos: modelos validados (on-demand)")
+
+    print("\nEntrenamiento completado con éxito.")
