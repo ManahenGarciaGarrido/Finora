@@ -1531,7 +1531,7 @@ class TransactionsPageState extends State<TransactionsPage> {
         label:
             '${t.isExpense ? 'Gasto' : 'Ingreso'} en ${t.category}: '
             '${t.isExpense ? 'menos' : 'más'} ${t.amount.toStringAsFixed(2)} euros. '
-            '${t.description?.isNotEmpty == true ? t.description! + '. ' : ''}'
+            '${t.description?.isNotEmpty == true ? '${t.description!}. ' : ''}'
             '${_formatDate(t.date)}.'
             '${t.isPendingSync ? ' Pendiente de sincronizar.' : ''}',
         hint: 'Toca para editar',

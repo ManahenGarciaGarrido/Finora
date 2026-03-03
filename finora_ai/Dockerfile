@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 LABEL maintainer="Finora Team"
-LABEL description="Finora AI Service - RF-14 Categorización automática, RF-21 Ahorro, RF-22 Predicciones"
+LABEL description="Finora AI Service — RF-14 Categorización, RF-21 Ahorro, RF-22 Predicciones ML"
 
 # Seguridad: no ejecutar como root
 RUN useradd -m -u 1001 finora-ai
@@ -21,6 +21,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY train_model.py .
 COPY entrypoint.sh .
+
+# Copiar notebooks de referencia (RF-14, RF-21, RF-22)
+# Documentan los algoritmos de IA implementados en app.py
+COPY notebooks/ /app/notebooks/
 
 # Directorio para modelos (se monta como volumen o se generan al inicio)
 RUN mkdir -p /app/models && chown finora-ai:finora-ai /app/models
