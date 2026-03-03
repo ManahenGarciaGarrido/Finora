@@ -1,20 +1,30 @@
 """
-Finora AI Service — RF-14 Categorización automática con IA
+Finora AI Service — RF-14, RF-21, RF-22
 
 Microservicio Flask que expone los modelos de IA de los notebooks de Finora:
-- POST /categorize        → RF-14: Categorización automática de transacciones
-- POST /savings           → RF-21/HU-08: Recomendaciones de ahorro inteligente
-- POST /predict-expenses  → RF-22/HU-09: Predicción de gastos
-- GET  /health            → Health check para Docker
+- POST /categorize              → RF-14: Categorización automática de transacciones
+- POST /categorize/batch        → RF-14: Categorización en lote
+- POST /savings                 → RF-21/HU-08: Recomendaciones de ahorro inteligente
+- POST /predict-expenses        → RF-22/HU-09: Predicción ML de gastos (Ridge/RF/GBM)
+- POST /evaluate-savings-goal   → RF-21: Evaluación de viabilidad de objetivo de ahorro
+- GET  /health                  → Health check para Docker
+
+Los algoritmos de predicción de gastos están basados en los notebooks:
+  - Notebooks/rf22_prediccion_gastos_ml.ipynb (seleccionar_modelo, construir_features)
+  - Notebooks/rf21_hu08_ahorro_inteligente.ipynb (evaluar_objetivo, calcular_capacidad_ahorro)
 """
 
 import os
 import re
+import math
 import string
 import unicodedata
 import logging
+from collections import defaultdict
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+
+import numpy as np
 
 # ─── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -35,7 +45,25 @@ SPANISH_STOPWORDS = {
     "es", "sociedad", "anonima", "limitada",
 }
 
-# ─── Carga del modelo y vectorizador ────────────────────────────────────────
+# ─── Constantes RF-22 ────────────────────────────────────────────────────────
+VENTANA = 2           # ventana de lags para predicción temporal
+PRECISION_MINIMA = 0.60  # precisión mínima para que el modelo sea fiable
+
+# ─── Constantes RF-21 ────────────────────────────────────────────────────────
+# Regla 50/30/20: necesidades/deseos/ahorro — porcentajes de referencia
+REFERENCE_BUDGETS = {
+    'Alimentación': 0.15,
+    'Vivienda':     0.30,
+    'Transporte':   0.10,
+    'Salud':        0.08,
+    'Educación':    0.05,
+    'Ropa':         0.05,
+    'Ocio':         0.10,
+    'Servicios':    0.08,
+}
+
+
+# ─── Carga del modelo de categorización (RF-14) ─────────────────────────────
 
 _model = None
 _vectorizer = None
@@ -67,23 +95,18 @@ def _clean_text(text: str) -> str:
     if not text:
         return ''
     text = text.lower()
-    # Quitar tildes
     text = unicodedata.normalize('NFD', text)
     text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
-    # Quitar dígitos, signos de puntuación y caracteres especiales
     text = re.sub(r'\d+', ' ', text)
     text = text.translate(str.maketrans('', '', string.punctuation))
-    # Quitar stopwords
     tokens = [w for w in text.split() if w not in SPANISH_STOPWORDS and len(w) > 2]
     return ' '.join(tokens)
 
 
-# ─── Motor de reglas (fallback sin modelo ML) ────────────────────────────────
+# ─── Motor de reglas RF-14 (fallback sin modelo ML) ─────────────────────────
 RULES = [
-    # Ingresos
     ('income', 'Salario',     ['nomina', 'salario', 'sueldo', 'payroll', 'salary'], 1.0),
     ('income', 'Freelance',   ['factura', 'honorarios', 'freelance', 'comision'],   0.9),
-    # Gastos
     ('expense','Alimentación',['supermercado','mercadona','carrefour','lidl','aldi','eroski','hipercor','consum'], 1.0),
     ('expense','Transporte',  ['gasolina','gasolinera','repsol','cepsa','taxi','uber','cabify','renfe','metro','bus','tren'], 0.95),
     ('expense','Ocio',        ['netflix','spotify','amazon','disney','cine','teatro','restaurante','bar','cafeteria'], 0.9),
@@ -96,7 +119,6 @@ RULES = [
 
 
 def _rule_based_category(desc_clean: str, tx_type: str):
-    """Motor de reglas como fallback cuando no hay modelo ML."""
     best_cat = None
     best_conf = 0.0
     for rule_type, cat, keywords, weight in RULES:
@@ -105,7 +127,6 @@ def _rule_based_category(desc_clean: str, tx_type: str):
         for kw in keywords:
             if kw in desc_clean:
                 conf = weight * 85
-                # Keywords más largas → más específico → más confianza
                 if len(kw) >= 5:
                     conf = weight * 90
                 if desc_clean.startswith(kw):
@@ -117,7 +138,6 @@ def _rule_based_category(desc_clean: str, tx_type: str):
 
 
 def _ml_category(desc_clean: str, tx_type: str):
-    """Usa el modelo ML si está disponible."""
     if not _model or not _vectorizer:
         return None, 0
     try:
@@ -128,8 +148,6 @@ def _ml_category(desc_clean: str, tx_type: str):
             confidence = round(float(max(proba)) * 100)
         elif hasattr(_model, 'decision_function'):
             scores = _model.decision_function(X)[0]
-            import numpy as np
-            # Softmax sobre decision_function
             e_scores = np.exp(scores - np.max(scores))
             proba = e_scores / e_scores.sum()
             confidence = round(float(max(proba)) * 100)
@@ -141,6 +159,238 @@ def _ml_category(desc_clean: str, tx_type: str):
         return None, 0
 
 
+# ─── Algoritmos RF-22: Predicción de gastos (basados en notebooks) ───────────
+
+def _seleccionar_modelo(n_muestras: int):
+    """
+    Elige el modelo de regresión según la cantidad de datos disponibles.
+    Criterio del notebook rf22_prediccion_gastos_ml.ipynb:
+      ≤4 muestras → Ridge  (regularización, evita overfitting con pocos datos)
+      ≤8 muestras → RandomForest
+      >8 muestras → GradientBoosting
+    """
+    from sklearn.linear_model import Ridge
+    from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+
+    if n_muestras <= 4:
+        return Ridge(alpha=1.0), "Ridge"
+    elif n_muestras <= 8:
+        return RandomForestRegressor(n_estimators=50, max_depth=3, random_state=42), "RandomForest"
+    else:
+        return GradientBoostingRegressor(n_estimators=100, max_depth=2, random_state=42), "GradientBoosting"
+
+
+def _construir_features(serie: list, meses_list: list, ventana: int = VENTANA):
+    """
+    Construye matriz de features para regresión temporal.
+    Features: lags, media móvil, tendencia, índice ordinal, mes calendario.
+    Basado en rf22_prediccion_gastos_ml.ipynb :: construir_features().
+    """
+    X, y = [], []
+    for i in range(ventana, len(serie)):
+        lags      = serie[i - ventana: i]
+        media_mov = float(np.mean(lags))
+        tendencia = float(lags[-1] - lags[0]) if ventana > 1 else 0.0
+        idx_mes   = i
+        mes_cal   = int(meses_list[i].split("-")[1]) if i < len(meses_list) else ((i % 12) + 1)
+
+        fila = list(lags) + [media_mov, tendencia, idx_mes, mes_cal]
+        X.append(fila)
+        y.append(serie[i])
+    return np.array(X, dtype=float), np.array(y, dtype=float)
+
+
+def _detectar_tendencia(serie: list) -> str:
+    """
+    Detecta tendencia de la serie usando regresión lineal (numpy.polyfit).
+    Devuelve 'increasing', 'decreasing' o 'stable'.
+    Basado en rf22_prediccion_gastos_ml.ipynb :: detectar_tendencia_detallada().
+    """
+    if len(serie) < 2:
+        return 'stable'
+    x = np.arange(len(serie), dtype=float)
+    try:
+        coeffs = np.polyfit(x, serie, 1)
+        pendiente = coeffs[0]
+        media = float(np.mean(serie))
+        pct_mes = (pendiente / media * 100) if media > 0 else 0.0
+        if pct_mes > 5:
+            return 'increasing'
+        elif pct_mes < -5:
+            return 'decreasing'
+        else:
+            return 'stable'
+    except Exception:
+        return 'stable'
+
+
+def _predict_category_ml(serie: list, meses_list: list, cat_name: str) -> dict:
+    """
+    Entrena el modelo seleccionado y predice el siguiente mes para una categoría.
+    Incluye intervalo de confianza basado en MAE histórico (leave-one-out adaptado).
+    Basado en rf22_prediccion_gastos_ml.ipynb :: entrenar_y_evaluar().
+    """
+    from sklearn.metrics import mean_absolute_error
+
+    X, y = _construir_features(serie, meses_list)
+    if len(X) == 0:
+        # Con 1-2 meses: EMA simple
+        if len(serie) == 1:
+            pred = serie[0]
+        else:
+            pred = serie[-1] * 0.6 + serie[-2] * 0.4
+        return {
+            'categoria': cat_name,
+            'prediccion': round(pred, 2),
+            'pred_min': round(max(0, pred * 0.8), 2),
+            'pred_max': round(pred * 1.2, 2),
+            'modelo': 'EMA',
+            'precision': 0.5,
+            'tendencia': _detectar_tendencia(serie),
+        }
+
+    modelo, nombre_modelo = _seleccionar_modelo(len(X))
+
+    # Evaluación leave-one-out adaptada (máx 3 splits)
+    maes = []
+    for i in range(1, min(len(X), 4)):
+        X_tr, X_te = X[:-i], X[-i:]
+        y_tr, y_te = y[:-i], y[-i:]
+        if len(X_tr) == 0:
+            continue
+        try:
+            modelo.fit(X_tr, y_tr)
+            pred_val = modelo.predict(X_te)
+            maes.append(mean_absolute_error(y_te, pred_val))
+        except Exception:
+            continue
+
+    # Entrenar con todos los datos
+    try:
+        modelo.fit(X, y)
+    except Exception as e:
+        logger.warning(f"Error entrenando modelo para {cat_name}: {e}")
+        pred = float(np.mean(serie[-3:]))
+        return {
+            'categoria': cat_name,
+            'prediccion': round(pred, 2),
+            'pred_min': round(max(0, pred * 0.8), 2),
+            'pred_max': round(pred * 1.2, 2),
+            'modelo': 'Mean',
+            'precision': 0.4,
+            'tendencia': _detectar_tendencia(serie),
+        }
+
+    # Features del próximo mes
+    lags_next  = serie[-VENTANA:]
+    media_next = float(np.mean(lags_next))
+    tend_next  = float(lags_next[-1] - lags_next[0]) if VENTANA > 1 else 0.0
+    idx_next   = len(serie)
+    ultimo_mes = int(meses_list[-1].split("-")[1]) if meses_list else 1
+    mes_next   = (ultimo_mes % 12) + 1
+
+    X_next = np.array([list(lags_next) + [media_next, tend_next, idx_next, mes_next]])
+
+    try:
+        pred_central = float(modelo.predict(X_next)[0])
+        pred_central = max(0.0, pred_central)
+    except Exception:
+        pred_central = float(np.mean(serie[-3:]))
+
+    # Intervalo de confianza basado en MAE histórico
+    mae_medio = float(np.mean(maes)) if maes else abs(pred_central * 0.15)
+    pred_min  = max(0.0, round(pred_central - mae_medio * 1.5, 2))
+    pred_max  = round(pred_central + mae_medio * 1.5, 2)
+
+    # Precisión del modelo
+    media_y = float(np.mean(y)) if len(y) > 0 else 1.0
+    precision = 1 - (mae_medio / (media_y + 1e-6))
+    precision = float(np.clip(precision, 0, 1))
+
+    return {
+        'categoria':   cat_name,
+        'prediccion':  round(pred_central, 2),
+        'pred_min':    pred_min,
+        'pred_max':    pred_max,
+        'modelo':      nombre_modelo,
+        'precision':   round(precision, 3),
+        'mae':         round(mae_medio, 2),
+        'tendencia':   _detectar_tendencia(serie),
+        'cumple_umbral': precision >= PRECISION_MINIMA,
+    }
+
+
+# ─── Algoritmos RF-21: Ahorro inteligente (basados en notebooks) ─────────────
+
+def _calcular_capacidad_ahorro(ingreso_promedio: float, gasto_promedio: float,
+                                compromisos_previos: float = 0) -> dict:
+    """
+    Calcula la capacidad de ahorro disponible tras compromisos existentes.
+    Basado en rf21_hu08_ahorro_inteligente.ipynb :: calcular_capacidad_ahorro().
+    """
+    ahorro_bruto = ingreso_promedio - gasto_promedio
+    disponible   = ahorro_bruto - compromisos_previos
+    return {
+        'ahorro_bruto':  round(ahorro_bruto, 2),
+        'comprometido':  round(compromisos_previos, 2),
+        'disponible':    round(disponible, 2),
+    }
+
+
+def _evaluar_objetivo(monto_total: float, plazo_meses: int,
+                       capacidad: dict) -> dict:
+    """
+    Evalúa si un objetivo de ahorro es realista y genera alternativas.
+    Basado en rf21_hu08_ahorro_inteligente.ipynb :: evaluar_objetivo().
+    """
+    disponible = capacidad['disponible']
+    ahorro_necesario = round(monto_total / plazo_meses, 2) if plazo_meses > 0 else float('inf')
+    es_realista = ahorro_necesario <= disponible
+    porcentaje_uso = round((ahorro_necesario / disponible * 100), 1) if disponible > 0 else float('inf')
+
+    if disponible <= 0:
+        ahorro_recomendado = 0.0
+        alerta = 'No tienes capacidad de ahorro disponible con tus patrones actuales.'
+    elif es_realista:
+        ahorro_recomendado = ahorro_necesario
+        alerta = None
+    else:
+        ahorro_recomendado = round(disponible * 0.80, 2)
+        alerta = (
+            f'Para alcanzar {monto_total:.0f}€ en {plazo_meses} meses necesitas '
+            f'{ahorro_necesario:.0f}€/mes, pero solo tienes {disponible:.0f}€ libres.'
+        )
+
+    alternativas = []
+    if not es_realista and disponible > 0:
+        plazo_alt = round(monto_total / ahorro_recomendado) if ahorro_recomendado > 0 else None
+        if plazo_alt:
+            alternativas.append({
+                'tipo': 'plazo_mayor',
+                'descripcion': f'Ahorrar {ahorro_recomendado:.0f}€/mes → objetivo en ~{plazo_alt} meses',
+                'ahorro_mensual': ahorro_recomendado,
+                'plazo_meses': plazo_alt,
+            })
+        monto_reducido = round(ahorro_necesario * 0.6, 2)
+        plazo_reducido = round(monto_total / monto_reducido) if monto_reducido > 0 else None
+        if plazo_reducido:
+            alternativas.append({
+                'tipo': 'monto_menor',
+                'descripcion': f'Reducir a {monto_reducido:.0f}€/mes → objetivo en ~{plazo_reducido} meses',
+                'ahorro_mensual': monto_reducido,
+                'plazo_meses': plazo_reducido,
+            })
+
+    return {
+        'ahorro_necesario':   ahorro_necesario,
+        'ahorro_recomendado': ahorro_recomendado,
+        'es_realista':        es_realista,
+        'porcentaje_disponible_usado': porcentaje_uso,
+        'alerta': alerta,
+        'alternativas': alternativas,
+    }
+
+
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @app.route('/health', methods=['GET'])
@@ -150,6 +400,7 @@ def health():
         'service': 'finora-ai',
         'model_loaded': _model is not None,
         'vectorizer_loaded': _vectorizer is not None,
+        'version': '2.0.0',
     })
 
 
@@ -172,11 +423,9 @@ def categorize():
 
     desc_clean = _clean_text(description)
 
-    # Primero intentar con ML
     category, confidence = _ml_category(desc_clean, tx_type)
     method = 'ml'
 
-    # Si ML no está disponible o confianza baja, intentar reglas
     if category is None or confidence < CONFIDENCE_THRESHOLD:
         rule_cat, rule_conf = _rule_based_category(desc_clean, tx_type)
         if rule_cat and rule_conf >= CONFIDENCE_THRESHOLD:
@@ -184,7 +433,6 @@ def categorize():
             confidence = rule_conf
             method = 'rules'
 
-    # RF-14: Fallback a "Otros" si confianza < 50%
     is_fallback = category is None or confidence < CONFIDENCE_THRESHOLD
     if is_fallback:
         category = FALLBACK_EXPENSE if tx_type == 'expense' else FALLBACK_INCOME
@@ -266,7 +514,13 @@ def savings_recommendations():
         "transactions": [{ "amount": float, "type": str, "category": str, "date": str }],
         "monthly_income": float
     }
-    Returns: { "recommendations": [...], "savings_potential": float, "score": int }
+    Returns: {
+        "recommendations": [...],
+        "savings_potential": float,
+        "score": int,
+        "savings_capacity": { ahorro_bruto, disponible },
+        "monthly_summary": { ingresos, gastos, meses_analizados }
+    }
     """
     data = request.get_json(silent=True) or {}
     transactions = data.get('transactions', [])
@@ -275,137 +529,266 @@ def savings_recommendations():
     if not transactions:
         return jsonify({'recommendations': [], 'savings_potential': 0, 'score': 50})
 
-    # Agrupar gastos por categoría
-    category_totals = {}
-    total_expense = 0.0
+    # ── Agrupar por mes (algoritmo del notebook rf21) ─────────────────────────
+    meses: dict = defaultdict(lambda: {
+        'ingresos': 0.0,
+        'gastos': 0.0,
+        'por_categoria': defaultdict(float),
+    })
     for tx in transactions:
-        if tx.get('type') == 'expense':
+        clave = tx.get('date', '')[:7]
+        if not clave or len(clave) < 7:
+            continue
+        if tx.get('type') == 'income':
+            meses[clave]['ingresos'] += float(tx.get('amount', 0))
+        elif tx.get('type') == 'expense':
             cat = tx.get('category', 'Otros')
             amount = float(tx.get('amount', 0))
-            category_totals[cat] = category_totals.get(cat, 0) + amount
-            total_expense += amount
+            meses[clave]['gastos'] += amount
+            meses[clave]['por_categoria'][cat] += amount
 
-    # Porcentajes de referencia para ahorro saludable (regla 50/30/20)
-    REFERENCE_PCTS = {
-        'Alimentación':  0.15,
-        'Ocio':          0.10,
-        'Transporte':    0.10,
-        'Servicios':     0.08,
-        'Ropa':          0.05,
-        'Salud':         0.08,
-        'Vivienda':      0.30,
-        'Educación':     0.05,
+    # ── Promedios mensuales ───────────────────────────────────────────────────
+    n_meses = len(meses)
+    if n_meses == 0:
+        return jsonify({'recommendations': [], 'savings_potential': 0, 'score': 50})
+
+    ingreso_promedio = (
+        sum(v['ingresos'] for v in meses.values()) / n_meses
+        if n_meses > 0 else monthly_income
+    )
+    # Priorizar el parámetro explícito si se provee y es mayor
+    if monthly_income > 0 and monthly_income > ingreso_promedio:
+        ingreso_promedio = monthly_income
+
+    gasto_promedio = sum(v['gastos'] for v in meses.values()) / n_meses
+
+    # Totales por categoría (promedio mensual)
+    cat_totals_all: dict = defaultdict(list)
+    for v in meses.values():
+        for cat, monto in v['por_categoria'].items():
+            cat_totals_all[cat].append(monto)
+    categoria_promedio = {
+        cat: sum(montos) / len(montos)
+        for cat, montos in cat_totals_all.items()
     }
 
+    # ── Capacidad de ahorro (rf21 :: calcular_capacidad_ahorro) ──────────────
+    capacidad = _calcular_capacidad_ahorro(ingreso_promedio, gasto_promedio)
+
+    # ── Recomendaciones por categoría excedida ────────────────────────────────
     recommendations = []
     savings_potential = 0.0
 
-    if monthly_income > 0:
-        for cat, total in sorted(category_totals.items(), key=lambda x: -x[1]):
-            ref_pct = REFERENCE_PCTS.get(cat, 0.10)
-            budget = monthly_income * ref_pct
-            if total > budget * 1.2:  # 20% de margen
-                excess = total - budget
+    if ingreso_promedio > 0:
+        for cat, promedio in sorted(categoria_promedio.items(), key=lambda x: -x[1]):
+            ref_pct = REFERENCE_BUDGETS.get(cat, 0.10)
+            budget = ingreso_promedio * ref_pct
+            if promedio > budget * 1.20:   # margen del 20%
+                excess = promedio - budget
                 savings_potential += excess
-                pct_over = round((total / budget - 1) * 100)
+                pct_over = round((promedio / budget - 1) * 100)
                 recommendations.append({
-                    'category': cat,
-                    'current_spend': round(total, 2),
+                    'category':         cat,
+                    'current_spend':    round(promedio, 2),
                     'suggested_budget': round(budget, 2),
                     'potential_saving': round(excess, 2),
-                    'message': f'Estás gastando un {pct_over}% más de lo recomendado en {cat}. '
-                               f'Podrías ahorrar hasta {excess:.2f}€ mensuales.',
-                    'priority': 'high' if excess > monthly_income * 0.05 else 'medium',
+                    'message': (
+                        f'Estás gastando un {pct_over}% más de lo recomendado en {cat}. '
+                        f'Podrías ahorrar hasta {excess:.2f}€ mensuales.'
+                    ),
+                    'priority': 'high' if excess > ingreso_promedio * 0.05 else 'medium',
                 })
 
-    # Score de salud financiera (0-100)
-    if monthly_income > 0:
-        savings_rate = max(0, (monthly_income - total_expense) / monthly_income)
-        score = min(100, round(savings_rate * 200))  # 50% savings_rate = 100 score
+    # ── Score de salud financiera (0-100) ────────────────────────────────────
+    if ingreso_promedio > 0:
+        savings_rate = max(0, (ingreso_promedio - gasto_promedio) / ingreso_promedio)
+        # Score: tasa de ahorro del 20% → 100 puntos
+        score = min(100, round(savings_rate * 500))
     else:
         score = 50
 
+    logger.info(
+        f"[savings] {n_meses} meses | ingreso_prom={ingreso_promedio:.0f}€ "
+        f"| gasto_prom={gasto_promedio:.0f}€ | score={score}"
+    )
+
     return jsonify({
-        'recommendations': recommendations[:5],  # Top 5
+        'recommendations':  recommendations[:5],
         'savings_potential': round(savings_potential, 2),
-        'score': score,
-        'total_expense': round(total_expense, 2),
-        'category_breakdown': {k: round(v, 2) for k, v in category_totals.items()},
+        'score':            score,
+        'savings_capacity': capacidad,
+        'monthly_summary': {
+            'ingreso_promedio':   round(ingreso_promedio, 2),
+            'gasto_promedio':     round(gasto_promedio, 2),
+            'meses_analizados':   n_meses,
+            'categoria_promedio': {k: round(v, 2) for k, v in categoria_promedio.items()},
+        },
     })
+
+
+@app.route('/evaluate-savings-goal', methods=['POST'])
+def evaluate_savings_goal():
+    """
+    RF-21 / HU-08: Evalúa la viabilidad de un objetivo de ahorro concreto.
+
+    Body: {
+        "transactions": [...],
+        "monthly_income": float,
+        "goal": { "monto_total": float, "plazo_meses": int }
+    }
+    Returns: {
+        "es_realista": bool,
+        "ahorro_recomendado": float,
+        "ahorro_necesario": float,
+        "alerta": str|null,
+        "alternativas": [...],
+        "capacidad": { ahorro_bruto, disponible }
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    transactions = data.get('transactions', [])
+    monthly_income = float(data.get('monthly_income', 0))
+    goal = data.get('goal', {})
+
+    monto_total  = float(goal.get('monto_total', 0))
+    plazo_meses  = int(goal.get('plazo_meses', 12))
+
+    if monto_total <= 0:
+        return jsonify({'error': 'goal.monto_total must be positive'}), 400
+
+    # Calcular promedios de las transacciones
+    meses: dict = defaultdict(lambda: {'ingresos': 0.0, 'gastos': 0.0})
+    for tx in transactions:
+        clave = tx.get('date', '')[:7]
+        if not clave or len(clave) < 7:
+            continue
+        if tx.get('type') == 'income':
+            meses[clave]['ingresos'] += float(tx.get('amount', 0))
+        elif tx.get('type') == 'expense':
+            meses[clave]['gastos'] += float(tx.get('amount', 0))
+
+    n_meses = len(meses)
+    if n_meses == 0:
+        ingreso_promedio = monthly_income
+        gasto_promedio = monthly_income * 0.8
+    else:
+        ingreso_promedio = max(
+            monthly_income,
+            sum(v['ingresos'] for v in meses.values()) / n_meses
+        )
+        gasto_promedio = sum(v['gastos'] for v in meses.values()) / n_meses
+
+    capacidad = _calcular_capacidad_ahorro(ingreso_promedio, gasto_promedio)
+    evaluacion = _evaluar_objetivo(monto_total, plazo_meses, capacidad)
+
+    return jsonify({**evaluacion, 'capacidad': capacidad})
 
 
 @app.route('/predict-expenses', methods=['POST'])
 def predict_expenses():
     """
-    RF-22 / HU-09: Predicción de gastos para el próximo mes.
+    RF-22 / HU-09: Predicción ML de gastos para el próximo mes.
+
+    Algoritmo basado en el notebook rf22_prediccion_gastos_ml.ipynb:
+    - seleccionar_modelo(): Ridge (≤4 meses), RandomForest (≤8), GradientBoosting (>8)
+    - construir_features(): lags + media móvil + tendencia + índice + mes calendario
+    - entrenar_y_evaluar(): leave-one-out adaptado con intervalo de confianza
 
     Body: {
         "transactions": [{ "amount": float, "type": str, "category": str, "date": "YYYY-MM-DD" }]
     }
-    Returns: { "predictions": { "category": float }, "total_predicted": float, "trend": str }
+    Returns: {
+        "predictions": [{ "categoria": str, "prediccion": float, "pred_min": float,
+                          "pred_max": float, "modelo": str, "tendencia": str }],
+        "total_predicted": float,
+        "total_pred_min": float,
+        "total_pred_max": float,
+        "trend": str,
+        "last_month_total": float,
+        "months_of_data": int
+    }
     """
     data = request.get_json(silent=True) or {}
     transactions = data.get('transactions', [])
 
     if not transactions:
-        return jsonify({'predictions': {}, 'total_predicted': 0, 'trend': 'stable'})
+        return jsonify({'predictions': [], 'total_predicted': 0, 'trend': 'stable'})
 
-    # Organizar gastos por mes y categoría
-    monthly_by_cat = {}  # {category: {YYYY-MM: total}}
+    # ── Agrupar gastos por mes y categoría ────────────────────────────────────
+    monthly_by_cat: dict = defaultdict(lambda: defaultdict(float))
 
     for tx in transactions:
         if tx.get('type') != 'expense':
             continue
-        cat = tx.get('category', 'Otros')
+        cat    = tx.get('category', 'Otros')
         amount = float(tx.get('amount', 0))
-        date_str = tx.get('date', '')
-
-        # Extraer año-mes
         try:
-            month_key = date_str[:7]  # YYYY-MM
+            month_key = tx.get('date', '')[:7]
             if not month_key or len(month_key) < 7:
                 continue
         except Exception:
             continue
+        monthly_by_cat[cat][month_key] += amount
 
-        if cat not in monthly_by_cat:
-            monthly_by_cat[cat] = {}
-        monthly_by_cat[cat][month_key] = monthly_by_cat[cat].get(month_key, 0) + amount
+    if not monthly_by_cat:
+        return jsonify({'predictions': [], 'total_predicted': 0, 'trend': 'stable'})
 
-    predictions = {}
+    # ── Construir series temporales ordenadas ─────────────────────────────────
+    # Lista global de meses ordenados
+    all_months = sorted({
+        m for cat_data in monthly_by_cat.values() for m in cat_data.keys()
+    })
+
+    if not all_months:
+        return jsonify({'predictions': [], 'total_predicted': 0, 'trend': 'stable'})
+
+    months_of_data = len(all_months)
+
+    # ── Predicción ML por categoría (notebook rf22) ───────────────────────────
+    predictions_list = []
+    total_last_month = 0.0
+
+    # Serie de totales por categoría (rellena 0 en meses sin gasto)
     for cat, monthly in monthly_by_cat.items():
-        values = list(monthly.values())
-        if not values:
-            continue
-        # Media ponderada: últimos meses tienen más peso
-        if len(values) == 1:
-            predictions[cat] = round(values[0], 2)
-        elif len(values) == 2:
-            predictions[cat] = round(values[-1] * 0.6 + values[-2] * 0.4, 2)
-        else:
-            # Media exponencialmente ponderada (EMA simple)
-            recent = values[-3:]  # Últimos 3 meses
-            weights = [0.2, 0.3, 0.5][:len(recent)]
-            total_weight = sum(weights)
-            ema = sum(v * w for v, w in zip(recent, weights)) / total_weight
-            predictions[cat] = round(ema, 2)
+        serie = [monthly.get(m, 0.0) for m in all_months]
+        result = _predict_category_ml(serie, all_months, cat)
+        predictions_list.append(result)
 
-    total_predicted = round(sum(predictions.values()), 2)
+        # Acumular último mes real para calcular tendencia global
+        total_last_month += serie[-1] if serie else 0.0
 
-    # Determinar tendencia comparando con mes anterior
-    last_month_total = sum(list(monthly.values())[-1] for monthly in monthly_by_cat.values() if monthly)
-    if total_predicted > last_month_total * 1.05:
-        trend = 'increasing'
-    elif total_predicted < last_month_total * 0.95:
-        trend = 'decreasing'
-    else:
-        trend = 'stable'
+    # ── Totales ───────────────────────────────────────────────────────────────
+    total_predicted = round(sum(p['prediccion'] for p in predictions_list), 2)
+    total_pred_min  = round(sum(p['pred_min']   for p in predictions_list), 2)
+    total_pred_max  = round(sum(p['pred_max']   for p in predictions_list), 2)
+
+    # Tendencia global
+    all_totals = [
+        sum(monthly_by_cat[cat].get(m, 0.0) for cat in monthly_by_cat)
+        for m in all_months
+    ]
+    global_trend = _detectar_tendencia(all_totals)
+    if total_predicted > total_last_month * 1.05:
+        global_trend = 'increasing'
+    elif total_predicted < total_last_month * 0.95:
+        global_trend = 'decreasing'
+
+    # Ordenar por predicción descendente
+    predictions_list.sort(key=lambda x: -x['prediccion'])
+
+    logger.info(
+        f"[predict-expenses] {months_of_data} meses | {len(predictions_list)} categorías "
+        f"| total_pred={total_predicted:.2f}€ | trend={global_trend}"
+    )
 
     return jsonify({
-        'predictions': predictions,
-        'total_predicted': total_predicted,
-        'trend': trend,
-        'last_month_total': round(last_month_total, 2),
+        'predictions':        predictions_list,
+        'total_predicted':    total_predicted,
+        'total_pred_min':     total_pred_min,
+        'total_pred_max':     total_pred_max,
+        'trend':              global_trend,
+        'last_month_total':   round(total_last_month, 2),
+        'months_of_data':     months_of_data,
     })
 
 
@@ -416,5 +799,5 @@ _load_models()
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     debug = os.environ.get('FLASK_ENV') == 'development'
-    logger.info(f"Finora AI Service iniciando en puerto {port} (debug={debug})")
+    logger.info(f"Finora AI Service v2.0 iniciando en puerto {port} (debug={debug})")
     app.run(host='0.0.0.0', port=port, debug=debug)
