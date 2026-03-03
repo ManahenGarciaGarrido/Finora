@@ -1,11 +1,11 @@
 package com.example.finora_frontend
 
 import android.os.Build
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private val platformVersionChannel = "com.finora.app/platform_version"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
