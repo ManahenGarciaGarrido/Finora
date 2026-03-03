@@ -7,7 +7,8 @@ import '../network/network_info.dart';
 import '../database/local_database.dart';
 import '../sync/sync_manager.dart';
 import '../connectivity/connectivity_service.dart';
-import '../security/biometric_service.dart';
+import '../security/biometric_service.dart'; // RF-03
+import '../services/ai_service.dart'; // RF-21 / RF-22
 
 // Features - Authentication
 import '../../features/authentication/data/datasources/auth_remote_datasource.dart';
@@ -136,6 +137,9 @@ Future<void> _initCore() async {
 
   // RF-03: Biometric Service
   sl.registerLazySingleton(() => BiometricService());
+
+  // RF-21 / RF-22: AI Service (predicciones ML + recomendaciones ahorro)
+  sl.registerLazySingleton(() => AiService(apiClient: sl<ApiClient>()));
 }
 
 /// Initialize Transaction and Category BLoCs (RNF-06, RNF-15)
