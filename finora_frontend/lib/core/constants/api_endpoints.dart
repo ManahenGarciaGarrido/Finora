@@ -101,33 +101,25 @@ class ApiEndpoints {
   static String goalProgress(String goalId) => '/goals/$goalId/progress';
   static const String goalRecommendations = '/goals/recommendations';
 
-  // Predictions endpoints
-  static const String predictExpenses = '/predictions/expenses';
+  // RF-22 / HU-09: Predicción de gastos ML (backend → finora-ai)
+  static const String predictExpenses = '/ai/predict-expenses';
+  // RF-21 / HU-08: Recomendaciones de ahorro (backend → finora-ai)
+  static const String aiSavings = '/ai/savings';
+  static const String evaluateSavingsGoal = '/ai/evaluate-savings-goal';
+
+  // Predictions (legacy — renombradas para evitar colisión con RF-22)
   static const String detectAnomalies = '/predictions/anomalies';
   static const String detectSubscriptions = '/predictions/subscriptions';
   static const String recurringExpenses = '/predictions/recurring';
   static const String predictionInsights = '/predictions/insights';
 
-  // AI Assistant endpoints
-  static const String aiChat = '/ai/chat';
-  static const String affordability = '/ai/affordability';
-  static const String recommendations = '/ai/recommendations';
-  static const String conversationHistory = '/ai/conversation-history';
-  static String clearConversation(String conversationId) =>
-      '/ai/conversation/$conversationId/clear';
-  // RF-22 / HU-09: Predicción de gastos ML (backend → finora-ai)
-  static const String predictExpensesIA = '/ai/predict-expenses';
-  // RF-21 / HU-08: Recomendaciones de ahorro (backend → finora-ai)
-  static const String aiSavings = '/ai/savings';
-  static const String evaluateSavingsGoal = '/ai/evaluate-savings-goal';
-
-  // RF-29 / RF-30. statistics endpoints (backend /api/v1/stats/*)
+  // RF-29 / RF-30: Statistics endpoints (backend /api/v1/stats/*)
   static const String statsSummary = '/stats/summary';
   static const String statsByCategory = '/stats/by-category';
   static const String statsMonthly = '/stats/monthly';
   static const String statsTrends = '/stats/trends';
 
-  // Visualization endpoints
+  // Visualization endpoints (legacy — mantener compatibilidad)
   static const String dashboard = '/analytics/dashboard';
   static const String categorySpending = '/analytics/category-spending';
   static const String timeSeries = '/analytics/time-series';
