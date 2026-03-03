@@ -115,6 +115,11 @@ class ApiEndpoints {
   static const String conversationHistory = '/ai/conversation-history';
   static String clearConversation(String conversationId) =>
       '/ai/conversation/$conversationId/clear';
+  // RF-22 / HU-09: Predicción de gastos ML (backend → finora-ai)
+  static const String predictExpensesIA = '/ai/predict-expenses';
+  // RF-21 / HU-08: Recomendaciones de ahorro (backend → finora-ai)
+  static const String aiSavings = '/ai/savings';
+  static const String evaluateSavingsGoal = '/ai/evaluate-savings-goal';
 
   // RF-29 / RF-30. statistics endpoints (backend /api/v1/stats/*)
   static const String statsSummary = '/stats/summary';

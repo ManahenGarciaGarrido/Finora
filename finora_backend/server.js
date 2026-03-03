@@ -119,6 +119,7 @@ app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/banks', bankRoutes);
 app.use('/api/v1/notifications', notificationRoutes); // HU-06
 app.use('/api/v1/stats', statsRoutes); // RF-29 / RF-30
+app.use('/api/v1/ai', aiRoutes); // RF-21 / RF-22
 
 // Root endpoint
 app.get('/', (req, res) => {
