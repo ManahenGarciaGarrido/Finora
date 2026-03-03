@@ -14,6 +14,7 @@ const transactionRoutes = require('./routes/transactions');
 const categoryRoutes = require('./routes/categories');
 const bankRoutes = require('./routes/banks');
 const notificationRoutes = require('./routes/notifications'); // HU-06
+const statsRoutes = require('./routes/stats'); // RF-29 / RF-30
 
 // Import services
 const emailService = require('./services/email');
@@ -117,6 +118,7 @@ app.use('/api/v1/transactions', transactionRoutes);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/banks', bankRoutes);
 app.use('/api/v1/notifications', notificationRoutes); // HU-06
+app.use('/api/v1/stats', statsRoutes); // RF-29 / RF-30
 
 // Root endpoint
 app.get('/', (req, res) => {
