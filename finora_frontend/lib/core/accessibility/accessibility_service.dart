@@ -6,6 +6,7 @@
 /// - Constantes de tamaño mínimo de pulsación (44×44 pt)
 /// - Helpers para anunciar cambios a lectores de pantalla
 /// - ExcludeSemantics para elementos decorativos
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
