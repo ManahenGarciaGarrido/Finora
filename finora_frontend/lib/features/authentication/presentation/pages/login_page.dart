@@ -7,6 +7,7 @@
 /// - Autenticación biométrica (RF-03): Touch ID, Face ID, huella Android
 /// - Manejo de credenciales incorrectas
 /// - Sesión persistente con token seguro
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
