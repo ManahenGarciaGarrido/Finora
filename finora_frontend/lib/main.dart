@@ -234,10 +234,21 @@ class _MyAppState extends State<MyApp> {
           return null;
         },
         builder: (context, child) {
-          // Envolver toda la app con el indicador offline (RNF-15)
-          return OfflineIndicator(
-            connectivityService: widget.connectivityService,
-            child: child ?? const SizedBox.shrink(),
+          // RNF-11: Respetar preferencias de accesibilidad del sistema
+          // textScaleFactor: clamp entre 0.85x y 1.5x para garantizar legibilidad
+          // sin romper el layout en textos muy grandes
+          final mediaQuery = MediaQuery.of(context);
+          final textScaler = mediaQuery.textScaler.clamp(
+            minScaleFactor: 0.85,
+            maxScaleFactor: 1.5,
+          );
+          return MediaQuery(
+            data: mediaQuery.copyWith(textScaler: textScaler),
+            // Envolver toda la app con el indicador offline (RNF-15)
+            child: OfflineIndicator(
+              connectivityService: widget.connectivityService,
+              child: child ?? const SizedBox.shrink(),
+            ),
           );
         },
       ),

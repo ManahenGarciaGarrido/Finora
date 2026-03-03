@@ -30,6 +30,7 @@ class TransactionsPage extends StatefulWidget {
   State<TransactionsPage> createState() => TransactionsPageState();
 }
 
+// RF-12: clase pública para permitir GlobalKey<TransactionsPageState> desde home_page.dart
 class TransactionsPageState extends State<TransactionsPage> {
   // ─── Filtro básico de tipo ───────────────────────────────────────────────
   String _selectedFilter = 'Todas';
@@ -1525,132 +1526,123 @@ class TransactionsPageState extends State<TransactionsPage> {
           );
         }
       },
-      child: GestureDetector(
-        onTap: () => _openEditPage(t),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: t.isPendingSync
-                  ? AppColors.warning.withValues(alpha: 0.4)
-                  : AppColors.gray100,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: _getCategoryColor(t.category).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      _getCategoryIcon(t.category),
-                      color: _getCategoryColor(t.category),
-                      size: 20,
-                    ),
-                    // Indicador de sincronización pendiente (RNF-15)
-                    if (t.isPendingSync)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: AppColors.warning,
-                            borderRadius: BorderRadius.circular(7),
-                            border: Border.all(
-                              color: AppColors.white,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.cloud_upload_outlined,
-                            size: 8,
-                            color: AppColors.white,
-                          ),
-                        ),
-                      ),
-                    // Indicador de error de sincronización (RNF-15)
-                    if (t.hasSyncError)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: AppColors.error,
-                            borderRadius: BorderRadius.circular(7),
-                            border: Border.all(
-                              color: AppColors.white,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.cloud_off_rounded,
-                            size: 8,
-                            color: AppColors.white,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+      // RNF-11: Semantics para lectores de pantalla (TalkBack/VoiceOver)
+      child: Semantics(
+        label:
+            '${t.isExpense ? 'Gasto' : 'Ingreso'} en ${t.category}: '
+            '${t.isExpense ? 'menos' : 'más'} ${t.amount.toStringAsFixed(2)} euros. '
+            '${t.description?.isNotEmpty == true ? t.description! + '. ' : ''}'
+            '${_formatDate(t.date)}.'
+            '${t.isPendingSync ? ' Pendiente de sincronizar.' : ''}',
+        hint: 'Toca para editar',
+        button: true,
+        child: GestureDetector(
+          onTap: () => _openEditPage(t),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: t.isPendingSync
+                    ? AppColors.warning.withValues(alpha: 0.4)
+                    : AppColors.gray100,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHighlightedText(
-                      t.description?.isNotEmpty == true
-                          ? t.description!
-                          : t.category,
-                      _searchQuery,
-                      baseStyle: AppTypography.titleSmall(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: _buildHighlightedText(
-                            t.category,
-                            _searchQuery,
-                            baseStyle: AppTypography.bodySmall(
-                              color: AppColors.textTertiaryLight,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: _getCategoryColor(t.category).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Icon(
+                        _getCategoryIcon(t.category),
+                        color: _getCategoryColor(t.category),
+                        size: 20,
+                      ),
+                      // Indicador de sincronización pendiente (RNF-15)
+                      if (t.isPendingSync)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: AppColors.warning,
+                              borderRadius: BorderRadius.circular(7),
+                              border: Border.all(
+                                color: AppColors.white,
+                                width: 1.5,
+                              ),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.gray100,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            t.paymentMethod.label,
-                            style: AppTypography.badge(
-                              color: AppColors.textTertiaryLight,
+                            child: const Icon(
+                              Icons.cloud_upload_outlined,
+                              size: 8,
+                              color: AppColors.white,
                             ),
                           ),
                         ),
-                        // Badge de pendiente de sync (RNF-15)
-                        if (t.isPendingSync) ...[
+                      // Indicador de error de sincronización (RNF-15)
+                      if (t.hasSyncError)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: AppColors.error,
+                              borderRadius: BorderRadius.circular(7),
+                              border: Border.all(
+                                color: AppColors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.cloud_off_rounded,
+                              size: 8,
+                              color: AppColors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHighlightedText(
+                        t.description?.isNotEmpty == true
+                            ? t.description!
+                            : t.category,
+                        _searchQuery,
+                        baseStyle: AppTypography.titleSmall(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: _buildHighlightedText(
+                              t.category,
+                              _searchQuery,
+                              baseStyle: AppTypography.bodySmall(
+                                color: AppColors.textTertiaryLight,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1658,45 +1650,67 @@ class TransactionsPageState extends State<TransactionsPage> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.warningSoft,
+                              color: AppColors.gray100,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              'Pendiente',
+                              t.paymentMethod.label,
                               style: AppTypography.badge(
-                                color: AppColors.warningDark,
+                                color: AppColors.textTertiaryLight,
                               ),
                             ),
                           ),
+                          // Badge de pendiente de sync (RNF-15)
+                          if (t.isPendingSync) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.warningSoft,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Pendiente',
+                                style: AppTypography.badge(
+                                  color: AppColors.warningDark,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${t.isExpense ? '-' : '+'}${_formatCurrency(t.amount)}',
+                      style: AppTypography.titleSmall(
+                        color: t.isExpense
+                            ? AppColors.expense
+                            : AppColors.income,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatDate(t.date),
+                      style: AppTypography.bodySmall(
+                        color: AppColors.textTertiaryLight,
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${t.isExpense ? '-' : '+'}${_formatCurrency(t.amount)}',
-                    style: AppTypography.titleSmall(
-                      color: t.isExpense ? AppColors.expense : AppColors.income,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatDate(t.date),
-                    style: AppTypography.bodySmall(
-                      color: AppColors.textTertiaryLight,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+      ), // Semantics
     );
   }
 
