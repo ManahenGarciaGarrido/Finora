@@ -181,25 +181,38 @@ class BiometricService {
   /// Sólo activa si la autenticación es exitosa (seguridad de activación).
   Future<BiometricResult> enableBiometric() async {
     final available = await isAvailable();
+    print('[BIO] isAvailable: $available');
     if (!available) return BiometricResult.notAvailable;
 
     try {
+      final biometrics = await _localAuth.getAvailableBiometrics();
+      print('[BIO] Enrolled biometrics: $biometrics');
+
       final authenticated = await _localAuth.authenticate(
         localizedReason:
             'Confirma tu identidad para activar el acceso biométrico',
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: true, // Para activar, sólo biometría (no PIN)
+          biometricOnly: false,
           useErrorDialogs: true,
+          sensitiveTransaction: false,
         ),
       );
+      print('[BIO] authenticated result: $authenticated');
 
       if (authenticated) {
         await setBiometricEnabled(true);
         return BiometricResult.success;
       }
       return BiometricResult.canceled;
-    } on PlatformException {
+    } on PlatformException catch (e) {
+      print('[BIO] PlatformException → code: ${e.code}, msg: ${e.message}');
+      if (e.code == 'LockedOut' || e.code == 'PermanentlyLockedOut') {
+        return BiometricResult.error;
+      }
+      return BiometricResult.canceled;
+    } catch (e) {
+      print('[BIO] Error inesperado: $e');
       return BiometricResult.error;
     }
   }
