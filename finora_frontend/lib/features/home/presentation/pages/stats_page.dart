@@ -1,4 +1,4 @@
-/// Página de Estadísticas — RF-29 + RF-30
+/// Página de Estadísticas — RF-29 + RF-30 + RNF-11
 ///
 /// RF-29: Visualización de gastos por categoría
 ///  - Gráfico circular (pie chart) con porcentajes y tap para detalles
@@ -11,8 +11,14 @@
 ///  - Líneas múltiples: ingresos, gastos, balance
 ///  - Selector de período (3/6/12 meses, todo)
 ///  - Tooltips con valores exactos al pulsar
+///  - Zoom interactivo (pellizco para ampliar, botón de reset)
 ///  - Identificación de tendencias (media móvil)
 ///  - Leyenda clara y colores distintivos
+///
+/// RNF-11: Accesibilidad WCAG 2.1 AA
+///  - Semantics en todos los gráficos y elementos interactivos
+///  - Labels descriptivos para lectores de pantalla
+///  - Tamaños mínimos de tap targets (44x44 pts)
 library;
 
 import 'dart:math' as math;
@@ -184,6 +190,11 @@ class _StatsPageState extends State<StatsPage>
   late AnimationController _animController;
   late Animation<double> _animValue;
 
+  // RF-30: Zoom interactivo en gráfico de evolución temporal (HU-16)
+  final TransformationController _lineZoomController =
+      TransformationController();
+  bool _lineZoomed = false;
+
   @override
   void initState() {
     super.initState();
@@ -196,12 +207,21 @@ class _StatsPageState extends State<StatsPage>
       curve: Curves.easeOutCubic,
     );
     _animController.forward();
+    _lineZoomController.addListener(() {
+      final zoomed = _lineZoomController.value != Matrix4.identity();
+      if (zoomed != _lineZoomed) setState(() => _lineZoomed = zoomed);
+    });
   }
 
   @override
   void dispose() {
     _animController.dispose();
+    _lineZoomController.dispose();
     super.dispose();
+  }
+
+  void _resetLineZoom() {
+    _lineZoomController.value = Matrix4.identity();
   }
 
   void _onPeriodChanged(StatsPeriod p) {
@@ -914,164 +934,211 @@ class _StatsPageState extends State<StatsPage>
             ],
           ),
           const SizedBox(height: 16),
+          // RF-30 / HU-16: Indicador y botón de zoom interactivo
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.pinch_rounded, color: AppColors.gray400, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Pellizca para ampliar',
+                    style: AppTypography.labelSmall(color: AppColors.gray400),
+                  ),
+                ],
+              ),
+              if (_lineZoomed)
+                Semantics(
+                  button: true,
+                  label: 'Restablecer zoom al estado original',
+                  child: TextButton.icon(
+                    onPressed: _resetLineZoom,
+                    icon: const Icon(Icons.zoom_out_map_rounded, size: 16),
+                    label: const Text('Restablecer'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      minimumSize: const Size(44, 36),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Semantics(
             label:
                 'Gráfico de líneas de evolución temporal. '
+                'Usa pellizco para ampliar. '
                 'Toca un punto para ver los valores exactos.',
-            child: SizedBox(
-              height: 220,
-              child: AnimatedBuilder(
-                animation: _animValue,
-                builder: (_, __) => LineChart(
-                  LineChartData(
-                    minY: minY,
-                    maxY: maxY > 0 ? maxY : 100,
-                    clipData: const FlClipData.all(),
-                    gridData: FlGridData(
-                      show: true,
-                      getDrawingHorizontalLine: (_) =>
-                          FlLine(color: AppColors.gray100, strokeWidth: 1),
-                      drawVerticalLine: false,
-                    ),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 50,
-                          interval: maxY > 0 ? (maxY - minY) / 4 : 25,
-                          getTitlesWidget: (val, _) => Text(
-                            _fmtCompact(val),
-                            style: AppTypography.badge(
-                              color: AppColors.textTertiaryLight,
-                            ),
-                          ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 220,
+                child: InteractiveViewer(
+                  transformationController: _lineZoomController,
+                  minScale: 1.0,
+                  maxScale: 4.0,
+                  scaleEnabled: true,
+                  panEnabled: true,
+                  boundaryMargin: const EdgeInsets.all(20),
+                  child: AnimatedBuilder(
+                    animation: _animValue,
+                    builder: (_, __) => LineChart(
+                      LineChartData(
+                        minY: minY,
+                        maxY: maxY > 0 ? maxY : 100,
+                        clipData: const FlClipData.all(),
+                        gridData: FlGridData(
+                          show: true,
+                          getDrawingHorizontalLine: (_) =>
+                              FlLine(color: AppColors.gray100, strokeWidth: 1),
+                          drawVerticalLine: false,
                         ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          interval: math
-                              .max(1, months.length / 6)
-                              .floor()
-                              .toDouble(),
-                          getTitlesWidget: (val, _) {
-                            final idx = val.toInt();
-                            if (idx < 0 || idx >= months.length) {
-                              return const SizedBox.shrink();
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                _months[months[idx].month.month - 1],
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 50,
+                              interval: maxY > 0 ? (maxY - minY) / 4 : 25,
+                              getTitlesWidget: (val, _) => Text(
+                                _fmtCompact(val),
                                 style: AppTypography.badge(
                                   color: AppColors.textTertiaryLight,
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: math
+                                  .max(1, months.length / 6)
+                                  .floor()
+                                  .toDouble(),
+                              getTitlesWidget: (val, _) {
+                                final idx = val.toInt();
+                                if (idx < 0 || idx >= months.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    _months[months[idx].month.month - 1],
+                                    style: AppTypography.badge(
+                                      color: AppColors.textTertiaryLight,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                         ),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
+                        lineTouchData: LineTouchData(
+                          handleBuiltInTouches: true,
+                          touchTooltipData: LineTouchTooltipData(
+                            getTooltipColor: (_) => AppColors.textPrimaryLight
+                                .withValues(alpha: 0.92),
+                            tooltipRoundedRadius: 8,
+                            getTooltipItems: (spots) {
+                              final labels = [
+                                'Ingresos',
+                                'Gastos',
+                                'Balance',
+                                'Tendencia',
+                              ];
+                              return spots.map((spot) {
+                                final lbl = spot.barIndex < labels.length
+                                    ? labels[spot.barIndex]
+                                    : '';
+                                return LineTooltipItem(
+                                  '$lbl\n${_fmtCurrency(spot.y)}',
+                                  AppTypography.badge(color: Colors.white),
+                                );
+                              }).toList();
+                            },
+                          ),
+                        ),
+                        lineBarsData: [
+                          _lineSeries(
+                            months
+                                .asMap()
+                                .entries
+                                .map(
+                                  (e) => FlSpot(
+                                    e.key.toDouble(),
+                                    e.value.income * _animValue.value,
+                                  ),
+                                )
+                                .toList(),
+                            AppColors.success,
+                            isCurved: true,
+                            showArea: true,
+                          ),
+                          _lineSeries(
+                            months
+                                .asMap()
+                                .entries
+                                .map(
+                                  (e) => FlSpot(
+                                    e.key.toDouble(),
+                                    e.value.expenses * _animValue.value,
+                                  ),
+                                )
+                                .toList(),
+                            AppColors.error,
+                            isCurved: true,
+                            showArea: true,
+                          ),
+                          _lineSeries(
+                            months
+                                .asMap()
+                                .entries
+                                .map(
+                                  (e) => FlSpot(
+                                    e.key.toDouble(),
+                                    e.value.balance * _animValue.value,
+                                  ),
+                                )
+                                .toList(),
+                            AppColors.primary,
+                            isCurved: false,
+                            showDots: true,
+                          ),
+                          if (months.length >= 2)
+                            _lineSeries(
+                              months
+                                  .asMap()
+                                  .entries
+                                  .map(
+                                    (e) => FlSpot(
+                                      e.key.toDouble(),
+                                      movingAvg(e.key) * _animValue.value,
+                                    ),
+                                  )
+                                  .toList(),
+                              AppColors.warning,
+                              isCurved: true,
+                              isDashed: true,
+                            ),
+                        ],
                       ),
                     ),
-                    lineTouchData: LineTouchData(
-                      handleBuiltInTouches: true,
-                      touchTooltipData: LineTouchTooltipData(
-                        getTooltipColor: (_) =>
-                            AppColors.textPrimaryLight.withValues(alpha: 0.92),
-                        tooltipRoundedRadius: 8,
-                        getTooltipItems: (spots) {
-                          final labels = [
-                            'Ingresos',
-                            'Gastos',
-                            'Balance',
-                            'Tendencia',
-                          ];
-                          return spots.map((spot) {
-                            final lbl = spot.barIndex < labels.length
-                                ? labels[spot.barIndex]
-                                : '';
-                            return LineTooltipItem(
-                              '$lbl\n${_fmtCurrency(spot.y)}',
-                              AppTypography.badge(color: Colors.white),
-                            );
-                          }).toList();
-                        },
-                      ),
-                    ),
-                    lineBarsData: [
-                      _lineSeries(
-                        months
-                            .asMap()
-                            .entries
-                            .map(
-                              (e) => FlSpot(
-                                e.key.toDouble(),
-                                e.value.income * _animValue.value,
-                              ),
-                            )
-                            .toList(),
-                        AppColors.success,
-                        isCurved: true,
-                        showArea: true,
-                      ),
-                      _lineSeries(
-                        months
-                            .asMap()
-                            .entries
-                            .map(
-                              (e) => FlSpot(
-                                e.key.toDouble(),
-                                e.value.expenses * _animValue.value,
-                              ),
-                            )
-                            .toList(),
-                        AppColors.error,
-                        isCurved: true,
-                        showArea: true,
-                      ),
-                      _lineSeries(
-                        months
-                            .asMap()
-                            .entries
-                            .map(
-                              (e) => FlSpot(
-                                e.key.toDouble(),
-                                e.value.balance * _animValue.value,
-                              ),
-                            )
-                            .toList(),
-                        AppColors.primary,
-                        isCurved: false,
-                        showDots: true,
-                      ),
-                      if (months.length >= 2)
-                        _lineSeries(
-                          months
-                              .asMap()
-                              .entries
-                              .map(
-                                (e) => FlSpot(
-                                  e.key.toDouble(),
-                                  movingAvg(e.key) * _animValue.value,
-                                ),
-                              )
-                              .toList(),
-                          AppColors.warning,
-                          isCurved: true,
-                          isDashed: true,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+                  ), // closes AnimatedBuilder
+                ), // closes InteractiveViewer
+              ), // closes SizedBox(height:220)
+            ), // closes ClipRRect
+          ), // closes Semantics
         ],
       ),
     );

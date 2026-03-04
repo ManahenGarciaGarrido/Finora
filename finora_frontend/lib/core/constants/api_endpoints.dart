@@ -111,6 +111,12 @@ class ApiEndpoints {
   static const String detectAnomalies = '/ai/anomalies';
   // RF-24 / HU-11: Detección automática de suscripciones
   static const String detectSubscriptions = '/ai/subscriptions';
+  // RF-25 / HU-12 / CU-04: Asistente conversacional IA
+  static const String aiChat = '/ai/chat';
+  // RF-26 / HU-13: Análisis de affordability "¿Puedo permitírmelo?"
+  static const String aiAffordability = '/ai/affordability';
+  // RF-27 / HU-14: Recomendaciones de optimización financiera
+  static const String aiRecommendations = '/ai/recommendations';
 
   // RF-29 / RF-30: Statistics endpoints (backend /api/v1/stats/*)
   static const String statsSummary = '/stats/summary';
