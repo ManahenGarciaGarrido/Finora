@@ -482,3 +482,68 @@ CREATE INDEX IF NOT EXISTS idx_transactions_user_type_date
 -- Índice para búsquedas combinadas usuario + categoría + fecha
 CREATE INDEX IF NOT EXISTS idx_transactions_user_category_date
     ON transactions(user_id, category, date DESC);
+
+-- ============================================
+-- RF-18 / RF-19 / RF-20 / HU-07: SAVINGS GOALS
+-- Objetivos de ahorro con progreso visual y motivación
+-- ============================================
+
+-- Iconos disponibles para objetivos (enum abierto, se amplía en app)
+-- Valores: house, car, travel, education, emergency, wedding, tech,
+--          business, health, retirement, gift, other
+
+CREATE TABLE IF NOT EXISTS savings_goals (
+    id              UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id         UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name            VARCHAR(120) NOT NULL,
+    icon            VARCHAR(40)  NOT NULL DEFAULT 'other',   -- nombre del icono (RF-18)
+    color           VARCHAR(7)   NOT NULL DEFAULT '#6C63FF', -- hex color personalizable
+    target_amount   NUMERIC(12,2) NOT NULL CHECK (target_amount > 0),
+    current_amount  NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (current_amount >= 0),
+    deadline        DATE,                                    -- fecha límite opcional (RF-18)
+    category        VARCHAR(100),                            -- categoría asociada opcional
+    notes           TEXT,
+    -- Estado: active (en progreso) | completed (100%) | cancelled (abandonado)
+    status          VARCHAR(20)  NOT NULL DEFAULT 'active'
+                       CHECK (status IN ('active', 'completed', 'cancelled')),
+    -- Recomendación mensual de IA (RF-21): calculada al crear/actualizar
+    monthly_target  NUMERIC(10,2),                           -- aportación mensual sugerida
+    ai_feasibility  VARCHAR(20),                             -- viable | difficult | not_viable
+    ai_explanation  TEXT,                                    -- justificación del cálculo
+    completed_at    TIMESTAMP,
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_savings_goals_user_id ON savings_goals(user_id);
+CREATE INDEX IF NOT EXISTS idx_savings_goals_status  ON savings_goals(user_id, status);
+
+DROP TRIGGER IF EXISTS update_savings_goals_updated_at ON savings_goals;
+CREATE TRIGGER update_savings_goals_updated_at
+    BEFORE UPDATE ON savings_goals
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- RF-20: GOAL CONTRIBUTIONS
+-- Historial de aportaciones a cada objetivo de ahorro
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS goal_contributions (
+    id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    goal_id     UUID         NOT NULL REFERENCES savings_goals(id) ON DELETE CASCADE,
+    user_id     UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount      NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+    date        DATE         NOT NULL DEFAULT CURRENT_DATE,
+    note        VARCHAR(255),  -- nota opcional (RF-20)
+    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_goal_contributions_goal_id ON goal_contributions(goal_id);
+CREATE INDEX IF NOT EXISTS idx_goal_contributions_user_id ON goal_contributions(user_id);
+CREATE INDEX IF NOT EXISTS idx_goal_contributions_date    ON goal_contributions(goal_id, date DESC);
+
+DROP TRIGGER IF EXISTS update_goal_contributions_updated_at ON goal_contributions;
+CREATE TRIGGER update_goal_contributions_updated_at
+    BEFORE UPDATE ON goal_contributions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
