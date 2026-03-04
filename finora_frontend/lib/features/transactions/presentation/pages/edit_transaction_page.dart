@@ -490,7 +490,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
 
     // Mostrar diálogo de confirmación antes de guardar (RF-06)
     final confirmed = await _showConfirmationDialog();
-    if (!confirmed) return;
+    if (!mounted || !confirmed) return;
 
     setState(() => _isSubmitting = true);
 
@@ -544,14 +544,13 @@ class _EditTransactionPageState extends State<EditTransactionPage>
 
       // Ofrecer recategorización masiva de similares
       await Future.delayed(const Duration(milliseconds: 400));
-      if (mounted) {
-        _offerBulkRecategorize(
-          context,
-          description: description,
-          type: _selectedType.apiValue,
-          newCategory: _selectedCategory!,
-        );
-      }
+      if (!mounted) return;
+      _offerBulkRecategorize(
+        context,
+        description: description,
+        type: _selectedType.apiValue,
+        newCategory: _selectedCategory!,
+      );
     }
 
     await Future.delayed(const Duration(milliseconds: 400));
@@ -630,6 +629,8 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   // =========================================================================
 
   Future<void> _confirmDelete(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final transactionBloc = context.read<TransactionBloc>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -710,10 +711,10 @@ class _EditTransactionPageState extends State<EditTransactionPage>
     );
 
     if (confirmed == true && mounted) {
-      context.read<TransactionBloc>().add(
+      transactionBloc.add(
         DeleteTransaction(transactionId: widget.transaction.id!),
       );
-      Navigator.pop(context); // Cerrar página de edición
+      navigator.pop();
     }
   }
 
