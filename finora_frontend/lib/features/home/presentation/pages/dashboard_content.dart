@@ -14,6 +14,7 @@ import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/pages/edit_transaction_page.dart';
 import '../../../categories/domain/entities/category_entity.dart';
+import 'predictions_page.dart'; // RF-22/HU-09 + RF-21/HU-08
 
 /// Contenido del Dashboard principal
 class DashboardContent extends StatefulWidget {
@@ -76,9 +77,10 @@ class _DashboardContentState extends State<DashboardContent>
       duration: const Duration(milliseconds: 1100),
       vsync: this,
     )..repeat(reverse: true);
-    _shimmerAnim = Tween<double>(begin: 0.35, end: 0.85).animate(
-      CurvedAnimation(parent: _shimmerCtrl, curve: Curves.easeInOut),
-    );
+    _shimmerAnim = Tween<double>(
+      begin: 0.35,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _shimmerCtrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -131,7 +133,8 @@ class _DashboardContentState extends State<DashboardContent>
               child: BlocBuilder<TransactionBloc, TransactionState>(
                 builder: (ctx, state) {
                   final isLoading =
-                      state is TransactionInitial || state is TransactionLoading;
+                      state is TransactionInitial ||
+                      state is TransactionLoading;
                   return AnimatedSwitcher(
                     duration: const Duration(milliseconds: 400),
                     switchInCurve: Curves.easeOut,
@@ -191,6 +194,11 @@ class _DashboardContentState extends State<DashboardContent>
                               Padding(
                                 padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
                                 child: _buildRecurringExpenses(context),
+                              ),
+                              // RF-22/HU-09 + RF-21/HU-08: Tarjeta de Predicciones IA
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                child: _buildAiPredictionsCard(context),
                               ),
                             ],
                           ),
@@ -258,6 +266,9 @@ class _DashboardContentState extends State<DashboardContent>
                     child: Column(
                       children: [
                         _buildRecurringExpenses(context),
+                        const SizedBox(height: 16),
+                        // RF-22/HU-09 + RF-21/HU-08: Tarjeta Predicciones IA (tablet)
+                        _buildAiPredictionsCard(context),
                         const SizedBox(height: 16),
                         _buildSectionHeader(
                           'Últimas transacciones',
@@ -521,8 +532,18 @@ class _DashboardContentState extends State<DashboardContent>
     List<TransactionEntity> all,
   ) {
     const labels = [
-      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
     ];
     final now = DateTime.now();
     return List.generate(6, (i) {
@@ -537,9 +558,7 @@ class _DashboardContentState extends State<DashboardContent>
           .toList();
       return (
         label: labels[m - 1],
-        income: txs
-            .where((t) => t.isIncome)
-            .fold(0.0, (s, t) => s + t.amount),
+        income: txs.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount),
         expense: txs
             .where((t) => t.isExpense)
             .fold(0.0, (s, t) => s + t.amount),
@@ -567,8 +586,7 @@ class _DashboardContentState extends State<DashboardContent>
     for (final entry in groups.entries) {
       final txs = entry.value;
       if (txs.length < 2) continue;
-      final months =
-          txs.map((t) => '${t.date.year}-${t.date.month}').toSet();
+      final months = txs.map((t) => '${t.date.year}-${t.date.month}').toSet();
       if (months.length < 2) continue;
       txs.sort((a, b) => b.date.compareTo(a.date));
       final latest = txs.first;
@@ -589,8 +607,10 @@ class _DashboardContentState extends State<DashboardContent>
         });
       }
     }
-    recurring.sort((a, b) =>
-        (a['nextDate'] as DateTime).compareTo(b['nextDate'] as DateTime));
+    recurring.sort(
+      (a, b) =>
+          (a['nextDate'] as DateTime).compareTo(b['nextDate'] as DateTime),
+    );
     return recurring;
   }
 
@@ -621,117 +641,117 @@ class _DashboardContentState extends State<DashboardContent>
           switchInCurve: Curves.easeOut,
           child: Container(
             key: const ValueKey('balance_loaded'),
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Balance total',
-                    style: AppTypography.labelMedium(
-                      color: AppColors.white.withValues(alpha: 0.75),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () =>
-                        setState(() => _balanceVisible = !_balanceVisible),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        _balanceVisible
-                            ? Icons.visibility_rounded
-                            : Icons.visibility_off_rounded,
-                        color: AppColors.white.withValues(alpha: 0.8),
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: Text(
-                  _balanceVisible ? _formatCurrency(balance) : '••••••',
-                  key: ValueKey(_balanceVisible ? 'v' : 'h'),
-                  style: AppTypography.moneyLarge(color: AppColors.white),
-                ),
-              ),
-              if (income == 0 && expenses == 0) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Registra tu primera transacción para ver tu balance',
-                    style: AppTypography.labelSmall(color: AppColors.white),
-                  ),
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
                 ),
               ],
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildBalanceIndicator(
-                      icon: Icons.south_west_rounded,
-                      label: 'Ingresos',
-                      amount: _balanceVisible
-                          ? _formatCurrency(income)
-                          : '••••',
-                      color: AppColors.successLight,
+                    Text(
+                      'Balance total',
+                      style: AppTypography.labelMedium(
+                        color: AppColors.white.withValues(alpha: 0.75),
+                      ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 36,
-                      color: AppColors.white.withValues(alpha: 0.15),
-                    ),
-                    _buildBalanceIndicator(
-                      icon: Icons.north_east_rounded,
-                      label: 'Gastos',
-                      amount: _balanceVisible
-                          ? _formatCurrency(expenses)
-                          : '••••',
-                      color: AppColors.errorLight,
+                    GestureDetector(
+                      onTap: () =>
+                          setState(() => _balanceVisible = !_balanceVisible),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          _balanceVisible
+                              ? Icons.visibility_rounded
+                              : Icons.visibility_off_rounded,
+                          color: AppColors.white.withValues(alpha: 0.8),
+                          size: 16,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ), // cierra Container (tarjeta de balance)
+                const SizedBox(height: 8),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: Text(
+                    _balanceVisible ? _formatCurrency(balance) : '••••••',
+                    key: ValueKey(_balanceVisible ? 'v' : 'h'),
+                    style: AppTypography.moneyLarge(color: AppColors.white),
+                  ),
+                ),
+                if (income == 0 && expenses == 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Registra tu primera transacción para ver tu balance',
+                      style: AppTypography.labelSmall(color: AppColors.white),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildBalanceIndicator(
+                        icon: Icons.south_west_rounded,
+                        label: 'Ingresos',
+                        amount: _balanceVisible
+                            ? _formatCurrency(income)
+                            : '••••',
+                        color: AppColors.successLight,
+                      ),
+                      Container(
+                        width: 1,
+                        height: 36,
+                        color: AppColors.white.withValues(alpha: 0.15),
+                      ),
+                      _buildBalanceIndicator(
+                        icon: Icons.north_east_rounded,
+                        label: 'Gastos',
+                        amount: _balanceVisible
+                            ? _formatCurrency(expenses)
+                            : '••••',
+                        color: AppColors.errorLight,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ), // cierra Container (tarjeta de balance)
         ); // cierra AnimatedSwitcher
       },
     );
@@ -802,10 +822,15 @@ class _DashboardContentState extends State<DashboardContent>
           label: 'Escanear',
           color: AppColors.accent,
         ),
+        // RF-22/HU-09: Acceso rápido a Predicciones IA desde acciones rápidas
         _buildActionButton(
-          icon: Icons.more_horiz_rounded,
-          label: 'Más',
-          color: AppColors.gray500,
+          icon: Icons.auto_awesome_rounded,
+          label: 'IA',
+          color: const Color(0xFF6C63FF),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PredictionsPage()),
+          ),
         ),
       ],
     );
@@ -1111,8 +1136,9 @@ class _DashboardContentState extends State<DashboardContent>
   Widget _buildSpendingChart(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
-        final all =
-            state is TransactionsLoaded ? state.transactions : <TransactionEntity>[];
+        final all = state is TransactionsLoaded
+            ? state.transactions
+            : <TransactionEntity>[];
         final thisMonth = _thisMonthTxs(all);
 
         // Construir mapa de categorías con gastos del mes actual
@@ -1141,9 +1167,15 @@ class _DashboardContentState extends State<DashboardContent>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Top gastos del mes', style: AppTypography.titleMedium()),
+                  Text(
+                    'Top gastos del mes',
+                    style: AppTypography.titleMedium(),
+                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.errorSoft,
                       borderRadius: BorderRadius.circular(6),
@@ -1276,8 +1308,9 @@ class _DashboardContentState extends State<DashboardContent>
   Widget _buildIncomeExpenseChart(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
-        final all =
-            state is TransactionsLoaded ? state.transactions : <TransactionEntity>[];
+        final all = state is TransactionsLoaded
+            ? state.transactions
+            : <TransactionEntity>[];
         final data = _last6MonthsData(all);
         final maxVal = data.fold(
           0.0,
@@ -1297,7 +1330,10 @@ class _DashboardContentState extends State<DashboardContent>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Ingresos vs Gastos', style: AppTypography.titleMedium()),
+                  Text(
+                    'Ingresos vs Gastos',
+                    style: AppTypography.titleMedium(),
+                  ),
                   Row(
                     children: [
                       _buildLegendDot(AppColors.success),
@@ -1376,12 +1412,13 @@ class _DashboardContentState extends State<DashboardContent>
                                       child: Container(
                                         height: incomeH,
                                         decoration: BoxDecoration(
-                                          color: AppColors.success
-                                              .withValues(alpha: 0.80),
+                                          color: AppColors.success.withValues(
+                                            alpha: 0.80,
+                                          ),
                                           borderRadius:
                                               const BorderRadius.vertical(
-                                            top: Radius.circular(3),
-                                          ),
+                                                top: Radius.circular(3),
+                                              ),
                                         ),
                                       ),
                                     ),
@@ -1390,12 +1427,13 @@ class _DashboardContentState extends State<DashboardContent>
                                       child: Container(
                                         height: expenseH,
                                         decoration: BoxDecoration(
-                                          color: AppColors.error
-                                              .withValues(alpha: 0.80),
+                                          color: AppColors.error.withValues(
+                                            alpha: 0.80,
+                                          ),
                                           borderRadius:
                                               const BorderRadius.vertical(
-                                            top: Radius.circular(3),
-                                          ),
+                                                top: Radius.circular(3),
+                                              ),
                                         ),
                                       ),
                                     ),
@@ -1441,8 +1479,9 @@ class _DashboardContentState extends State<DashboardContent>
   Widget _buildGoalsSection(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
-        final all =
-            state is TransactionsLoaded ? state.transactions : <TransactionEntity>[];
+        final all = state is TransactionsLoaded
+            ? state.transactions
+            : <TransactionEntity>[];
         final thisMonth = _thisMonthTxs(all);
 
         final income = thisMonth
@@ -1454,8 +1493,9 @@ class _DashboardContentState extends State<DashboardContent>
         final savings = income - expenses;
         final savingsRate = income > 0 ? savings / income : 0.0;
         final expenseRatio = income > 0 ? expenses / income : 0.0;
-        final allTimeBalance =
-            state is TransactionsLoaded ? state.balance : 0.0;
+        final allTimeBalance = state is TransactionsLoaded
+            ? state.balance
+            : 0.0;
 
         final goals = [
           (
@@ -1523,7 +1563,7 @@ class _DashboardContentState extends State<DashboardContent>
       String progressLabel,
       bool achieved,
     })
-        goal,
+    goal,
   ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -1609,8 +1649,9 @@ class _DashboardContentState extends State<DashboardContent>
   Widget _buildRecurringExpenses(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
-        final all =
-            state is TransactionsLoaded ? state.transactions : <TransactionEntity>[];
+        final all = state is TransactionsLoaded
+            ? state.transactions
+            : <TransactionEntity>[];
         final recurring = _detectRecurring(all);
 
         return Container(
@@ -1625,10 +1666,7 @@ class _DashboardContentState extends State<DashboardContent>
             children: [
               Row(
                 children: [
-                  Text(
-                    'Próximos gastos',
-                    style: AppTypography.titleMedium(),
-                  ),
+                  Text('Próximos gastos', style: AppTypography.titleMedium()),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -1694,8 +1732,8 @@ class _DashboardContentState extends State<DashboardContent>
     final label = daysUntil == 0
         ? 'Hoy'
         : daysUntil == 1
-            ? 'Mañana'
-            : 'En $daysUntil días';
+        ? 'Mañana'
+        : 'En $daysUntil días';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1703,9 +1741,7 @@ class _DashboardContentState extends State<DashboardContent>
       decoration: BoxDecoration(
         color: AppColors.warningSoft,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.warning.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -1734,9 +1770,7 @@ class _DashboardContentState extends State<DashboardContent>
                 ),
                 Text(
                   label,
-                  style: AppTypography.bodySmall(
-                    color: AppColors.warningDark,
-                  ),
+                  style: AppTypography.bodySmall(color: AppColors.warningDark),
                 ),
               ],
             ),
@@ -1751,13 +1785,87 @@ class _DashboardContentState extends State<DashboardContent>
   }
 
   // ============================================
+  // RF-22/HU-09 + RF-21/HU-08: TARJETA PREDICCIONES IA
+  // Acceso rápido a predicciones de gastos ML y recomendaciones de ahorro
+  // ============================================
+
+  Widget _buildAiPredictionsCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PredictionsPage()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6C63FF), Color(0xFF3B82F6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.30),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Predicciones IA',
+                    style: AppTypography.titleSmall(color: Colors.white),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Gastos del próximo mes y\nrecomendaciones de ahorro',
+                    style: AppTypography.bodySmall(
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================
   // MONTHLY OVERVIEW (RF-28: mes actual + comparativa)
   // ============================================
   Widget _buildMonthlyOverview(BuildContext context) {
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
-        final all =
-            state is TransactionsLoaded ? state.transactions : <TransactionEntity>[];
+        final all = state is TransactionsLoaded
+            ? state.transactions
+            : <TransactionEntity>[];
         final thisMonth = _thisMonthTxs(all);
         final lastMonth = _lastMonthTxs(all);
 
@@ -1816,7 +1924,9 @@ class _DashboardContentState extends State<DashboardContent>
                       value: _formatCurrency(income),
                       color: AppColors.success,
                       badgeWidget: _buildComparisonBadge(
-                        income, prevIncome, false,
+                        income,
+                        prevIncome,
+                        false,
                       ),
                     ),
                   ),
@@ -1828,7 +1938,9 @@ class _DashboardContentState extends State<DashboardContent>
                       value: _formatCurrency(expenses),
                       color: AppColors.error,
                       badgeWidget: _buildComparisonBadge(
-                        expenses, prevExpenses, true,
+                        expenses,
+                        prevExpenses,
+                        true,
                       ),
                     ),
                   ),
@@ -1838,7 +1950,9 @@ class _DashboardContentState extends State<DashboardContent>
                       icon: Icons.savings_outlined,
                       label: 'Ahorro',
                       value: _formatCurrency(savings),
-                      color: savings >= 0 ? AppColors.accent : AppColors.warning,
+                      color: savings >= 0
+                          ? AppColors.accent
+                          : AppColors.warning,
                     ),
                   ),
                 ],
@@ -1892,8 +2006,9 @@ class _DashboardContentState extends State<DashboardContent>
     final isIncrease = diff > 0;
     final isGood = isExpense ? !isIncrease : isIncrease;
     final color = isGood ? AppColors.success : AppColors.error;
-    final icon =
-        isIncrease ? Icons.trending_up_rounded : Icons.trending_down_rounded;
+    final icon = isIncrease
+        ? Icons.trending_up_rounded
+        : Icons.trending_down_rounded;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
