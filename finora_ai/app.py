@@ -792,6 +792,252 @@ def predict_expenses():
     })
 
 
+# ─── RF-23 / HU-10: Detección de anomalías en gastos ────────────────────────
+
+@app.route('/detect-anomalies', methods=['POST'])
+def detect_anomalies():
+    """
+    RF-23 / HU-10: Detecta gastos inusuales usando Z-score por categoría.
+
+    Un gasto se considera anómalo si su Z-score > 2.0 (> 2 desviaciones estándar
+    sobre la media histórica de esa categoría). Severidad 'high' si Z > 3.0.
+
+    Requiere mínimo 3 transacciones por categoría para calcular estadísticas.
+
+    Body: {
+        "transactions": [{ "id", "amount", "type", "category", "date", "description" }]
+    }
+    Returns: {
+        "anomalies": [...],
+        "total_anomalies": int,
+        "categories_analyzed": int,
+        "summary": { category: { mean, std, count } }
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    transactions = data.get('transactions', [])
+
+    # Agrupar gastos por categoría
+    cat_history: dict = defaultdict(list)
+    for tx in transactions:
+        if tx.get('type') != 'expense':
+            continue
+        cat    = tx.get('category', 'Otros')
+        amount = float(tx.get('amount', 0))
+        if amount <= 0:
+            continue
+        cat_history[cat].append({
+            'id':          tx.get('id', ''),
+            'amount':      amount,
+            'date':        tx.get('date', ''),
+            'description': tx.get('description', '') or cat,
+        })
+
+    anomalies  = []
+    cat_stats  = {}
+
+    for cat, txs in cat_history.items():
+        if len(txs) < 3:
+            continue
+
+        amounts = [t['amount'] for t in txs]
+        mean    = float(np.mean(amounts))
+        std     = float(np.std(amounts))
+        cat_stats[cat] = {'mean': round(mean, 2), 'std': round(std, 2), 'count': len(txs)}
+
+        if std < 0.01:
+            # Todos los importes son iguales → no hay anomalías
+            continue
+
+        for tx in txs:
+            z_score = (tx['amount'] - mean) / std
+            if z_score <= 2.0:
+                continue
+
+            severity      = 'high' if z_score >= 3.0 else 'medium'
+            pct_above_avg = round((tx['amount'] - mean) / mean * 100, 1)
+
+            anomalies.append({
+                'id':              tx['id'],
+                'date':            tx['date'],
+                'category':        cat,
+                'amount':          round(tx['amount'], 2),
+                'mean_amount':     round(mean, 2),
+                'z_score':         round(z_score, 2),
+                'percent_above_avg': pct_above_avg,
+                'severity':        severity,
+                'description':     tx['description'],
+                'message':         (
+                    f"Gasto {pct_above_avg:.0f}% superior al promedio de {cat} "
+                    f"({mean:.2f}€ de media)"
+                ),
+            })
+
+    # Ordenar: más recientes primero, después por severidad
+    anomalies.sort(key=lambda x: (x['date'], x['z_score']), reverse=True)
+
+    logger.info(
+        f"[detect-anomalies] {len(cat_history)} categorías | "
+        f"{len(anomalies)} anomalías encontradas"
+    )
+
+    return jsonify({
+        'anomalies':           anomalies[:30],
+        'total_anomalies':     len(anomalies),
+        'categories_analyzed': len(cat_history),
+        'category_stats':      cat_stats,
+    })
+
+
+# ─── RF-24 / HU-11: Detección automática de suscripciones ───────────────────
+
+@app.route('/detect-subscriptions', methods=['POST'])
+def detect_subscriptions():
+    """
+    RF-24 / HU-11: Identifica suscripciones y gastos recurrentes automáticamente.
+
+    Algoritmo:
+    1. Agrupa gastos por descripción normalizada (TF-IDF clean text)
+    2. Filtra grupos con ≥ 2 ocurrencias y variación de importe < 10%
+    3. Calcula intervalos entre fechas → clasifica periodicidad:
+       semanal (6-8d), mensual (25-35d), trimestral (85-95d), anual (330-400d)
+    4. Calcula coste mensual equivalente y próximo cargo estimado
+
+    Body: {
+        "transactions": [{ "amount", "type", "category", "date", "description" }]
+    }
+    Returns: {
+        "subscriptions": [...],
+        "total_subscriptions": int,
+        "total_monthly_cost": float,
+        "total_annual_cost": float
+    }
+    """
+    from datetime import datetime, timedelta
+
+    data = request.get_json(silent=True) or {}
+    transactions = data.get('transactions', [])
+
+    # Agrupar gastos por descripción normalizada
+    desc_groups: dict = defaultdict(list)
+    for tx in transactions:
+        if tx.get('type') != 'expense':
+            continue
+        amount = float(tx.get('amount', 0))
+        if amount <= 0:
+            continue
+
+        raw_desc = (tx.get('description') or '').strip()
+        clean    = _clean_text(raw_desc) if raw_desc else ''
+        # Si la descripción limpia es muy corta, usar categoría como clave alternativa
+        key = clean if len(clean) >= 3 else tx.get('category', 'sin_descripcion')
+
+        desc_groups[key].append({
+            'amount':      amount,
+            'date':        tx.get('date', ''),
+            'description': raw_desc or tx.get('category', ''),
+            'category':    tx.get('category', 'Otros'),
+        })
+
+    subscriptions = []
+
+    for key, txs in desc_groups.items():
+        if len(txs) < 2:
+            continue
+
+        # Ordenar por fecha
+        try:
+            txs_sorted = sorted(txs, key=lambda x: x['date'])
+        except Exception:
+            continue
+
+        # Verificar que los importes son similares (variación < 10%)
+        amounts     = [t['amount'] for t in txs_sorted]
+        mean_amount = float(np.mean(amounts))
+        if mean_amount <= 0:
+            continue
+        amount_std = float(np.std(amounts))
+        variation  = amount_std / mean_amount
+
+        if variation > 0.10:
+            continue  # Importe demasiado variable para ser suscripción
+
+        # Calcular intervalos entre fechas consecutivas
+        dates = []
+        for tx in txs_sorted:
+            try:
+                dates.append(datetime.strptime(tx['date'], '%Y-%m-%d'))
+            except Exception:
+                pass
+
+        if len(dates) < 2:
+            continue
+
+        intervals  = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+        mean_interval = float(np.mean(intervals))
+        interval_std  = float(np.std(intervals))
+
+        # Rechazar si la periodicidad es muy irregular
+        if len(intervals) > 1 and mean_interval > 0 and interval_std / mean_interval > 0.25:
+            continue
+
+        # Clasificar periodicidad
+        if 6 <= mean_interval <= 8:
+            period       = 'weekly'
+            period_label = 'Semanal'
+            monthly_cost = mean_amount * 4.33
+        elif 25 <= mean_interval <= 35:
+            period       = 'monthly'
+            period_label = 'Mensual'
+            monthly_cost = mean_amount
+        elif 85 <= mean_interval <= 95:
+            period       = 'quarterly'
+            period_label = 'Trimestral'
+            monthly_cost = mean_amount / 3
+        elif 330 <= mean_interval <= 400:
+            period       = 'annual'
+            period_label = 'Anual'
+            monthly_cost = mean_amount / 12
+        else:
+            continue  # Periodicidad no reconocida
+
+        # Próximo cargo estimado
+        last_date   = dates[-1]
+        next_charge = (last_date + timedelta(days=int(round(mean_interval)))).strftime('%Y-%m-%d')
+        days_until  = (datetime.strptime(next_charge, '%Y-%m-%d') - datetime.now()).days
+
+        subscriptions.append({
+            'name':             txs_sorted[-1]['description'] or key,
+            'category':         txs_sorted[-1]['category'],
+            'amount':           round(mean_amount, 2),
+            'monthly_cost':     round(monthly_cost, 2),
+            'periodicity':      period,
+            'periodicity_label': period_label,
+            'occurrences':      len(txs_sorted),
+            'last_charge':      txs_sorted[-1]['date'],
+            'next_charge':      next_charge,
+            'days_until_next':  days_until,
+            'amount_variation': round(variation * 100, 1),
+        })
+
+    # Ordenar por coste mensual descendente
+    subscriptions.sort(key=lambda x: -x['monthly_cost'])
+    total_monthly = sum(s['monthly_cost'] for s in subscriptions)
+
+    logger.info(
+        f"[detect-subscriptions] {len(desc_groups)} grupos | "
+        f"{len(subscriptions)} suscripciones detectadas | "
+        f"coste mensual total={total_monthly:.2f}€"
+    )
+
+    return jsonify({
+        'subscriptions':      subscriptions,
+        'total_subscriptions': len(subscriptions),
+        'total_monthly_cost': round(total_monthly, 2),
+        'total_annual_cost':  round(total_monthly * 12, 2),
+    })
+
+
 # ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 _load_models()
