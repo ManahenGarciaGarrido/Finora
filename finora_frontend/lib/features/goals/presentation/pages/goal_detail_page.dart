@@ -31,14 +31,26 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
     context.read<GoalBloc>().add(LoadContributions(_goal.id));
   }
 
+  /// HU-07: Convierte el string de color de progreso ('red'/'yellow'/'green') a Color
+  Color _resolveProgressColor(String progressColor) {
+    switch (progressColor) {
+      case 'green':
+        return AppColors.success;
+      case 'yellow':
+        return AppColors.warning;
+      case 'red':
+        return AppColors.error;
+      default:
+        return AppColors.primary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final goalColor = Color(
       int.parse(_goal.color.replaceAll('#', 'FF'), radix: 16),
     );
-    final progressColor = Color(
-      int.parse(_goal.progressColor.replaceAll('#', 'FF'), radix: 16),
-    );
+    final progressColor = _resolveProgressColor(_goal.progressColor);
 
     return BlocConsumer<GoalBloc, GoalState>(
       listener: (context, state) {
