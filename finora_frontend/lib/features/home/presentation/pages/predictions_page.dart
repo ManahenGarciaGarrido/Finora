@@ -4,6 +4,7 @@
 /// Página que muestra las predicciones ML del próximo mes (Ridge/RF/GBM)
 /// y recomendaciones de ahorro basadas en el análisis de historial.
 /// Algoritmos: rf22_prediccion_gastos_ml.ipynb + rf21_hu08_ahorro_inteligente.ipynb
+library;
 
 import 'package:flutter/material.dart';
 
@@ -58,17 +59,19 @@ class _PredictionsPageState extends State<PredictionsPage>
     });
     try {
       final result = await _aiService.predictExpenses(months: 12);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _predictionsResult = result;
           _loadingPredictions = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _predictionsError = e.toString();
           _loadingPredictions = false;
         });
+      }
     }
   }
 
@@ -79,17 +82,19 @@ class _PredictionsPageState extends State<PredictionsPage>
     });
     try {
       final result = await _aiService.getSavingsRecommendations(months: 3);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _savingsResult = result;
           _loadingSavings = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _savingsError = e.toString();
           _loadingSavings = false;
         });
+      }
     }
   }
 

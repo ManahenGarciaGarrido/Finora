@@ -49,7 +49,8 @@ class _RegisterPageState extends State<RegisterPage>
   bool _isSuccess = false;
   bool _acceptTerms = false;
   bool _acceptPrivacy = false;
-  bool _hasCustomizedConsents = false; // Tracks if user manually configured consents
+  bool _hasCustomizedConsents =
+      false; // Tracks if user manually configured consents
   Map<String, bool> _consents = {
     'essential': true,
     'analytics': true,
@@ -225,7 +226,7 @@ class _RegisterPageState extends State<RegisterPage>
       });
       // Mostrar diálogo de verificación de email
       Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
+        if (context.mounted) {
           _showEmailVerificationDialog(context, state.user.email);
         }
       });
@@ -843,7 +844,10 @@ class _RegisterPageState extends State<RegisterPage>
                   SizedBox(height: 24),
                   Text(
                     'Última actualización: Febrero 2026',
-                    style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
               ),
@@ -889,7 +893,10 @@ class _RegisterPageState extends State<RegisterPage>
                   children: [
                     const Text(
                       'Política de Privacidad',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -906,7 +913,10 @@ class _RegisterPageState extends State<RegisterPage>
                   children: [
                     const Text(
                       'Gestión de Consentimientos',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -916,35 +926,47 @@ class _RegisterPageState extends State<RegisterPage>
                     ),
                     const SizedBox(height: 16),
                     _buildConsentOption(
-                      setSheetState, localConsents,
-                      'essential', 'Cookies y datos esenciales',
+                      setSheetState,
+                      localConsents,
+                      'essential',
+                      'Cookies y datos esenciales',
                       'Necesarios para el funcionamiento básico de la aplicación.',
                       required: true,
                     ),
                     _buildConsentOption(
-                      setSheetState, localConsents,
-                      'data_processing', 'Procesamiento de datos financieros',
+                      setSheetState,
+                      localConsents,
+                      'data_processing',
+                      'Procesamiento de datos financieros',
                       'Procesar tus transacciones para ofrecerte análisis financiero.',
                       required: true,
                     ),
                     _buildConsentOption(
-                      setSheetState, localConsents,
-                      'analytics', 'Análisis y mejora del servicio',
+                      setSheetState,
+                      localConsents,
+                      'analytics',
+                      'Análisis y mejora del servicio',
                       'Nos permite analizar cómo usas la app para mejorar la experiencia.',
                     ),
                     _buildConsentOption(
-                      setSheetState, localConsents,
-                      'marketing', 'Comunicaciones de marketing',
+                      setSheetState,
+                      localConsents,
+                      'marketing',
+                      'Comunicaciones de marketing',
                       'Te enviaremos ofertas, novedades y consejos financieros.',
                     ),
                     _buildConsentOption(
-                      setSheetState, localConsents,
-                      'third_party', 'Compartir datos con terceros',
+                      setSheetState,
+                      localConsents,
+                      'third_party',
+                      'Compartir datos con terceros',
                       'Compartir información con socios para productos relevantes.',
                     ),
                     _buildConsentOption(
-                      setSheetState, localConsents,
-                      'personalization', 'Personalización del servicio',
+                      setSheetState,
+                      localConsents,
+                      'personalization',
+                      'Personalización del servicio',
                       'Usar tus datos para personalizar recomendaciones y alertas.',
                     ),
                     const SizedBox(height: 16),
@@ -952,7 +974,10 @@ class _RegisterPageState extends State<RegisterPage>
                     const SizedBox(height: 16),
                     const Text(
                       'Resumen de la Política',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -1015,14 +1040,20 @@ class _RegisterPageState extends State<RegisterPage>
               Expanded(child: Text(title)),
               if (required)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade100,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     'Requerido',
-                    style: TextStyle(fontSize: 10, color: Colors.orange.shade800),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.orange.shade800,
+                    ),
                   ),
                 ),
             ],

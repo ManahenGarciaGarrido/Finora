@@ -603,7 +603,9 @@ class _AccountsPageState extends State<AccountsPage> {
               ),
             ),
           ).then((_) {
-            context.read<BankBloc>().add(const LoadBankAccounts());
+            if (context.mounted) {
+              context.read<BankBloc>().add(const LoadBankAccounts());
+            }
           });
         } else if (state is BankConnectPendingSetup) {
           // Mock mode: navigate to setup page to configure the account
@@ -634,7 +636,9 @@ class _AccountsPageState extends State<AccountsPage> {
               ),
             ),
           ).then((_) {
-            context.read<BankBloc>().add(const LoadBankAccounts());
+            if (context.mounted) {
+              context.read<BankBloc>().add(const LoadBankAccounts());
+            }
           });
         } else if (state is BankConnectSuccess) {
           // Reload transactions immediately so the dashboard and history
@@ -2033,7 +2037,7 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
       backgroundColor: Colors.transparent,
       builder: (_) => _AddCardInSheet(),
     ).then((data) {
-      if (data != null && mounted) {
+      if (data != null && ctx.mounted) {
         ctx.read<BankBloc>().add(
           AddBankCardRequested(
             bankAccountId: widget.account.id,
