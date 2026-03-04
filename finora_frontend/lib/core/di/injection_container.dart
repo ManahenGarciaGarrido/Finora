@@ -48,6 +48,21 @@ import '../../features/banks/domain/usecases/exchange_public_token_usecase.dart'
 import '../../features/banks/domain/usecases/import_selected_accounts_usecase.dart';
 import '../../features/banks/presentation/bloc/bank_bloc.dart';
 
+// Features - Goals (RF-18 / RF-19 / RF-20 / RF-21 / HU-07)
+import '../../features/goals/data/datasources/goals_remote_datasource.dart';
+import '../../features/goals/data/repositories/goals_repository_impl.dart';
+import '../../features/goals/domain/repositories/goals_repository.dart';
+import '../../features/goals/domain/usecases/get_goals_usecase.dart';
+import '../../features/goals/domain/usecases/create_goal_usecase.dart';
+import '../../features/goals/domain/usecases/update_goal_usecase.dart';
+import '../../features/goals/domain/usecases/delete_goal_usecase.dart';
+import '../../features/goals/domain/usecases/get_goal_progress_usecase.dart';
+import '../../features/goals/domain/usecases/add_contribution_usecase.dart';
+import '../../features/goals/domain/usecases/get_contributions_usecase.dart';
+import '../../features/goals/domain/usecases/delete_contribution_usecase.dart';
+import '../../features/goals/domain/usecases/get_recommendations_usecase.dart';
+import '../../features/goals/presentation/bloc/goal_bloc.dart';
+
 final sl = GetIt.instance;
 
 /// Initialize all dependencies
@@ -70,6 +85,9 @@ Future<void> init() async {
 
   //! Features - Transactions & Categories
   await _initTransactions();
+
+  //! Features - Goals (RF-18 / RF-19 / RF-20 / RF-21 / HU-07)
+  await _initGoals();
 
   //! Features - Banks (RF-10)
   await _initBanks();
@@ -214,6 +232,43 @@ Future<void> _initBanks() async {
   // Data sources
   sl.registerLazySingleton<BankRemoteDataSource>(
     () => BankRemoteDataSourceImpl(apiClient: sl()),
+  );
+}
+
+/// Goals feature dependencies (RF-18 / RF-19 / RF-20 / RF-21 / HU-07)
+Future<void> _initGoals() async {
+  // Bloc
+  sl.registerFactory(
+    () => GoalBloc(
+      getGoals: sl(),
+      createGoal: sl(),
+      updateGoal: sl(),
+      deleteGoal: sl(),
+      getGoalProgress: sl(),
+      addContribution: sl(),
+      getContributions: sl(),
+      deleteContribution: sl(),
+      getRecommendations: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => GetGoalsUseCase(sl()));
+  sl.registerLazySingleton(() => CreateGoalUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateGoalUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteGoalUseCase(sl()));
+  sl.registerLazySingleton(() => GetGoalProgressUseCase(sl()));
+  sl.registerLazySingleton(() => AddContributionUseCase(sl()));
+  sl.registerLazySingleton(() => GetContributionsUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteContributionUseCase(sl()));
+  sl.registerLazySingleton(() => GetRecommendationsUseCase(sl()));
+
+  // Repository
+  sl.registerLazySingleton<GoalsRepository>(() => GoalsRepositoryImpl(sl()));
+
+  // Data sources
+  sl.registerLazySingleton<GoalsRemoteDataSource>(
+    () => GoalsRemoteDataSourceImpl(sl()),
   );
 }
 
