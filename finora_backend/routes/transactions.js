@@ -6,6 +6,77 @@ const { body, param, query, validationResult } = require('express-validator');
 const db = require('../services/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+
+// ── RF-23 / HU-10: Async anomaly check — fire-and-forget ────────────────────
+/**
+ * Verifica si una transacción recién registrada es anómala respecto al
+ * historial de la misma categoría del usuario.
+ * Si es anómala, crea una notificación in-app.
+ * Corre en background (no bloquea la respuesta al cliente).
+ */
+async function _checkAnomalyAsync(userId, newTx) {
+  try {
+    // Obtener historial últimos 3 meses de la misma categoría
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 3);
+    const histResult = await db.query(
+      `SELECT id, amount::float AS amount, type, category, description,
+              TO_CHAR(date, 'YYYY-MM-DD') AS date
+       FROM transactions
+       WHERE user_id = $1 AND type = 'expense' AND category = $2 AND date >= $3
+       ORDER BY date ASC`,
+      [userId, newTx.category, cutoff.toISOString().split('T')[0]]
+    );
+
+    const history = histResult.rows;
+    if (history.length < 4) return; // Historial insuficiente para estadísticas
+
+    // Llamar al servicio AI
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    let aiResult;
+    try {
+      const resp = await fetch(`${AI_SERVICE_URL}/detect-anomalies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions: history }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!resp.ok) return;
+      aiResult = await resp.json();
+    } catch {
+      clearTimeout(timer);
+      return;
+    }
+
+    // ¿Está la nueva transacción entre las anomalías?
+    const anomaly = (aiResult.anomalies || []).find(a => a.id === newTx.id);
+    if (!anomaly) return;
+
+    // Crear notificación HU-10
+    await db.query(
+      `INSERT INTO notifications (user_id, type, title, body, metadata)
+       VALUES ($1, 'anomaly_alert', $2, $3, $4)`,
+      [
+        userId,
+        '⚠️ Gasto inusual detectado',
+        anomaly.message,
+        JSON.stringify({
+          transaction_id: newTx.id,
+          category:       anomaly.category,
+          amount:         anomaly.amount,
+          z_score:        anomaly.z_score,
+          severity:       anomaly.severity,
+        }),
+      ]
+    );
+  } catch (err) {
+    // Fire-and-forget: errores no críticos, no afectan al usuario
+    console.warn('[RF-23] _checkAnomalyAsync error:', err.message);
+  }
+}
 
 const VALID_PAYMENT_METHODS = [
   'cash', 'card', 'transfer',
@@ -121,6 +192,11 @@ router.post('/',
         message: 'Transacción registrada exitosamente',
         transaction: tx
       });
+
+      // RF-23 / HU-10: Verificar anomalía de forma asíncrona (fire-and-forget)
+      if (tx.type === 'expense') {
+        _checkAnomalyAsync(userId, tx).catch(() => {});
+      }
     } catch (error) {
       console.error('Error creating transaction:', error);
       res.status(500).json({
@@ -211,10 +287,14 @@ router.get('/',
         paramIndex++;
       }
 
-      // RNF-20: Count y datos en una sola consulta usando window function
-      // Evita dos round-trips a la BD y usa los mismos índices
+      // RNF-20: Count, totales y datos en una sola consulta usando window functions.
+      // Incluye SUM de ingresos/gastos sobre TODO el conjunto filtrado (no solo la página),
+      // para que el cliente pueda mostrar el balance real aunque solo haya cargado la pág 1.
       const result = await db.query(
-        `SELECT *, COUNT(*) OVER () AS _total_count
+        `SELECT *,
+                COUNT(*) OVER () AS _total_count,
+                SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) OVER () AS _total_income,
+                SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) OVER () AS _total_expense
          FROM transactions
          ${whereClause}
          ORDER BY date DESC, created_at DESC
@@ -223,13 +303,16 @@ router.get('/',
         [...params, limit, offset]
       );
 
-      // Extraer total de la primera fila (si hay resultados)
-      const total = result.rows.length > 0
-        ? parseInt(result.rows[0]._total_count)
-        : 0;
+      // Extraer totales de la primera fila (si hay resultados)
+      const firstRow = result.rows[0];
+      const total        = firstRow ? parseInt(firstRow._total_count)       : 0;
+      const totalIncome  = firstRow ? parseFloat(firstRow._total_income)    : 0;
+      const totalExpense = firstRow ? parseFloat(firstRow._total_expense)   : 0;
 
-      // Limpiar la columna auxiliar antes de devolver
-      const transactions = result.rows.map(({ _total_count, ...tx }) => tx);
+      // Limpiar columnas auxiliares antes de devolver
+      const transactions = result.rows.map(
+        ({ _total_count, _total_income, _total_expense, ...tx }) => tx
+      );
 
       res.json({
         transactions,
@@ -239,7 +322,9 @@ router.get('/',
           total,
           totalPages: Math.ceil(total / limit),
           hasMore: offset + transactions.length < total,
-        }
+        },
+        // Totales sobre el conjunto completo (respetan los filtros activos)
+        totals: { income: totalIncome, expense: totalExpense },
       });
     } catch (error) {
       console.error('Error fetching transactions:', error);
