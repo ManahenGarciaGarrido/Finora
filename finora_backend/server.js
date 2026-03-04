@@ -15,6 +15,8 @@ const categoryRoutes = require('./routes/categories');
 const bankRoutes = require('./routes/banks');
 const notificationRoutes = require('./routes/notifications'); // HU-06
 const statsRoutes = require('./routes/stats'); // RF-29 / RF-30
+const aiRoutes = require('./routes/ai');       // RF-21 / RF-22
+const goalsRoutes = require('./routes/goals'); // RF-18 / RF-19 / RF-20 / RF-21 / HU-07
 
 // Import services
 const emailService = require('./services/email');
@@ -118,8 +120,9 @@ app.use('/api/v1/transactions', transactionRoutes);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/banks', bankRoutes);
 app.use('/api/v1/notifications', notificationRoutes); // HU-06
-app.use('/api/v1/stats', statsRoutes); // RF-29 / RF-30
-app.use('/api/v1/ai', aiRoutes); // RF-21 / RF-22
+app.use('/api/v1/stats', statsRoutes);              // RF-29 / RF-30
+app.use('/api/v1/ai', aiRoutes);                    // RF-21 / RF-22
+app.use('/api/v1/goals', goalsRoutes);              // RF-18 / RF-19 / RF-20 / HU-07
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -136,6 +139,7 @@ app.get('/', (req, res) => {
       transactions: '/api/v1/transactions',
       categories: '/api/v1/categories',
       banks: '/api/v1/banks',
+      goals: '/api/v1/goals',
     }
   });
 });
