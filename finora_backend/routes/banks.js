@@ -57,6 +57,39 @@ async function smartCategorize(description, txType) {
   }
   return autoCategorySimple(description, txType);
 }
+
+/**
+ * RF-14: Categoriza un lote de transacciones en un solo round-trip al servicio de IA.
+ * Más eficiente que smartCategorize() individual para importaciones masivas.
+ * Fallback automático a smartCategorize() uno a uno si el batch falla.
+ * @param {{ description: string, type: string }[]} items
+ * @returns {Promise<string[]>} Array de categorías en el mismo orden
+ */
+async function batchCategorize(items) {
+  if (items.length === 0) return [];
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const resp = await fetch(`${AI_SERVICE_URL}/categorize/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactions: items }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.results && data.results.length === items.length) {
+        return data.results.map(r => r.category);
+      }
+    }
+  } catch (e) {
+    console.warn('[batchCategorize] AI batch failed, fallback individual:', e.message);
+  }
+  // Fallback: categorizar uno a uno
+  return Promise.all(items.map(item => smartCategorize(item.description, item.type)));
+}
+
 const { withRetry, withCache, ratesBreaker } = require('../services/circuitBreaker');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -234,15 +267,28 @@ async function generateRandomTransactions(bankAccountId, userId, targetBalanceCe
   }
   // diffCents === 0 → perfecto, no hace falta ajuste
 
-  // ── 3. Insertar todas las transacciones ──────────────────────────────────
-  for (const tx of txList) {
+  // ── 3. Categorizar con IA en lote y luego insertar ───────────────────────
+  //    Las transacciones de ajuste (apertura / cargo) usan categoría fija.
+  //    Solo las transacciones generadas aleatoriamente pasan por el modelo.
+  const batchItems = txList.map(tx => ({ description: tx.desc, type: tx.isExpense ? 'expense' : 'income' }));
+  let aiCategories;
+  try {
+    aiCategories = await batchCategorize(batchItems);
+  } catch {
+    aiCategories = txList.map(tx => tx.cat); // fallback a categorías hardcoded
+  }
+
+  for (let i = 0; i < txList.length; i++) {
+    const tx = txList[i];
     const amount = (tx.amountCents / 100).toFixed(2);
+    // Usar categoría de IA si está disponible y no está vacía; sino, la hardcoded
+    const category = (aiCategories[i] && aiCategories[i].trim()) ? aiCategories[i] : tx.cat;
     await db.query(
       `INSERT INTO transactions
          (user_id, bank_account_id, amount, type, description, category, date, payment_method)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [userId, bankAccountId, amount, tx.isExpense ? 'expense' : 'income',
-       tx.desc, tx.cat, tx.dateStr, tx.pm]
+       tx.desc, category, tx.dateStr, tx.pm]
     );
   }
 }
@@ -1188,17 +1234,6 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
     let totalImported = 0;
     let totalSkipped = 0;
 
-    // Detectar cuentas que NO tienen todavía ninguna transacción con external_tx_id
-    // (primera importación real → hay que reemplazar las transacciones demo).
-    const firstImportAccountIds = new Set();
-    for (const account of accResult.rows) {
-      const check = await db.query(
-        'SELECT 1 FROM transactions WHERE bank_account_id = $1 AND external_tx_id IS NOT NULL LIMIT 1',
-        [account.id]
-      );
-      if (check.rows.length === 0) firstImportAccountIds.add(account.id);
-    }
-
     // Plaid: un access_token cubre todas las cuentas del Item
     // Obtenemos transacciones por access_token, luego las distribuimos por account_id
     const accessToken = conn.requisition_id;
@@ -1214,11 +1249,26 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
     // Fallback: si solo hay una cuenta, asignar todas las transacciones a ella
     const fallbackAccountId = accResult.rows.length === 1 ? accResult.rows[0].id : null;
 
-    for (const tx of allTransactions) {
+    // Categorizar todas las transacciones en un solo round-trip a la IA (RF-14)
+    const batchInput = allTransactions.map(tx => ({
+      description: tx.description,
+      type: tx.amount > 0 ? 'expense' : 'income',
+    }));
+    let plaidCategories;
+    try {
+      plaidCategories = await batchCategorize(batchInput);
+    } catch {
+      plaidCategories = batchInput.map(() => 'Otros gastos');
+    }
+
+    for (let i = 0; i < allTransactions.length; i++) {
+      const tx = allTransactions[i];
       // Plaid: amount > 0 → gasto, amount < 0 → ingreso
       const absAmount = Math.abs(tx.amount);
       const txType = tx.amount > 0 ? 'expense' : 'income';
-      const category = await smartCategorize(tx.description, txType);
+      const category = (plaidCategories[i] && plaidCategories[i].trim())
+        ? plaidCategories[i]
+        : await smartCategorize(tx.description, txType);
 
       // Resolver bank_account_id por account_id de Plaid (si disponible)
       const bankAccountId = (tx.account_id && accountMap[tx.account_id])
@@ -1237,46 +1287,6 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
 
       if (insertResult.rows.length > 0) totalImported++;
       else totalSkipped++;
-    }
-
-    // Primera importación real: eliminar transacciones demo (sin external_tx_id)
-    // y añadir "Saldo de apertura" para que suma_tx == balance_cents del banco.
-    for (const accountId of firstImportAccountIds) {
-      const account = accResult.rows.find(a => a.id === accountId);
-      if (!account) continue;
-
-      // Eliminar transacciones demo (generadas automáticamente, sin ID externo)
-      await db.query(
-        'DELETE FROM transactions WHERE bank_account_id = $1 AND external_tx_id IS NULL',
-        [accountId]
-      );
-
-      // Calcular neto de transacciones reales recién importadas
-      const netResult = await db.query(
-        `SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) AS net
-         FROM transactions WHERE bank_account_id = $1`,
-        [accountId]
-      );
-      const txNetCents = Math.round(parseFloat(netResult.rows[0].net) * 100);
-      const diffCents = (account.balance_cents || 0) - txNetCents;
-
-      // Si la diferencia es mayor de 1 céntimo, añadir ajuste de saldo inicial
-      if (Math.abs(diffCents) > 1) {
-        const adjAmount = (Math.abs(diffCents) / 100).toFixed(2);
-        const adjType  = diffCents > 0 ? 'income' : 'expense';
-        // Fecha anterior a la ventana importada para que aparezca primero
-        const openingDate = new Date(fromDate);
-        openingDate.setDate(openingDate.getDate() - 1);
-        const openingDateStr = openingDate.toISOString().split('T')[0];
-
-        await db.query(
-          `INSERT INTO transactions
-             (user_id, bank_account_id, amount, type, description, category, date, payment_method)
-           VALUES ($1, $2, $3, $4, 'Saldo de apertura', 'Otros ingresos', $5, 'bank_transfer')`,
-          [conn.user_id, accountId, adjAmount, adjType, openingDateStr]
-        );
-        console.log(`[import-transactions] Saldo apertura cuenta=${accountId} diff=${diffCents}c type=${adjType}`);
-      }
     }
 
     await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
@@ -1551,7 +1561,9 @@ router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
     await createPsd2Consent(connectionId, conn.user_id);
 
     console.log(`[import-accounts] userId=${conn.user_id} connectionId=${connectionId} imported=${importedAccounts.length}`);
-    res.json({ ok: true, accounts: importedAccounts.length });
+    // last_sync_at se incluye para que el cliente Flutter pueda actualizar
+    // SharedPreferences y evitar que CheckPeriodicSyncRequested dispare de inmediato.
+    res.json({ ok: true, accounts: importedAccounts.length, last_sync_at: new Date().toISOString() });
   } catch (err) {
     console.error('[import-accounts] error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
@@ -1793,6 +1805,197 @@ router.get('/sync-logs', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('sync-logs error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /plaid-webhook (RF-11 producción) ───────────────────────────────────
+//
+// Webhook de Plaid para sincronización en tiempo real (producción).
+//
+// En producción, Plaid envía notificaciones cuando hay nuevas transacciones
+// o cambios de estado, permitiendo sincronización inmediata en lugar de
+// esperar al cron job de 6 horas.
+//
+// Tipos gestionados:
+//   TRANSACTIONS / DEFAULT_UPDATE   → Nuevas transacciones disponibles
+//   TRANSACTIONS / INITIAL_UPDATE   → Primera carga completada
+//   TRANSACTIONS / HISTORICAL_UPDATE → Histórico completo cargado
+//   ITEM / ERROR                    → Error de acceso al banco
+//   ITEM / PENDING_EXPIRATION       → Token próximo a expirar
+//   ITEM / USER_PERMISSION_REVOKED  → Usuario revocó acceso
+//
+// Configuración en Plaid Dashboard → Developers → Webhooks:
+//   Sandbox:    http://{APP_URL}/api/v1/banks/plaid-webhook
+//   Production: https://{APP_URL}/api/v1/banks/plaid-webhook
+
+router.post('/plaid-webhook', async (req, res) => {
+  // Responder 200 inmediatamente para que Plaid no reintente la entrega
+  res.sendStatus(200);
+
+  const { webhook_type, webhook_code, item_id, error, new_transactions } = req.body || {};
+
+  if (!webhook_type || !item_id) {
+    console.warn('[plaid-webhook] Payload incompleto:', JSON.stringify(req.body));
+    return;
+  }
+
+  console.log(`[plaid-webhook] ${webhook_type}/${webhook_code} item_id=${item_id} new_transactions=${new_transactions || 0}`);
+
+  try {
+    // Buscar la conexión por item_id. En real mode el item_id se almacena
+    // junto al access_token en requisition_id.
+    const connResult = await db.query(
+      `SELECT bc.*
+       FROM bank_connections bc
+       WHERE bc.status = 'linked'
+         AND (bc.requisition_id LIKE $1 OR bc.requisition_id = $2)
+       LIMIT 1`,
+      [`%${item_id}%`, item_id]
+    );
+
+    if (connResult.rows.length === 0) {
+      console.warn(`[plaid-webhook] No se encontró conexión para item_id=${item_id}`);
+      return;
+    }
+
+    const conn = connResult.rows[0];
+
+    // ── TRANSACTIONS: sincronización incremental ───────────────────────────────
+    if (webhook_type === 'TRANSACTIONS') {
+      if (!['DEFAULT_UPDATE', 'INITIAL_UPDATE', 'HISTORICAL_UPDATE'].includes(webhook_code)) return;
+
+      const accessToken = conn.requisition_id;
+
+      // Rango de fechas: histórico para HISTORICAL_UPDATE, últimos 2 días para el resto
+      const since = new Date();
+      since.setDate(since.getDate() - (webhook_code === 'HISTORICAL_UPDATE' ? 365 : 2));
+      const fromDate = since.toISOString().split('T')[0];
+
+      // Mapa external_account_id → bank_account.id para asignar transacciones
+      const accResult = await db.query(
+        'SELECT * FROM bank_accounts WHERE connection_id = $1',
+        [conn.id]
+      );
+      const accountMap = {};
+      for (const a of accResult.rows) {
+        if (a.external_account_id) accountMap[a.external_account_id] = a.id;
+      }
+      const fallbackAccountId = accResult.rows.length === 1 ? accResult.rows[0].id : null;
+
+      const transactions = await plaid.fetchTransactions(accessToken, fromDate);
+      let imported = 0;
+
+      for (const tx of transactions) {
+        const absAmount = Math.abs(tx.amount);
+        const txType = tx.amount > 0 ? 'expense' : 'income';
+        const category = await smartCategorize(tx.description, txType);
+        const bankAccountId = (tx.account_id && accountMap[tx.account_id]) || fallbackAccountId;
+
+        let eurCents;
+        try {
+          eurCents = await toEurCents(Math.round(absAmount * 100), tx.currency || 'USD');
+        } catch (_) {
+          eurCents = Math.round(absAmount * 100);
+        }
+
+        const insertResult = await db.query(
+          `INSERT INTO transactions
+             (user_id, amount, type, category, description, date, payment_method, external_tx_id, bank_account_id)
+           VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer', $7, $8)
+           ON CONFLICT (external_tx_id) WHERE external_tx_id IS NOT NULL DO NOTHING
+           RETURNING id`,
+          [conn.user_id, (eurCents / 100).toFixed(2), txType, category,
+            tx.description, tx.date, tx.id, bankAccountId]
+        );
+        if (insertResult.rows.length > 0) imported++;
+      }
+
+      await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [conn.id]);
+
+      await db.query(
+        `INSERT INTO sync_logs
+           (connection_id, user_id, trigger_type, status, imported_count, skipped_count)
+         VALUES ($1, $2, 'cron', 'success', $3, $4)`,
+        [conn.id, conn.user_id, imported, transactions.length - imported]
+      ).catch(() => {});
+
+      if (imported > 0) {
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_sync', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Nuevas transacciones',
+            `Se ${imported === 1 ? 'ha importado 1 transacción' : `han importado ${imported} transacciones`} de tu banco`,
+            JSON.stringify({ imported, connection_id: conn.id, source: 'plaid_webhook' }),
+          ]
+        ).catch(() => {});
+      }
+
+      console.log(`[plaid-webhook] TRANSACTIONS/${webhook_code}: imported=${imported} conn=${conn.id}`);
+
+    // ── ITEM: cambios de estado de la conexión ─────────────────────────────────
+    } else if (webhook_type === 'ITEM') {
+      if (webhook_code === 'ERROR' && error) {
+        await db.query(
+          "UPDATE bank_connections SET status = 'failed', updated_at = NOW() WHERE id = $1",
+          [conn.id]
+        );
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_error', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Error de conexión bancaria',
+            `Hay un problema con ${conn.institution_name || 'tu banco'}. Vuelve a conectarlo en la app.`,
+            JSON.stringify({ error_code: error.error_code, connection_id: conn.id }),
+          ]
+        ).catch(() => {});
+        console.log(`[plaid-webhook] ITEM/ERROR conn=${conn.id} code=${error.error_code}`);
+
+      } else if (webhook_code === 'PENDING_EXPIRATION') {
+        const days = req.body.consent_expiration_time
+          ? Math.ceil((new Date(req.body.consent_expiration_time) - Date.now()) / 86400000)
+          : 7;
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_sync', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Acceso bancario próximo a expirar',
+            `Tu acceso a ${conn.institution_name || 'tu banco'} expirará en ${days} días. Renuévalo para continuar.`,
+            JSON.stringify({ days_remaining: days, connection_id: conn.id }),
+          ]
+        ).catch(() => {});
+        console.log(`[plaid-webhook] ITEM/PENDING_EXPIRATION conn=${conn.id} days=${days}`);
+
+      } else if (webhook_code === 'USER_PERMISSION_REVOKED') {
+        await db.query(
+          "UPDATE bank_connections SET status = 'disconnected', updated_at = NOW() WHERE id = $1",
+          [conn.id]
+        );
+        await db.query(
+          `UPDATE psd2_consents
+           SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+           WHERE connection_id = $1`,
+          [conn.id]
+        ).catch(() => {});
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_sync', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Acceso bancario revocado',
+            `Has revocado el acceso de Finora a ${conn.institution_name || 'tu banco'}.`,
+            JSON.stringify({ connection_id: conn.id }),
+          ]
+        ).catch(() => {});
+        console.log(`[plaid-webhook] ITEM/USER_PERMISSION_REVOKED conn=${conn.id}`);
+      }
+    }
+  } catch (err) {
+    console.error('[plaid-webhook] Error procesando webhook:', err.message);
+    // 200 ya enviado, Plaid no reintentará
   }
 });
 
