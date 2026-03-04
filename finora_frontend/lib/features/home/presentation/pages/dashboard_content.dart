@@ -14,6 +14,13 @@ import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/pages/edit_transaction_page.dart';
 import '../../../categories/domain/entities/category_entity.dart';
+import '../../../goals/presentation/bloc/goal_bloc.dart'; // RF-18/RF-19/HU-07
+import '../../../goals/presentation/bloc/goal_event.dart';
+import '../../../goals/presentation/bloc/goal_state.dart';
+import '../../../goals/presentation/pages/goals_page.dart';
+import '../../../goals/presentation/pages/goal_detail_page.dart';
+import '../../../goals/domain/entities/savings_goal_entity.dart';
+import '../../../../core/di/injection_container.dart' as di;
 import 'predictions_page.dart'; // RF-22/HU-09 + RF-21/HU-08
 
 /// Contenido del Dashboard principal
@@ -1476,170 +1483,13 @@ class _DashboardContentState extends State<DashboardContent>
   // ============================================
   // OBJETIVOS FINANCIEROS (RF-28)
   // ============================================
+  // ============================================
+  // RF-18 / RF-19 / HU-07: Objetivos de ahorro reales con GoalBloc
+  // ============================================
   Widget _buildGoalsSection(BuildContext context) {
-    return BlocBuilder<TransactionBloc, TransactionState>(
-      builder: (context, state) {
-        final all = state is TransactionsLoaded
-            ? state.transactions
-            : <TransactionEntity>[];
-        final thisMonth = _thisMonthTxs(all);
-
-        final income = thisMonth
-            .where((t) => t.isIncome)
-            .fold(0.0, (s, t) => s + t.amount);
-        final expenses = thisMonth
-            .where((t) => t.isExpense)
-            .fold(0.0, (s, t) => s + t.amount);
-        final savings = income - expenses;
-        final savingsRate = income > 0 ? savings / income : 0.0;
-        final expenseRatio = income > 0 ? expenses / income : 0.0;
-        final allTimeBalance = state is TransactionsLoaded
-            ? state.balance
-            : 0.0;
-
-        final goals = [
-          (
-            label: 'Ahorro mensual',
-            subtitle: 'Meta: ahorrar ≥ 20% de ingresos',
-            icon: Icons.savings_outlined,
-            color: AppColors.success,
-            progress: savingsRate.clamp(0.0, 1.0),
-            progressLabel: income > 0
-                ? '${(savingsRate * 100).toStringAsFixed(0)}% de ${_formatCurrency(income)}'
-                : 'Sin ingresos registrados este mes',
-            achieved: income > 0 && savingsRate >= 0.20,
-          ),
-          (
-            label: 'Control de gastos',
-            subtitle: 'Meta: gastar menos de lo que ingresas',
-            icon: Icons.account_balance_wallet_outlined,
-            color: AppColors.primary,
-            progress: expenseRatio.clamp(0.0, 1.0),
-            progressLabel: income > 0
-                ? '${_formatCurrency(expenses)} gastados de ${_formatCurrency(income)}'
-                : 'Sin ingresos registrados este mes',
-            achieved: income > 0 && expenses <= income,
-          ),
-          (
-            label: 'Balance positivo',
-            subtitle: 'Meta: mantener saldo total > 0',
-            icon: Icons.trending_up_rounded,
-            color: AppColors.accent,
-            progress: allTimeBalance > 0 ? 1.0 : 0.0,
-            progressLabel: allTimeBalance >= 0
-                ? 'Saldo en positivo: ${_formatCurrency(allTimeBalance)}'
-                : 'Saldo en negativo: ${_formatCurrency(allTimeBalance)}',
-            achieved: allTimeBalance > 0,
-          ),
-        ];
-
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.gray100),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Objetivos financieros', style: AppTypography.titleMedium()),
-              const SizedBox(height: 16),
-              ...goals.map((g) => _buildGoalTile(g)),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildGoalTile(
-    ({
-      String label,
-      String subtitle,
-      IconData icon,
-      Color color,
-      double progress,
-      String progressLabel,
-      bool achieved,
-    })
-    goal,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: goal.color.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(goal.icon, size: 15, color: goal.color),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            goal.label,
-                            style: AppTypography.labelMedium(),
-                          ),
-                        ),
-                        if (goal.achieved)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.success.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Logrado',
-                              style: AppTypography.badge(
-                                color: AppColors.success,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    Text(
-                      goal.subtitle,
-                      style: AppTypography.bodySmall(
-                        color: AppColors.textTertiaryLight,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: goal.progress,
-              minHeight: 6,
-              backgroundColor: AppColors.gray100,
-              valueColor: AlwaysStoppedAnimation<Color>(goal.color),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            goal.progressLabel,
-            style: AppTypography.badge(color: AppColors.textTertiaryLight),
-          ),
-        ],
-      ),
+    return BlocProvider<GoalBloc>(
+      create: (_) => di.sl<GoalBloc>()..add(const LoadGoals()),
+      child: const _GoalsSectionContent(),
     );
   }
 
@@ -2161,5 +2011,267 @@ class _DonutChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DonutChartPainter oldDelegate) {
     return oldDelegate.total != total || oldDelegate.categories != categories;
+  }
+}
+
+// ============================================
+// RF-18 / RF-19 / HU-07: Sección Objetivos de ahorro (reales, desde GoalBloc)
+// ============================================
+
+/// Widget separado para usar GoalBloc provisto por BlocProvider en _buildGoalsSection
+class _GoalsSectionContent extends StatelessWidget {
+  const _GoalsSectionContent();
+
+  String _formatCurrency(double amount) {
+    final abs = amount.abs();
+    if (abs >= 1000000) {
+      return '${(abs / 1000000).toStringAsFixed(1)}M€';
+    } else if (abs >= 1000) {
+      return '${(abs / 1000).toStringAsFixed(1)}k€';
+    }
+    return '${abs.toStringAsFixed(2)}€';
+  }
+
+  Color _progressColor(String hexColor) {
+    try {
+      final c = hexColor.replaceAll('#', '');
+      return Color(int.parse('FF$c', radix: 16));
+    } catch (_) {
+      return AppColors.primary;
+    }
+  }
+
+  Color _barColor(String progressColor) {
+    switch (progressColor) {
+      case 'green':
+        return AppColors.success;
+      case 'yellow':
+        return AppColors.warning;
+      case 'red':
+        return AppColors.error;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<GoalBloc, GoalState>(
+      builder: (context, state) {
+        if (state is GoalLoading || state is GoalInitial) {
+          return _buildCard(
+            context,
+            child: const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          );
+        }
+
+        if (state is GoalError) {
+          return _buildCard(
+            context,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'No se pudieron cargar los objetivos',
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textTertiaryLight,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final goals = state is GoalsLoaded
+            ? state.goals.where((g) => g.isActive).toList()
+            : <SavingsGoalEntity>[];
+
+        return _buildCard(
+          context,
+          child: goals.isEmpty
+              ? _buildEmptyState(context)
+              : Column(
+                  children: goals
+                      .take(3) // máximo 3 en el dashboard
+                      .map((g) => _buildGoalRow(context, g))
+                      .toList(),
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCard(BuildContext context, {required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.gray100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Objetivos de ahorro', style: AppTypography.titleMedium()),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GoalsPage()),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  minimumSize: Size.zero,
+                ),
+                child: Text(
+                  'Ver todos',
+                  style: AppTypography.labelSmall(color: AppColors.primary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const GoalsPage()),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: AppColors.primarySoft,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.20)),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.savings_outlined, size: 36, color: AppColors.primary),
+            const SizedBox(height: 8),
+            Text(
+              'Crea tu primer objetivo',
+              style: AppTypography.labelMedium(color: AppColors.primary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Define metas de ahorro y haz seguimiento\ncon análisis de IA',
+              textAlign: TextAlign.center,
+              style: AppTypography.bodySmall(
+                color: AppColors.textTertiaryLight,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoalRow(BuildContext context, SavingsGoalEntity goal) {
+    final barColor = _barColor(goal.progressColor);
+    final iconColor = _progressColor(goal.color);
+    final progress = goal.percentageDecimal.clamp(0.0, 1.0);
+
+    return GestureDetector(
+      onTap: () {
+        final bloc = di.sl<GoalBloc>();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BlocProvider.value(
+              value: bloc,
+              child: GoalDetailPage(goal: goal),
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(goal.icon, style: const TextStyle(fontSize: 14)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              goal.name,
+                              style: AppTypography.labelMedium(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '${goal.percentage}%',
+                            style: AppTypography.labelSmall(color: barColor),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${_formatCurrency(goal.currentAmount)} de ${_formatCurrency(goal.targetAmount)}',
+                        style: AppTypography.bodySmall(
+                          color: AppColors.textTertiaryLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: AppColors.gray400,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOut,
+              builder: (_, value, __) => ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: value,
+                  minHeight: 6,
+                  backgroundColor: AppColors.gray100,
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
