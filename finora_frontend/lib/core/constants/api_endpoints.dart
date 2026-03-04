@@ -107,11 +107,10 @@ class ApiEndpoints {
   static const String aiSavings = '/ai/savings';
   static const String evaluateSavingsGoal = '/ai/evaluate-savings-goal';
 
-  // Predictions (legacy — renombradas para evitar colisión con RF-22)
-  static const String detectAnomalies = '/predictions/anomalies';
-  static const String detectSubscriptions = '/predictions/subscriptions';
-  static const String recurringExpenses = '/predictions/recurring';
-  static const String predictionInsights = '/predictions/insights';
+  // RF-23 / HU-10: Detección de anomalías en gastos
+  static const String detectAnomalies = '/ai/anomalies';
+  // RF-24 / HU-11: Detección automática de suscripciones
+  static const String detectSubscriptions = '/ai/subscriptions';
 
   // RF-29 / RF-30: Statistics endpoints (backend /api/v1/stats/*)
   static const String statsSummary = '/stats/summary';
