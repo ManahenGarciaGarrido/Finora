@@ -1,5 +1,10 @@
 /// RF-22 / HU-09: Predicción de gastos ML
 /// RF-21 / HU-08: Recomendaciones de ahorro inteligente
+/// RF-23 / HU-10: Detección de gastos anómalos
+/// RF-24 / HU-11: Identificación de suscripciones periódicas
+/// RF-25 / HU-12 / CU-04: Asistente conversacional IA
+/// RF-26 / HU-13: Análisis de affordability "¿Puedo permitírmelo?"
+/// RF-27 / HU-14: Recomendaciones de optimización financiera
 ///
 /// Servicio Flutter que llama a los endpoints del backend /api/v1/ai/*
 /// El backend actúa como proxy hacia el microservicio finora-ai (Python Flask).
@@ -387,6 +392,234 @@ class SubscriptionsResult {
       totalSubscriptions: json['total_subscriptions'] as int? ?? 0,
       totalMonthlyCost: (json['total_monthly_cost'] as num?)?.toDouble() ?? 0,
       totalAnnualCost: (json['total_annual_cost'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+// ── Modelos RF-25 / HU-12 / CU-04 ───────────────────────────────────────────
+
+/// Mensaje en el chat del asistente IA (RF-25)
+class ChatMessage {
+  final String id;
+  final String content;
+  final bool isUser;
+  final DateTime timestamp;
+  final String intent; // 'spending' | 'income' | 'category' | 'general' | ...
+  final AffordabilityResult? affordabilityResult;
+
+  ChatMessage({
+    required this.id,
+    required this.content,
+    required this.isUser,
+    required this.timestamp,
+    this.intent = 'general',
+    this.affordabilityResult,
+  });
+
+  factory ChatMessage.user(String content) {
+    return ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      content: content,
+      isUser: true,
+      timestamp: DateTime.now(),
+    );
+  }
+
+  factory ChatMessage.assistant(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      content: json['response'] as String? ?? '',
+      isUser: false,
+      timestamp: DateTime.now(),
+      intent: json['intent'] as String? ?? 'general',
+    );
+  }
+}
+
+// ── Modelos RF-26 / HU-13 ────────────────────────────────────────────────────
+
+/// Impacto de una compra en un objetivo de ahorro
+class GoalImpact {
+  final String goalName;
+  final int monthsDelayed;
+  final double pctImpact;
+
+  const GoalImpact({
+    required this.goalName,
+    required this.monthsDelayed,
+    required this.pctImpact,
+  });
+
+  factory GoalImpact.fromJson(Map<String, dynamic> json) {
+    return GoalImpact(
+      goalName: json['goal_name'] as String? ?? '',
+      monthsDelayed: json['months_delayed'] as int? ?? 0,
+      pctImpact: (json['pct_impact'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+/// Resultado de análisis de affordability (RF-26 / HU-13)
+class AffordabilityResult {
+  final String verdict; // 'yes' | 'no' | 'caution'
+  final double amount;
+  final String concept;
+  final double availableBalance;
+  final double balanceAfter;
+  final double monthlySurplus;
+  final double fixedMonthly;
+  final List<GoalImpact> impactOnGoals;
+  final List<String> alternatives;
+  final int? monthsToSave;
+  final String analysis;
+  final String recommendation;
+
+  const AffordabilityResult({
+    required this.verdict,
+    required this.amount,
+    required this.concept,
+    required this.availableBalance,
+    required this.balanceAfter,
+    required this.monthlySurplus,
+    required this.fixedMonthly,
+    required this.impactOnGoals,
+    required this.alternatives,
+    this.monthsToSave,
+    required this.analysis,
+    required this.recommendation,
+  });
+
+  factory AffordabilityResult.fromJson(Map<String, dynamic> json) {
+    final rawImpact = json['impact_on_goals'] as List<dynamic>? ?? [];
+    final rawAlts = json['alternatives'] as List<dynamic>? ?? [];
+    return AffordabilityResult(
+      verdict: json['verdict'] as String? ?? 'caution',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      concept: json['concept'] as String? ?? '',
+      availableBalance: (json['available_balance'] as num?)?.toDouble() ?? 0,
+      balanceAfter: (json['balance_after'] as num?)?.toDouble() ?? 0,
+      monthlySurplus: (json['monthly_surplus'] as num?)?.toDouble() ?? 0,
+      fixedMonthly: (json['fixed_monthly'] as num?)?.toDouble() ?? 0,
+      impactOnGoals: rawImpact
+          .map((e) => GoalImpact.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      alternatives: rawAlts.map((e) => e.toString()).toList(),
+      monthsToSave: json['months_to_save'] as int?,
+      analysis: json['analysis'] as String? ?? '',
+      recommendation: json['recommendation'] as String? ?? '',
+    );
+  }
+
+  bool get isYes => verdict == 'yes';
+  bool get isNo => verdict == 'no';
+  bool get isCaution => verdict == 'caution';
+}
+
+// ── Modelos RF-27 / HU-14 ────────────────────────────────────────────────────
+
+/// Recomendación de optimización financiera (RF-27 / HU-14)
+class RecommendationItem {
+  final String category;
+  final String title;
+  final String description;
+  final double potentialSaving;
+  final String priority; // 'high' | 'medium' | 'low'
+  final String
+  type; // 'overspending' | 'subscription' | 'savings_rate' | 'emergency'
+
+  const RecommendationItem({
+    required this.category,
+    required this.title,
+    required this.description,
+    required this.potentialSaving,
+    required this.priority,
+    required this.type,
+  });
+
+  factory RecommendationItem.fromJson(Map<String, dynamic> json) {
+    return RecommendationItem(
+      category: json['category'] as String? ?? 'General',
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      potentialSaving: (json['potential_saving'] as num?)?.toDouble() ?? 0,
+      priority: json['priority'] as String? ?? 'medium',
+      type: json['type'] as String? ?? 'overspending',
+    );
+  }
+}
+
+/// Resultado de recomendaciones de optimización (RF-27)
+class RecommendationsResult {
+  final List<RecommendationItem> recommendations;
+  final double totalPotentialSaving;
+  final int financialScore;
+  final int analysisMonths;
+
+  const RecommendationsResult({
+    required this.recommendations,
+    required this.totalPotentialSaving,
+    required this.financialScore,
+    required this.analysisMonths,
+  });
+
+  factory RecommendationsResult.fromJson(Map<String, dynamic> json) {
+    final raw = json['recommendations'] as List<dynamic>? ?? [];
+    return RecommendationsResult(
+      recommendations: raw
+          .map((e) => RecommendationItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      totalPotentialSaving:
+          (json['total_potential_saving'] as num?)?.toDouble() ?? 0,
+      financialScore: json['financial_score'] as int? ?? 50,
+      analysisMonths: json['analysis_months'] as int? ?? 1,
+    );
+  }
+}
+
+// ── Nuevos métodos de AiService (Sprint 9) ───────────────────────────────────
+
+extension AiServiceSprint9 on AiService {
+  /// RF-25 / HU-12 / CU-04: Enviar mensaje al asistente IA conversacional.
+  ///
+  /// El backend recopila el contexto financiero del usuario y lo envía al
+  /// microservicio AI junto con el mensaje para una respuesta contextualizada.
+  Future<ChatMessage> chatWithAssistant(
+    String message, {
+    List<Map<String, String>> history = const [],
+  }) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.aiChat,
+      data: {'message': message, 'history': history},
+    );
+    return ChatMessage.assistant(response.data as Map<String, dynamic>);
+  }
+
+  /// RF-26 / HU-13: Análisis "¿Puedo permitírmelo?".
+  ///
+  /// Envía la consulta al backend que calcula el veredicto multi-factor
+  /// (balance, superávit mensual, impacto en objetivos, gastos fijos).
+  Future<AffordabilityResult> checkAffordability(
+    String query, {
+    double? amount,
+  }) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.aiAffordability,
+      data: {'query': query, if (amount != null) 'amount': amount},
+    );
+    return AffordabilityResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// RF-27 / HU-14: Recomendaciones inteligentes de optimización financiera.
+  ///
+  /// El backend analiza el historial de gastos, ingresos y suscripciones del
+  /// usuario y devuelve hasta 10 recomendaciones priorizadas por ahorro potencial.
+  Future<RecommendationsResult> getRecommendations({int months = 3}) async {
+    final response = await _apiClient.get(
+      ApiEndpoints.aiRecommendations,
+      queryParameters: {'months': months.toString()},
+    );
+    return RecommendationsResult.fromJson(
+      response.data as Map<String, dynamic>,
     );
   }
 }

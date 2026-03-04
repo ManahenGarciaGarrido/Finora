@@ -22,6 +22,7 @@ import '../../../goals/presentation/pages/goal_detail_page.dart';
 import '../../../goals/domain/entities/savings_goal_entity.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import 'predictions_page.dart'; // RF-22/HU-09 + RF-21/HU-08
+import 'assistant_page.dart'; // RF-25/HU-12/CU-04 + RF-26/HU-13 + RF-27/HU-14
 
 /// Contenido del Dashboard principal
 class DashboardContent extends StatefulWidget {
@@ -207,6 +208,11 @@ class _DashboardContentState extends State<DashboardContent>
                                 padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
                                 child: _buildAiPredictionsCard(context),
                               ),
+                              // RF-25/HU-12/CU-04 + RF-26/HU-13 + RF-27/HU-14: Asistente IA
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(hp, 12, hp, 0),
+                                child: _buildAssistantCard(context),
+                              ),
                             ],
                           ),
                   );
@@ -276,6 +282,9 @@ class _DashboardContentState extends State<DashboardContent>
                         const SizedBox(height: 16),
                         // RF-22/HU-09 + RF-21/HU-08: Tarjeta Predicciones IA (tablet)
                         _buildAiPredictionsCard(context),
+                        const SizedBox(height: 12),
+                        // RF-25/HU-12/CU-04: Asistente IA (tablet)
+                        _buildAssistantCard(context),
                         const SizedBox(height: 16),
                         _buildSectionHeader(
                           'Últimas transacciones',
@@ -832,11 +841,21 @@ class _DashboardContentState extends State<DashboardContent>
         // RF-22/HU-09: Acceso rápido a Predicciones IA desde acciones rápidas
         _buildActionButton(
           icon: Icons.auto_awesome_rounded,
-          label: 'IA',
+          label: 'Pred.',
           color: const Color(0xFF6C63FF),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const PredictionsPage()),
+          ),
+        ),
+        // RF-25/HU-12/CU-04: Acceso rápido al Asistente IA conversacional
+        _buildActionButton(
+          icon: Icons.smart_toy_rounded,
+          label: 'Finn',
+          color: const Color(0xFF3B82F6),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AssistantPage()),
           ),
         ),
       ],
@@ -1689,6 +1708,79 @@ class _DashboardContentState extends State<DashboardContent>
                   const SizedBox(height: 4),
                   Text(
                     'Gastos del próximo mes y\nrecomendaciones de ahorro',
+                    style: AppTypography.bodySmall(
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================
+  // RF-25/HU-12/CU-04 + RF-26/HU-13 + RF-27/HU-14: TARJETA ASISTENTE IA
+  // Acceso rápido al chat con el asistente Finn
+  // ============================================
+
+  Widget _buildAssistantCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AssistantPage()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E3A5F), Color(0xFF3B82F6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF3B82F6).withValues(alpha: 0.30),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.smart_toy_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Asistente Finn',
+                    style: AppTypography.titleSmall(color: Colors.white),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '¿En qué puedo ayudarte hoy?\nPregúntame lo que quieras',
                     style: AppTypography.bodySmall(
                       color: Colors.white.withValues(alpha: 0.85),
                     ),
