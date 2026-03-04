@@ -26,7 +26,11 @@ class AccessibilityService {
 
   /// Anuncia un mensaje al lector de pantalla activo (TalkBack / VoiceOver).
   static void announce(BuildContext context, String message) {
-    SemanticsService.announce(message, TextDirection.ltr);
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      message,
+      TextDirection.ltr,
+    );
   }
 
   // ─── Wrappers semánticos ────────────────────────────────────────────────────

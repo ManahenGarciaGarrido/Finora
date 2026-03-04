@@ -3,6 +3,7 @@
 ///
 /// Servicio Flutter que llama a los endpoints del backend /api/v1/ai/*
 /// El backend actúa como proxy hacia el microservicio finora-ai (Python Flask).
+library;
 
 import '../network/api_client.dart';
 import '../constants/api_endpoints.dart';
