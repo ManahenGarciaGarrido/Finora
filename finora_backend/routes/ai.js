@@ -233,4 +233,145 @@ router.post('/evaluate-savings-goal', authenticateToken, async (req, res) => {
   }
 });
 
+
+// ── GET /api/v1/ai/anomalies ──────────────────────────────────────────────────
+/**
+ * RF-23 / HU-10: Detección de gastos anómalos del usuario.
+ *
+ * Analiza el historial de transacciones y devuelve los gastos que superan
+ * 2 desviaciones estándar respecto a la media de su categoría (Z-score > 2).
+ *
+ * Query params:
+ *   ?months=6  (meses de histórico, máx 12)
+ *
+ * Returns: {
+ *   anomalies: [{ id, date, category, amount, mean_amount, z_score,
+ *                 percent_above_avg, severity, description, message }],
+ *   total_anomalies: int,
+ *   categories_analyzed: int,
+ *   category_stats: { category: { mean, std, count } }
+ * }
+ */
+router.get('/anomalies', authenticateToken, async (req, res) => {
+  try {
+    const months = Math.min(parseInt(req.query.months || '6', 10), 12);
+    const transactions = await getUserTransactions(req.user.userId, months);
+
+    if (transactions.length === 0) {
+      return res.json({
+        anomalies: [],
+        total_anomalies: 0,
+        categories_analyzed: 0,
+        category_stats: {},
+        message: 'No hay transacciones suficientes para detectar anomalías.',
+      });
+    }
+
+    const aiResult = await callAiService('/detect-anomalies', { transactions });
+    return res.json(aiResult);
+  } catch (err) {
+    console.error('[RF-23] anomalies error:', err.message);
+    return res.status(503).json({
+      error: 'Servicio de detección de anomalías no disponible.',
+      detail: err.message,
+    });
+  }
+});
+
+
+// ── GET /api/v1/ai/subscriptions ─────────────────────────────────────────────
+/**
+ * RF-24 / HU-11: Detección automática de suscripciones y pagos recurrentes.
+ *
+ * Analiza el historial para identificar pagos con periodicidad regular
+ * (semanal, mensual, trimestral, anual) y monto estable (variación < 10%).
+ *
+ * Query params:
+ *   ?months=6  (meses de histórico, máx 12)
+ *
+ * Returns: {
+ *   subscriptions: [{ name, category, amount, monthly_cost, periodicity,
+ *                     periodicity_label, occurrences, last_charge, next_charge,
+ *                     days_until_next, amount_variation }],
+ *   total_subscriptions: int,
+ *   total_monthly_cost: float,
+ *   total_annual_cost: float
+ * }
+ */
+router.get('/subscriptions', authenticateToken, async (req, res) => {
+  try {
+    const months = Math.min(parseInt(req.query.months || '6', 10), 12);
+    const transactions = await getUserTransactions(req.user.userId, months);
+
+    if (transactions.length === 0) {
+      return res.json({
+        subscriptions: [],
+        total_subscriptions: 0,
+        total_monthly_cost: 0,
+        total_annual_cost: 0,
+        message: 'No hay transacciones suficientes para detectar suscripciones.',
+      });
+    }
+
+    const aiResult = await callAiService('/detect-subscriptions', { transactions });
+    return res.json(aiResult);
+  } catch (err) {
+    console.error('[RF-24] subscriptions error:', err.message);
+    return res.status(503).json({
+      error: 'Servicio de detección de suscripciones no disponible.',
+      detail: err.message,
+    });
+  }
+});
+
+
+// ── POST /api/v1/ai/check-anomaly ─────────────────────────────────────────────
+/**
+ * RF-23 / HU-10: Verifica si una transacción recién registrada es anómala.
+ *
+ * Llamado internamente después de crear una transacción (async, no bloquea).
+ * Crea una notificación in-app si detecta anomalía.
+ *
+ * Body: { "transaction_id": uuid, "amount": float, "category": str, "type": str }
+ */
+router.post('/check-anomaly', authenticateToken, async (req, res) => {
+  // Responder inmediatamente para no bloquear al cliente
+  res.status(202).json({ message: 'Verificación de anomalía iniciada' });
+
+  try {
+    const { transaction_id, amount, category, type } = req.body;
+    if (type !== 'expense' || !transaction_id || !amount) return;
+
+    // Obtener histórico de los últimos 6 meses para el análisis
+    const transactions = await getUserTransactions(req.user.userId, 6);
+    if (transactions.length < 6) return; // Historial insuficiente
+
+    const aiResult = await callAiService('/detect-anomalies', { transactions });
+    const anomaly  = (aiResult.anomalies || []).find(a => a.id === transaction_id);
+
+    if (!anomaly) return; // Transacción normal
+
+    // Crear notificación HU-10
+    await db.query(
+      `INSERT INTO notifications (user_id, type, title, body, metadata)
+       VALUES ($1, 'anomaly_alert', $2, $3, $4)`,
+      [
+        req.user.userId,
+        '⚠️ Gasto inusual detectado',
+        anomaly.message,
+        JSON.stringify({
+          transaction_id,
+          category: anomaly.category,
+          amount:   anomaly.amount,
+          z_score:  anomaly.z_score,
+          severity: anomaly.severity,
+        }),
+      ]
+    );
+  } catch (err) {
+    // Fire-and-forget: errores no críticos
+    console.warn('[RF-23] check-anomaly background error:', err.message);
+  }
+});
+
 module.exports = router;
