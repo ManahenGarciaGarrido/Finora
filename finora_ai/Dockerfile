@@ -26,11 +26,16 @@ COPY entrypoint.sh .
 # Documentan los algoritmos de IA implementados en app.py
 COPY notebooks/ /app/notebooks/
 
-# Directorio para modelos (se monta como volumen o se generan al inicio)
-RUN mkdir -p /app/models && chown finora-ai:finora-ai /app/models
+# Modelos pre-entrenados en ubicación inmutable dentro de la imagen.
+# IMPORTANTE: /app/models es el punto de montaje del volumen Docker, por lo que
+# cualquier archivo copiado allí durante el build queda OCULTO cuando el volumen
+# se monta en tiempo de ejecución. Para que el vectorizador TF-IDF pre-entrenado
+# esté disponible, lo copiamos a /app/models_default/ (fuera del volumen).
+# El entrypoint.sh lo copia al volumen si no existe (primer arranque).
+RUN mkdir -p /app/models /app/models_default
+COPY models/ /app/models_default/
 
-# Copiar modelo pre-entrenado si existe (el vectorizador TF-IDF del notebook)
-COPY models/ /app/models/
+RUN chown -R finora-ai:finora-ai /app/models /app/models_default /app/notebooks
 
 USER finora-ai
 
@@ -39,8 +44,11 @@ ENV PORT=5001
 
 EXPOSE 5001
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=5 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"
 
-# Entrypoint: entrena el modelo si no existe, luego arranca el servidor
+# Entrypoint:
+#   1. Restaura vectorizador pre-entrenado al volumen si no existe
+#   2. Entrena modelo de categorización si no existe
+#   3. Arranca gunicorn
 ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]

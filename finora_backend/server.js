@@ -15,6 +15,7 @@ const categoryRoutes = require('./routes/categories');
 const bankRoutes = require('./routes/banks');
 const notificationRoutes = require('./routes/notifications'); // HU-06
 const statsRoutes = require('./routes/stats'); // RF-29 / RF-30
+const aiRoutes = require('./routes/ai'); // RF-21 / RF-22
 
 // Import services
 const emailService = require('./services/email');
