@@ -210,4 +210,183 @@ class AiService {
       rethrow;
     }
   }
+
+  /// RF-23 / HU-10: Detectar gastos anómalos del historial.
+  ///
+  /// Analiza los últimos [months] meses de gastos y devuelve los que superan
+  /// 2 desviaciones estándar respecto a la media de su categoría.
+  Future<AnomaliesResult> detectAnomalies({int months = 6}) async {
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.detectAnomalies,
+        queryParameters: {'months': months.toString()},
+      );
+      return AnomaliesResult.fromJson(response.data as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// RF-24 / HU-11: Detectar suscripciones y pagos recurrentes automáticamente.
+  ///
+  /// Analiza los últimos [months] meses y detecta pagos periódicos (semanal,
+  /// mensual, trimestral, anual) con importe estable (variación < 10%).
+  Future<SubscriptionsResult> detectSubscriptions({int months = 6}) async {
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.detectSubscriptions,
+        queryParameters: {'months': months.toString()},
+      );
+      return SubscriptionsResult.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+// ── Modelos RF-23 / HU-10 ────────────────────────────────────────────────────
+
+/// Gasto anómalo detectado (Z-score > 2σ respecto a la media de la categoría)
+class AnomalyItem {
+  final String id;
+  final String date;
+  final String category;
+  final double amount;
+  final double meanAmount;
+  final double zScore;
+  final double percentAboveAvg;
+  final String severity; // 'medium' | 'high'
+  final String description;
+  final String message;
+
+  const AnomalyItem({
+    required this.id,
+    required this.date,
+    required this.category,
+    required this.amount,
+    required this.meanAmount,
+    required this.zScore,
+    required this.percentAboveAvg,
+    required this.severity,
+    required this.description,
+    required this.message,
+  });
+
+  factory AnomalyItem.fromJson(Map<String, dynamic> json) {
+    return AnomalyItem(
+      id: json['id'] as String? ?? '',
+      date: json['date'] as String? ?? '',
+      category: json['category'] as String? ?? 'Otros',
+      amount: (json['amount'] as num).toDouble(),
+      meanAmount: (json['mean_amount'] as num).toDouble(),
+      zScore: (json['z_score'] as num).toDouble(),
+      percentAboveAvg: (json['percent_above_avg'] as num).toDouble(),
+      severity: json['severity'] as String? ?? 'medium',
+      description: json['description'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+    );
+  }
+}
+
+/// Resultado completo de detección de anomalías
+class AnomaliesResult {
+  final List<AnomalyItem> anomalies;
+  final int totalAnomalies;
+  final int categoriesAnalyzed;
+
+  const AnomaliesResult({
+    required this.anomalies,
+    required this.totalAnomalies,
+    required this.categoriesAnalyzed,
+  });
+
+  factory AnomaliesResult.fromJson(Map<String, dynamic> json) {
+    final raw = json['anomalies'] as List<dynamic>? ?? [];
+    return AnomaliesResult(
+      anomalies: raw
+          .map((e) => AnomalyItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      totalAnomalies: json['total_anomalies'] as int? ?? 0,
+      categoriesAnalyzed: json['categories_analyzed'] as int? ?? 0,
+    );
+  }
+}
+
+// ── Modelos RF-24 / HU-11 ────────────────────────────────────────────────────
+
+/// Suscripción o gasto recurrente detectado automáticamente
+class SubscriptionItem {
+  final String name;
+  final String category;
+  final double amount;
+  final double monthlyCost;
+  final String periodicity; // 'weekly' | 'monthly' | 'quarterly' | 'annual'
+  final String
+  periodicityLabel; // 'Semanal' | 'Mensual' | 'Trimestral' | 'Anual'
+  final int occurrences;
+  final String lastCharge;
+  final String nextCharge;
+  final int daysUntilNext;
+  final double amountVariation; // % de variación del importe
+
+  const SubscriptionItem({
+    required this.name,
+    required this.category,
+    required this.amount,
+    required this.monthlyCost,
+    required this.periodicity,
+    required this.periodicityLabel,
+    required this.occurrences,
+    required this.lastCharge,
+    required this.nextCharge,
+    required this.daysUntilNext,
+    required this.amountVariation,
+  });
+
+  factory SubscriptionItem.fromJson(Map<String, dynamic> json) {
+    return SubscriptionItem(
+      name: json['name'] as String? ?? '',
+      category: json['category'] as String? ?? 'Otros',
+      amount: (json['amount'] as num).toDouble(),
+      monthlyCost: (json['monthly_cost'] as num).toDouble(),
+      periodicity: json['periodicity'] as String? ?? 'monthly',
+      periodicityLabel: json['periodicity_label'] as String? ?? 'Mensual',
+      occurrences: json['occurrences'] as int? ?? 0,
+      lastCharge: json['last_charge'] as String? ?? '',
+      nextCharge: json['next_charge'] as String? ?? '',
+      daysUntilNext: json['days_until_next'] as int? ?? 0,
+      amountVariation: (json['amount_variation'] as num?)?.toDouble() ?? 0,
+    );
+  }
+
+  bool get isUpcoming => daysUntilNext >= 0 && daysUntilNext <= 7;
+}
+
+/// Resultado completo de detección de suscripciones
+class SubscriptionsResult {
+  final List<SubscriptionItem> subscriptions;
+  final int totalSubscriptions;
+  final double totalMonthlyCost;
+  final double totalAnnualCost;
+
+  const SubscriptionsResult({
+    required this.subscriptions,
+    required this.totalSubscriptions,
+    required this.totalMonthlyCost,
+    required this.totalAnnualCost,
+  });
+
+  factory SubscriptionsResult.fromJson(Map<String, dynamic> json) {
+    final raw = json['subscriptions'] as List<dynamic>? ?? [];
+    return SubscriptionsResult(
+      subscriptions: raw
+          .map((e) => SubscriptionItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      totalSubscriptions: json['total_subscriptions'] as int? ?? 0,
+      totalMonthlyCost: (json['total_monthly_cost'] as num?)?.toDouble() ?? 0,
+      totalAnnualCost: (json['total_annual_cost'] as num?)?.toDouble() ?? 0,
+    );
+  }
 }
