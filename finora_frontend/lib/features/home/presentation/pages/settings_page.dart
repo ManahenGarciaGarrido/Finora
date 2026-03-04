@@ -607,7 +607,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Switch.adaptive(
                 value: _biometricEnabled,
                 onChanged: _biometricDeviceSupported ? _toggleBiometric : null,
-                activeColor: AppColors.primary,
+                activeTrackColor: AppColors.primary,
               ),
           ],
         ),

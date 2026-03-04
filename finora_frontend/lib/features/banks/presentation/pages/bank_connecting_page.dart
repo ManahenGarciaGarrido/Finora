@@ -86,7 +86,7 @@ class _BankConnectingPageState extends State<BankConnectingPage>
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      onPopInvoked: (_) {
+      onPopInvokedWithResult: (didPop, result) {
         context.read<BankBloc>().add(const CancelBankPolling());
       },
       child: Scaffold(

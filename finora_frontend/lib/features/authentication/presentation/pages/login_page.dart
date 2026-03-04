@@ -151,7 +151,7 @@ class _LoginPageState extends State<LoginPage>
         _showEmailVerificationDialog(context);
       } else {
         Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) Navigator.pushReplacementNamed(context, '/home');
+          if (context.mounted) Navigator.pushReplacementNamed(context, '/home');
         });
       }
     } else if (state is BiometricAvailable) {
