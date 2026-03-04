@@ -21,19 +21,33 @@ services:
     networks:
       - finora-network
 
-  # MailHog - Email testing service
+  # MailHog - Email testing service (desarrollo/staging)
+  # En producción sustituir por un servicio SMTP real (SendGrid, Postmark, etc.)
   mailhog:
     image: mailhog/mailhog:latest
     container_name: finora-mailhog
     restart: unless-stopped
     ports:
       - "1025:1025"  # SMTP server
-      - "8025:8025"  # Web UI for viewing emails
+      - "8025:8025"  # Web UI para ver emails en desarrollo
     networks:
       - finora-network
 
+  # ─────────────────────────────────────────────────────────────────
   # RF-14 / RF-21 / RF-22: Finora AI Service (Python Flask)
-  # Motor de categorización automática con IA + predicciones de gastos + ahorro
+  #
+  # Motor de categorización automática (RF-14):
+  #   - TF-IDF + RandomForest entrenado en descriptores bancarios españoles
+  #   - Fallback a motor de reglas si el modelo no está disponible
+  #
+  # Predicción de gastos ML (RF-22 / HU-09):
+  #   - Ridge / RandomForest / GradientBoosting según historial disponible
+  #   - Algoritmo basado en Notebooks/rf22_prediccion_gastos_ml.ipynb
+  #
+  # Recomendaciones de ahorro (RF-21 / HU-08):
+  #   - Regla 50/30/20 + capacidad de ahorro disponible
+  #   - Algoritmo basado en Notebooks/rf21_hu08_ahorro_inteligente.ipynb
+  # ─────────────────────────────────────────────────────────────────
   ai:
     build:
       context: ./finora_ai
@@ -46,6 +60,8 @@ services:
     ports:
       - "5001:5001"
     volumes:
+      # Volumen persistente para modelos entrenados (RF-14)
+      # Los modelos se entrenan al primer arranque si no existen
       - ai_models:/app/models
     networks:
       - finora-network
@@ -53,10 +69,27 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
       interval: 30s
       timeout: 10s
-      start_period: 20s
-      retries: 3
+      start_period: 40s
+      retries: 5
 
-  # Finora Backend API
+  # ─────────────────────────────────────────────────────────────────
+  # Finora Backend API (Node.js + Express)
+  #
+  # RF-10 / RF-11: Sincronización bancaria con Plaid
+  #
+  # MODO SANDBOX (desarrollo):
+  #   - PLAID_ENV=sandbox → usa sandbox.plaid.com
+  #   - Credenciales de prueba: user_good / pass_good
+  #   - Registrarse gratis en https://dashboard.plaid.com
+  #   - Obtener PLAID_CLIENT_ID y PLAID_SECRET en My Team → Keys
+  #
+  # MODO PRODUCCIÓN:
+  #   - Cambiar PLAID_ENV=production
+  #   - Cambiar PLAID_SECRET por el secret de producción de Plaid
+  #   - El código es 100% compatible: no requiere ningún otro cambio
+  #
+  # Sin PLAID_CLIENT_ID configurado → modo mock (datos demo, sin API real)
+  # ─────────────────────────────────────────────────────────────────
   backend:
     build:
       context: ./finora_backend
@@ -73,19 +106,57 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+
+      # ── Seguridad ─────────────────────────────────────────────────────────
+      # CAMBIAR en producción: mínimo 32 caracteres, aleatorio y secreto
       JWT_SECRET: finora-jwt-secret-key-change-in-production-minimum-32-chars
+
+      # ── Base de datos ─────────────────────────────────────────────────────
       DATABASE_URL: postgresql://finora:finora_secure_password_2024@postgres:5432/finora_db
+
+      # ── Email ─────────────────────────────────────────────────────────────
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: 587
       SMTP_SECURE: "false"
       SMTP_USER: manahengag@gmail.com
       SMTP_PASS: gkexlmfzilavrekf
       EMAIL_FROM: noreply@finora.com
+
+      # ── URLs ─────────────────────────────────────────────────────────────
       APP_URL: http://192.168.100.88:3000
       FRONTEND_URL: http://localhost:8080
       ALLOWED_ORIGINS: "*"
-      # RF-14: URL del servicio de IA para categorización
+
+      # ── RF-14: Servicio de IA (categorización + predicciones + ahorro) ────
       AI_SERVICE_URL: http://ai:5001
+
+      # ── RF-10 / RF-11: Plaid — Sincronización bancaria ───────────────────
+      #
+      # SANDBOX (desarrollo): descomentar y rellenar con tus claves de Plaid
+      # Registro gratuito en: https://dashboard.plaid.com
+      # My Team → Keys → copiar client_id y sandbox secret
+      #
+      # PLAID_ENV: sandbox
+      # PLAID_CLIENT_ID: your_plaid_client_id_here
+      # PLAID_SECRET: your_plaid_sandbox_secret_here
+      #
+      # PRODUCCIÓN: cambiar PLAID_ENV y PLAID_SECRET únicamente
+      # (el CLIENT_ID es el mismo en sandbox y producción)
+      #
+      # PLAID_ENV: production
+      # PLAID_CLIENT_ID: your_plaid_client_id_here
+      # PLAID_SECRET: your_plaid_production_secret_here
+      #
+      # ¿Sin claves de Plaid? El sistema opera en modo MOCK automáticamente:
+      # - Las cuentas y transacciones son datos demo
+      # - No se realizan llamadas a la API de Plaid
+      # - Funcional para demos y pruebas internas
+      #
+      # Descomenta las tres líneas de abajo para activar el sandbox:
+      # PLAID_ENV: sandbox
+      # PLAID_CLIENT_ID: ""
+      # PLAID_SECRET: ""
+
     ports:
       - "3000:3000"
     networks:
@@ -103,5 +174,7 @@ networks:
 volumes:
   postgres_data:
     driver: local
+  # Volumen para modelos ML persistentes (RF-14 / RF-22)
+  # Se entrenan al primer arranque del servicio finora-ai
   ai_models:
     driver: local
