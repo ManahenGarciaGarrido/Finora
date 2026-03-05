@@ -291,6 +291,40 @@ const startServer = async () => {
       console.log('[auto-migrate] ✓ users 2FA columns (RNF-03)');
     } catch (e) { console.warn('[auto-migrate] users 2FA columns warning:', e.message); }
 
+    // RF-31: Tabla de tokens FCM para push notifications
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS push_tokens (
+          id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token      TEXT NOT NULL UNIQUE,
+          platform   VARCHAR(20) NOT NULL DEFAULT 'unknown',
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_push_tokens_user_id ON push_tokens(user_id);
+      `);
+      console.log('[auto-migrate] ✓ push_tokens table (RF-31)');
+    } catch (e) { console.warn('[auto-migrate] push_tokens warning:', e.message); }
+
+    // RF-31/32/33: Tabla de configuración de notificaciones push
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS notification_settings (
+          user_id                  UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          push_new_transactions    BOOLEAN NOT NULL DEFAULT TRUE,
+          push_budget_alerts       BOOLEAN NOT NULL DEFAULT TRUE,
+          push_goal_reminders      BOOLEAN NOT NULL DEFAULT TRUE,
+          push_min_amount          NUMERIC(12,2) NOT NULL DEFAULT 0,
+          push_quiet_hours_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+          push_quiet_start         VARCHAR(5) NOT NULL DEFAULT '22:00',
+          push_quiet_end           VARCHAR(5) NOT NULL DEFAULT '08:00',
+          updated_at               TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+      `);
+      console.log('[auto-migrate] ✓ notification_settings table (RF-31/32/33)');
+    } catch (e) { console.warn('[auto-migrate] notification_settings warning:', e.message); }
+
     if (dbHealth.status !== 'healthy') {
       console.error('Database connection failed:', dbHealth.error);
       // Continue anyway, health endpoint will report unhealthy
