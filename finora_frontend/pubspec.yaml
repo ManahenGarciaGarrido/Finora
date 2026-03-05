@@ -92,14 +92,22 @@ dependencies:
   # RF-34/RF-35: Compartir archivos exportados via sistema nativo
   share_plus: ^9.0.0
 
+  # RF-31: Push notifications — Firebase Cloud Messaging
+  # Requiere configurar google-services.json (Android) y GoogleService-Info.plist (iOS)
+  # en el proyecto Firebase (https://console.firebase.google.com)
+  firebase_core: ^2.27.0
+  firebase_messaging: ^14.7.20
+
   # RNF-03: Código QR para configuración de 2FA (TOTP)
   qr_flutter: ^4.1.0
+
+  # RNF-13: Internacionalización y formateo de números/fechas por locale
+  intl: ^0.19.0
 
   # RNF-08: Splash screen nativo optimizado
   # Muestra el splash antes de que el motor de Flutter arranque,
   # eliminando la pantalla en blanco del cold start.
   flutter_native_splash: ^2.3.10
-  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:

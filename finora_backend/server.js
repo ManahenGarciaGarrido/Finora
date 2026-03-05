@@ -23,6 +23,7 @@ const budgetRoutes = require('./routes/budget'); // RF-32
 // Import services
 const emailService = require('./services/email');
 const db = require('./services/db');
+const { sendPushToUser } = require('./services/fcm'); // RF-31
 
 // RF-11: Background sync scheduler
 const cron = require('node-cron');
@@ -419,13 +420,13 @@ const startServer = async () => {
           const remaining = (goal.target_amount - goal.current_amount).toFixed(2);
           let title, body;
           if (pct >= 80) {
-            title = `¡Casi lo tienes! ${goal.name}`;
+            title = `¡Casi lo tienes! 🎉 ${goal.name}`;
             body = `Llevas un ${pct}% del objetivo. Solo te quedan €${remaining}. ¡Un último esfuerzo!`;
           } else if (pct >= 50) {
-            title = `¡Buen progreso! ${goal.name}`;
+            title = `¡Buen progreso! 💪 ${goal.name}`;
             body = `Llevas un ${pct}% ahorrado. Te quedan €${remaining} para completarlo.`;
           } else {
-            title = `Recuerda tu objetivo ${goal.name}`;
+            title = `Recuerda tu objetivo 🎯 ${goal.name}`;
             body = `Llevas un ${pct}%. Considera aportar algo esta semana. Te quedan €${remaining}.`;
           }
           await db.query(
@@ -433,6 +434,8 @@ const startServer = async () => {
              VALUES ($1, 'goal_reminder', $2, $3, $4)`,
             [goal.user_id, title, body, JSON.stringify({ goal_id: goal.id, percentage: pct })]
           );
+          // RF-31: Enviar push real al dispositivo
+          await sendPushToUser(db, goal.user_id, title, body, { type: 'goal_reminder', goal_id: goal.id });
         }
         console.log(`[RF-33][cron] ${goals.rows.length} recordatorios generados`);
       } catch (err) {
@@ -468,8 +471,8 @@ const startServer = async () => {
 
           const level = pct >= 100 ? 'critical' : 'warning';
           const title = pct >= 100
-            ? `Presupuesto superado: ${row.category}`
-            : `Alerta de presupuesto: ${row.category}`;
+            ? `⚠️ Presupuesto superado: ${row.category}`
+            : `🟡 Alerta de presupuesto: ${row.category}`;
           const body = pct >= 100
             ? `Has gastado €${row.spent.toFixed(2)} de €${row.monthly_limit.toFixed(2)} en ${row.category} (${Math.round(pct)}%). Considera reducir gastos.`
             : `Llevas un ${Math.round(pct)}% del presupuesto de ${row.category} (€${row.spent.toFixed(2)} / €${row.monthly_limit.toFixed(2)}).`;
@@ -489,6 +492,8 @@ const startServer = async () => {
                 limit: row.monthly_limit, level
               })]
             );
+            // RF-31: Enviar push real al dispositivo
+            await sendPushToUser(db, row.user_id, title, body, { type: 'budget_alert', category: row.category, level });
           }
         }
         console.log(`[RF-32][cron] Verificación de presupuestos completada`);
