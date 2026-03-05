@@ -1,4 +1,4 @@
-/// Página de Ajustes — RF-03 + RF-31 + RF-32 + RNF-03
+/// Página de Ajustes — RF-03 + RF-31 + RF-32 + RF-33 + RNF-03
 ///
 /// - Sección General: categorías, notificaciones (RF-31/32/33), presupuestos (RF-32)
 /// - Sección Seguridad: biometría (RF-03), 2FA (RNF-03)
@@ -22,7 +22,7 @@ import '../../../settings/presentation/pages/privacy_page.dart';
 import '../../../banks/presentation/pages/psd2_consent_management_page.dart';
 import 'two_fa_setup_page.dart'; // RNF-03
 import 'budget_page.dart'; // RF-32
-import 'notification_settings_page.dart'; // RF-31 / RF-32
+import 'notification_settings_page.dart'; // RF-31 / RF-32 / RF-33
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});

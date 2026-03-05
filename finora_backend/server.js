@@ -399,6 +399,45 @@ const startServer = async () => {
       }
     });
 
+    // RF-33: Recordatorios semanales de progreso de objetivos (lunes 9am)
+    // Genera notificaciones in-app motivacionales para cada objetivo activo.
+    cron.schedule('0 9 * * 1', async () => {
+      console.log(`[RF-33][cron] Enviando recordatorios de objetivos — ${new Date().toISOString()}`);
+      try {
+        const goals = await db.query(`
+          SELECT g.id, g.user_id, g.name, g.target_amount::float, g.current_amount::float,
+                 g.deadline, ns.push_goal_reminders
+          FROM savings_goals g
+          LEFT JOIN notification_settings ns ON ns.user_id = g.user_id
+          WHERE g.current_amount < g.target_amount
+            AND (ns.push_goal_reminders IS NULL OR ns.push_goal_reminders = TRUE)
+        `);
+        for (const goal of goals.rows) {
+          const pct = Math.round((goal.current_amount / goal.target_amount) * 100);
+          const remaining = (goal.target_amount - goal.current_amount).toFixed(2);
+          let title, body;
+          if (pct >= 80) {
+            title = `¡Casi lo tienes! ${goal.name}`;
+            body = `Llevas un ${pct}% del objetivo. Solo te quedan €${remaining}. ¡Un último esfuerzo!`;
+          } else if (pct >= 50) {
+            title = `¡Buen progreso! ${goal.name}`;
+            body = `Llevas un ${pct}% ahorrado. Te quedan €${remaining} para completarlo.`;
+          } else {
+            title = `Recuerda tu objetivo ${goal.name}`;
+            body = `Llevas un ${pct}%. Considera aportar algo esta semana. Te quedan €${remaining}.`;
+          }
+          await db.query(
+            `INSERT INTO notifications (user_id, type, title, body, metadata)
+             VALUES ($1, 'goal_reminder', $2, $3, $4)`,
+            [goal.user_id, title, body, JSON.stringify({ goal_id: goal.id, percentage: pct })]
+          );
+        }
+        console.log(`[RF-33][cron] ${goals.rows.length} recordatorios generados`);
+      } catch (err) {
+        console.error('[RF-33][cron] Error:', err.message);
+      }
+    });
+
     // RF-32: Verificación diaria de presupuestos (cada día a las 20:00)
     // Genera alertas cuando el gasto supera el 80% o 100% del presupuesto.
     cron.schedule('0 20 * * *', async () => {
