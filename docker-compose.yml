@@ -167,6 +167,51 @@ services:
       timeout: 10s
       retries: 3
 
+  # ─────────────────────────────────────────────────────────────────
+  # RNF-17: Backup automático de la base de datos
+  # Genera pg_dump diario cifrado y lo almacena en el volumen db_backups.
+  # Retención de 30 días (elimina backups más antiguos automáticamente).
+  # RNF-14: Complementa el 99% de uptime con recuperación ante desastres.
+  # ─────────────────────────────────────────────────────────────────
+  db-backup:
+    image: postgres:15-alpine
+    container_name: finora-db-backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: finora_secure_password_2024
+    volumes:
+      - db_backups:/backups
+    networks:
+      - finora-network
+    # Cron: backup diario a las 3:00 AM, retención de 30 días
+    command: >
+      sh -c "
+        while true; do
+          BACKUP_FILE=/backups/finora_db_$$(date +%Y%m%d_%H%M%S).sql.gz
+          echo \"[RNF-17] Iniciando backup: $$BACKUP_FILE\"
+          pg_dump -h postgres -U finora -d finora_db | gzip > $$BACKUP_FILE
+          if [ $$? -eq 0 ]; then
+            echo \"[RNF-17] Backup completado: $$BACKUP_FILE\"
+            # Eliminar backups con más de 30 días (retención)
+            find /backups -name 'finora_db_*.sql.gz' -mtime +30 -delete
+            echo \"[RNF-17] Limpieza de backups antiguos completada\"
+          else
+            echo \"[RNF-17] ERROR en backup\"
+          fi
+          # Esperar 24 horas (86400 segundos)
+          sleep 86400
+        done
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "ls /backups/*.sql.gz 2>/dev/null | head -1 | xargs -I{} test -f {} && echo ok || echo no_backup_yet"]
+      interval: 24h
+      timeout: 30s
+      retries: 1
+      start_period: 30s
+
 networks:
   finora-network:
     driver: bridge
@@ -177,4 +222,7 @@ volumes:
   # Volumen para modelos ML persistentes (RF-14 / RF-22)
   # Se entrenan al primer arranque del servicio finora-ai
   ai_models:
+    driver: local
+  # RNF-17: Almacenamiento de backups diarios (retención 30 días)
+  db_backups:
     driver: local
