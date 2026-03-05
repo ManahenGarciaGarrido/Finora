@@ -17,6 +17,7 @@ const notificationRoutes = require('./routes/notifications'); // HU-06
 const statsRoutes = require('./routes/stats'); // RF-29 / RF-30
 const aiRoutes = require('./routes/ai');       // RF-21 / RF-22
 const goalsRoutes = require('./routes/goals'); // RF-18 / RF-19 / RF-20 / RF-21 / HU-07
+const exportRoutes = require('./routes/export'); // RF-34 / RF-35
 const budgetRoutes = require('./routes/budget'); // RF-32
 
 // Import services
@@ -124,6 +125,7 @@ app.use('/api/v1/notifications', notificationRoutes); // HU-06
 app.use('/api/v1/stats', statsRoutes);              // RF-29 / RF-30
 app.use('/api/v1/ai', aiRoutes);                    // RF-21 / RF-22
 app.use('/api/v1/goals', goalsRoutes);              // RF-18 / RF-19 / RF-20 / HU-07
+app.use('/api/v1/export', exportRoutes);            // RF-34 / RF-35
 app.use('/api/v1/budget', budgetRoutes);            // RF-32
 
 // Root endpoint

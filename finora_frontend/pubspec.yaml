@@ -84,6 +84,12 @@ dependencies:
   # Inclute animaciones fluidas, tooltip y zoom
   fl_chart: ^0.68.0
 
+  # RF-34: Exportación CSV — generación de archivos CSV en cliente
+  pdf: ^3.10.8
+
+  # RF-34/RF-35: Compartir archivos exportados via sistema nativo
+  share_plus: ^9.0.0
+
   # RNF-03: Código QR para configuración de 2FA (TOTP)
   qr_flutter: ^4.1.0
 
