@@ -7,6 +7,7 @@ import '../../../../shared/widgets/animated_gradient_background.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import '../../../home/presentation/pages/onboarding_page.dart'; // RNF-10
 
 /// Pantalla de Splash con verificación de autenticación
 ///
@@ -60,7 +61,7 @@ class _SplashPageState extends State<SplashPage>
     super.dispose();
   }
 
-  void _handleAuthState(BuildContext context, AuthState state) {
+  Future<void> _handleAuthState(BuildContext context, AuthState state) async {
     if (state is Authenticated) {
       // RNF-08: Navegación inmediata al home, sin delay artificial (era 500ms)
       AppStartupTracker.markSplashComplete();
@@ -68,10 +69,27 @@ class _SplashPageState extends State<SplashPage>
         Navigator.pushReplacementNamed(context, '/home');
       }
     } else if (state is Unauthenticated) {
-      // RNF-08: Navegación inmediata al login, sin delay artificial (era 500ms)
+      // RNF-08: Navegación inmediata, sin delay artificial
       AppStartupTracker.markSplashComplete();
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+      if (!mounted) return;
+
+      // RNF-10: Mostrar onboarding a usuarios nuevos (primera vez)
+      final onboardingDone = await OnboardingPage.isCompleted();
+      if (!mounted) return;
+
+      if (!onboardingDone && context.mounted) {
+        // Primer uso: mostrar onboarding antes del login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OnboardingPage(
+              onComplete: () =>
+                  Navigator.pushReplacementNamed(context, '/login'),
+            ),
+          ),
+        );
+      } else {
+        if (context.mounted) Navigator.pushReplacementNamed(context, '/login');
       }
     }
   }
