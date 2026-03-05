@@ -93,4 +93,49 @@ router.get('/live', (req, res) => {
   res.status(200).json({ alive: true });
 });
 
+/**
+ * GET /health/status
+ * RNF-14: Endpoint de estado del sistema para monitoreo externo (UptimeRobot, etc.)
+ * Devuelve métricas clave de disponibilidad y rendimiento.
+ */
+router.get('/status', async (req, res) => {
+  try {
+    const dbHealth = await db.healthCheck();
+
+    const isHealthy = dbHealth.status === 'healthy';
+
+    res.status(isHealthy ? 200 : 503).json({
+      status: isHealthy ? 'operational' : 'degraded',
+      uptime_seconds: Math.round(process.uptime()),
+      uptime_human: _formatUptime(process.uptime()),
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      checks: {
+        database: { status: dbHealth.status === 'healthy' ? 'pass' : 'fail' },
+      },
+      // RNF-14: Métricas de disponibilidad
+      availability: {
+        target_uptime_pct: 99,
+        max_downtime_hours_per_year: 87.6,
+        monitoring_url: 'https://stats.uptimerobot.com/finora',
+      },
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'critical',
+      timestamp: new Date().toISOString(),
+      error: err.message,
+    });
+  }
+});
+
+/** Formatea segundos en formato legible: "2d 3h 15m 4s" */
+function _formatUptime(seconds) {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return [d && `${d}d`, h && `${h}h`, m && `${m}m`, `${s}s`].filter(Boolean).join(' ');
+}
+
 module.exports = router;
