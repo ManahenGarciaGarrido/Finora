@@ -282,6 +282,15 @@ const startServer = async () => {
       console.warn('[auto-migrate] notifications migration warning:', migrateErr.message);
     }
 
+    // RNF-03: Columnas 2FA en tabla users
+    try {
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64)`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_pending VARCHAR(64)`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_recovery_codes TEXT`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+      console.log('[auto-migrate] ✓ users 2FA columns (RNF-03)');
+    } catch (e) { console.warn('[auto-migrate] users 2FA columns warning:', e.message); }
+
     if (dbHealth.status !== 'healthy') {
       console.error('Database connection failed:', dbHealth.error);
       // Continue anyway, health endpoint will report unhealthy
