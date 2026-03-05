@@ -17,6 +17,7 @@ const notificationRoutes = require('./routes/notifications'); // HU-06
 const statsRoutes = require('./routes/stats'); // RF-29 / RF-30
 const aiRoutes = require('./routes/ai');       // RF-21 / RF-22
 const goalsRoutes = require('./routes/goals'); // RF-18 / RF-19 / RF-20 / RF-21 / HU-07
+const budgetRoutes = require('./routes/budget'); // RF-32
 
 // Import services
 const emailService = require('./services/email');
@@ -123,6 +124,7 @@ app.use('/api/v1/notifications', notificationRoutes); // HU-06
 app.use('/api/v1/stats', statsRoutes);              // RF-29 / RF-30
 app.use('/api/v1/ai', aiRoutes);                    // RF-21 / RF-22
 app.use('/api/v1/goals', goalsRoutes);              // RF-18 / RF-19 / RF-20 / HU-07
+app.use('/api/v1/budget', budgetRoutes);            // RF-32
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -325,6 +327,23 @@ const startServer = async () => {
       console.log('[auto-migrate] ✓ notification_settings table (RF-31/32/33)');
     } catch (e) { console.warn('[auto-migrate] notification_settings warning:', e.message); }
 
+    // RF-32: Tabla de presupuestos por categoría
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS budgets (
+          id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          category      VARCHAR(100) NOT NULL,
+          monthly_limit NUMERIC(12,2) NOT NULL CHECK (monthly_limit > 0),
+          created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+          UNIQUE(user_id, category)
+        );
+        CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
+      `);
+      console.log('[auto-migrate] ✓ budgets table (RF-32)');
+    } catch (e) { console.warn('[auto-migrate] budgets warning:', e.message); }
+
     if (dbHealth.status !== 'healthy') {
       console.error('Database connection failed:', dbHealth.error);
       // Continue anyway, health endpoint will report unhealthy
@@ -377,6 +396,63 @@ const startServer = async () => {
         req.end();
       } catch (err) {
         console.error('[RF-11][cron] Error inesperado:', err.message);
+      }
+    });
+
+    // RF-32: Verificación diaria de presupuestos (cada día a las 20:00)
+    // Genera alertas cuando el gasto supera el 80% o 100% del presupuesto.
+    cron.schedule('0 20 * * *', async () => {
+      console.log(`[RF-32][cron] Verificando presupuestos — ${new Date().toISOString()}`);
+      try {
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        const today = now.toISOString().split('T')[0];
+
+        const budgets = await db.query(`
+          SELECT b.user_id, b.category, b.monthly_limit::float,
+                 COALESCE(SUM(t.amount)::float, 0) AS spent,
+                 ns.push_budget_alerts
+          FROM budgets b
+          LEFT JOIN transactions t ON t.user_id = b.user_id AND t.type = 'expense'
+                                   AND t.category = b.category
+                                   AND t.date >= $1 AND t.date <= $2
+          LEFT JOIN notification_settings ns ON ns.user_id = b.user_id
+          WHERE (ns.push_budget_alerts IS NULL OR ns.push_budget_alerts = TRUE)
+          GROUP BY b.user_id, b.category, b.monthly_limit, ns.push_budget_alerts
+        `, [firstDay, today]);
+
+        for (const row of budgets.rows) {
+          const pct = (row.spent / row.monthly_limit) * 100;
+          if (pct < 80) continue;
+
+          const level = pct >= 100 ? 'critical' : 'warning';
+          const title = pct >= 100
+            ? `Presupuesto superado: ${row.category}`
+            : `Alerta de presupuesto: ${row.category}`;
+          const body = pct >= 100
+            ? `Has gastado €${row.spent.toFixed(2)} de €${row.monthly_limit.toFixed(2)} en ${row.category} (${Math.round(pct)}%). Considera reducir gastos.`
+            : `Llevas un ${Math.round(pct)}% del presupuesto de ${row.category} (€${row.spent.toFixed(2)} / €${row.monthly_limit.toFixed(2)}).`;
+
+          // Evitar duplicados el mismo día
+          const exists = await db.query(
+            `SELECT id FROM notifications WHERE user_id=$1 AND type='budget_alert'
+             AND metadata->>'category'=$2 AND DATE(created_at)=CURRENT_DATE`,
+            [row.user_id, row.category]
+          );
+          if (exists.rows.length === 0) {
+            await db.query(
+              `INSERT INTO notifications (user_id, type, title, body, metadata)
+               VALUES ($1, 'budget_alert', $2, $3, $4)`,
+              [row.user_id, title, body, JSON.stringify({
+                category: row.category, spent: row.spent,
+                limit: row.monthly_limit, level
+              })]
+            );
+          }
+        }
+        console.log(`[RF-32][cron] Verificación de presupuestos completada`);
+      } catch (err) {
+        console.error('[RF-32][cron] Error:', err.message);
       }
     });
 
