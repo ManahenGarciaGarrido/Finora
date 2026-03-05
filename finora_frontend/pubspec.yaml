@@ -84,6 +84,9 @@ dependencies:
   # Inclute animaciones fluidas, tooltip y zoom
   fl_chart: ^0.68.0
 
+  # RNF-03: Código QR para configuración de 2FA (TOTP)
+  qr_flutter: ^4.1.0
+
   # RNF-08: Splash screen nativo optimizado
   # Muestra el splash antes de que el motor de Flutter arranque,
   # eliminando la pantalla en blanco del cold start.

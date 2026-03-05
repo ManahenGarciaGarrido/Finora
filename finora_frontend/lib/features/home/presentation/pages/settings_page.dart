@@ -1,9 +1,6 @@
-/// Página de Ajustes — incluye RF-03 Autenticación Biométrica
+/// Página de Ajustes — RF-03 + RNF-03
 ///
-/// Muestra el perfil real del usuario obtenido desde AuthBloc.
-/// - Sección Seguridad: toggle funcional de biometría (RF-03)
-/// - Cerrar sesión: completamente funcional
-/// - Resto de opciones: marcadas como en desarrollo
+/// - Sección Seguridad: biometría (RF-03), 2FA (RNF-03)
 library;
 
 import 'dart:math' as math;
@@ -22,6 +19,7 @@ import '../../../authentication/presentation/bloc/auth_state.dart';
 import '../../../categories/presentation/pages/categories_page.dart';
 import '../../../settings/presentation/pages/privacy_page.dart';
 import '../../../banks/presentation/pages/psd2_consent_management_page.dart';
+import 'two_fa_setup_page.dart'; // RNF-03
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -251,8 +249,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildSettingsRow(
                     icon: Icons.security_rounded,
                     title: 'Autenticación 2FA',
-                    subtitle: 'Verificación en dos pasos',
-                    isDeveloping: true,
+                    subtitle: 'Verificación en dos pasos con app autenticadora',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TwoFaSetupPage()),
+                    ),
                   ),
                 ],
               ),
