@@ -2,6 +2,7 @@
 ///
 /// - Sección General: categorías, notificaciones (RF-31/32/33), presupuestos (RF-32)
 /// - Sección Seguridad: biometría (RF-03), 2FA (RNF-03)
+/// - Sección Datos: exportar CSV/PDF (RF-34/35), consentimientos PSD2, privacidad GDPR
 library;
 
 import 'dart:math' as math;
@@ -20,8 +21,9 @@ import '../../../authentication/presentation/bloc/auth_state.dart';
 import '../../../categories/presentation/pages/categories_page.dart';
 import '../../../settings/presentation/pages/privacy_page.dart';
 import '../../../banks/presentation/pages/psd2_consent_management_page.dart';
-import 'two_fa_setup_page.dart'; // RNF-03
+import 'export_page.dart'; // RF-34 / RF-35
 import 'budget_page.dart'; // RF-32
+import 'two_fa_setup_page.dart'; // RNF-03
 import 'notification_settings_page.dart'; // RF-31 / RF-32 / RF-33
 
 class SettingsPage extends StatefulWidget {
@@ -287,8 +289,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildSettingsRow(
                     icon: Icons.download_rounded,
                     title: 'Exportar datos',
-                    subtitle: 'Descargar transacciones en CSV/PDF',
-                    isDeveloping: true,
+                    subtitle: 'Descargar transacciones en CSV o PDF',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ExportPage()),
+                    ),
                   ),
                   _divider(),
                   _buildSettingsRow(
