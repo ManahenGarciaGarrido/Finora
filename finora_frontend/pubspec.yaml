@@ -85,7 +85,9 @@ dependencies:
   fl_chart: ^0.68.0
 
   # RF-34: Exportación CSV — generación de archivos CSV en cliente
+  # RF-35: Exportación PDF — generación de informes PDF en cliente
   pdf: ^3.10.8
+  printing: ^5.12.0
 
   # RF-34/RF-35: Compartir archivos exportados via sistema nativo
   share_plus: ^9.0.0
