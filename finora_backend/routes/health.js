@@ -101,7 +101,11 @@ router.get('/live', (req, res) => {
 router.get('/status', async (req, res) => {
   try {
     const dbHealth = await db.healthCheck();
+    const memUsage = process.memoryUsage();
+    const memMB = Math.round(memUsage.heapUsed / 1024 / 1024);
 
+    // RNF-09: Verificar consumo de memoria (umbral: 150MB)
+    const memOk = memMB < 150;
     const isHealthy = dbHealth.status === 'healthy';
 
     res.status(isHealthy ? 200 : 503).json({
@@ -112,6 +116,11 @@ router.get('/status', async (req, res) => {
       version: '1.0.0',
       checks: {
         database: { status: dbHealth.status === 'healthy' ? 'pass' : 'fail' },
+        memory: {
+          status: memOk ? 'pass' : 'warn',
+          used_mb: memMB,
+          threshold_mb: 150,
+        },
       },
       // RNF-14: Métricas de disponibilidad
       availability: {
