@@ -1,4 +1,4 @@
-/// Página de Ajustes — RF-03 + RF-31 + RF-32 + RF-33 + RNF-03
+/// Página de Ajustes — RF-03 + RF-32 + RF-34 + RF-35 + RNF-03 + RNF-10
 ///
 /// - Sección General: categorías, notificaciones (RF-31/32/33), presupuestos (RF-32)
 /// - Sección Seguridad: biometría (RF-03), 2FA (RNF-03)
