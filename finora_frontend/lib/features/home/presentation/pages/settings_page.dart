@@ -1,6 +1,6 @@
-/// Página de Ajustes — RF-03 + RF-31 + RNF-03
+/// Página de Ajustes — RF-03 + RF-31 + RF-32 + RNF-03
 ///
-/// - Sección General: categorías, notificaciones (RF-31/32/33)
+/// - Sección General: categorías, notificaciones (RF-31/32/33), presupuestos (RF-32)
 /// - Sección Seguridad: biometría (RF-03), 2FA (RNF-03)
 library;
 
@@ -21,7 +21,8 @@ import '../../../categories/presentation/pages/categories_page.dart';
 import '../../../settings/presentation/pages/privacy_page.dart';
 import '../../../banks/presentation/pages/psd2_consent_management_page.dart';
 import 'two_fa_setup_page.dart'; // RNF-03
-import 'notification_settings_page.dart'; // RF-31
+import 'budget_page.dart'; // RF-32
+import 'notification_settings_page.dart'; // RF-31 / RF-32
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -215,10 +216,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   _divider(),
                   _buildSettingsRow(
-                    icon: Icons.palette_outlined,
-                    title: 'Apariencia',
-                    subtitle: 'Tema, idioma y formato',
-                    isDeveloping: true,
+                    icon: Icons.account_balance_wallet_rounded,
+                    title: 'Presupuestos',
+                    subtitle: 'Límites de gasto por categoría y alertas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const BudgetPage()),
+                    ),
                   ),
                   _divider(),
                   _buildSettingsRow(
