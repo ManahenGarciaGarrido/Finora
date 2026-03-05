@@ -6,6 +6,7 @@
 ///  - Primera transacción accesible en < 2 minutos desde instalación
 ///  - Opción de saltar onboarding
 ///  - Diseño auto-explicativo con ilustraciones y textos claros
+library;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
