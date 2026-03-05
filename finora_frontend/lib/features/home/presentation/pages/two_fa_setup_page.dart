@@ -5,6 +5,7 @@
 ///  - Campo para verificar el primer código y activar 2FA
 ///  - Muestra códigos de recuperación de emergencia (solo al activar)
 ///  - Opción para desactivar 2FA (requiere contraseña)
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -203,7 +204,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _is2faEnabled
-              ? AppColors.success.withOpacity(0.3)
+              ? AppColors.success.withValues(alpha: 0.3)
               : AppColors.gray200,
         ),
       ),
@@ -250,7 +251,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
       decoration: BoxDecoration(
         color: AppColors.errorSoft,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -439,7 +440,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
           decoration: BoxDecoration(
             color: AppColors.successSoft,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.success.withOpacity(0.3)),
+            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -516,7 +517,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
           decoration: BoxDecoration(
             color: AppColors.warningSoft,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+            border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
