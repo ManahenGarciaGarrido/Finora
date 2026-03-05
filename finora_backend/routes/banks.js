@@ -29,6 +29,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../services/db');
 const plaid = require('../services/plaid');
 const { autoCategory, autoCategorySimple } = require('../services/categoryMapper');
+const { sendPushToUser } = require('../services/fcm'); // RF-31
 
 // RF-14: URL del servicio Python de IA (configurable via env)
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
@@ -1304,19 +1305,25 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
       console.warn('sync_logs insert warning:', logErr.message);
     }
 
-    // HU-06: Crear notificación in-app si se importaron nuevas transacciones
+    // HU-06 + RF-31: Notificación in-app + push si hay nuevas transacciones
     if (totalImported > 0) {
       try {
+        const notifTitle = 'Nuevas transacciones';
+        const notifBody = `Se ${totalImported === 1 ? 'ha importado 1 transacción' : `han importado ${totalImported} transacciones`} de tu banco`;
         await db.query(
           `INSERT INTO notifications (user_id, type, title, body, metadata)
            VALUES ($1, 'bank_sync', $2, $3, $4)`,
           [
             conn.user_id,
-            'Nuevas transacciones',
-            `Se ${totalImported === 1 ? 'ha importado 1 transacción' : `han importado ${totalImported} transacciones`} de tu banco`,
+            notifTitle,
+            notifBody,
             JSON.stringify({ imported: totalImported, skipped: totalSkipped, connection_id: req.params.id }),
           ]
         );
+        // RF-31: Enviar push real al dispositivo (respeta preferencias y horario silencioso)
+        await sendPushToUser(db, conn.user_id, notifTitle, notifBody, {
+          type: 'bank_sync', imported: String(totalImported),
+        });
       } catch (notifErr) {
         console.warn('notifications insert warning:', notifErr.message);
       }
