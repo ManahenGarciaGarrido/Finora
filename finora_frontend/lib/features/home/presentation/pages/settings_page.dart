@@ -1,6 +1,7 @@
-/// Página de Ajustes — RF-03 + RF-32 + RF-34 + RF-35 + RNF-03 + RNF-10
+/// Página de Ajustes — RF-03 + RF-32 + RF-34 + RF-35 + RNF-03 + RNF-10 + RNF-13
 ///
-/// - Sección General: categorías, notificaciones (RF-31/32/33), presupuestos (RF-32)
+/// - Sección General: categorías, notificaciones (RF-31/32/33), presupuestos (RF-32),
+///   apariencia e idioma (RNF-13)
 /// - Sección Seguridad: biometría (RF-03), 2FA (RNF-03)
 /// - Sección Datos: exportar CSV/PDF (RF-34/35), consentimientos PSD2, privacidad GDPR
 library;
@@ -39,6 +40,9 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _biometricEnabled = false;
   bool _biometricLoading = false;
   String _biometricLabel = 'Huella dactilar';
+
+  // RNF-13: Idioma seleccionado
+  String _selectedLocale = 'es'; // 'es' | 'en'
 
   @override
   void initState() {
@@ -110,6 +114,71 @@ class _SettingsPageState extends State<SettingsPage> {
       _showSnackBar(
         'Inicio de sesión biométrico desactivado',
         AppColors.gray700,
+      );
+    }
+  }
+
+  // RNF-13: Idioma helpers
+  String _getLanguageLabel() {
+    return _selectedLocale == 'es' ? 'Español' : 'English';
+  }
+
+  Future<void> _showLanguageDialog() async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('Idioma'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'es'),
+            child: Row(
+              children: [
+                const Text('🇪🇸  '),
+                Text(
+                  'Español',
+                  style: _selectedLocale == 'es'
+                      ? const TextStyle(fontWeight: FontWeight.bold)
+                      : null,
+                ),
+                if (_selectedLocale == 'es')
+                  const Spacer()
+                else
+                  const SizedBox(),
+                if (_selectedLocale == 'es')
+                  const Icon(Icons.check_rounded, size: 16),
+              ],
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'en'),
+            child: Row(
+              children: [
+                const Text('🇬🇧  '),
+                Text(
+                  'English',
+                  style: _selectedLocale == 'en'
+                      ? const TextStyle(fontWeight: FontWeight.bold)
+                      : null,
+                ),
+                if (_selectedLocale == 'en')
+                  const Spacer()
+                else
+                  const SizedBox(),
+                if (_selectedLocale == 'en')
+                  const Icon(Icons.check_rounded, size: 16),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (selected != null && selected != _selectedLocale) {
+      setState(() => _selectedLocale = selected);
+      _showSnackBar(
+        selected == 'en'
+            ? 'Language set to English'
+            : 'Idioma cambiado a Español',
+        AppColors.success,
       );
     }
   }
@@ -208,7 +277,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.notifications_outlined,
                     title: 'Notificaciones',
                     subtitle:
-                        'Alertas de trasnacciones, presupuesto y objetivos',
+                        'Alertas de transacciones, presupuesto y objetivos',
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -225,6 +294,13 @@ class _SettingsPageState extends State<SettingsPage> {
                       context,
                       MaterialPageRoute(builder: (_) => const BudgetPage()),
                     ),
+                  ),
+                  _divider(),
+                  _buildSettingsRow(
+                    icon: Icons.language_rounded,
+                    title: 'Idioma',
+                    subtitle: _getLanguageLabel(),
+                    onTap: _showLanguageDialog,
                   ),
                   _divider(),
                   _buildSettingsRow(
