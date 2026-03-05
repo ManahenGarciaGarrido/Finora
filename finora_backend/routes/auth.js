@@ -1044,4 +1044,235 @@ router.get('/password-requirements', (req, res) => {
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// RNF-03: Autenticación de dos factores (2FA) — TOTP (RFC 6238)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const crypto = require('crypto');
+
+/** Genera secreto TOTP de 20 bytes en base32 (compatible con Google Authenticator). */
+function _generateTotpSecret() {
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bytes = crypto.randomBytes(20);
+  let bits = 0, value = 0, result = '';
+  for (const byte of bytes) {
+    value = (value << 8) | byte; bits += 8;
+    while (bits >= 5) { result += CHARS[(value >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  if (bits > 0) result += CHARS[(value << (5 - bits)) & 31];
+  return result;
+}
+
+/** Decodifica base32 a Buffer. */
+function _base32Decode(base32) {
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const str = base32.toUpperCase().replace(/=+$/, '');
+  let bits = 0, value = 0;
+  const bytes = [];
+  for (const c of str) {
+    const idx = CHARS.indexOf(c);
+    if (idx === -1) continue;
+    value = (value << 5) | idx; bits += 5;
+    if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  return Buffer.from(bytes);
+}
+
+/** Calcula código TOTP para un instante dado. RFC 6238 / RFC 4226. */
+function _getTotpCode(secret, time = Date.now()) {
+  const T = Math.floor(time / 1000 / 30);
+  const buf = Buffer.alloc(8);
+  buf.writeUInt32BE(Math.floor(T / 0x100000000), 0);
+  buf.writeUInt32BE(T >>> 0, 4);
+  const hmac = crypto.createHmac('sha1', _base32Decode(secret)).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0xf;
+  const code = (
+    ((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff)
+  ) % 1_000_000;
+  return String(code).padStart(6, '0');
+}
+
+/** Verifica código TOTP admitiendo ventana ±1 período (±30 s). */
+function _verifyTotp(secret, code) {
+  const now = Date.now();
+  return [-30000, 0, 30000].some(delta => _getTotpCode(secret, now + delta) === String(code).padStart(6, '0'));
+}
+
+/** Genera 8 códigos de recuperación XXXX-XXXX. */
+function _generateRecoveryCodes() {
+  return Array.from({ length: 8 }, () => {
+    const h = crypto.randomBytes(4).toString('hex').toUpperCase();
+    return `${h.slice(0, 4)}-${h.slice(4)}`;
+  });
+}
+
+/**
+ * POST /api/v1/auth/2fa/setup
+ * RNF-03: Genera secreto TOTP + URI otpauth:// para mostrar QR en el cliente.
+ * No activa 2FA hasta confirmar con /2fa/verify.
+ */
+router.post('/2fa/setup', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userResult = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'Not Found' });
+
+    const secret = _generateTotpSecret();
+    await db.query('UPDATE users SET totp_secret_pending = $1, updated_at = NOW() WHERE id = $2', [secret, userId]);
+
+    const issuer = encodeURIComponent('Finora');
+    const account = encodeURIComponent(userResult.rows[0].email);
+    const otpauthUri = `otpauth://totp/${issuer}:${account}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+
+    res.json({ secret, otpauth_uri: otpauthUri });
+  } catch (err) {
+    console.error('2fa/setup error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/auth/2fa/verify
+ * RNF-03: Verifica primer código TOTP y activa 2FA definitivamente.
+ * Devuelve códigos de recuperación (solo una vez).
+ */
+router.post('/2fa/verify', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { code } = req.body;
+    if (!code || !/^\d{6}$/.test(String(code))) {
+      return res.status(422).json({ error: 'Validation Error', message: 'Código de 6 dígitos requerido' });
+    }
+
+    const r = await db.query('SELECT totp_secret_pending FROM users WHERE id = $1', [userId]);
+    if (!r.rows.length || !r.rows[0].totp_secret_pending) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Llama primero a /2fa/setup' });
+    }
+
+    if (!_verifyTotp(r.rows[0].totp_secret_pending, code)) {
+      return res.status(401).json({ error: 'Invalid Code', message: 'Código incorrecto o expirado' });
+    }
+
+    const recoveryCodes = _generateRecoveryCodes();
+    const recoveryHashes = recoveryCodes.map(c => crypto.createHash('sha256').update(c).digest('hex'));
+
+    await db.query(
+      `UPDATE users SET totp_secret = $1, totp_secret_pending = NULL,
+       is_2fa_enabled = TRUE, totp_recovery_codes = $2, updated_at = NOW() WHERE id = $3`,
+      [r.rows[0].totp_secret_pending, JSON.stringify(recoveryHashes), userId]
+    );
+
+    res.json({
+      success: true,
+      recovery_codes: recoveryCodes,
+      warning: 'Guarda estos códigos en un lugar seguro. No se mostrarán de nuevo.',
+    });
+  } catch (err) {
+    console.error('2fa/verify error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/auth/2fa/validate
+ * RNF-03: Valida código TOTP durante el login cuando 2FA está activo.
+ * Recibe: { temp_token, code }
+ */
+router.post('/2fa/validate', async (req, res) => {
+  try {
+    const { temp_token, code } = req.body;
+    if (!temp_token || !code) {
+      return res.status(422).json({ error: 'Validation Error', message: 'temp_token y code requeridos' });
+    }
+
+    let payload;
+    try { payload = jwt.verify(temp_token, JWT_SECRET); } catch {
+      return res.status(401).json({ error: 'Unauthorized', message: 'Token inválido o expirado' });
+    }
+    if (!payload['2fa_pending']) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Token no es de tipo 2fa_pending' });
+    }
+
+    const userResult = await db.query(
+      'SELECT id, totp_secret, totp_recovery_codes FROM users WHERE id = $1 AND is_2fa_enabled = TRUE',
+      [payload.userId]
+    );
+    if (!userResult.rows.length) {
+      return res.status(401).json({ error: 'Unauthorized', message: '2FA no activo' });
+    }
+
+    const user = userResult.rows[0];
+    const codeStr = String(code).trim();
+    let valid = _verifyTotp(user.totp_secret, codeStr);
+
+    // Intentar código de recuperación si TOTP falla
+    if (!valid && user.totp_recovery_codes) {
+      const codes = JSON.parse(user.totp_recovery_codes);
+      const hash = crypto.createHash('sha256').update(codeStr.toUpperCase()).digest('hex');
+      const idx = codes.indexOf(hash);
+      if (idx !== -1) {
+        valid = true;
+        codes.splice(idx, 1);
+        await db.query('UPDATE users SET totp_recovery_codes = $1 WHERE id = $2', [JSON.stringify(codes), user.id]);
+      }
+    }
+
+    if (!valid) return res.status(401).json({ error: 'Invalid Code', message: 'Código incorrecto o expirado' });
+
+    const accessToken = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ access_token: accessToken, token_type: 'Bearer' });
+  } catch (err) {
+    console.error('2fa/validate error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/auth/2fa/disable
+ * RNF-03: Desactiva 2FA (requiere contraseña actual).
+ */
+router.post('/2fa/disable', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { password } = req.body;
+    if (!password) return res.status(422).json({ error: 'Validation Error', message: 'password requerida' });
+
+    const userResult = await db.query('SELECT password, is_2fa_enabled FROM users WHERE id = $1', [userId]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'Not Found' });
+
+    const user = userResult.rows[0];
+    if (!user.is_2fa_enabled) return res.status(400).json({ error: 'Bad Request', message: '2FA no estaba activo' });
+
+    const bcrypt = require('bcryptjs');
+    if (!(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ error: 'Unauthorized', message: 'Contraseña incorrecta' });
+    }
+
+    await db.query(
+      `UPDATE users SET is_2fa_enabled = FALSE, totp_secret = NULL,
+       totp_secret_pending = NULL, totp_recovery_codes = NULL, updated_at = NOW() WHERE id = $1`,
+      [userId]
+    );
+    res.json({ success: true, message: '2FA desactivado correctamente' });
+  } catch (err) {
+    console.error('2fa/disable error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+/**
+ * GET /api/v1/auth/2fa/status
+ * RNF-03: Estado del 2FA del usuario.
+ */
+router.get('/2fa/status', authenticateToken, async (req, res) => {
+  try {
+    const r = await db.query('SELECT is_2fa_enabled FROM users WHERE id = $1', [req.user.userId]);
+    res.json({ is_2fa_enabled: r.rows[0]?.is_2fa_enabled || false });
+  } catch (err) {
+    console.error('2fa/status error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
 module.exports = router;
