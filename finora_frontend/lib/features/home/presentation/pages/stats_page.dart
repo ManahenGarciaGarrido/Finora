@@ -544,67 +544,74 @@ class _StatsPageState extends State<StatsPage>
             label:
                 'Gráfico circular de distribución de gastos por categoría. '
                 'Toca un segmento para ver el detalle.',
-            child: AnimatedBuilder(
-              animation: _animValue,
-              builder: (_, __) => SizedBox(
-                height: 220,
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 5,
-                      child: PieChart(
-                        PieChartData(
-                          pieTouchData: PieTouchData(
-                            touchCallback: (event, resp) {
-                              setState(() {
-                                if (!event.isInterestedForInteractions ||
-                                    resp?.touchedSection == null) {
-                                  _touchedPieIndex = null;
-                                } else {
-                                  _touchedPieIndex =
-                                      resp!.touchedSection!.touchedSectionIndex;
-                                }
-                              });
-                            },
-                          ),
-                          startDegreeOffset: -90,
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 42,
-                          sections: entries.asMap().entries.map((e) {
-                            final idx = e.key;
-                            final cat = e.value;
-                            final isTouched = _touchedPieIndex == idx;
-                            final pct = total > 0
-                                ? (cat.value / total * 100)
-                                : 0.0;
-                            return PieChartSectionData(
-                              value: cat.value * _animValue.value,
-                              color: colors[idx],
-                              radius: isTouched ? 72 : 58,
-                              title: pct >= 8
-                                  ? '${pct.toStringAsFixed(0)}%'
-                                  : '',
-                              titleStyle: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final chartH =
+                    (constraints.maxWidth * 0.5).clamp(160.0, 250.0);
+                return AnimatedBuilder(
+                  animation: _animValue,
+                  builder: (_, __) => SizedBox(
+                    height: chartH,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 5,
+                          child: PieChart(
+                            PieChartData(
+                              pieTouchData: PieTouchData(
+                                touchCallback: (event, resp) {
+                                  setState(() {
+                                    if (!event.isInterestedForInteractions ||
+                                        resp?.touchedSection == null) {
+                                      _touchedPieIndex = null;
+                                    } else {
+                                      _touchedPieIndex = resp!
+                                          .touchedSection!.touchedSectionIndex;
+                                    }
+                                  });
+                                },
                               ),
-                            );
-                          }).toList(),
+                              startDegreeOffset: -90,
+                              sectionsSpace: 2,
+                              centerSpaceRadius: 42,
+                              sections: entries.asMap().entries.map((e) {
+                                final idx = e.key;
+                                final cat = e.value;
+                                final isTouched = _touchedPieIndex == idx;
+                                final pct = total > 0
+                                    ? (cat.value / total * 100)
+                                    : 0.0;
+                                return PieChartSectionData(
+                                  value: cat.value * _animValue.value,
+                                  color: colors[idx],
+                                  radius: isTouched ? 72 : 58,
+                                  title: pct >= 8
+                                      ? '${pct.toStringAsFixed(0)}%'
+                                      : '',
+                                  titleStyle: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 5,
+                          child: _buildPieLegend(entries, colors, total),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 5,
-                      child: _buildPieLegend(entries, colors, total),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
           if (_touchedPieIndex != null &&
+              _touchedPieIndex! >= 0 &&
               _touchedPieIndex! < entries.length) ...[
             const SizedBox(height: 12),
             _buildDetailBadge(
@@ -783,107 +790,117 @@ class _StatsPageState extends State<StatsPage>
           const SizedBox(height: 20),
           Semantics(
             label: 'Gráfico de barras comparativo de ingresos y gastos por mes',
-            child: SizedBox(
-              height: 180,
-              child: AnimatedBuilder(
-                animation: _animValue,
-                builder: (_, __) => BarChart(
-                  BarChartData(
-                    maxY: maxVal > 0 ? maxVal * 1.25 : 100,
-                    minY: 0,
-                    gridData: FlGridData(
-                      show: true,
-                      horizontalInterval: maxVal > 0 ? maxVal / 4 : 25,
-                      getDrawingHorizontalLine: (_) =>
-                          FlLine(color: AppColors.gray100, strokeWidth: 1),
-                      drawVerticalLine: false,
-                    ),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 48,
-                          getTitlesWidget: (val, _) => Text(
-                            _fmtCompact(val),
-                            style: AppTypography.badge(
-                              color: AppColors.textTertiaryLight,
-                            ),
-                          ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final chartH =
+                    (constraints.maxWidth * 0.45).clamp(140.0, 220.0);
+                final labelSize = constraints.maxWidth < 340 ? 38.0 : 48.0;
+                final barW = constraints.maxWidth < 340 ? 7.0 : 9.0;
+                return SizedBox(
+                  height: chartH,
+                  child: AnimatedBuilder(
+                    animation: _animValue,
+                    builder: (_, __) => BarChart(
+                      BarChartData(
+                        maxY: maxVal > 0 ? maxVal * 1.25 : 100,
+                        minY: 0,
+                        gridData: FlGridData(
+                          show: true,
+                          horizontalInterval: maxVal > 0 ? maxVal / 4 : 25,
+                          getDrawingHorizontalLine: (_) =>
+                              FlLine(color: AppColors.gray100, strokeWidth: 1),
+                          drawVerticalLine: false,
                         ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (val, _) {
-                            final idx = val.toInt();
-                            if (idx < 0 || idx >= months.length) {
-                              return const SizedBox.shrink();
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                _months[months[idx].month.month - 1],
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: labelSize,
+                              getTitlesWidget: (val, _) => Text(
+                                _fmtCompact(val),
                                 style: AppTypography.badge(
                                   color: AppColors.textTertiaryLight,
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (val, _) {
+                                final idx = val.toInt();
+                                if (idx < 0 || idx >= months.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    _months[months[idx].month.month - 1],
+                                    style: AppTypography.badge(
+                                      color: AppColors.textTertiaryLight,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                         ),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                    ),
-                    barTouchData: BarTouchData(
-                      touchTooltipData: BarTouchTooltipData(
-                        getTooltipColor: (_) =>
-                            AppColors.textPrimaryLight.withValues(alpha: 0.9),
-                        tooltipRoundedRadius: 8,
-                        getTooltipItem: (group, _, rod, rodIdx) {
-                          final d = months[group.x.toInt()];
-                          final label = rodIdx == 0 ? 'Ingresos' : 'Gastos';
-                          return BarTooltipItem(
-                            '${_months[d.month.month - 1]} ${d.month.year}\n'
-                            '$label: ${_fmtCurrency(rod.toY)}',
-                            AppTypography.badge(color: Colors.white),
+                        barTouchData: BarTouchData(
+                          touchTooltipData: BarTouchTooltipData(
+                            getTooltipColor: (_) =>
+                                AppColors.textPrimaryLight
+                                    .withValues(alpha: 0.9),
+                            tooltipRoundedRadius: 8,
+                            getTooltipItem: (group, _, rod, rodIdx) {
+                              final d = months[group.x.toInt()];
+                              final label =
+                                  rodIdx == 0 ? 'Ingresos' : 'Gastos';
+                              return BarTooltipItem(
+                                '${_months[d.month.month - 1]} ${d.month.year}\n'
+                                '$label: ${_fmtCurrency(rod.toY)}',
+                                AppTypography.badge(color: Colors.white),
+                              );
+                            },
+                          ),
+                        ),
+                        barGroups: months.asMap().entries.map((e) {
+                          final idx = e.key;
+                          final d = e.value;
+                          return BarChartGroupData(
+                            x: idx,
+                            barsSpace: 4,
+                            barRods: [
+                              BarChartRodData(
+                                toY: d.income * _animValue.value,
+                                color: AppColors.success,
+                                width: barW,
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(4),
+                                ),
+                              ),
+                              BarChartRodData(
+                                toY: d.expenses * _animValue.value,
+                                color: AppColors.error,
+                                width: barW,
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(4),
+                                ),
+                              ),
+                            ],
                           );
-                        },
+                        }).toList(),
                       ),
                     ),
-                    barGroups: months.asMap().entries.map((e) {
-                      final idx = e.key;
-                      final d = e.value;
-                      return BarChartGroupData(
-                        x: idx,
-                        barsSpace: 4,
-                        barRods: [
-                          BarChartRodData(
-                            toY: d.income * _animValue.value,
-                            color: AppColors.success,
-                            width: 9,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(4),
-                            ),
-                          ),
-                          BarChartRodData(
-                            toY: d.expenses * _animValue.value,
-                            color: AppColors.error,
-                            width: 9,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(4),
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -974,10 +991,16 @@ class _StatsPageState extends State<StatsPage>
                 'Gráfico de líneas de evolución temporal. '
                 'Usa pellizco para ampliar. '
                 'Toca un punto para ver los valores exactos.',
-            child: ClipRRect(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final chartH =
+                    (constraints.maxWidth * 0.55).clamp(160.0, 260.0);
+                final labelSize =
+                    constraints.maxWidth < 340 ? 40.0 : 50.0;
+                return ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
-                height: 220,
+                height: chartH,
                 child: InteractiveViewer(
                   transformationController: _lineZoomController,
                   minScale: 1.0,
@@ -1003,7 +1026,7 @@ class _StatsPageState extends State<StatsPage>
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: 50,
+                              reservedSize: labelSize,
                               interval: maxY > 0 ? (maxY - minY) / 4 : 25,
                               getTitlesWidget: (val, _) => Text(
                                 _fmtCompact(val),
@@ -1136,8 +1159,10 @@ class _StatsPageState extends State<StatsPage>
                     ),
                   ), // closes AnimatedBuilder
                 ), // closes InteractiveViewer
-              ), // closes SizedBox(height:220)
-            ), // closes ClipRRect
+              ), // closes SizedBox(height:chartH)
+            ); // closes ClipRRect — ends return statement
+              },
+            ), // closes LayoutBuilder
           ), // closes Semantics
         ],
       ),

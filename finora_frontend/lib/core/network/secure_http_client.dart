@@ -37,7 +37,7 @@ class SecureHttpClient extends IOHttpClientAdapter {
     final isLocalDevelopment =
         uri.host == 'localhost' ||
         uri.host == '127.0.0.1' ||
-        uri.host == '192.168.100.88' ||
+        uri.host == '10.77.13.29' ||
         uri.host == '10.0.2.2';
 
     if (isLocalDevelopment) {

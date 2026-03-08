@@ -347,6 +347,24 @@ const startServer = async () => {
       console.log('[auto-migrate] ✓ budgets table (RF-32)');
     } catch (e) { console.warn('[auto-migrate] budgets warning:', e.message); }
 
+    // RF-16: categories.display_order column (added after initial schema in some deployments)
+    try {
+      await db.query(`
+        ALTER TABLE categories
+          ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0
+      `);
+      console.log('[auto-migrate] ✓ categories.display_order (RF-16)');
+    } catch (e) { console.warn('[auto-migrate] categories.display_order warning:', e.message); }
+
+    // RF-09: users.name column for profile editing
+    try {
+      await db.query(`
+        ALTER TABLE users
+          ADD COLUMN IF NOT EXISTS name VARCHAR(255)
+      `);
+      console.log('[auto-migrate] ✓ users.name (RF-09)');
+    } catch (e) { console.warn('[auto-migrate] users.name warning:', e.message); }
+
     if (dbHealth.status !== 'healthy') {
       console.error('Database connection failed:', dbHealth.error);
       // Continue anyway, health endpoint will report unhealthy

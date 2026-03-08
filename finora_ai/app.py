@@ -2,17 +2,18 @@
 Finora AI Service — RF-14, RF-21, RF-22, RF-25, RF-26, RF-27
 
 Microservicio Flask que expone los modelos de IA de los notebooks de Finora:
-- POST /categorize              → RF-14: Categorización automática de transacciones
-- POST /categorize/batch        → RF-14: Categorización en lote
-- POST /savings                 → RF-21/HU-08: Recomendaciones de ahorro inteligente
-- POST /predict-expenses        → RF-22/HU-09: Predicción ML de gastos (Ridge/RF/GBM)
-- POST /evaluate-savings-goal   → RF-21: Evaluación de viabilidad de objetivo de ahorro
-- POST /detect-anomalies        → RF-23/HU-10: Detección de gastos anómalos (Z-score)
-- POST /detect-subscriptions    → RF-24/HU-11: Identificación de suscripciones periódicas
-- POST /chat                    → RF-25/HU-12/CU-04: Asistente conversacional IA financiero
-- POST /affordability           → RF-26/HU-13: Análisis "¿Puedo permitírmelo?"
-- POST /recommendations         → RF-27/HU-14: Recomendaciones de optimización financiera
-- GET  /health                  → Health check para Docker
+- POST /categorize                   → RF-14: Categorización automática de transacciones
+- POST /categorize/batch             → RF-14: Categorización en lote
+- POST /savings                      → RF-21/HU-08: Recomendaciones de ahorro inteligente
+- POST /predict-expenses             → RF-22/HU-09: Predicción ML de gastos (Ridge/RF/GBM)
+- POST /evaluate-savings-goal        → RF-21: Evaluación de viabilidad de objetivo de ahorro
+- POST /detect-anomalies             → RF-23/HU-10: Detección de gastos anómalos (Z-score)
+- POST /detect-subscriptions         → RF-24/HU-11: Identificación de suscripciones periódicas
+- POST /chat                         → RF-25/HU-12/CU-04: Asistente conversacional IA financiero
+- POST /affordability                → RF-26/HU-13: Análisis "¿Puedo permitírmelo?"
+- POST /recommendations              → RF-27/HU-14: Recomendaciones de optimización financiera
+- POST /generate-sample-transactions → RF-01: Generador IA de transacciones realistas
+- GET  /health                       → Health check para Docker
 
 Los algoritmos de predicción de gastos están basados en los notebooks:
   - Notebooks/rf22_prediccion_gastos_ml.ipynb (seleccionar_modelo, construir_features)
@@ -21,11 +22,15 @@ Los algoritmos de predicción de gastos están basados en los notebooks:
 
 import os
 import re
+import json
 import math
+import random
 import string
+import calendar
 import unicodedata
 import logging
 from collections import defaultdict
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -37,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app, origins=["*"])
+
 
 # ─── Constantes RF-14 ────────────────────────────────────────────────────────
 CONFIDENCE_THRESHOLD = 50  # % mínimo para no usar fallback
@@ -1306,11 +1312,11 @@ def chat():
     if not message:
         return jsonify({'error': 'message es requerido'}), 400
 
-    intent  = _detect_intent(message)
     summary = _build_financial_summary(transactions)
-    result  = _generate_chat_response(intent, message, summary, goals)
 
-    logger.info(f"[chat] intent={intent} | message_len={len(message)}")
+    intent = _detect_intent(message)
+    result = _generate_chat_response(intent, message, summary, goals)
+    logger.info(f"[chat] motor=rules | intent={intent} | message_len={len(message)}")
     return jsonify(result)
 
 
@@ -1650,6 +1656,331 @@ def recommendations():
         'financial_score':        score,
         'analysis_months':        analysis_months,
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RF-01 — Generador IA de transacciones bancarias realistas para España
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Endpoint: POST /generate-sample-transactions
+#
+# Flujo:
+#   1. El generador estadístico produce un historial rico y coherente con
+#      98+ comercios españoles reales y patrones estacionales
+#   2. El caller (banks.js) escala los ingresos proporcionalmente para cuadrar
+#      el saldo exacto y categoriza el lote completo con el modelo ML ya existente
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ---------------------------------------------------------------------------
+# Catálogo de comercios para el generador de fallback (reglas estadísticas)
+# ---------------------------------------------------------------------------
+# freq: weekly=3-5×/mes, biweekly=1-3×/mes, monthly=~1×/mes, rare=~30%/mes
+# range: [min_cents, max_cents]
+
+_FB_MERCHANTS = [
+    # ── Alimentación ──────────────────────────────────────────────────────────
+    {'desc': 'Mercadona',           'pm': 'debit_card',  'freq': 'weekly',   'range': (1500,  8500)},
+    {'desc': 'Carrefour Express',   'pm': 'debit_card',  'freq': 'biweekly', 'range': (1800, 11000)},
+    {'desc': 'Lidl',                'pm': 'debit_card',  'freq': 'biweekly', 'range': ( 900,  6000)},
+    {'desc': 'Dia Supermercados',   'pm': 'debit_card',  'freq': 'biweekly', 'range': ( 600,  4000)},
+    {'desc': 'Aldi',                'pm': 'debit_card',  'freq': 'monthly',  'range': ( 800,  4500)},
+    {'desc': 'Consum',              'pm': 'debit_card',  'freq': 'biweekly', 'range': (1000,  6000)},
+    {'desc': 'Froiz',               'pm': 'debit_card',  'freq': 'monthly',  'range': (1200,  5500)},
+    {'desc': 'Cafetería',           'pm': 'debit_card',  'freq': 'weekly',   'range': ( 150,   550)},
+    {'desc': 'Bar La Tasca',        'pm': 'debit_card',  'freq': 'weekly',   'range': ( 200,   800)},
+    {'desc': 'Restaurante',         'pm': 'debit_card',  'freq': 'biweekly', 'range': (1200,  4000)},
+    {'desc': "McDonald's",          'pm': 'debit_card',  'freq': 'monthly',  'range': ( 600,  1500)},
+    {'desc': 'Burger King',         'pm': 'debit_card',  'freq': 'monthly',  'range': ( 700,  1700)},
+    {'desc': 'KFC',                 'pm': 'debit_card',  'freq': 'monthly',  'range': ( 700,  1800)},
+    {'desc': 'Telepizza',           'pm': 'debit_card',  'freq': 'monthly',  'range': (1300,  2800)},
+    {'desc': "Domino's Pizza",      'pm': 'credit_card', 'freq': 'monthly',  'range': (1200,  2600)},
+    {'desc': 'Starbucks',           'pm': 'debit_card',  'freq': 'weekly',   'range': ( 350,   850)},
+    {'desc': 'Costa Coffee',        'pm': 'debit_card',  'freq': 'biweekly', 'range': ( 250,   700)},
+    {'desc': 'Glovo',               'pm': 'credit_card', 'freq': 'biweekly', 'range': (1200,  3200)},
+    {'desc': 'Just Eat',            'pm': 'credit_card', 'freq': 'biweekly', 'range': (1100,  3000)},
+    {'desc': 'Uber Eats',           'pm': 'credit_card', 'freq': 'biweekly', 'range': (1200,  3500)},
+    {'desc': 'Vips',                'pm': 'debit_card',  'freq': 'monthly',  'range': ( 900,  2500)},
+    {'desc': 'Mercadona Online',    'pm': 'credit_card', 'freq': 'rare',     'range': (3500,  9000)},
+    # ── Transporte ────────────────────────────────────────────────────────────
+    {'desc': 'Repsol',              'pm': 'debit_card',  'freq': 'biweekly', 'range': (3800,  8000)},
+    {'desc': 'BP',                  'pm': 'debit_card',  'freq': 'biweekly', 'range': (3600,  7500)},
+    {'desc': 'Cepsa',               'pm': 'debit_card',  'freq': 'monthly',  'range': (4000,  7800)},
+    {'desc': 'Galp',                'pm': 'debit_card',  'freq': 'monthly',  'range': (3900,  7500)},
+    {'desc': 'Renfe Cercanías',     'pm': 'debit_card',  'freq': 'monthly',  'range': (1500,  5000)},
+    {'desc': 'Metro Madrid',        'pm': 'debit_card',  'freq': 'monthly',  'range': (1250,  2600)},
+    {'desc': 'Cabify',              'pm': 'credit_card', 'freq': 'monthly',  'range': ( 700,  2500)},
+    {'desc': 'Bolt',                'pm': 'credit_card', 'freq': 'monthly',  'range': ( 500,  2000)},
+    {'desc': 'BlaBlaCar',           'pm': 'credit_card', 'freq': 'rare',     'range': ( 800,  3500)},
+    {'desc': 'Aparcamiento',        'pm': 'debit_card',  'freq': 'biweekly', 'range': ( 300,  1800)},
+    {'desc': 'Bicing / EMT',        'pm': 'debit_card',  'freq': 'monthly',  'range': ( 800,  3000)},
+    {'desc': 'ALSA',                'pm': 'debit_card',  'freq': 'rare',     'range': ( 800,  4500)},
+    {'desc': 'ITV',                 'pm': 'debit_card',  'freq': 'rare',     'range': (3500,  7000)},
+    # ── Ropa ──────────────────────────────────────────────────────────────────
+    {'desc': 'Zara',                'pm': 'debit_card',  'freq': 'monthly',  'range': (2000, 11000)},
+    {'desc': 'H&M',                 'pm': 'credit_card', 'freq': 'monthly',  'range': (1500,  6500)},
+    {'desc': 'Mango',               'pm': 'credit_card', 'freq': 'monthly',  'range': (1800, 10000)},
+    {'desc': 'Pull&Bear',           'pm': 'debit_card',  'freq': 'monthly',  'range': (1500,  7000)},
+    {'desc': 'Primark',             'pm': 'debit_card',  'freq': 'monthly',  'range': (1000,  4500)},
+    {'desc': 'Massimo Dutti',       'pm': 'credit_card', 'freq': 'monthly',  'range': (3000, 16000)},
+    {'desc': 'Shein',               'pm': 'credit_card', 'freq': 'monthly',  'range': (1200,  5500)},
+    {'desc': 'Bershka',             'pm': 'debit_card',  'freq': 'monthly',  'range': (1200,  6000)},
+    {'desc': 'Stradivarius',        'pm': 'debit_card',  'freq': 'monthly',  'range': (1200,  6000)},
+    # ── Ocio ──────────────────────────────────────────────────────────────────
+    {'desc': 'Cines Yelmo',         'pm': 'debit_card',  'freq': 'monthly',  'range': ( 700,  1500)},
+    {'desc': 'Steam',               'pm': 'credit_card', 'freq': 'monthly',  'range': ( 500,  6000)},
+    {'desc': 'PlayStation Store',   'pm': 'credit_card', 'freq': 'monthly',  'range': ( 599,  5999)},
+    {'desc': 'Xbox Game Pass',      'pm': 'direct_debit','freq': 'monthly',  'range': ( 999,  1499)},
+    {'desc': 'Nintendo eShop',      'pm': 'credit_card', 'freq': 'rare',     'range': ( 499,  5999)},
+    {'desc': 'FNAC',                'pm': 'credit_card', 'freq': 'rare',     'range': (1000, 10000)},
+    {'desc': 'Bowling / Karting',   'pm': 'debit_card',  'freq': 'rare',     'range': ( 800,  3000)},
+    # ── Cultura ───────────────────────────────────────────────────────────────
+    {'desc': 'Teatro / Concierto',  'pm': 'credit_card', 'freq': 'rare',     'range': (1500,  9000)},
+    {'desc': 'Casa del Libro',      'pm': 'debit_card',  'freq': 'monthly',  'range': ( 800,  3500)},
+    {'desc': 'Museo / Exposición',  'pm': 'debit_card',  'freq': 'rare',     'range': ( 500,  2200)},
+    # ── Compras ───────────────────────────────────────────────────────────────
+    {'desc': 'Amazon',              'pm': 'credit_card', 'freq': 'biweekly', 'range': ( 800, 12000)},
+    {'desc': 'El Corte Inglés',     'pm': 'credit_card', 'freq': 'monthly',  'range': (1800, 18000)},
+    {'desc': 'MediaMarkt',          'pm': 'credit_card', 'freq': 'rare',     'range': (5000, 55000)},
+    {'desc': 'AliExpress',          'pm': 'credit_card', 'freq': 'monthly',  'range': ( 500,  6000)},
+    {'desc': 'Wallapop / Vinted',   'pm': 'bizum',       'freq': 'rare',     'range': (1000,  8000)},
+    # ── Tecnología ────────────────────────────────────────────────────────────
+    {'desc': 'PcComponentes',       'pm': 'credit_card', 'freq': 'rare',     'range': (2000, 45000)},
+    {'desc': 'Apple Store',         'pm': 'credit_card', 'freq': 'rare',     'range': (3000, 70000)},
+    # ── Vivienda ──────────────────────────────────────────────────────────────
+    {'desc': 'IKEA',                'pm': 'credit_card', 'freq': 'rare',     'range': (3000, 45000)},
+    {'desc': 'Leroy Merlin',        'pm': 'debit_card',  'freq': 'rare',     'range': (1800, 30000)},
+    {'desc': 'Mr. Bricolage',       'pm': 'debit_card',  'freq': 'rare',     'range': (1200, 10000)},
+    {'desc': 'Ferretería',          'pm': 'debit_card',  'freq': 'rare',     'range': ( 500,  6000)},
+    # ── Salud ─────────────────────────────────────────────────────────────────
+    {'desc': 'Farmacia García',     'pm': 'debit_card',  'freq': 'monthly',  'range': ( 400,  5000)},
+    {'desc': 'Farmacia Central',    'pm': 'debit_card',  'freq': 'monthly',  'range': ( 400,  5500)},
+    {'desc': 'Dentista',            'pm': 'debit_card',  'freq': 'rare',     'range': (5500, 22000)},
+    {'desc': 'Óptica Universitaria','pm': 'credit_card', 'freq': 'rare',     'range': (7000, 30000)},
+    {'desc': 'Fisioterapeuta',      'pm': 'debit_card',  'freq': 'rare',     'range': (3000,  8000)},
+    # ── Belleza / Cuidado Personal ────────────────────────────────────────────
+    {'desc': 'Peluquería',          'pm': 'debit_card',  'freq': 'monthly',  'range': (1200,  6000)},
+    {'desc': 'Centro de Estética',  'pm': 'debit_card',  'freq': 'monthly',  'range': (1800,  7500)},
+    {'desc': 'Douglas',             'pm': 'debit_card',  'freq': 'monthly',  'range': (1200,  8000)},
+    {'desc': 'Primor',              'pm': 'debit_card',  'freq': 'monthly',  'range': ( 800,  4500)},
+    # ── Educación ─────────────────────────────────────────────────────────────
+    {'desc': 'Udemy',               'pm': 'credit_card', 'freq': 'rare',     'range': ( 999,  4999)},
+    {'desc': 'Academia de idiomas', 'pm': 'bank_transfer','freq': 'monthly', 'range': (5000, 11000)},
+    {'desc': 'Librería',            'pm': 'debit_card',  'freq': 'monthly',  'range': ( 800,  4000)},
+    # ── Mascotas ──────────────────────────────────────────────────────────────
+    {'desc': 'Kiwoko',              'pm': 'debit_card',  'freq': 'monthly',  'range': (1800,  6000)},
+    {'desc': 'Tiendanimal',         'pm': 'debit_card',  'freq': 'monthly',  'range': (1500,  5000)},
+    {'desc': 'Veterinario',         'pm': 'debit_card',  'freq': 'rare',     'range': (3000, 16000)},
+    {'desc': 'Peluquería canina',   'pm': 'debit_card',  'freq': 'monthly',  'range': (2200,  5500)},
+    # ── Deportes ──────────────────────────────────────────────────────────────
+    {'desc': 'Decathlon',           'pm': 'debit_card',  'freq': 'rare',     'range': (1800, 13000)},
+    {'desc': 'Pádel / Tenis',       'pm': 'debit_card',  'freq': 'biweekly', 'range': ( 600,  1400)},
+    {'desc': 'Nike / Adidas',       'pm': 'credit_card', 'freq': 'rare',     'range': (2500, 14000)},
+    {'desc': 'Polideportivo',       'pm': 'debit_card',  'freq': 'monthly',  'range': ( 500,  1800)},
+    # ── Viajes ────────────────────────────────────────────────────────────────
+    {'desc': 'Airbnb',              'pm': 'credit_card', 'freq': 'rare',     'range': (7000, 32000)},
+    {'desc': 'Booking.com',         'pm': 'credit_card', 'freq': 'rare',     'range': (5500, 38000)},
+    {'desc': 'Vueling',             'pm': 'credit_card', 'freq': 'rare',     'range': (3500, 22000)},
+    {'desc': 'Renfe AVE',           'pm': 'credit_card', 'freq': 'rare',     'range': (2200, 16000)},
+]
+
+_FB_FIXED_TEMPLATES = [
+    {'desc': 'Netflix',            'pm': 'direct_debit',  'day': 5,  'base': 1599, 'var': 0.00},
+    {'desc': 'Spotify',            'pm': 'direct_debit',  'day': 8,  'base':  999, 'var': 0.00},
+    {'desc': 'Vodafone',           'pm': 'direct_debit',  'day': 10, 'base': 3850, 'var': 0.04},
+    {'desc': 'Iberdrola',          'pm': 'direct_debit',  'day': 15, 'base': 6000, 'var': 0.30},
+    {'desc': 'Comunidad vecinos',  'pm': 'bank_transfer', 'day': 3,  'base': 8000, 'var': 0.00},
+    {'desc': 'Seguro coche',       'pm': 'direct_debit',  'day': 20, 'base': 6200, 'var': 0.05},
+    {'desc': 'Seguro hogar',       'pm': 'direct_debit',  'day': 7,  'base': 2800, 'var': 0.00},
+]
+
+
+def _fb_generate(balance_eur: float, months: int) -> list:
+    """
+    Generador estadístico de transacciones bancarias con presupuesto mensual controlado.
+
+    Estrategia de presupuesto:
+      variable_budget = (salary - fixed_this_month - savings_floor) * spending_mult
+    Los gastos variables se generan como un pool de candidatos aleatorios que se
+    consumen en orden aleatorio hasta agotar el presupuesto.
+    Esto garantiza ahorro positivo (≥12%) cada mes sin sacrificar aleatoriedad.
+    """
+    today = datetime.now()
+
+    salary_cents  = max(170000, min(340000,
+                        round((balance_eur / 2.8 + 1100) / 10) * 1000))
+    salary_day    = random.randint(25, 29)
+    rent_cents    = int(salary_cents * (0.25 + random.random() * 0.10))
+    has_gym       = random.random() > 0.55
+    gym_cents     = random.randint(3990, 5500) if has_gym else 0
+    has_hbo       = random.random() > 0.55
+    has_prime     = random.random() > 0.50
+    has_disney    = random.random() > 0.65
+    has_parking   = random.random() > 0.70
+    parking_cents = random.choice([6000, 7000, 8000, 9000, 10000]) if has_parking else 0
+    agua_cents    = random.randint(1800, 3500)
+    # Paga extra reducida (45-60%) para no generar picos de ingresos exagerados
+    extra_pay     = int(salary_cents * (0.45 + random.random() * 0.15))
+
+    fixed = [
+        {'desc': 'Alquiler mensual',  'pm': 'bank_transfer', 'day': 1,
+         'base': rent_cents,    'var': 0.00},
+        *_FB_FIXED_TEMPLATES,
+        {'desc': 'Canal Isabel II',   'pm': 'direct_debit',  'day': 22,
+         'base': agua_cents,    'var': 0.15},
+        *([{'desc': 'Gimnasio', 'pm': 'direct_debit', 'day': 2,
+             'base': gym_cents, 'var': 0.00}] if has_gym else []),
+        *([{'desc': 'HBO Max',  'pm': 'direct_debit', 'day': 12,
+             'base': 899,       'var': 0.00}] if has_hbo else []),
+        *([{'desc': 'Amazon Prime', 'pm': 'direct_debit', 'day': 18,
+             'base': 499,       'var': 0.00}] if has_prime else []),
+        *([{'desc': 'Disney+', 'pm': 'direct_debit', 'day': 14,
+             'base': 899,       'var': 0.00}] if has_disney else []),
+        *([{'desc': 'Plaza garaje', 'pm': 'bank_transfer', 'day': 2,
+             'base': parking_cents, 'var': 0.00}] if has_parking else []),
+    ]
+
+    txs = []
+
+    for m_offset in range(months, 0, -1):  # excluye el mes actual (parcial)
+        yr = today.year
+        mo = today.month - m_offset
+        while mo <= 0:
+            mo += 12
+            yr -= 1
+        month_idx  = mo - 1
+        max_day_mo = calendar.monthrange(yr, mo)[1]
+
+        # Estacional: sólo afecta a precios individuales variables
+        if month_idx == 11:         seasonal = 1.08
+        elif month_idx in (6, 7):   seasonal = 1.05
+        elif month_idx == 0:        seasonal = 0.90
+        else:                       seasonal = 1.0
+
+        # Factor de frugalidad mensual (0.72–0.96): modula el presupuesto disponible
+        spending_mult = max(0.72, min(0.96, random.gauss(0.85, 0.06)))
+
+        # ── Nómina ────────────────────────────────────────────────────────────
+        drift     = 1 + (months - m_offset) * 0.0008
+        s_amt     = int(salary_cents * drift)
+        s_day_adj = min(salary_day, max_day_mo)
+        s_date    = datetime(yr, mo, s_day_adj)
+        if s_date <= today:
+            txs.append({'date': s_date.strftime('%Y-%m-%d'), 'desc': 'Nómina',
+                        'pm': 'bank_transfer', 'cents': s_amt, 'type': 'income'})
+
+        # ── Paga extra (jun=5, dic=11) ────────────────────────────────────────
+        if month_idx in (5, 11):
+            ex_date = datetime(yr, mo, random.randint(14, 18))
+            if ex_date <= today:
+                txs.append({'date': ex_date.strftime('%Y-%m-%d'), 'desc': 'Paga extra',
+                            'pm': 'bank_transfer', 'cents': extra_pay, 'type': 'income'})
+
+        # ── Ingresos variables (frecuencia y rangos moderados) ────────────────
+        if random.random() < 0.25:
+            day = random.randint(1, 20)
+            txs.append({'date': datetime(yr, mo, day).strftime('%Y-%m-%d'),
+                        'desc': 'Freelance cliente', 'pm': 'bank_transfer',
+                        'cents': random.randint(15000, 40000), 'type': 'income'})
+
+        if random.random() < 0.30:
+            day   = random.randint(1, 28)
+            descs = ['Cashback tarjeta', 'Devolución Hacienda', 'Reembolso seguro',
+                     'Intereses cuenta', 'Reembolso Amazon', 'Bonificación banco']
+            txs.append({'date': datetime(yr, mo, day).strftime('%Y-%m-%d'),
+                        'desc': random.choice(descs), 'pm': 'bank_transfer',
+                        'cents': random.randint(1000, 6000), 'type': 'income'})
+
+        # ── Gastos fijos ──────────────────────────────────────────────────────
+        fixed_this_month = 0
+        for fe in fixed:
+            try:
+                d       = min(fe['day'], max_day_mo)
+                tx_date = datetime(yr, mo, d)
+                if tx_date > today:
+                    continue
+                variation = 1 + (random.random() * 2 - 1) * fe['var']
+                if fe['desc'] == 'Iberdrola' and month_idx in (10, 11, 0, 1):
+                    variation *= 1.30
+                amt = max(1, int(fe['base'] * variation))
+                txs.append({'date': tx_date.strftime('%Y-%m-%d'),
+                            'desc': fe['desc'], 'pm': fe['pm'],
+                            'cents': amt, 'type': 'expense'})
+                fixed_this_month += amt
+            except (ValueError, KeyError):
+                pass
+
+        # ── Presupuesto de gastos variables ───────────────────────────────────
+        # savings_floor: mínimo 12%, media 20% del salario mensual (en cents)
+        savings_floor   = int(salary_cents * max(0.12, random.gauss(0.20, 0.04)))
+        variable_budget = max(20000, int(
+            (salary_cents - fixed_this_month - savings_floor) * spending_mult
+        ))
+
+        # ── Pool de candidatos variables (aleatorios) ─────────────────────────
+        candidates = []
+        for m in _FB_MERCHANTS:
+            freq = m['freq']
+            if freq == 'weekly':      n = random.randint(2, 4)
+            elif freq == 'biweekly':  n = random.randint(1, 2)
+            elif freq == 'monthly':   n = 1 if random.random() > 0.35 else 0
+            else:                     n = 1 if random.random() < 0.18 else 0
+
+            lo, hi = m['range']
+            for _ in range(n):
+                day = random.randint(1, max_day_mo)
+                try:
+                    tx_date = datetime(yr, mo, day)
+                except ValueError:
+                    continue
+                if tx_date > today:
+                    continue
+                amt = int(random.randint(lo, hi) * seasonal)
+                candidates.append((tx_date, m, amt))
+
+        # Mezclar aleatoriamente y consumir hasta agotar el presupuesto
+        random.shuffle(candidates)
+        spent = 0
+        for tx_date, m, amt in candidates:
+            if spent >= variable_budget:
+                break
+            txs.append({'date': tx_date.strftime('%Y-%m-%d'),
+                        'desc': m['desc'], 'pm': m['pm'],
+                        'cents': amt, 'type': 'expense'})
+            spent += amt
+
+    return txs
+
+
+
+@app.route('/generate-sample-transactions', methods=['POST'])
+def generate_sample_transactions():
+    """
+    RF-01: Genera un historial de transacciones demo realista para una cuenta nueva.
+
+    Body JSON:
+      - balance_eur  (float): Saldo objetivo en euros
+      - months       (int):   Meses de historial (default 18, rango 6-36)
+
+    Respuesta:
+      {
+        "transactions": [{"date","desc","pm","cents","type"}, ...],
+        "source": "estadistico"
+      }
+
+    El caller (banks.js) se encarga de:
+      1. Escalar ingresos proporcionalmente para cuadrar income - expenses = targetBalance
+         (sin añadir transacciones de ajuste artificiales)
+      2. Pasar descripciones a /categorize/batch para categorización ML
+      3. Insertar cada tx con amount = cents / 100
+    """
+    data        = request.get_json(silent=True) or {}
+    balance_eur = float(data.get('balance_eur', 2000))
+    months      = max(6, min(int(data.get('months', 18)), 36))
+
+    txs = _fb_generate(balance_eur, months)
+    logger.info(f'[generate-tx] Generador estadístico produjo {len(txs)} transacciones')
+
+    return jsonify({'transactions': txs, 'source': 'estadistico'})
 
 
 # ─── Bootstrap ───────────────────────────────────────────────────────────────

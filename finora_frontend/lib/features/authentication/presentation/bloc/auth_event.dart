@@ -97,3 +97,12 @@ class BiometricLoginRequested extends AuthEvent {
 class CheckBiometricAvailability extends AuthEvent {
   const CheckBiometricAvailability();
 }
+
+/// RF-09: Update local user profile name after successful backend update
+class UpdateProfileName extends AuthEvent {
+  final String name;
+  const UpdateProfileName({required this.name});
+
+  @override
+  List<Object?> get props => [name];
+}
