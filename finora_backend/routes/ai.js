@@ -374,4 +374,130 @@ router.post('/check-anomaly', authenticateToken, async (req, res) => {
   }
 });
 
+// ── POST /api/v1/ai/chat ──────────────────────────────────────────────────────
+/**
+ * RF-25 / HU-12 / CU-04: Asistente conversacional IA financiero.
+ *
+ * Recibe el mensaje del usuario y el historial de conversación, adjunta el
+ * contexto financiero (últimas transacciones) y lo reenvía al microservicio AI.
+ *
+ * Body: { "message": string, "history": [{ "role": "user"|"assistant", "content": string }] }
+ *
+ * Returns: { "response": string, "intent": string, "context": object }
+ */
+router.post('/chat', authenticateToken, async (req, res) => {
+  try {
+    const { message, history = [] } = req.body;
+    if (!message) {
+      return res.status(400).json({ error: 'El campo message es requerido.' });
+    }
+
+    // Adjuntar contexto financiero del usuario (últimos 3 meses)
+    const transactions = await getUserTransactions(req.user.userId, 3);
+    const monthlyIncome = await getMonthlyIncomeAverage(req.user.userId, 3);
+
+    const aiResult = await callAiService('/chat', {
+      message,
+      history,
+      transactions,
+      monthly_income: monthlyIncome,
+    }, 30000);
+
+    return res.json(aiResult);
+  } catch (err) {
+    console.error('[RF-25] chat error:', err.message);
+    return res.status(503).json({
+      error: 'Servicio de chat no disponible temporalmente.',
+      detail: err.message,
+    });
+  }
+});
+
+
+// ── POST /api/v1/ai/affordability ─────────────────────────────────────────────
+/**
+ * RF-26 / HU-13: Análisis "¿Puedo permitírmelo?".
+ *
+ * Body: { "query": string, "amount"?: float }
+ *
+ * Returns: { "can_afford": bool, "verdict": string, "recommendation": string,
+ *             "available_balance": float, "monthly_surplus": float }
+ */
+router.post('/affordability', authenticateToken, async (req, res) => {
+  try {
+    const { query, amount } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'El campo query es requerido.' });
+    }
+
+    const transactions = await getUserTransactions(req.user.userId, 3);
+    const monthlyIncome = await getMonthlyIncomeAverage(req.user.userId, 3);
+
+    const aiResult = await callAiService('/affordability', {
+      query,
+      amount: amount || null,
+      transactions,
+      monthly_income: monthlyIncome,
+    });
+
+    return res.json(aiResult);
+  } catch (err) {
+    console.error('[RF-26] affordability error:', err.message);
+    return res.status(503).json({
+      error: 'Servicio de análisis de affordability no disponible.',
+      detail: err.message,
+    });
+  }
+});
+
+
+// ── GET /api/v1/ai/recommendations ───────────────────────────────────────────
+/**
+ * RF-27 / HU-14: Recomendaciones proactivas de optimización financiera.
+ *
+ * Analiza el historial de transacciones y devuelve sugerencias de ahorro
+ * priorizadas por impacto económico potencial.
+ *
+ * Query params:
+ *   ?months=3  (meses de histórico, máx 12)
+ *
+ * Returns: {
+ *   recommendations: [{ category, message, saving_potential, priority }],
+ *   total_saving_potential: float,
+ *   score: int
+ * }
+ */
+router.get('/recommendations', authenticateToken, async (req, res) => {
+  try {
+    const months = Math.min(parseInt(req.query.months || '3', 10), 12);
+    const [transactions, monthlyIncome] = await Promise.all([
+      getUserTransactions(req.user.userId, months),
+      getMonthlyIncomeAverage(req.user.userId, months),
+    ]);
+
+    if (transactions.length === 0) {
+      return res.json({
+        recommendations: [],
+        total_saving_potential: 0,
+        score: 0,
+        message: 'No hay transacciones suficientes para generar recomendaciones.',
+      });
+    }
+
+    const aiResult = await callAiService('/recommendations', {
+      transactions,
+      monthly_income: monthlyIncome,
+    });
+
+    return res.json(aiResult);
+  } catch (err) {
+    console.error('[RF-27] recommendations error:', err.message);
+    return res.status(503).json({
+      error: 'Servicio de recomendaciones no disponible.',
+      detail: err.message,
+    });
+  }
+});
+
+
 module.exports = router;

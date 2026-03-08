@@ -16,6 +16,7 @@ import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/security/biometric_service.dart';
+import '../../../../core/services/app_settings_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
@@ -44,10 +45,15 @@ class _SettingsPageState extends State<SettingsPage> {
   // RNF-13: Idioma seleccionado
   String _selectedLocale = 'es'; // 'es' | 'en'
 
+  // RF-10: Moneda y formato
+  late CurrencyConfig _selectedCurrency;
+
   @override
   void initState() {
     super.initState();
     _loadBiometricStatus();
+    _selectedLocale = AppSettingsService().currentLocaleCode;
+    _selectedCurrency = AppSettingsService().currentCurrency;
   }
 
   /// RF-03: Load biometric availability and user preference
@@ -174,10 +180,339 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (selected != null && selected != _selectedLocale) {
       setState(() => _selectedLocale = selected);
+      // Fix-12: persist + trigger MyApp rebuild via AppSettingsService notifier
+      await AppSettingsService().setLocale(selected);
       _showSnackBar(
         selected == 'en'
             ? 'Language set to English'
             : 'Idioma cambiado a Español',
+        AppColors.success,
+      );
+    }
+  }
+
+  // ── Fix-9: Edit Profile Dialog ──────────────────────────────────────────────
+  Future<void> _showEditProfileDialog() async {
+    final currentName = _getUserName();
+    final controller = TextEditingController(text: currentName);
+    final formKey = GlobalKey<FormState>();
+    bool saving = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Editar perfil', style: AppTypography.titleMedium()),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: 'Nombre',
+                hintText: 'Tu nombre',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefixIcon: const Icon(Icons.person_outline_rounded),
+              ),
+              textCapitalization: TextCapitalization.words,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'El nombre es requerido';
+                if (v.trim().length > 255) return 'Máximo 255 caracteres';
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancelar',
+                  style: TextStyle(color: AppColors.textSecondaryLight)),
+            ),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() => saving = true);
+                      try {
+                        final apiClient = di.sl<ApiClient>();
+                        await apiClient.put(
+                          '/user/profile',
+                          data: {'name': controller.text.trim()},
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          context.read<AuthBloc>().add(
+                            UpdateProfileName(name: controller.text.trim()),
+                          );
+                          _showSnackBar(
+                            'Perfil actualizado',
+                            AppColors.success,
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => saving = false);
+                        if (mounted) {
+                          _showSnackBar(
+                            'Error al actualizar el perfil',
+                            AppColors.error,
+                          );
+                        }
+                      }
+                    },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+  }
+
+  // ── Fix-11: Change Password Dialog ──────────────────────────────────────────
+  Future<void> _showChangePasswordDialog() async {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool saving = false;
+    bool showCurrent = false;
+    bool showNew = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Cambiar contraseña', style: AppTypography.titleMedium()),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: currentCtrl,
+                    obscureText: !showCurrent,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña actual',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      suffixIcon: IconButton(
+                        icon: Icon(showCurrent
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined),
+                        onPressed: () =>
+                            setDialogState(() => showCurrent = !showCurrent),
+                      ),
+                    ),
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? 'Introduce tu contraseña actual'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: newCtrl,
+                    obscureText: !showNew,
+                    decoration: InputDecoration(
+                      labelText: 'Nueva contraseña',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.lock_rounded),
+                      suffixIcon: IconButton(
+                        icon: Icon(showNew
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined),
+                        onPressed: () =>
+                            setDialogState(() => showNew = !showNew),
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) {
+                        return 'Introduce la nueva contraseña';
+                      }
+                      if (v.length < 8) {
+                        return 'Mínimo 8 caracteres';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: confirmCtrl,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmar nueva contraseña',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.lock_rounded),
+                    ),
+                    validator: (v) {
+                      if (v != newCtrl.text) {
+                        return 'Las contraseñas no coinciden';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancelar',
+                  style: TextStyle(color: AppColors.textSecondaryLight)),
+            ),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() => saving = true);
+                      try {
+                        final apiClient = di.sl<ApiClient>();
+                        await apiClient.put(
+                          '/user/change-password',
+                          data: {
+                            'currentPassword': currentCtrl.text,
+                            'newPassword': newCtrl.text,
+                          },
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (mounted) {
+                          _showSnackBar(
+                            'Contraseña actualizada exitosamente',
+                            AppColors.success,
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => saving = false);
+                        if (mounted) {
+                          final msg = e.toString().contains('incorrecta') ||
+                                  e.toString().contains('401')
+                              ? 'La contraseña actual es incorrecta'
+                              : 'Error al cambiar la contraseña';
+                          _showSnackBar(msg, AppColors.error);
+                        }
+                      }
+                    },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : const Text('Cambiar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    currentCtrl.dispose();
+    newCtrl.dispose();
+    confirmCtrl.dispose();
+  }
+
+  // ── Fix-10: Currency & Format Dialog ────────────────────────────────────────
+  Future<void> _showCurrencyDialog() async {
+    final selected = await showDialog<CurrencyConfig>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Moneda y formato', style: AppTypography.titleMedium()),
+        children: AppSettingsService.availableCurrencies.map((cfg) {
+          final isSelected = cfg.code == _selectedCurrency.code;
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, cfg),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.primarySoft
+                          : AppColors.gray100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      cfg.symbol,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondaryLight,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(cfg.code, style: AppTypography.titleSmall()),
+                        Text(
+                          cfg.name,
+                          style: AppTypography.bodySmall(
+                            color: AppColors.textTertiaryLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isSelected)
+                    const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (selected != null && selected.code != _selectedCurrency.code) {
+      await AppSettingsService().setCurrency(selected);
+      setState(() => _selectedCurrency = selected);
+      _showSnackBar(
+        'Moneda cambiada a ${selected.code} (${selected.symbol})',
         AppColors.success,
       );
     }
@@ -306,8 +641,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildSettingsRow(
                     icon: Icons.currency_exchange_rounded,
                     title: 'Moneda y formato',
-                    subtitle: 'EUR - Euros',
-                    isDeveloping: true,
+                    subtitle:
+                        '${_selectedCurrency.code} - ${_selectedCurrency.name}',
+                    onTap: _showCurrencyDialog,
                   ),
                 ],
               ),
@@ -330,7 +666,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.lock_outline_rounded,
                     title: 'Cambiar contraseña',
                     subtitle: 'Actualizar contraseña de acceso',
-                    isDeveloping: true,
+                    onTap: _showChangePasswordDialog,
                   ),
                   _divider(),
                   // RF-03: Biometric toggle — funcional
@@ -495,10 +831,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             child: IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
-              onPressed: () => _showSnackBar(
-                'Edición de perfil en desarrollo',
-                AppColors.gray700,
-              ),
+              onPressed: _showEditProfileDialog,
               color: AppColors.textSecondaryLight,
               tooltip: 'Editar perfil',
             ),

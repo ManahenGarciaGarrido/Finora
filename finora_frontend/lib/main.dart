@@ -25,6 +25,7 @@ import 'features/transactions/presentation/pages/add_transaction_page.dart';
 import 'features/transactions/presentation/pages/edit_transaction_page.dart';
 import 'features/transactions/domain/entities/transaction_entity.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/app_settings_service.dart';
 import 'shared/widgets/offline_indicator.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
@@ -65,6 +66,9 @@ void main() async {
   // RNF-08: Registrar tiempo de init completado
   AppStartupTracker.markInitComplete();
 
+  // RNF-13: Cargar ajustes de idioma y moneda persistidos
+  await AppSettingsService().load();
+
   runApp(MyApp(connectivityService: connectivityService));
 }
 
@@ -85,9 +89,17 @@ class _MyAppState extends State<MyApp> {
   StreamSubscription<void>? _unauthorizedSubscription;
   bool _isHandlingUnauthorized = false;
 
+  // RNF-13: Current locale — updated when AppSettingsService.localeNotifier changes
+  late Locale _currentLocale;
+
   @override
   void initState() {
     super.initState();
+    _currentLocale = AppSettingsService().localeNotifier.value;
+
+    // Listen to locale changes (Fix-12: auto-refresh on language change)
+    AppSettingsService().localeNotifier.addListener(_onLocaleChanged);
+
     // No disparar LoadTransactions aquí: el token JWT aún no está configurado
     // en ApiClient en este punto del ciclo de vida. Se dispara desde HomePage
     // una vez que la autenticación se ha completado.
@@ -150,8 +162,15 @@ class _MyAppState extends State<MyApp> {
     _isHandlingUnauthorized = false;
   }
 
+  void _onLocaleChanged() {
+    setState(() {
+      _currentLocale = AppSettingsService().localeNotifier.value;
+    });
+  }
+
   @override
   void dispose() {
+    AppSettingsService().localeNotifier.removeListener(_onLocaleChanged);
     _syncSubscription?.cancel();
     _unauthorizedSubscription?.cancel();
     super.dispose();
@@ -176,6 +195,7 @@ class _MyAppState extends State<MyApp> {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
+        locale: _currentLocale,
         home: const SplashPage(),
         routes: {
           '/splash': (context) => const SplashPage(),

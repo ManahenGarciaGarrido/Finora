@@ -275,16 +275,19 @@ class _PredictionsPageState extends State<PredictionsPage>
                   size: 18,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  'Predicción vs mes anterior (top 5)',
-                  style: AppTypography.labelMedium(
-                    color: AppColors.textPrimaryLight,
+                Expanded(
+                  child: Text(
+                    'Predicción vs mes anterior (top 5)',
+                    style: AppTypography.labelMedium(
+                      color: AppColors.textPrimaryLight,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 _buildChartLegend(AppColors.primary, 'Predicción'),
-                const SizedBox(width: 12),
-                _buildChartLegend(AppColors.gray400, 'Mes anterior'),
+                const SizedBox(width: 8),
+                _buildChartLegend(AppColors.gray400, 'Anterior'),
               ],
             ),
             const SizedBox(height: 16),
@@ -729,7 +732,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                       ),
                       Text(
                         '${r.score}',
-                        style: AppTypography.headlineMedium(color: scoreColor),
+                        style: AppTypography.titleMedium(color: scoreColor),
                       ),
                     ],
                   ),

@@ -41,6 +41,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     // RF-03: Biometric auth handlers
     on<BiometricLoginRequested>(_onBiometricLoginRequested);
     on<CheckBiometricAvailability>(_onCheckBiometricAvailability);
+    // RF-09: Profile update
+    on<UpdateProfileName>(_onUpdateProfileName);
   }
 
   /// Handle login request
@@ -322,6 +324,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
     } catch (e) {
       emit(BiometricFailed(reason: 'Error inesperado: ${e.toString()}'));
+    }
+  }
+
+  /// RF-09: Update the local user name without re-fetching from server
+  void _onUpdateProfileName(
+    UpdateProfileName event,
+    Emitter<AuthState> emit,
+  ) {
+    final current = state;
+    if (current is Authenticated) {
+      emit(Authenticated(user: current.user.copyWith(name: event.name)));
     }
   }
 }

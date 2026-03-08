@@ -83,13 +83,16 @@ class _SplashPageState extends State<SplashPage>
           context,
           MaterialPageRoute(
             builder: (_) => OnboardingPage(
-              onComplete: () =>
-                  Navigator.pushReplacementNamed(context, '/login'),
+              onComplete: () {
+                if (!mounted) return;
+                Navigator.pushReplacementNamed(context, '/login');
+              },
             ),
           ),
         );
       } else {
-        if (context.mounted) Navigator.pushReplacementNamed(context, '/login');
+        if (!context.mounted) return;
+        Navigator.pushReplacementNamed(context, '/login');
       }
     }
   }

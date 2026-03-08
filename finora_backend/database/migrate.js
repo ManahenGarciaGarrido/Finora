@@ -126,6 +126,14 @@ async function migrate() {
     `);
     console.log('[migrate] ✓ transactions.external_tx_id');
 
+    // 7. Ensure categories.display_order column exists (RF-16)
+    // Added after initial schema creation — safe to run on existing DBs
+    await db.query(`
+      ALTER TABLE categories
+        ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0
+    `);
+    console.log('[migrate] ✓ categories.display_order');
+
     console.log('[migrate] Migration completed successfully.');
   } catch (err) {
     console.error('[migrate] Migration failed:', err.message);
