@@ -50,6 +50,8 @@ class ApiEndpoints {
   static const String transactions = '/transactions';
   static String transactionById(String id) => '/transactions/$id';
   static const String searchTransactions = '/transactions/search';
+  static const String monthlySummary = '/transactions/monthly-summary';
+  static const String transactionAnalytics = '/transactions/analytics';
   static const String filterTransactions = '/transactions/filter';
   static const String syncOfflineTransactions = '/transactions/sync';
 
@@ -99,6 +101,8 @@ class ApiEndpoints {
   static String addContribution(String goalId) =>
       '/goals/$goalId/contributions';
   static String goalProgress(String goalId) => '/goals/$goalId/progress';
+  static String goalContributionAdvice(String goalId) =>
+      '/goals/$goalId/advice';
   static const String goalRecommendations = '/goals/recommendations';
 
   // RF-22 / HU-09: Predicción de gastos ML (backend → finora-ai)

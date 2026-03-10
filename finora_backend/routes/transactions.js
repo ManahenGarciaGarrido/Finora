@@ -336,6 +336,80 @@ router.get('/',
   }
 );
 
+// ── RF-29: Analytics combinado: datos mensuales + desglose por categoría ──────
+// GET /analytics?months=6   (months=0 = sin límite, retorna todo el historial)
+
+router.get(
+  '/analytics',
+  authenticateToken,
+  async (req, res) => {
+    const months = parseInt(req.query.months) || 6;
+    try {
+      const dateFilter = months > 0
+        ? `AND date >= DATE_TRUNC('month', NOW()) - ($2 - 1) * INTERVAL '1 month'`
+        : '';
+      const params = months > 0 ? [req.user.userId, months] : [req.user.userId];
+
+      const [monthlyRes, catRes] = await Promise.all([
+        db.query(
+          `SELECT
+             TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM') AS month,
+             SUM(CASE WHEN type = 'income'  THEN amount::float ELSE 0 END) AS income,
+             SUM(CASE WHEN type = 'expense' THEN amount::float ELSE 0 END) AS expenses
+           FROM transactions
+           WHERE user_id = $1 ${dateFilter}
+           GROUP BY DATE_TRUNC('month', date)
+           ORDER BY DATE_TRUNC('month', date) ASC`,
+          params
+        ),
+        db.query(
+          `SELECT category,
+                  SUM(amount::float) AS total
+           FROM transactions
+           WHERE user_id = $1 AND type = 'expense' ${dateFilter}
+           GROUP BY category
+           ORDER BY total DESC`,
+          params
+        ),
+      ]);
+
+      res.json({ monthly: monthlyRes.rows, categories: catRes.rows });
+    } catch (err) {
+      console.error('analytics error:', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+);
+
+// ── RF-28/RF-29: Resumen mensual de ingresos y gastos ─────────────────────────
+// GET /monthly-summary?months=6
+
+router.get(
+  '/monthly-summary',
+  authenticateToken,
+  async (req, res) => {
+    const months = Math.min(36, Math.max(1, parseInt(req.query.months) || 6));
+    try {
+      const result = await db.query(
+        `SELECT
+           TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM') AS month,
+           SUM(CASE WHEN type = 'income'  THEN amount::float ELSE 0 END) AS income,
+           SUM(CASE WHEN type = 'expense' THEN amount::float ELSE 0 END) AS expenses
+         FROM transactions
+         WHERE user_id = $1
+           AND date >= DATE_TRUNC('month', NOW()) - ($2 - 1) * INTERVAL '1 month'
+         GROUP BY DATE_TRUNC('month', date)
+         ORDER BY DATE_TRUNC('month', date) ASC`,
+        [req.user.userId, months]
+      );
+      res.json({ summary: result.rows });
+    } catch (err) {
+      console.error('monthly-summary error:', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+);
+
 // ============================================
 // GET SINGLE TRANSACTION
 // ============================================

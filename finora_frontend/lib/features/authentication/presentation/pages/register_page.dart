@@ -125,50 +125,50 @@ class _RegisterPageState extends State<RegisterPage>
 
   String? _validateName(String? value) {
     if (value == null || value.isEmpty) {
-      return 'El nombre es requerido';
+      return 'El nombre es requerido'; // TODO: add localization key
     }
     if (value.length < 2) {
-      return 'El nombre debe tener al menos 2 caracteres';
+      return 'El nombre debe tener al menos 2 caracteres'; // TODO: add localization key
     }
     return null;
   }
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
-      return 'El correo electrónico es requerido';
+      return 'El correo electrónico es requerido'; // TODO: add localization key
     }
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(value)) {
-      return 'Ingresa un correo electrónico válido';
+      return 'Ingresa un correo electrónico válido'; // TODO: add localization key
     }
     return null;
   }
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'La contraseña es requerida';
+      return 'La contraseña es requerida'; // TODO: add localization key
     }
     if (value.length < 8) {
-      return 'Mínimo 8 caracteres';
+      return 'Mínimo 8 caracteres'; // TODO: add localization key
     }
     if (!value.contains(RegExp(r'[A-Z]'))) {
-      return 'Debe contener al menos una mayúscula';
+      return 'Debe contener al menos una mayúscula'; // TODO: add localization key
     }
     if (!value.contains(RegExp(r'[0-9]'))) {
-      return 'Debe contener al menos un número';
+      return 'Debe contener al menos un número'; // TODO: add localization key
     }
     if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
-      return 'Debe contener al menos un carácter especial';
+      return 'Debe contener al menos un carácter especial'; // TODO: add localization key
     }
     return null;
   }
 
   String? _validateConfirmPassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Confirma tu contraseña';
+      return 'Confirma tu contraseña'; // TODO: add localization key
     }
     if (value != _passwordController.text) {
-      return 'Las contraseñas no coinciden';
+      return 'Las contraseñas no coinciden'; // TODO: add localization key
     }
     return null;
   }
@@ -195,7 +195,7 @@ class _RegisterPageState extends State<RegisterPage>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Debes aceptar los términos y la política de privacidad',
+            'Debes aceptar los términos y la política de privacidad', // TODO: add localization key
           ),
           backgroundColor: AppColors.error,
         ),
@@ -257,7 +257,7 @@ class _RegisterPageState extends State<RegisterPage>
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
-                '¡Registro Exitoso!',
+                '¡Registro Exitoso!', // TODO: add localization key
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
@@ -268,12 +268,12 @@ class _RegisterPageState extends State<RegisterPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Te hemos enviado un correo de verificación.',
+              'Te hemos enviado un correo de verificación.', // TODO: add localization key
               style: TextStyle(fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 12),
             Text(
-              'Revisa tu bandeja de entrada en $email y haz clic en el enlace para verificar tu cuenta.',
+              'Revisa tu bandeja de entrada en $email y haz clic en el enlace para verificar tu cuenta.', // TODO: add localization key
               style: const TextStyle(fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 12),
@@ -290,7 +290,7 @@ class _RegisterPageState extends State<RegisterPage>
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'No podrás iniciar sesión hasta verificar tu email.',
+                      'No podrás iniciar sesión hasta verificar tu email.', // TODO: add localization key
                       style: TextStyle(fontSize: 12, height: 1.4),
                     ),
                   ),
@@ -312,7 +312,9 @@ class _RegisterPageState extends State<RegisterPage>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Ir a Iniciar Sesión'),
+            child: const Text(
+              'Ir a Iniciar Sesión',
+            ), // TODO: add localization key
           ),
         ],
       ),
@@ -444,7 +446,7 @@ class _RegisterPageState extends State<RegisterPage>
 
         // Título
         Text(
-          'Crear cuenta',
+          'Crear cuenta', // TODO: add localization key
           style: responsive.isMobile
               ? AppTypography.headlineLarge()
               : AppTypography.displaySmall(),
@@ -453,7 +455,7 @@ class _RegisterPageState extends State<RegisterPage>
 
         // Subtítulo
         Text(
-          'Comienza a gestionar tus finanzas de forma inteligente',
+          'Comienza a gestionar tus finanzas de forma inteligente', // TODO: add localization key
           style: AppTypography.bodyLarge(color: AppColors.textSecondaryLight),
         ),
       ],
@@ -472,8 +474,8 @@ class _RegisterPageState extends State<RegisterPage>
           CustomTextField(
             controller: _nameController,
             focusNode: _nameFocus,
-            label: 'Nombre completo',
-            hint: 'Ej: Juan García',
+            label: 'Nombre completo', // TODO: add localization key
+            hint: 'Ej: Juan García', // TODO: add localization key
             prefixIcon: Icons.person_outline_rounded,
             errorText: _nameError,
             textInputAction: TextInputAction.next,
@@ -490,8 +492,8 @@ class _RegisterPageState extends State<RegisterPage>
           CustomTextField(
             controller: _emailController,
             focusNode: _emailFocus,
-            label: 'Correo electrónico',
-            hint: 'tu@email.com',
+            label: 'Correo electrónico', // TODO: add localization key
+            hint: 'tu@email.com', // TODO: add localization key
             prefixIcon: Icons.email_outlined,
             errorText: _emailError,
             keyboardType: TextInputType.emailAddress,
@@ -509,8 +511,8 @@ class _RegisterPageState extends State<RegisterPage>
           CustomTextField(
             controller: _passwordController,
             focusNode: _passwordFocus,
-            label: 'Contraseña',
-            hint: 'Mínimo 8 caracteres',
+            label: 'Contraseña', // TODO: add localization key
+            hint: 'Mínimo 8 caracteres', // TODO: add localization key
             prefixIcon: Icons.lock_outline_rounded,
             errorText: _passwordError,
             obscureText: true,
@@ -535,8 +537,8 @@ class _RegisterPageState extends State<RegisterPage>
           CustomTextField(
             controller: _confirmPasswordController,
             focusNode: _confirmPasswordFocus,
-            label: 'Confirmar contraseña',
-            hint: 'Repite tu contraseña',
+            label: 'Confirmar contraseña', // TODO: add localization key
+            hint: 'Repite tu contraseña', // TODO: add localization key
             prefixIcon: Icons.lock_outline_rounded,
             errorText: _confirmPasswordError,
             obscureText: true,
@@ -564,16 +566,16 @@ class _RegisterPageState extends State<RegisterPage>
     Color color;
 
     if (_passwordStrength <= 0.25) {
-      label = 'Muy débil';
+      label = 'Muy débil'; // TODO: add localization key
       color = AppColors.error;
     } else if (_passwordStrength <= 0.5) {
-      label = 'Débil';
+      label = 'Débil'; // TODO: add localization key
       color = AppColors.warning;
     } else if (_passwordStrength <= 0.75) {
-      label = 'Media';
+      label = 'Media'; // TODO: add localization key
       color = AppColors.info;
     } else {
-      label = 'Fuerte';
+      label = 'Fuerte'; // TODO: add localization key
       color = AppColors.success;
     }
 
@@ -600,22 +602,22 @@ class _RegisterPageState extends State<RegisterPage>
         Row(
           children: [
             _buildRequirement(
-              '8+ caracteres',
+              '8+ caracteres', // TODO: add localization key
               _passwordController.text.length >= 8,
             ),
             const SizedBox(width: 8),
             _buildRequirement(
-              'Mayúscula',
+              'Mayúscula', // TODO: add localization key
               _passwordController.text.contains(RegExp(r'[A-Z]')),
             ),
             const SizedBox(width: 8),
             _buildRequirement(
-              'Número',
+              'Número', // TODO: add localization key
               _passwordController.text.contains(RegExp(r'[0-9]')),
             ),
             const SizedBox(width: 8),
             _buildRequirement(
-              'Especial',
+              'Especial', // TODO: add localization key
               _passwordController.text.contains(
                 RegExp(r'[!@#$%^&*(),.?":{}|<>]'),
               ),
@@ -681,9 +683,11 @@ class _RegisterPageState extends State<RegisterPage>
                 color: AppColors.textSecondaryLight,
               ),
               children: [
-                const TextSpan(text: 'Acepto los '),
+                const TextSpan(
+                  text: 'Acepto los ',
+                ), // TODO: add localization key
                 TextSpan(
-                  text: 'Términos y Condiciones',
+                  text: 'Términos y Condiciones', // TODO: add localization key
                   style: AppTypography.bodySmall(
                     color: AppColors.primary,
                   ).copyWith(fontWeight: FontWeight.w600),
@@ -722,9 +726,11 @@ class _RegisterPageState extends State<RegisterPage>
                 color: AppColors.textSecondaryLight,
               ),
               children: [
-                const TextSpan(text: 'He leído y acepto la '),
+                const TextSpan(
+                  text: 'He leído y acepto la ',
+                ), // TODO: add localization key
                 TextSpan(
-                  text: 'Política de Privacidad',
+                  text: 'Política de Privacidad', // TODO: add localization key
                   style: AppTypography.bodySmall(
                     color: AppColors.primary,
                   ).copyWith(fontWeight: FontWeight.w600),
@@ -756,7 +762,7 @@ class _RegisterPageState extends State<RegisterPage>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Términos y Condiciones',
+                    'Términos y Condiciones', // TODO: add localization key
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
@@ -773,77 +779,77 @@ class _RegisterPageState extends State<RegisterPage>
                 padding: const EdgeInsets.all(16),
                 children: const [
                   Text(
-                    '1. Aceptación de los Términos',
+                    '1. Aceptación de los Términos', // TODO: add localization key
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'Al registrarse y utilizar Finora, usted acepta estos Términos y Condiciones '
-                    'y se compromete a cumplirlos. Si no está de acuerdo, no debe utilizar el servicio.',
+                    'y se compromete a cumplirlos. Si no está de acuerdo, no debe utilizar el servicio.', // TODO: add localization key
                   ),
                   SizedBox(height: 16),
                   Text(
-                    '2. Descripción del Servicio',
+                    '2. Descripción del Servicio', // TODO: add localization key
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'Finora es una aplicación de gestión financiera personal que permite registrar '
-                    'transacciones, visualizar estadísticas y gestionar categorías de gastos e ingresos.',
+                    'transacciones, visualizar estadísticas y gestionar categorías de gastos e ingresos.', // TODO: add localization key
                   ),
                   SizedBox(height: 16),
                   Text(
-                    '3. Cuenta de Usuario',
+                    '3. Cuenta de Usuario', // TODO: add localization key
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'Usted es responsable de mantener la confidencialidad de su cuenta y contraseña. '
-                    'Debe proporcionar información veraz y actualizada.',
+                    'Debe proporcionar información veraz y actualizada.', // TODO: add localization key
                   ),
                   SizedBox(height: 16),
                   Text(
-                    '4. Uso Aceptable',
+                    '4. Uso Aceptable', // TODO: add localization key
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'El servicio debe usarse solo para fines legales y de gestión financiera personal. '
-                    'Queda prohibido cualquier uso fraudulento o ilegal.',
+                    'Queda prohibido cualquier uso fraudulento o ilegal.', // TODO: add localization key
                   ),
                   SizedBox(height: 16),
                   Text(
-                    '5. Protección de Datos',
+                    '5. Protección de Datos', // TODO: add localization key
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'Sus datos se tratan conforme al GDPR. Consulte nuestra Política de Privacidad '
-                    'para más información sobre el tratamiento de datos personales.',
+                    'para más información sobre el tratamiento de datos personales.', // TODO: add localization key
                   ),
                   SizedBox(height: 16),
                   Text(
-                    '6. Limitación de Responsabilidad',
+                    '6. Limitación de Responsabilidad', // TODO: add localization key
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'Finora no se responsabiliza de decisiones financieras tomadas en base a la '
-                    'información proporcionada por la aplicación. El servicio es orientativo.',
+                    'información proporcionada por la aplicación. El servicio es orientativo.', // TODO: add localization key
                   ),
                   SizedBox(height: 16),
                   Text(
-                    '7. Modificaciones',
+                    '7. Modificaciones', // TODO: add localization key
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'Nos reservamos el derecho de modificar estos términos. Se notificará a los '
-                    'usuarios sobre cambios significativos.',
+                    'usuarios sobre cambios significativos.', // TODO: add localization key
                   ),
                   SizedBox(height: 24),
                   Text(
-                    'Última actualización: Febrero 2026',
+                    'Última actualización: Febrero 2026', // TODO: add localization key
                     style: TextStyle(
                       color: Colors.grey,
                       fontStyle: FontStyle.italic,
@@ -861,7 +867,9 @@ class _RegisterPageState extends State<RegisterPage>
                     Navigator.pop(context);
                     setState(() => _acceptTerms = true);
                   },
-                  child: const Text('Aceptar Términos'),
+                  child: const Text(
+                    'Aceptar Términos',
+                  ), // TODO: add localization key
                 ),
               ),
             ),
@@ -892,7 +900,7 @@ class _RegisterPageState extends State<RegisterPage>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Política de Privacidad',
+                      'Política de Privacidad', // TODO: add localization key
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -912,7 +920,7 @@ class _RegisterPageState extends State<RegisterPage>
                   padding: const EdgeInsets.all(16),
                   children: [
                     const Text(
-                      'Gestión de Consentimientos',
+                      'Gestión de Consentimientos', // TODO: add localization key
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -921,7 +929,7 @@ class _RegisterPageState extends State<RegisterPage>
                     const SizedBox(height: 8),
                     const Text(
                       'Selecciona qué tipos de datos deseas permitirnos procesar. '
-                      'Los marcados como "Requerido" son necesarios para usar el servicio.',
+                      'Los marcados como "Requerido" son necesarios para usar el servicio.', // TODO: add localization key
                       style: TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 16),
@@ -930,7 +938,7 @@ class _RegisterPageState extends State<RegisterPage>
                       localConsents,
                       'essential',
                       'Cookies y datos esenciales',
-                      'Necesarios para el funcionamiento básico de la aplicación.',
+                      'Necesarios para el funcionamiento básico de la aplicación.', // TODO: add localization key
                       required: true,
                     ),
                     _buildConsentOption(
@@ -938,7 +946,7 @@ class _RegisterPageState extends State<RegisterPage>
                       localConsents,
                       'data_processing',
                       'Procesamiento de datos financieros',
-                      'Procesar tus transacciones para ofrecerte análisis financiero.',
+                      'Procesar tus transacciones para ofrecerte análisis financiero.', // TODO: add localization key
                       required: true,
                     ),
                     _buildConsentOption(
@@ -946,34 +954,34 @@ class _RegisterPageState extends State<RegisterPage>
                       localConsents,
                       'analytics',
                       'Análisis y mejora del servicio',
-                      'Nos permite analizar cómo usas la app para mejorar la experiencia.',
+                      'Nos permite analizar cómo usas la app para mejorar la experiencia.', // TODO: add localization key
                     ),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'marketing',
                       'Comunicaciones de marketing',
-                      'Te enviaremos ofertas, novedades y consejos financieros.',
+                      'Te enviaremos ofertas, novedades y consejos financieros.', // TODO: add localization key
                     ),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'third_party',
                       'Compartir datos con terceros',
-                      'Compartir información con socios para productos relevantes.',
+                      'Compartir información con socios para productos relevantes.', // TODO: add localization key
                     ),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'personalization',
                       'Personalización del servicio',
-                      'Usar tus datos para personalizar recomendaciones y alertas.',
+                      'Usar tus datos para personalizar recomendaciones y alertas.', // TODO: add localization key
                     ),
                     const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 16),
                     const Text(
-                      'Resumen de la Política',
+                      'Resumen de la Política', // TODO: add localization key
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -985,7 +993,7 @@ class _RegisterPageState extends State<RegisterPage>
                       'control total sobre ellos. Puedes modificar estos ajustes en cualquier momento '
                       'desde Ajustes > Privacidad.\n\n'
                       'Contacto: privacy@finora.app\n'
-                      'Última actualización: Febrero 2026',
+                      'Última actualización: Febrero 2026', // TODO: add localization key
                       style: TextStyle(fontSize: 13),
                     ),
                   ],
@@ -1013,7 +1021,9 @@ class _RegisterPageState extends State<RegisterPage>
                       });
                       Navigator.pop(context);
                     },
-                    child: const Text('Aceptar Política de Privacidad'),
+                    child: const Text(
+                      'Aceptar Política de Privacidad',
+                    ), // TODO: add localization key
                   ),
                 ),
               ),
@@ -1049,7 +1059,7 @@ class _RegisterPageState extends State<RegisterPage>
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'Requerido',
+                    'Requerido', // TODO: add localization key
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.orange.shade800,
@@ -1106,7 +1116,7 @@ class _RegisterPageState extends State<RegisterPage>
 
   Widget _buildRegisterButton() {
     return GradientButton(
-      text: 'Crear cuenta',
+      text: 'Crear cuenta', // TODO: add localization key
       onPressed: _handleRegister,
       isLoading: _isLoading,
       isSuccess: _isSuccess,
@@ -1117,11 +1127,11 @@ class _RegisterPageState extends State<RegisterPage>
     return Center(
       child: RichText(
         text: TextSpan(
-          text: '¿Ya tienes una cuenta? ',
+          text: '¿Ya tienes una cuenta? ', // TODO: add localization key
           style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
           children: [
             TextSpan(
-              text: 'Inicia sesión',
+              text: 'Inicia sesión', // TODO: add localization key
               style: AppTypography.link(color: AppColors.primary),
               recognizer: TapGestureRecognizer()
                 ..onTap = () {

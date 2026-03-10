@@ -119,6 +119,7 @@ class GoalBloc extends Bloc<GoalEvent, GoalState> {
         amount: event.amount,
         date: event.date,
         note: event.note,
+        bankAccountId: event.bankAccountId,
       );
       // Recargar progreso actualizado (RF-19: actualización en tiempo real)
       final progress = await getGoalProgress(event.goalId);

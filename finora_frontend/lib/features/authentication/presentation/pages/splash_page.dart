@@ -159,7 +159,7 @@ class _SplashPageState extends State<SplashPage>
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: Text(
-                      'Tu gestor financiero personal',
+                      'Tu gestor financiero personal', // TODO: add localization key
                       style: TextStyle(
                         fontSize: 16,
                         color: AppColors.textSecondaryLight,
