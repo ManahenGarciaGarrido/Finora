@@ -37,6 +37,11 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   bool _hasMorePages = false;
   bool _isLoadingMore = false;
 
+  // Totales del servidor (calculados sobre TODOS los registros con window functions)
+  // Se actualizan en cada carga de página 1, garantizando balance real.
+  double? _serverTotalIncome;
+  double? _serverTotalExpenses;
+
   bool get _isCacheValid =>
       _lastApiLoadTime != null &&
       DateTime.now().difference(_lastApiLoadTime!) < _cacheTtl;
@@ -61,15 +66,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
   List<TransactionEntity> get transactions => List.unmodifiable(_transactions);
 
-  double get totalBalance {
-    double balance = 0;
-    for (final t in _transactions) {
-      balance += t.isIncome ? t.amount : -t.amount;
-    }
-    return balance;
-  }
+  double get totalBalance =>
+      (_serverTotalIncome ?? _localTotalIncome) -
+      (_serverTotalExpenses ?? _localTotalExpenses);
 
-  double get totalIncome {
+  double get totalIncome => _serverTotalIncome ?? _localTotalIncome;
+
+  double get totalExpenses => _serverTotalExpenses ?? _localTotalExpenses;
+
+  double get _localTotalIncome {
     double total = 0;
     for (final t in _transactions) {
       if (t.isIncome) total += t.amount;
@@ -77,7 +82,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     return total;
   }
 
-  double get totalExpenses {
+  double get _localTotalExpenses {
     double total = 0;
     for (final t in _transactions) {
       if (t.isExpense) total += t.amount;
@@ -163,6 +168,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         if (pagination != null) {
           _hasMorePages = pagination['hasMore'] == true;
         }
+        // Extraer totales reales del servidor (calculados sobre TODOS los registros)
+        final totals = data['totals'];
+        if (totals != null) {
+          _serverTotalIncome = (totals['income'] as num?)?.toDouble();
+          _serverTotalExpenses = (totals['expense'] as num?)?.toDouble();
+        }
       }
 
       if (serverTransactions.isNotEmpty) {
@@ -206,6 +217,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     _lastApiLoadTime = null;
     _currentServerPage = 1;
     _hasMorePages = false;
+    _serverTotalIncome = null;
+    _serverTotalExpenses = null;
   }
 
   /// Agregar transacción: guardar en Hive primero, luego API si hay conexión

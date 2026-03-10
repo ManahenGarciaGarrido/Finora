@@ -77,16 +77,18 @@ class AddContribution extends GoalEvent {
   final double amount;
   final DateTime? date;
   final String? note;
+  final String? bankAccountId;
 
   const AddContribution({
     required this.goalId,
     required this.amount,
     this.date,
     this.note,
+    this.bankAccountId,
   });
 
   @override
-  List<Object?> get props => [goalId, amount, date, note];
+  List<Object?> get props => [goalId, amount, date, note, bankAccountId];
 }
 
 // ── Cargar historial de aportaciones (RF-20) ──────────────────────────────────

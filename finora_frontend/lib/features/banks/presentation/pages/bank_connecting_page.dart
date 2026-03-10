@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../bloc/bank_bloc.dart';
@@ -104,7 +105,10 @@ class _BankConnectingPageState extends State<BankConnectingPage>
               Navigator.pop(context);
             },
           ),
-          title: Text('Conectando banco', style: AppTypography.titleMedium()),
+          title: Text(
+            AppLocalizations.of(context).connectingBankTitle,
+            style: AppTypography.titleMedium(),
+          ),
         ),
         body: BlocConsumer<BankBloc, BankState>(
           listener: (context, state) {
@@ -139,13 +143,13 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                     const SizedBox(height: 32),
 
                     Text(
-                      _titleFor(state),
+                      _titleFor(context, state),
                       style: AppTypography.titleLarge(),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _subtitleFor(state, widget.institutionName),
+                      _subtitleFor(context, state, widget.institutionName),
                       style: AppTypography.bodyMedium(
                         color: AppColors.textSecondaryLight,
                       ),
@@ -168,7 +172,7 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Esperando autorización... ($attempt/60)',
+                        '${AppLocalizations.of(context).bankWaitingAuthTitle}... ($attempt/60)',
                         style: AppTypography.labelSmall(
                           color: AppColors.textTertiaryLight,
                         ),
@@ -182,7 +186,7 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Abriendo el navegador...',
+                        AppLocalizations.of(context).openingBrowserMsg,
                         style: AppTypography.labelSmall(
                           color: AppColors.textTertiaryLight,
                         ),
@@ -198,17 +202,21 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                       children: [
                         _InfoChip(
                           icon: Icons.lock_outline_rounded,
-                          label: 'Conexión cifrada',
+                          label: AppLocalizations.of(
+                            context,
+                          ).encryptedConnectionLabel,
                           color: AppColors.success,
                         ),
                         _InfoChip(
                           icon: Icons.visibility_off_outlined,
-                          label: 'Solo lectura',
+                          label: AppLocalizations.of(context).readOnlyLabel,
                           color: AppColors.info,
                         ),
                         _InfoChip(
                           icon: Icons.verified_user_outlined,
-                          label: 'PSD2 certificado',
+                          label: AppLocalizations.of(
+                            context,
+                          ).psd2CertifiedLabel,
                           color: AppColors.accent,
                         ),
                       ],
@@ -222,7 +230,7 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                         Navigator.pop(context);
                       },
                       child: Text(
-                        'Cancelar',
+                        AppLocalizations.of(context).cancel,
                         style: AppTypography.labelLarge(
                           color: AppColors.textSecondaryLight,
                         ),
@@ -238,20 +246,21 @@ class _BankConnectingPageState extends State<BankConnectingPage>
     );
   }
 
-  String _titleFor(BankState state) {
-    if (state is BankConnectAuthUrlReady) return 'Abriendo tu banco';
-    if (state is BankConnectPolling) return 'Esperando autorización';
-    return 'Conectando banco';
+  String _titleFor(BuildContext ctx, BankState state) {
+    final s = AppLocalizations.of(ctx);
+    if (state is BankConnectAuthUrlReady) return s.bankOpeningTitle;
+    if (state is BankConnectPolling) return s.bankWaitingAuthTitle;
+    return s.connectingBankTitle;
   }
 
-  String _subtitleFor(BankState state, String name) {
+  String _subtitleFor(BuildContext ctx, BankState state, String name) {
     if (state is BankConnectAuthUrlReady) {
-      return 'Completa la autorización en el navegador para continuar.';
+      return AppLocalizations.of(ctx).bankAuthCompleteInBrowserMsg;
     }
     if (state is BankConnectPolling) {
-      return 'Una vez que autorices en el navegador, volverás automáticamente a Finora.';
+      return AppLocalizations.of(ctx).bankAuthReturnMsg;
     }
-    return 'Iniciando la conexión segura con $name...';
+    return '${AppLocalizations.of(ctx).bankInitiatingConnectionMsg} $name...';
   }
 }
 
@@ -334,7 +343,7 @@ class _TroubleshootingView extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Qué puedes hacer',
+                      AppLocalizations.of(context).bankWhatYouCanDo,
                       style: AppTypography.labelMedium(color: AppColors.accent),
                     ),
                   ],
@@ -358,7 +367,7 @@ class _TroubleshootingView extends StatelessWidget {
                   context.read<BankBloc>().add(PollSyncStatus(connectionId, 0));
                 },
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar conexión'),
+                label: Text(AppLocalizations.of(context).bankRetryConnection),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.white,
@@ -381,7 +390,11 @@ class _TroubleshootingView extends StatelessWidget {
                 Navigator.pop(context);
               },
               icon: const Icon(Icons.arrow_back_rounded, size: 18),
-              label: Text(config.showRetry ? 'Elegir otro banco' : 'Volver'),
+              label: Text(
+                config.showRetry
+                    ? AppLocalizations.of(context).bankChooseOtherBank
+                    : AppLocalizations.of(context).back,
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textSecondaryLight,
                 side: const BorderSide(color: AppColors.gray200),
@@ -399,7 +412,7 @@ class _TroubleshootingView extends StatelessWidget {
           GestureDetector(
             onTap: () => _showSupportInfo(context),
             child: Text(
-              '¿Necesitas ayuda? Contacta con soporte',
+              AppLocalizations.of(context).bankContactSupport,
               style: AppTypography.labelSmall(color: AppColors.primary),
               textAlign: TextAlign.center,
             ),
@@ -439,7 +452,10 @@ class _TroubleshootingView extends StatelessWidget {
               color: AppColors.primary,
             ),
             const SizedBox(height: 12),
-            Text('Soporte técnico', style: AppTypography.titleMedium()),
+            Text(
+              AppLocalizations.of(context).technicalSupport,
+              style: AppTypography.titleMedium(),
+            ),
             const SizedBox(height: 8),
             Text(
               'Si el problema persiste, puedes contactarnos:',

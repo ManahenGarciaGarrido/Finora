@@ -94,6 +94,10 @@ def _load_models():
             logger.info(f"TF-IDF vectorizer cargado desde {VECTORIZER_PATH}")
         if os.path.exists(MODEL_PATH):
             _model = joblib.load(MODEL_PATH)
+            # Forzar n_jobs=1 para evitar que ThreadPool de joblib/sklearn
+            # conflicte con los signal handlers de gunicorn (SIGALRM → sys.exit).
+            if hasattr(_model, 'n_jobs'):
+                _model.n_jobs = 1
             logger.info(f"Modelo ML cargado desde {MODEL_PATH}")
         _model_loaded = True
     except Exception as e:

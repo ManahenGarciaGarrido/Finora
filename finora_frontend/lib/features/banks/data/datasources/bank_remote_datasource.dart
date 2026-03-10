@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../models/bank_institution_model.dart';
 import '../models/bank_account_model.dart';
 import '../models/bank_card_model.dart';
@@ -122,9 +124,16 @@ class BankRemoteDataSourceImpl implements BankRemoteDataSource {
     required String connectionId,
     required List<String> selectedAccountIds,
   }) async {
+    // Timeout extendido: generar transacciones demo para varias cuentas con IA
+    // puede tardar 60-120s según el número de cuentas seleccionadas.
     await _apiClient.post(
       ApiEndpoints.importBankAccounts(connectionId),
       data: {'selected_account_ids': selectedAccountIds},
+      options: Options(
+        receiveTimeout: const Duration(
+          milliseconds: AppConstants.bankImportReceiveTimeout,
+        ),
+      ),
     );
     // Tras importar, devolver la lista actualizada de cuentas del usuario
     final response = await _apiClient.get(ApiEndpoints.bankAccounts);

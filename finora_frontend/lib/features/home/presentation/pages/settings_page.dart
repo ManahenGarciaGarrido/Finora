@@ -7,6 +7,8 @@
 library;
 
 import 'dart:math' as math;
+import 'package:finora_frontend/features/home/presentation/pages/change_password_page.dart';
+import 'package:finora_frontend/features/home/presentation/pages/edit_profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -17,6 +19,7 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/security/biometric_service.dart';
 import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
@@ -130,10 +133,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _showLanguageDialog() async {
+    final s = AppLocalizations.of(context);
     final selected = await showDialog<String>(
       context: context,
       builder: (_) => SimpleDialog(
-        title: const Text('Idioma'),
+        title: Text(s.language),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'es'),
@@ -141,7 +145,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 const Text('🇪🇸  '),
                 Text(
-                  'Español',
+                  s.spanish,
                   style: _selectedLocale == 'es'
                       ? const TextStyle(fontWeight: FontWeight.bold)
                       : null,
@@ -161,7 +165,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 const Text('🇬🇧  '),
                 Text(
-                  'English',
+                  s.english,
                   style: _selectedLocale == 'en'
                       ? const TextStyle(fontWeight: FontWeight.bold)
                       : null,
@@ -182,266 +186,24 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() => _selectedLocale = selected);
       // Fix-12: persist + trigger MyApp rebuild via AppSettingsService notifier
       await AppSettingsService().setLocale(selected);
-      _showSnackBar(
-        selected == 'en'
-            ? 'Language set to English'
-            : 'Idioma cambiado a Español',
-        AppColors.success,
-      );
+      // El overlay de cambio de idioma se muestra desde MyApp via _onLocaleChanged
     }
   }
 
   // ── Fix-9: Edit Profile Dialog ──────────────────────────────────────────────
-  Future<void> _showEditProfileDialog() async {
-    final currentName = _getUserName();
-    final controller = TextEditingController(text: currentName);
-    final formKey = GlobalKey<FormState>();
-    bool saving = false;
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Editar perfil', style: AppTypography.titleMedium()),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: controller,
-              decoration: InputDecoration(
-                labelText: 'Nombre',
-                hintText: 'Tu nombre',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: const Icon(Icons.person_outline_rounded),
-              ),
-              textCapitalization: TextCapitalization.words,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'El nombre es requerido';
-                if (v.trim().length > 255) return 'Máximo 255 caracteres';
-                return null;
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancelar',
-                  style: TextStyle(color: AppColors.textSecondaryLight)),
-            ),
-            FilledButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      setDialogState(() => saving = true);
-                      try {
-                        final apiClient = di.sl<ApiClient>();
-                        await apiClient.put(
-                          '/user/profile',
-                          data: {'name': controller.text.trim()},
-                        );
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          context.read<AuthBloc>().add(
-                            UpdateProfileName(name: controller.text.trim()),
-                          );
-                          _showSnackBar(
-                            'Perfil actualizado',
-                            AppColors.success,
-                          );
-                        }
-                      } catch (e) {
-                        setDialogState(() => saving = false);
-                        if (mounted) {
-                          _showSnackBar(
-                            'Error al actualizar el perfil',
-                            AppColors.error,
-                          );
-                        }
-                      }
-                    },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.white,
-                      ),
-                    )
-                  : const Text('Guardar'),
-            ),
-          ],
-        ),
-      ),
+  void _navigateToEditProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const EditProfilePage()),
     );
-    controller.dispose();
   }
 
   // ── Fix-11: Change Password Dialog ──────────────────────────────────────────
-  Future<void> _showChangePasswordDialog() async {
-    final currentCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool saving = false;
-    bool showCurrent = false;
-    bool showNew = false;
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Cambiar contraseña', style: AppTypography.titleMedium()),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: currentCtrl,
-                    obscureText: !showCurrent,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña actual',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      prefixIcon: const Icon(Icons.lock_outline_rounded),
-                      suffixIcon: IconButton(
-                        icon: Icon(showCurrent
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined),
-                        onPressed: () =>
-                            setDialogState(() => showCurrent = !showCurrent),
-                      ),
-                    ),
-                    validator: (v) => (v == null || v.isEmpty)
-                        ? 'Introduce tu contraseña actual'
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: newCtrl,
-                    obscureText: !showNew,
-                    decoration: InputDecoration(
-                      labelText: 'Nueva contraseña',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      prefixIcon: const Icon(Icons.lock_rounded),
-                      suffixIcon: IconButton(
-                        icon: Icon(showNew
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined),
-                        onPressed: () =>
-                            setDialogState(() => showNew = !showNew),
-                      ),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.isEmpty) {
-                        return 'Introduce la nueva contraseña';
-                      }
-                      if (v.length < 8) {
-                        return 'Mínimo 8 caracteres';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: confirmCtrl,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Confirmar nueva contraseña',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      prefixIcon: const Icon(Icons.lock_rounded),
-                    ),
-                    validator: (v) {
-                      if (v != newCtrl.text) {
-                        return 'Las contraseñas no coinciden';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancelar',
-                  style: TextStyle(color: AppColors.textSecondaryLight)),
-            ),
-            FilledButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      setDialogState(() => saving = true);
-                      try {
-                        final apiClient = di.sl<ApiClient>();
-                        await apiClient.put(
-                          '/user/change-password',
-                          data: {
-                            'currentPassword': currentCtrl.text,
-                            'newPassword': newCtrl.text,
-                          },
-                        );
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          _showSnackBar(
-                            'Contraseña actualizada exitosamente',
-                            AppColors.success,
-                          );
-                        }
-                      } catch (e) {
-                        setDialogState(() => saving = false);
-                        if (mounted) {
-                          final msg = e.toString().contains('incorrecta') ||
-                                  e.toString().contains('401')
-                              ? 'La contraseña actual es incorrecta'
-                              : 'Error al cambiar la contraseña';
-                          _showSnackBar(msg, AppColors.error);
-                        }
-                      }
-                    },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.white,
-                      ),
-                    )
-                  : const Text('Cambiar'),
-            ),
-          ],
-        ),
-      ),
+  void _navigateToChangePassword() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
     );
-    currentCtrl.dispose();
-    newCtrl.dispose();
-    confirmCtrl.dispose();
   }
 
   // ── Fix-10: Currency & Format Dialog ────────────────────────────────────────
@@ -531,19 +293,19 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String _getUserName() {
-    final authState = context.watch<AuthBloc>().state;
+    final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) return authState.user.name;
     return 'Usuario';
   }
 
   String _getUserEmail() {
-    final authState = context.watch<AuthBloc>().state;
+    final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) return authState.user.email;
     return '';
   }
 
   String _getUserInitials() {
-    final authState = context.watch<AuthBloc>().state;
+    final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) {
       final parts = authState.user.name.split(' ');
       if (parts.length >= 2) {
@@ -556,7 +318,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<AuthBloc>();
     final responsive = ResponsiveUtils(context);
+    final s = AppLocalizations.of(context);
 
     return SafeArea(
       child: CustomScrollView(
@@ -570,7 +334,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 responsive.horizontalPadding,
                 0,
               ),
-              child: Text('Ajustes', style: AppTypography.headlineSmall()),
+              child: Text(s.settings, style: AppTypography.headlineSmall()),
             ),
           ),
 
@@ -596,12 +360,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 0,
               ),
               child: _buildSettingsSection(
-                title: 'General',
+                title: s.sectionGeneral,
                 children: [
                   _buildSettingsRow(
                     icon: Icons.category_outlined,
-                    title: 'Categorías',
-                    subtitle: 'Gestionar categorías de gastos e ingresos',
+                    title: s.settingsCategories,
+                    subtitle: s.settingsCategoriesSubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CategoriesPage()),
@@ -610,9 +374,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.notifications_outlined,
-                    title: 'Notificaciones',
-                    subtitle:
-                        'Alertas de transacciones, presupuesto y objetivos',
+                    title: s.settingsNotifications,
+                    subtitle: s.settingsNotificationsSubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -623,8 +386,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.account_balance_wallet_rounded,
-                    title: 'Presupuestos',
-                    subtitle: 'Límites de gasto por categoría y alertas',
+                    title: s.settingsBudgets,
+                    subtitle: s.settingsBudgetsSubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const BudgetPage()),
@@ -633,14 +396,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.language_rounded,
-                    title: 'Idioma',
+                    title: s.language,
                     subtitle: _getLanguageLabel(),
                     onTap: _showLanguageDialog,
                   ),
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.currency_exchange_rounded,
-                    title: 'Moneda y formato',
+                    title: s.settingsCurrency,
                     subtitle:
                         '${_selectedCurrency.code} - ${_selectedCurrency.name}',
                     onTap: _showCurrencyDialog,
@@ -660,13 +423,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 0,
               ),
               child: _buildSettingsSection(
-                title: 'Seguridad',
+                title: s.sectionSecurity,
                 children: [
                   _buildSettingsRow(
                     icon: Icons.lock_outline_rounded,
-                    title: 'Cambiar contraseña',
-                    subtitle: 'Actualizar contraseña de acceso',
-                    onTap: _showChangePasswordDialog,
+                    title: s.settingsChangePassword,
+                    subtitle: s.settingsChangePasswordSubtitle,
+                    onTap: _navigateToChangePassword,
                   ),
                   _divider(),
                   // RF-03: Biometric toggle — funcional
@@ -674,8 +437,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.security_rounded,
-                    title: 'Autenticación 2FA',
-                    subtitle: 'Verificación en dos pasos con app autenticadora',
+                    title: s.settingsBiometric2fa,
+                    subtitle: s.twoFactorAuth,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const TwoFaSetupPage()),
@@ -696,12 +459,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 0,
               ),
               child: _buildSettingsSection(
-                title: 'Datos y privacidad',
+                title: s.sectionData,
                 children: [
                   _buildSettingsRow(
                     icon: Icons.download_rounded,
-                    title: 'Exportar datos',
-                    subtitle: 'Descargar transacciones en CSV o PDF',
+                    title: s.settingsExportData,
+                    subtitle: s.settingsExportDataSubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const ExportPage()),
@@ -710,8 +473,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.account_balance_outlined,
-                    title: 'Consentimientos PSD2',
-                    subtitle: 'Gestionar accesos bancarios autorizados',
+                    title: s.settingsPsd2,
+                    subtitle: s.settingsPsd2Subtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -724,8 +487,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.privacy_tip_outlined,
-                    title: 'Política de privacidad',
-                    subtitle: 'Consultar política GDPR',
+                    title: s.settingsPrivacy,
+                    subtitle: s.settingsPrivacySubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const PrivacyPage()),
@@ -831,7 +594,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             child: IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
-              onPressed: _showEditProfileDialog,
+              onPressed: _navigateToEditProfile,
               color: AppColors.textSecondaryLight,
               tooltip: 'Editar perfil',
             ),
@@ -1043,56 +806,68 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildLogoutButton() {
+    final s = AppLocalizations.of(context);
     return Semantics(
-      label: 'Cerrar sesión',
+      label: s.settingsLogout,
       button: true,
       child: GestureDetector(
         onTap: () {
           showDialog(
             context: context,
-            builder: (dialogContext) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Row(
-                children: [
-                  Icon(Icons.logout_rounded, color: AppColors.error, size: 24),
-                  SizedBox(width: 12),
-                  Text('Cerrar sesión'),
-                ],
-              ),
-              content: const Text(
-                '¿Estás seguro de que quieres cerrar tu sesión?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(
-                    'Cancelar',
-                    style: TextStyle(color: AppColors.textSecondaryLight),
-                  ),
+            builder: (dialogContext) {
+              final ds = AppLocalizations.of(dialogContext);
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    context.read<AuthBloc>().add(LogoutRequested());
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/login',
-                      (route) => false,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error,
-                    foregroundColor: AppColors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                title: Row(
+                  children: [
+                    const Icon(
+                      Icons.logout_rounded,
+                      color: AppColors.error,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(ds.settingsLogout),
+                  ],
+                ),
+                content: Text(
+                  ds.locale.startsWith('en')
+                      ? 'Are you sure you want to sign out?'
+                      : '¿Estás seguro de que quieres cerrar tu sesión?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(
+                      ds.cancel,
+                      style: const TextStyle(
+                        color: AppColors.textSecondaryLight,
+                      ),
                     ),
                   ),
-                  child: const Text('Cerrar sesión'),
-                ),
-              ],
-            ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      context.read<AuthBloc>().add(LogoutRequested());
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/login',
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.error,
+                      foregroundColor: AppColors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(ds.settingsLogout),
+                  ),
+                ],
+              );
+            },
           );
         },
         child: Container(
@@ -1112,7 +887,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Cerrar sesión',
+                s.settingsLogout,
                 style: AppTypography.labelLarge(color: AppColors.error),
               ),
             ],

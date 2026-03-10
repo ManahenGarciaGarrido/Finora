@@ -1,33 +1,22 @@
-/// Página de Onboarding — RNF-10
-///
-/// RNF-10: Curva de aprendizaje
-///  - Onboarding intuitivo y breve (< 1 minuto)
-///  - 4 pantallas que explican las funciones clave de Finora
-///  - Primera transacción accesible en < 2 minutos desde instalación
-///  - Opción de saltar onboarding
-///  - Diseño auto-explicativo con ilustraciones y textos claros
 library;
 
+import 'package:finora_frontend/features/authentication/presentation/pages/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// RNF-10: Flujo de bienvenida para nuevos usuarios.
 class OnboardingPage extends StatefulWidget {
-  /// Callback llamado cuando el usuario completa o salta el onboarding.
   final VoidCallback onComplete;
 
   const OnboardingPage({super.key, required this.onComplete});
 
-  /// Comprueba si el onboarding ya fue completado.
   static Future<bool> isCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('onboarding_completed') ?? false;
   }
 
-  /// Marca el onboarding como completado.
   static Future<void> markCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
@@ -40,8 +29,6 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   final _pageController = PageController();
   int _currentPage = 0;
-
-  // ── Definición de pantallas ────────────────────────────────────────────────
 
   static const _pages = [
     _OnboardingData(
@@ -76,7 +63,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
     _OnboardingData(
       icon: Icons.savings_rounded,
-      iconColor: AppColors.savings,
+      iconColor: Color(0xFF7C3AED),
       bgColor: Color(0xFFEDE9FE),
       title: 'Alcanza tus metas',
       subtitle: 'Objetivos de ahorro con recomendaciones IA',
@@ -105,10 +92,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _complete() async {
     await OnboardingPage.markCompleted();
+    if (!mounted) return;
+
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
+
     widget.onComplete();
   }
-
-  // ── UI ─────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +108,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Botón saltar
             Align(
               alignment: Alignment.topRight,
               child: Padding(
@@ -135,8 +125,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
               ),
             ),
-
-            // Páginas
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -145,15 +133,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 itemBuilder: (_, i) => _buildPage(_pages[i]),
               ),
             ),
-
-            // Indicadores de punto
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_pages.length, (i) => _buildDot(i)),
             ),
             const SizedBox(height: 24),
-
-            // Botón siguiente / empezar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SizedBox(
@@ -162,6 +146,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 child: FilledButton(
                   onPressed: _next,
                   style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -188,7 +173,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Ilustración / ícono
           Container(
             width: 140,
             height: 140,
@@ -199,24 +183,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
             child: Icon(page.icon, color: page.iconColor, size: 72),
           ),
           const SizedBox(height: 40),
-
-          // Título
           Text(
             page.title,
             style: AppTypography.headlineMedium(),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-
-          // Subtítulo
           Text(
             page.subtitle,
             style: AppTypography.titleSmall(color: page.iconColor),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
-
-          // Descripción
           Text(
             page.description,
             style: AppTypography.bodyMedium(color: AppColors.gray600),
@@ -242,8 +220,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 }
-
-// ── Modelo de datos de página ──────────────────────────────────────────────────
 
 class _OnboardingData {
   final IconData icon;

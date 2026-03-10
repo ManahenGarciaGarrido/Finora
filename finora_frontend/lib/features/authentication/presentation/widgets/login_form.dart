@@ -28,11 +28,11 @@ class _LoginFormState extends State<LoginForm> {
   void _handleLogin() {
     if (_formKey.currentState?.validate() ?? false) {
       context.read<AuthBloc>().add(
-            LoginRequested(
-              email: _emailController.text.trim(),
-              password: _passwordController.text,
-            ),
-          );
+        LoginRequested(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        ),
+      );
     }
   }
 
@@ -53,10 +53,7 @@ class _LoginFormState extends State<LoginForm> {
               // Logo or App Title
               const Text(
                 'Finora',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
@@ -72,10 +69,10 @@ class _LoginFormState extends State<LoginForm> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Please enter your email'; // TODO: add localization key
                   }
                   if (!value.contains('@')) {
-                    return 'Please enter a valid email';
+                    return 'Please enter a valid email'; // TODO: add localization key
                   }
                   return null;
                 },
@@ -91,7 +88,9 @@ class _LoginFormState extends State<LoginForm> {
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                     ),
                     onPressed: () {
                       setState(() {
@@ -103,10 +102,10 @@ class _LoginFormState extends State<LoginForm> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
+                    return 'Please enter your password'; // TODO: add localization key
                   }
                   if (value.length < 8) {
-                    return 'Password must be at least 8 characters';
+                    return 'Password must be at least 8 characters'; // TODO: add localization key
                   }
                   return null;
                 },
@@ -119,10 +118,7 @@ class _LoginFormState extends State<LoginForm> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text(
-                  'Login',
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: const Text('Login', style: TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 16),
 
@@ -131,7 +127,9 @@ class _LoginFormState extends State<LoginForm> {
                 onPressed: () {
                   // Navigate to register page
                 },
-                child: const Text('Don\'t have an account? Register'),
+                child: const Text(
+                  'Don\'t have an account? Register',
+                ), // TODO: add localization key
               ),
 
               // Forgot password link
@@ -139,7 +137,9 @@ class _LoginFormState extends State<LoginForm> {
                 onPressed: () {
                   // Navigate to forgot password page
                 },
-                child: const Text('Forgot password?'),
+                child: const Text(
+                  'Forgot password?',
+                ), // TODO: add localization key
               ),
 
               // Add spacing at bottom for better scrolling

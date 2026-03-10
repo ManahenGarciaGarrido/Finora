@@ -34,6 +34,10 @@ const { sendPushToUser } = require('../services/fcm'); // RF-31
 // RF-14: URL del servicio Python de IA (configurable via env)
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
 
+// Previene importaciones concurrentes para la misma conexión bancaria,
+// evitando que un retry borre cuentas que aún están siendo procesadas.
+const _importInProgress = new Set();
+
 /**
  * RF-14: Categoriza con el servicio Python si está disponible.
  * Fallback automático al motor de reglas (autoCategorySimple).
@@ -70,7 +74,7 @@ async function batchCategorize(items) {
   if (items.length === 0) return [];
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 45000);
     const resp = await fetch(`${AI_SERVICE_URL}/categorize/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -248,7 +252,7 @@ const _INCOME_TEMPLATES = [
  */
 async function generateRandomTransactions(bankAccountId, userId, targetBalanceCents) {
   const today      = new Date();
-  const monthsBack = 18 + Math.floor(Math.random() * 7);  // 18-24 meses
+  const monthsBack = 18 + Math.floor(Math.random() * 7);  // 18-24 meses aleatorio
 
   // ── 1. Intentar con el servicio Python de IA ─────────────────────────────
   let aiTxs    = null;
@@ -327,10 +331,23 @@ async function generateRandomTransactions(bankAccountId, userId, targetBalanceCe
       aiCategories = txList.map(tx => tx.cat);
     }
 
+    // Categorías genéricas de fallback que el modelo ML devuelve cuando no
+    // tiene suficiente confianza. Si el AI generó una categoría específica
+    // en tx.cat, preferimos esa sobre el fallback genérico del ML.
+    const ML_FALLBACK_CATS = new Set([
+      'Otros', 'Otros gastos', 'Otros ingresos', 'other', 'Other',
+    ]);
+
     for (let i = 0; i < txList.length; i++) {
       const tx       = txList[i];
       const amount   = (tx.amountCents / 100).toFixed(2);
-      const category = (aiCategories[i] && aiCategories[i].trim()) ? aiCategories[i] : (tx.cat || 'Otros gastos');
+      const mlCat    = aiCategories[i] && aiCategories[i].trim();
+      // Si el ML devolvió una categoría específica (no genérica), usarla.
+      // Si el ML devolvió "Otros*", preferir la categoría pre-asignada por el
+      // generador de IA (tx.cat), que ya es semánticamente correcta.
+      const category = (mlCat && !ML_FALLBACK_CATS.has(mlCat))
+        ? mlCat
+        : (tx.cat && tx.cat.trim()) || mlCat || (tx.isExpense ? 'Otros gastos' : 'Otros ingresos');
       await db.query(
         `INSERT INTO transactions
            (user_id, bank_account_id, amount, type, description, category, date, payment_method)
@@ -523,10 +540,19 @@ async function generateRandomTransactions(bankAccountId, userId, targetBalanceCe
     aiCategories = txList.map(tx => tx.cat);
   }
 
+  // Misma lógica que en el path AI: preferir categoría específica del ML,
+  // pero si devuelve un fallback genérico usar la categoría predefinida del generador.
+  const _ML_FALLBACK_CATS = new Set([
+    'Otros', 'Otros gastos', 'Otros ingresos', 'other', 'Other',
+  ]);
+
   for (let i = 0; i < txList.length; i++) {
     const tx       = txList[i];
     const amount   = (tx.amountCents / 100).toFixed(2);
-    const category = (aiCategories[i] && aiCategories[i].trim()) ? aiCategories[i] : tx.cat;
+    const mlCat    = aiCategories[i] && aiCategories[i].trim();
+    const category = (mlCat && !_ML_FALLBACK_CATS.has(mlCat))
+      ? mlCat
+      : (tx.cat && tx.cat.trim()) || mlCat || (tx.isExpense ? 'Otros gastos' : 'Otros ingresos');
     await db.query(
       `INSERT INTO transactions
          (user_id, bank_account_id, amount, type, description, category, date, payment_method)
@@ -1748,6 +1774,14 @@ router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'Bad Request', message: 'selected_account_ids requerido' });
   }
 
+  // Prevenir importaciones concurrentes para la misma conexión.
+  // Si el usuario reintenta mientras la primera importación sigue en curso,
+  // la segunda petición devuelve 202 (aceptada, procesando).
+  if (_importInProgress.has(connectionId)) {
+    return res.status(202).json({ ok: false, importing: true, message: 'Importación ya en curso para esta conexión' });
+  }
+  _importInProgress.add(connectionId);
+
   try {
     const connResult = await db.query(
       'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
@@ -1817,6 +1851,8 @@ router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('[import-accounts] error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  } finally {
+    _importInProgress.delete(connectionId);
   }
 });
 

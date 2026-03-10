@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../bloc/bank_bloc.dart';
@@ -75,7 +76,10 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
             ),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text('Nueva cuenta', style: AppTypography.titleLarge()),
+          title: Text(
+            AppLocalizations.of(context).newAccountTitle,
+            style: AppTypography.titleLarge(),
+          ),
           centerTitle: true,
         ),
         body: Form(
@@ -88,20 +92,20 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
               const SizedBox(height: 24),
 
               // Account name
-              _buildSectionLabel('Nombre de la cuenta'),
+              _buildSectionLabel(AppLocalizations.of(context).accountName),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _nameCtrl,
                 style: AppTypography.bodyMedium(),
                 decoration: _inputDecoration(hint: 'Ej. BBVA Principal'),
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Introduce un nombre'
+                    ? AppLocalizations.of(context).enterAccountNameError
                     : null,
               ),
               const SizedBox(height: 20),
 
               // Account type
-              _buildSectionLabel('Tipo de cuenta'),
+              _buildSectionLabel(AppLocalizations.of(context).accountTypeLabel),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
@@ -130,7 +134,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
               const SizedBox(height: 20),
 
               // IBAN (optional)
-              _buildSectionLabel('IBAN (opcional)'),
+              _buildSectionLabel(AppLocalizations.of(context).ibanOptional),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _ibanCtrl,
@@ -255,7 +259,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                   style: AppTypography.titleMedium(),
                 ),
                 Text(
-                  'Configura tu cuenta para empezar',
+                  AppLocalizations.of(context).configureAccountMsg,
                   style: AppTypography.bodySmall(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -275,7 +279,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
       children: [
         Row(
           children: [
-            _buildSectionLabel('Tarjetas'),
+            _buildSectionLabel(AppLocalizations.of(context).cardsLabel),
             const Spacer(),
             TextButton.icon(
               onPressed: _showAddCardSheet,
@@ -312,7 +316,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Sin tarjetas — opcional',
+                  AppLocalizations.of(context).noCardsOptional,
                   style: AppTypography.bodyMedium(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -402,7 +406,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionLabel('Importar movimientos (CSV)'),
+        _buildSectionLabel(AppLocalizations.of(context).importCsvLabel),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
@@ -457,7 +461,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                 ),
               ] else ...[
                 Text(
-                  'Importa el historial de movimientos de tu cuenta.',
+                  AppLocalizations.of(context).csvImportDesc,
                   style: AppTypography.bodySmall(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -492,7 +496,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Seleccionar archivo CSV',
+                          AppLocalizations.of(context).selectCsvFile,
                           style: AppTypography.labelMedium(
                             color: AppColors.primary,
                           ),
@@ -653,7 +657,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                           ),
                         )
                       : Text(
-                          'Guardar cuenta',
+                          AppLocalizations.of(context).saveAccountBtn,
                           style: AppTypography.labelLarge(
                             color: AppColors.white,
                           ),
@@ -772,7 +776,10 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Añadir tarjeta', style: AppTypography.titleLarge()),
+          Text(
+            AppLocalizations.of(context).addCardTitle,
+            style: AppTypography.titleLarge(),
+          ),
           const SizedBox(height: 20),
 
           // Card type chips
@@ -908,7 +915,11 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
               final name = _nameCtrl.text.trim();
               if (name.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Introduce un nombre')),
+                  SnackBar(
+                    content: Text(
+                      AppLocalizations.of(context).enterAccountNameError,
+                    ),
+                  ),
                 );
                 return;
               }
@@ -932,7 +943,7 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
               ),
               child: Center(
                 child: Text(
-                  'Añadir tarjeta',
+                  AppLocalizations.of(context).addCardTitle,
                   style: AppTypography.labelLarge(color: AppColors.white),
                 ),
               ),

@@ -35,11 +35,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   String? _validateEmail(String value) {
     if (value.isEmpty) {
-      return 'El correo electrónico es requerido';
+      return 'El correo electrónico es requerido'; // TODO: add localization key
     }
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(value)) {
-      return 'Ingresa un correo electrónico válido';
+      return 'Ingresa un correo electrónico válido'; // TODO: add localization key
     }
     return null;
   }
@@ -78,7 +78,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Email Enviado',
+                  'Email Enviado', // TODO: add localization key
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -94,7 +94,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Revisa tu bandeja de entrada y haz clic en el enlace para restablecer tu contraseña.',
+                'Revisa tu bandeja de entrada y haz clic en el enlace para restablecer tu contraseña.', // TODO: add localization key
                 style: TextStyle(fontSize: 14, height: 1.5, color: Colors.grey),
               ),
             ],
@@ -112,7 +112,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Volver al Login'),
+              child: const Text(
+                'Volver al Login',
+              ), // TODO: add localization key
             ),
           ],
         ),
@@ -173,7 +175,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
           // Title
           Text(
-            '¿Olvidaste tu contraseña?',
+            '¿Olvidaste tu contraseña?', // TODO: add localization key
             style: TextStyle(
               fontSize: responsive.sp(28),
               fontWeight: FontWeight.bold,
@@ -185,7 +187,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
           // Subtitle
           Text(
-            'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.',
+            'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.', // TODO: add localization key
             style: TextStyle(
               fontSize: responsive.sp(14),
               color: AppColors.textSecondaryLight,
@@ -201,8 +203,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             child: CustomTextField(
               controller: _emailController,
               focusNode: _emailFocus,
-              label: 'Correo Electrónico',
-              hint: 'correo@ejemplo.com',
+              label: 'Correo Electrónico', // TODO: add localization key
+              hint: 'correo@ejemplo.com', // TODO: add localization key
               prefixIcon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.done,
@@ -246,7 +248,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                     )
                   : Text(
-                      'Enviar Enlace',
+                      'Enviar Enlace', // TODO: add localization key
                       style: TextStyle(
                         fontSize: responsive.sp(16),
                         fontWeight: FontWeight.w600,
@@ -262,7 +264,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             child: TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                'Volver al inicio de sesión',
+                'Volver al inicio de sesión', // TODO: add localization key
                 style: TextStyle(
                   color: AppColors.textSecondaryLight,
                   fontSize: responsive.sp(14),

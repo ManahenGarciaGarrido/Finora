@@ -54,8 +54,9 @@ echo ""
 # ── Paso 3: Arrancar gunicorn como finora-ai ──────────────────────────────────
 exec gosu finora-ai gunicorn \
     --bind "0.0.0.0:${PORT:-5001}" \
-    --workers 2 \
-    --timeout 60 \
+    --workers 4 \
+    --timeout 120 \
+    --preload \
     --access-logfile - \
     --error-logfile - \
     app:app

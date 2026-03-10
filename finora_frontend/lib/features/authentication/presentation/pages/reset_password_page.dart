@@ -64,16 +64,16 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
   String? _validatePassword(String value) {
     if (value.isEmpty) {
-      return 'La contraseña es requerida';
+      return 'La contraseña es requerida'; // TODO: add localization key
     }
     if (value.length < 8) {
-      return 'La contraseña debe tener al menos 8 caracteres';
+      return 'La contraseña debe tener al menos 8 caracteres'; // TODO: add localization key
     }
     if (!value.contains(RegExp(r'[A-Z]'))) {
-      return 'Debe contener al menos una mayúscula';
+      return 'Debe contener al menos una mayúscula'; // TODO: add localization key
     }
     if (!value.contains(RegExp(r'[0-9]'))) {
-      return 'Debe contener al menos un número';
+      return 'Debe contener al menos un número'; // TODO: add localization key
     }
     if (!value.contains(
       RegExp(
@@ -81,17 +81,17 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         r"']",
       ),
     )) {
-      return 'Debe contener al menos un carácter especial';
+      return 'Debe contener al menos un carácter especial'; // TODO: add localization key
     }
     return null;
   }
 
   String? _validateConfirmPassword(String value) {
     if (value.isEmpty) {
-      return 'Debes confirmar la contraseña';
+      return 'Debes confirmar la contraseña'; // TODO: add localization key
     }
     if (value != _passwordController.text) {
-      return 'Las contraseñas no coinciden';
+      return 'Las contraseñas no coinciden'; // TODO: add localization key
     }
     return null;
   }
@@ -140,7 +140,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  '¡Éxito!',
+                  '¡Éxito!', // TODO: add localization key
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -165,7 +165,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Iniciar Sesión'),
+              child: const Text('Iniciar Sesión'), // TODO: add localization key
             ),
           ],
         ),
@@ -212,7 +212,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
           // Title
           Text(
-            'Restablecer Contraseña',
+            'Restablecer Contraseña', // TODO: add localization key
             style: TextStyle(
               fontSize: responsive.sp(28),
               fontWeight: FontWeight.bold,
@@ -224,7 +224,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
           // Subtitle
           Text(
-            'Ingresa tu nueva contraseña. Asegúrate de que cumple con los requisitos de seguridad.',
+            'Ingresa tu nueva contraseña. Asegúrate de que cumple con los requisitos de seguridad.', // TODO: add localization key
             style: TextStyle(
               fontSize: responsive.sp(14),
               color: AppColors.textSecondaryLight,
@@ -243,7 +243,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 CustomTextField(
                   controller: _passwordController,
                   focusNode: _passwordFocus,
-                  label: 'Nueva Contraseña',
+                  label: 'Nueva Contraseña', // TODO: add localization key
                   hint: '••••••••',
                   prefixIcon: Icons.lock_outlined,
                   obscureText: _obscurePassword,
@@ -284,7 +284,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 CustomTextField(
                   controller: _confirmPasswordController,
                   focusNode: _confirmPasswordFocus,
-                  label: 'Confirmar Contraseña',
+                  label: 'Confirmar Contraseña', // TODO: add localization key
                   hint: '••••••••',
                   prefixIcon: Icons.lock_outlined,
                   obscureText: _obscureConfirmPassword,
@@ -345,7 +345,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                       ),
                     )
                   : Text(
-                      'Restablecer Contraseña',
+                      'Restablecer Contraseña', // TODO: add localization key
                       style: TextStyle(
                         fontSize: responsive.sp(16),
                         fontWeight: FontWeight.w600,
@@ -372,7 +372,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Requisitos de contraseña:',
+            'Requisitos de contraseña:', // TODO: add localization key
             style: TextStyle(
               fontSize: responsive.sp(12),
               fontWeight: FontWeight.w600,
@@ -381,18 +381,22 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           ),
           const SizedBox(height: 8),
           _buildRequirementRow(
-            'Mínimo 8 caracteres',
+            'Mínimo 8 caracteres', // TODO: add localization key
             _hasMinLength,
             responsive,
           ),
           _buildRequirementRow(
-            'Al menos una mayúscula',
+            'Al menos una mayúscula', // TODO: add localization key
             _hasUpperCase,
             responsive,
           ),
-          _buildRequirementRow('Al menos un número', _hasNumber, responsive),
           _buildRequirementRow(
-            'Al menos un carácter especial',
+            'Al menos un número',
+            _hasNumber,
+            responsive,
+          ), // TODO: add localization key
+          _buildRequirementRow(
+            'Al menos un carácter especial', // TODO: add localization key
             _hasSpecialChar,
             responsive,
           ),

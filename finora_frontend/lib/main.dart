@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/constants/app_constants.dart';
@@ -26,6 +27,8 @@ import 'features/transactions/presentation/pages/edit_transaction_page.dart';
 import 'features/transactions/domain/entities/transaction_entity.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/app_settings_service.dart';
+import 'core/l10n/app_localizations.dart';
+import 'core/l10n/app_strings.dart';
 import 'shared/widgets/offline_indicator.dart';
 
 // TESTING: Descomenta las siguientes líneas para probar los widgets de compatibilidad
@@ -91,6 +94,13 @@ class _MyAppState extends State<MyApp> {
 
   // RNF-13: Current locale — updated when AppSettingsService.localeNotifier changes
   late Locale _currentLocale;
+
+  // RNF-13: Key que fuerza reconstrucción total del árbol de widgets al cambiar idioma
+  Key _appKey = UniqueKey();
+
+  // RNF-13: Estado del overlay de carga al cambiar idioma
+  bool _showLangOverlay = false;
+  String _langOverlayText = '';
 
   @override
   void initState() {
@@ -163,8 +173,20 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _onLocaleChanged() {
+    final newLocale = AppSettingsService().localeNotifier.value;
+    final newStrings = AppStrings.forLocale(newLocale.languageCode);
+
+    // Mostrar overlay de carga ya en el NUEVO idioma y forzar reconstrucción total
     setState(() {
-      _currentLocale = AppSettingsService().localeNotifier.value;
+      _currentLocale = newLocale;
+      _appKey = UniqueKey();
+      _langOverlayText = newStrings.changingLanguage;
+      _showLangOverlay = true;
+    });
+
+    // Ocultar overlay tras 700 ms — tiempo suficiente para que el árbol reconstruya
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => _showLangOverlay = false);
     });
   }
 
@@ -190,12 +212,21 @@ class _MyAppState extends State<MyApp> {
         BlocProvider(create: (_) => di.sl<BankBloc>()),
       ],
       child: MaterialApp(
+        key: _appKey,
         navigatorKey: _navigatorKey,
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         locale: _currentLocale,
+        // RNF-13: Registrar AppLocalizations + delegates globales de Material/Cupertino
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppStrings.supportedLocales,
         home: const SplashPage(),
         routes: {
           '/splash': (context) => const SplashPage(),
@@ -262,13 +293,56 @@ class _MyAppState extends State<MyApp> {
             minScaleFactor: 0.85,
             maxScaleFactor: 1.5,
           );
-          return MediaQuery(
+          final appContent = MediaQuery(
             data: mediaQuery.copyWith(textScaler: textScaler),
             // Envolver toda la app con el indicador offline (RNF-15)
             child: OfflineIndicator(
               connectivityService: widget.connectivityService,
               child: child ?? const SizedBox.shrink(),
             ),
+          );
+
+          // RNF-13: Overlay de carga al cambiar idioma — ya en el nuevo idioma
+          if (!_showLangOverlay) return appContent;
+
+          return Stack(
+            children: [
+              appContent,
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  opacity: _showLangOverlay ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    color: const Color(0xFF1A1A2E).withValues(alpha: 0.85),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            _langOverlayText,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),

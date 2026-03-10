@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
@@ -131,8 +132,7 @@ class _AssistantPageState extends State<AssistantPage>
           _messages.add(
             ChatMessage(
               id: DateTime.now().millisecondsSinceEpoch.toString(),
-              content:
-                  'Lo siento, no pude conectar con el asistente. Verifica tu conexión e inténtalo de nuevo.',
+              content: AppLocalizations.of(context).assistantConnectionError,
               isUser: false,
               timestamp: DateTime.now(),
               intent: 'error',
@@ -275,7 +275,7 @@ class _AssistantPageState extends State<AssistantPage>
                 ),
               ),
               Text(
-                'Asistente IA · En línea',
+                AppLocalizations.of(context).assistantOnlineStatus,
                 style: AppTypography.labelSmall(color: AppColors.success),
               ),
             ],
@@ -298,7 +298,7 @@ class _AssistantPageState extends State<AssistantPage>
                   Icons.lightbulb_outline_rounded,
                   color: _kAssistantColor,
                 ),
-          tooltip: 'Ver recomendaciones',
+          tooltip: AppLocalizations.of(context).seeRecommendations,
           onPressed: _loadingRecs ? null : _loadRecommendations,
         ),
       ],
@@ -499,18 +499,19 @@ class _AssistantPageState extends State<AssistantPage>
     final IconData verdictIcon;
     final String verdictLabel;
 
+    final s = AppLocalizations.of(context);
     if (result.isYes) {
       verdictColor = AppColors.success;
       verdictIcon = Icons.check_circle_rounded;
-      verdictLabel = 'Sí puedes';
+      verdictLabel = s.affordabilityYes;
     } else if (result.isNo) {
       verdictColor = AppColors.error;
       verdictIcon = Icons.cancel_rounded;
-      verdictLabel = 'No puedes';
+      verdictLabel = s.affordabilityNo;
     } else {
       verdictColor = AppColors.warning;
       verdictIcon = Icons.warning_rounded;
-      verdictLabel = 'Con precaución';
+      verdictLabel = s.affordabilityMaybe;
     }
 
     return Container(
@@ -543,19 +544,22 @@ class _AssistantPageState extends State<AssistantPage>
           const SizedBox(height: 12),
           // Métricas clave
           _affordabilityRow(
-            'Balance disponible',
+            s.availableBalanceLabel,
             _fmt(result.availableBalance),
           ),
           _affordabilityRow(
-            'Balance tras compra',
+            s.balanceAfterPurchase,
             _fmt(result.balanceAfter),
             valueColor: result.balanceAfter < 0 ? AppColors.error : null,
           ),
           if (result.monthlySurplus > 0)
-            _affordabilityRow('Superávit mensual', _fmt(result.monthlySurplus)),
+            _affordabilityRow(
+              s.monthlySurplusLabel,
+              _fmt(result.monthlySurplus),
+            ),
           if (result.monthsToSave != null)
             _affordabilityRow(
-              'Podrías ahorrar en',
+              s.couldSaveIn,
               '${result.monthsToSave} mes(es)',
               valueColor: AppColors.primary,
             ),
@@ -563,7 +567,7 @@ class _AssistantPageState extends State<AssistantPage>
           if (result.impactOnGoals.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              'Impacto en objetivos:',
+              s.impactOnGoalsLabel,
               style: AppTypography.labelSmall(
                 color: AppColors.textSecondaryLight,
               ),
@@ -573,7 +577,7 @@ class _AssistantPageState extends State<AssistantPage>
                 g.goalName,
                 g.monthsDelayed > 0
                     ? "+${g.monthsDelayed} mes(es)"
-                    : "Sin impacto",
+                    : s.noImpactLabel,
                 valueColor: g.monthsDelayed > 0
                     ? AppColors.warning
                     : AppColors.success,
@@ -584,7 +588,7 @@ class _AssistantPageState extends State<AssistantPage>
           if (result.alternatives.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              'Alternativas:',
+              s.alternativesLabel,
               style: AppTypography.labelSmall(
                 color: AppColors.textSecondaryLight,
               ),
@@ -705,7 +709,7 @@ class _AssistantPageState extends State<AssistantPage>
                 minLines: 1,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText: 'Escribe tu pregunta...',
+                  hintText: AppLocalizations.of(context).typeYourQuestion,
                   hintStyle: AppTypography.bodyMedium(color: AppColors.gray400),
                   filled: true,
                   fillColor: AppColors.backgroundLight,
