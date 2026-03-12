@@ -14,6 +14,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/l10n/app_localizations.dart';
 
 /// RF-31/RF-32/RF-33: Configuración granular de notificaciones push.
 class NotificationSettingsPage extends StatefulWidget {
@@ -31,10 +32,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   bool _saving = false;
 
   // Preferencias
-  bool _pushTransactions = true; // RF-31
-  bool _pushBudgetAlerts = true; // RF-32
-  bool _pushGoalReminders = true; // RF-33
-  double _minAmount = 0; // RF-31: filtro importe mínimo
+  bool _pushTransactions = true;
+  bool _pushBudgetAlerts = true;
+  bool _pushGoalReminders = true;
+  double _minAmount = 0;
   bool _quietHours = false;
   TimeOfDay _quietStart = const TimeOfDay(hour: 22, minute: 0);
   TimeOfDay _quietEnd = const TimeOfDay(hour: 8, minute: 0);
@@ -46,9 +47,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   }
 
   Future<void> _loadSettings() async {
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
     try {
       final res = await _apiClient.get('/notifications/settings');
       final d = res.data as Map<String, dynamic>;
@@ -67,9 +66,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         _loading = false;
       });
     } catch (e) {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -82,9 +79,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
   Future<void> _save() async {
-    setState(() {
-      _saving = true;
-    });
+    final s = AppLocalizations.of(context);
+    setState(() => _saving = true);
     try {
       await _apiClient.put(
         '/notifications/settings',
@@ -100,8 +96,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Configuración guardada'),
+          SnackBar(
+            content: Text(s.settingsSavedMsg),
             backgroundColor: Colors.green,
           ),
         );
@@ -110,7 +106,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al guardar: $e'),
+            content: Text(s.errorSavingSettingsMsg(e.toString())),
             backgroundColor: AppColors.error,
           ),
         );
@@ -120,16 +116,15 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     }
   }
 
-  // ── UI ─────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         backgroundColor: AppColors.surfaceLight,
         elevation: 0,
-        title: Text('Notificaciones', style: AppTypography.titleMedium()),
+        title: Text(s.notificationsTitle, style: AppTypography.titleMedium()),
         leading: const BackButton(),
         actions: [
           if (!_loading)
@@ -141,7 +136,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Guardar'),
+                  : Text(s.save),
             ),
         ],
       ),
@@ -150,37 +145,37 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _buildInfoBanner(),
+                _buildInfoBanner(s),
                 const SizedBox(height: 16),
                 _buildSection(
-                  title: 'Tipos de notificación',
+                  title: s.notificationTypesSection,
                   children: [
                     _buildToggle(
+                      s,
                       icon: Icons.receipt_long_rounded,
                       iconColor: AppColors.info,
-                      title: 'Nuevas transacciones',
-                      subtitle:
-                          'Notificación al detectar una nueva transacción bancaria',
+                      title: s.newTransactionsTitle,
+                      subtitle: s.newTransactionsSubtitle,
                       value: _pushTransactions,
                       onChanged: (v) => setState(() => _pushTransactions = v),
                     ),
                     _buildDivider(),
                     _buildToggle(
+                      s,
                       icon: Icons.account_balance_wallet_rounded,
                       iconColor: AppColors.warning,
-                      title: 'Alertas de presupuesto',
-                      subtitle:
-                          'Aviso al superar el 80% y 100% de un presupuesto',
+                      title: s.budgetAlertsTitle,
+                      subtitle: s.budgetAlertsSubtitle,
                       value: _pushBudgetAlerts,
                       onChanged: (v) => setState(() => _pushBudgetAlerts = v),
                     ),
                     _buildDivider(),
                     _buildToggle(
+                      s,
                       icon: Icons.savings_rounded,
                       iconColor: AppColors.savings,
-                      title: 'Progreso de objetivos',
-                      subtitle:
-                          'Recordatorio semanal del avance de tus metas de ahorro',
+                      title: s.goalProgressTitle,
+                      subtitle: s.goalProgressSubtitle,
                       value: _pushGoalReminders,
                       onChanged: (v) => setState(() => _pushGoalReminders = v),
                     ),
@@ -189,7 +184,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 const SizedBox(height: 16),
                 if (_pushTransactions) ...[
                   _buildSection(
-                    title: 'Filtros',
+                    title: s.filtersSection,
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(14),
@@ -205,11 +200,11 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Importe mínimo',
+                                        s.minAmountTitle,
                                         style: AppTypography.bodyMedium(),
                                       ),
                                       Text(
-                                        'No notificar transacciones por debajo de este importe',
+                                        s.minAmountSubtitle,
                                         style: AppTypography.bodySmall(
                                           color: AppColors.gray500,
                                         ),
@@ -219,7 +214,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                 ),
                                 Text(
                                   _minAmount == 0
-                                      ? 'Sin límite'
+                                      ? s.noLimitLabel
                                       : '€${_minAmount.toStringAsFixed(0)}',
                                   style: AppTypography.titleSmall(
                                     color: AppColors.primary,
@@ -228,27 +223,19 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Semantics(
-                              label:
-                                  'Importe mínimo para notificaciones: ${_minAmount.toStringAsFixed(0)} euros',
-                              child: Slider(
-                                value: _minAmount,
-                                min: 0,
-                                max: 200,
-                                divisions: 20,
-                                label: _minAmount == 0
-                                    ? 'Sin límite'
-                                    : '€${_minAmount.toStringAsFixed(0)}',
-                                onChanged: (v) =>
-                                    setState(() => _minAmount = v),
-                                activeColor: AppColors.primary,
-                              ),
+                            Slider(
+                              value: _minAmount,
+                              min: 0,
+                              max: 200,
+                              divisions: 20,
+                              onChanged: (v) => setState(() => _minAmount = v),
+                              activeColor: AppColors.primary,
                             ),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Sin límite',
+                                  s.noLimitLabel,
                                   style: AppTypography.labelSmall(
                                     color: AppColors.gray400,
                                   ),
@@ -269,14 +256,14 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                   const SizedBox(height: 16),
                 ],
                 _buildSection(
-                  title: 'Horario silencioso',
+                  title: s.quietHoursSection,
                   children: [
                     _buildToggle(
+                      s,
                       icon: Icons.bedtime_rounded,
                       iconColor: AppColors.gray500,
-                      title: 'Horas de silencio',
-                      subtitle:
-                          'No recibir notificaciones durante este horario',
+                      title: s.quietHoursTitle,
+                      subtitle: s.quietHoursSubtitle,
                       value: _quietHours,
                       onChanged: (v) => setState(() => _quietHours = v),
                     ),
@@ -291,7 +278,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                           children: [
                             Expanded(
                               child: _timeButton(
-                                'Inicio',
+                                s.startLabel,
                                 _quietStart,
                                 (t) => setState(() => _quietStart = t),
                               ),
@@ -299,7 +286,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: _timeButton(
-                                'Fin',
+                                s.endLabel,
                                 _quietEnd,
                                 (t) => setState(() => _quietEnd = t),
                               ),
@@ -315,7 +302,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     );
   }
 
-  Widget _buildInfoBanner() {
+  Widget _buildInfoBanner(AppLocalizations s) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -330,7 +317,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Las notificaciones requieren permisos en tu dispositivo. Asegúrate de haberlos concedido en Ajustes del sistema.',
+              s.notificationsPermissionInfo,
               style: AppTypography.bodySmall(color: AppColors.infoDark),
             ),
           ),
@@ -365,7 +352,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     );
   }
 
-  Widget _buildToggle({
+  Widget _buildToggle(
+    AppLocalizations s, {
     required IconData icon,
     required Color iconColor,
     required String title,
@@ -374,7 +362,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     required ValueChanged<bool> onChanged,
   }) {
     return Semantics(
-      label: '$title: ${value ? "activado" : "desactivado"}',
+      label: s.toggleStatusSemantics(title, value),
       child: SwitchListTile(
         value: value,
         onChanged: onChanged,

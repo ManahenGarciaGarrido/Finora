@@ -59,6 +59,21 @@ class _SettingsPageState extends State<SettingsPage> {
     _selectedCurrency = AppSettingsService().currentCurrency;
   }
 
+  String _translateLabel(BuildContext context, String label) {
+    final s = AppLocalizations.of(context);
+
+    switch (label.toLowerCase()) {
+      case 'huella dactilar':
+        return s.biometricFingerprint;
+      case 'face id':
+        return s.biometricFaceId;
+      case 'biometría':
+        return s.biometricGeneric;
+      default:
+        return label;
+    }
+  }
+
   /// RF-03: Load biometric availability and user preference
   Future<void> _loadBiometricStatus() async {
     final service = di.sl<BiometricService>();
@@ -73,7 +88,7 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         _biometricDeviceSupported = true;
         _biometricEnabled = isEnabled;
-        _biometricLabel = label;
+        _biometricLabel = _translateLabel(context, label);
       });
     }
   }
@@ -721,13 +736,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
   // RF-03: Biometric settings row with functional Switch
   Widget _buildBiometricRow() {
+    final s = AppLocalizations.of(context);
     final isFaceId = _biometricLabel == 'Face ID';
     final icon = isFaceId ? Icons.face_rounded : Icons.fingerprint_rounded;
-    final subtitle = _biometricDeviceSupported
-        ? (_biometricEnabled
-              ? '$_biometricLabel activado — toca para desactivar'
-              : 'Activa el acceso rápido con $_biometricLabel')
-        : 'No disponible en este dispositivo';
+    final String subtitle;
+    if (_biometricDeviceSupported) {
+      subtitle = _biometricEnabled
+          ? s.biometricEnabledStatus(_biometricLabel)
+          : s.biometricDisabledStatus(_biometricLabel);
+    } else {
+      subtitle = s.biometricNotAvailable;
+    }
 
     return Semantics(
       label: 'Autenticación biométrica',
@@ -759,7 +778,10 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_biometricLabel, style: AppTypography.titleSmall()),
+                  Text(
+                    _translateLabel(context, _biometricLabel),
+                    style: AppTypography.titleSmall(),
+                  ),
                   const SizedBox(height: 1),
                   Text(
                     subtitle,
@@ -778,7 +800,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'No disponible',
+                  s.notAvailable,
                   style: AppTypography.badge(
                     color: AppColors.textTertiaryLight,
                   ),

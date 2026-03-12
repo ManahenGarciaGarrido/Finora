@@ -55,21 +55,26 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
   }
 
   Future<void> _loadStatus() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _errorMsg = null;
     });
     try {
       final res = await _apiClient.get('/auth/2fa/status');
-      setState(() {
-        _is2faEnabled = res.data['is_2fa_enabled'] as bool;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _is2faEnabled = res.data['is_2fa_enabled'] as bool;
+          _loading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMsg = e.toString();
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMsg = e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -119,8 +124,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
       });
     } catch (e) {
       setState(() {
-        _errorMsg =
-            'Código incorrecto. Verifica que la hora de tu dispositivo sea correcta.'; // TODO: add localization key
+        _errorMsg = s.twoFaIncorrectCode;
         _verifying = false;
       });
     }
@@ -130,10 +134,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
     final s = AppLocalizations.of(context);
     final password = _passwordController.text.trim();
     if (password.isEmpty) {
-      setState(
-        () => _errorMsg =
-            'Introduce tu contraseña para desactivar el 2FA', // TODO: add localization key
-      );
+      setState(() => _errorMsg = s.twoFaEnterPasswordDisable);
       return;
     }
     setState(() {
@@ -157,13 +158,11 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
       }
     } catch (e) {
       setState(() {
-        _errorMsg = 'Contraseña incorrecta'; // TODO: add localization key
+        _errorMsg = s.incorrectPassword;
         _disabling = false;
       });
     }
   }
-
-  // ── UI ─────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -233,9 +232,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
                   ),
                 ),
                 Text(
-                  _is2faEnabled
-                      ? 'Tu cuenta está protegida con autenticación en dos pasos' // TODO: add localization key
-                      : 'Activa el 2FA para mayor seguridad en tu cuenta', // TODO: add localization key
+                  _is2faEnabled ? s.twoFaProtectionInfo : s.twoFaActivatePrompt,
                   style: AppTypography.bodySmall(color: AppColors.gray600),
                 ),
               ],
@@ -274,21 +271,12 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '¿Cómo funciona?',
-          style: AppTypography.titleSmall(),
-        ), // TODO: add localization key
+        Text(s.howDoesItWork, style: AppTypography.titleSmall()),
         const SizedBox(height: 12),
-        _infoRow(
-          Icons.phone_android_rounded,
-          'Instala una app autenticadora como Google Authenticator o Authy', // TODO: add localization key
-        ),
+        _infoRow(Icons.phone_android_rounded, s.installAuthApp),
         _infoRow(Icons.qr_code_scanner_rounded, s.scan2faQr),
         _infoRow(Icons.pin_rounded, s.enter2faCode),
-        _infoRow(
-          Icons.lock_rounded,
-          'En cada inicio de sesión se pedirá el código temporal', // TODO: add localization key
-        ),
+        _infoRow(Icons.lock_rounded, s.sessionRequirement2fa),
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
@@ -327,7 +315,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
         Text(s.scan2faQr, style: AppTypography.titleSmall()),
         const SizedBox(height: 8),
         Text(
-          'Abre Google Authenticator o Authy y escanea este código:', // TODO: add localization key
+          s.openAuthAppPrompt,
           style: AppTypography.bodySmall(color: AppColors.gray600),
         ),
         const SizedBox(height: 16),
@@ -348,7 +336,6 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
           ),
         ),
         const SizedBox(height: 16),
-        // Clave manual por si falla el QR
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -359,7 +346,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '¿No puedes escanear el QR? Introduce la clave manual:', // TODO: add localization key
+                s.manualKeyPrompt,
                 style: AppTypography.labelSmall(color: AppColors.gray600),
               ),
               const SizedBox(height: 4),
@@ -443,7 +430,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                '2FA activo. Se pedirá código al iniciar sesión.', // TODO: add localization key
+                s.active2faInfo,
                 style: AppTypography.bodySmall(color: AppColors.successDark),
               ),
             ],
@@ -456,7 +443,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Introduce tu contraseña para desactivar la autenticación en dos pasos:', // TODO: add localization key
+          s.twoFaEnterPasswordDisable,
           style: AppTypography.bodySmall(color: AppColors.gray600),
         ),
         const SizedBox(height: 12),
@@ -464,7 +451,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           decoration: InputDecoration(
-            labelText: 'Contraseña actual', // TODO: add localization key
+            labelText: s.currentPassword,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             suffixIcon: IconButton(
               icon: Icon(
@@ -522,7 +509,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '¡Guarda estos códigos ahora! Solo se muestran una vez. Úsalos si pierdes acceso a tu autenticador.', // TODO: add localization key
+                  s.saveCodesWarning,
                   style: AppTypography.bodySmall(color: AppColors.warningDark),
                 ),
               ),

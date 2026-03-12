@@ -68,7 +68,18 @@ abstract class AppStringsBase {
   String get biometricLogin;
   String get twoFactorAuth;
 
+  // ── Biometría ──────────────────────────────────────────────────────────────
+  String biometricEnabledStatus(String label);
+  String biometricDisabledStatus(String label);
+  String get biometricNotAvailable;
+  String get notAvailable;
+  String get biometricFaceId;
+  String get biometricFingerprint;
+  String get biometricGeneric;
+
   // ── Transacciones ──────────────────────────────────────────────────────────
+  String get hisorySuggestions;
+  String get newTransaction;
   String get addTransaction;
   String get editTransaction;
   String get deleteTransaction;
@@ -82,6 +93,47 @@ abstract class AppStringsBase {
   String get noTransactions;
   String get history;
   String get monthlySummary;
+  String get firstTransaction;
+  String get registerFirst;
+
+  // ── Asistente Finn ─────────────────────────────────────────────────────────
+  String get finnWelcomeMessage;
+  String get suggestionSpentMonth;
+  String get suggestionTopCategory;
+  String get suggestionGoalsProgress;
+  String get suggestionAffordabilityExample;
+  String get suggestionSavingTips;
+  String get suggestionCurrentBalance;
+
+  // Keywords para lógica (no se muestran, pero cambian por idioma)
+  List<String> get affordabilityKeywords;
+
+  // Recomendaciones proactivas
+  String get aiRecsHeader;
+  String get aiRecsBalanced;
+  String aiFinancialScore(int score);
+  String aiPotentialSavingMonthly(String amount);
+  String monthCountLabel(int count);
+
+  String get budgetsTitle;
+  String get budgetStatusTab;
+  String get myBudgetsTab;
+  String get editBudgetTitle;
+  String get newBudgetTitle;
+  String get monthlyLimitLabel;
+  String get invalidAmountError;
+  String get budgetSavedMsg;
+  String get deleteBudgetTitle;
+  String deleteBudgetConfirm(String category);
+  String get noBudgetsConfigured;
+  String get createFirstBudgetInfo;
+  String get budgetExceededLabel;
+  String get budget80ReachedLabel;
+  String get remainingLabel;
+  String get unbudgetedTitle;
+  String get addLimitLabel;
+  String activeAlertsMsg(int count);
+  String get spentOfLabel; // "spent of" o "de"
 
   // ── Estadísticas ───────────────────────────────────────────────────────────
   String get spendingByCategory;
@@ -90,6 +142,15 @@ abstract class AppStringsBase {
   String get nextExpenses;
   String get temporalEvolution;
   String get period;
+  String get reset;
+  String get expenseProgress;
+  String get ofIncome;
+  String get yesterday;
+  String get objectiveLoadFailure;
+  String get ofText;
+  String get today;
+  String get tomorrow;
+  String get inDays;
   String get days;
   String get monthPeriod;
   String get thisMonth;
@@ -145,6 +206,7 @@ abstract class AppStringsBase {
   String get verifyCode;
   String get recoveryCodes;
   String get disable2fa;
+  String get user;
 
   // ── Navegación principal ────────────────────────────────────────────────────
   String get accounts;
@@ -191,6 +253,21 @@ abstract class AppStringsBase {
   String get unknownError;
   String get sessionExpired;
 
+  // ── 2FA Setup ──────────────────────────────────────────────────────────────
+  String get twoFaProtectionInfo;
+  String get twoFaActivatePrompt;
+  String get twoFaIncorrectCode;
+  String get twoFaEnterPasswordDisable;
+  String get incorrectPassword;
+  String get howDoesItWork;
+  String get installAuthApp;
+  String get sessionRequirement2fa;
+  String get openAuthAppPrompt;
+  String get manualKeyPrompt;
+  String get active2faInfo;
+  String get currentPassword;
+  String get saveCodesWarning;
+
   // ── Categorías ─────────────────────────────────────────────────────────────
   String get nutrition;
   String get transport;
@@ -202,6 +279,7 @@ abstract class AppStringsBase {
   String get clothing;
   String get other;
   String get saving;
+  String get salary;
 
   // ── Ajustes — secciones ────────────────────────────────────────────────────
   String get sectionGeneral;
@@ -312,7 +390,6 @@ abstract class AppStringsBase {
 
   // ── Autenticación biométrica ───────────────────────────────────────────────
   String get enableBiometric;
-  String get biometricNotAvailable;
   String get biometricDescription;
   String get disableBiometric;
 
@@ -347,6 +424,7 @@ abstract class AppStringsBase {
   // ── Transacciones — adicional ──────────────────────────────────────────────
   String get transactionType;
   String get selectCategory;
+  String get selectACategory;
   String get note;
   String get noteHint;
   String get recentTransactions;
@@ -394,6 +472,199 @@ abstract class AppStringsBase {
   String get rightOfRectification;
   String get rightOfRectificationDesc;
 
+  // ── Dinero y Cuentas ───────────────────────────────────────────────────────
+  String get cashMoney;
+  String get howMuchCash;
+  String get cashSetupInfo;
+  String get transactionBalance;
+  String get realData;
+  String get bankAccounts;
+  String get availableBalance;
+  String get ibanLabel;
+  String get synchronized;
+
+  // ── Errores y Estados de Banco ─────────────────────────────────────────────
+  String get connectionError;
+  String get disconnectedAccessRevoked;
+  String get accountDisconnectedAccessRevoked;
+  String get accountsErrorPrefix;
+  String psd2ExpiryMsg(int days);
+  String get syncCompleteNoNews;
+  String get bankSessionExpired;
+  String get bankSessionExpiredMsg;
+  String get bankReconnectInfo;
+  String get notNow;
+  String get reconnect;
+
+  String get securityTitle;
+  String get changePasswordHeading;
+  String get passwordRequirementsInfo;
+  String get currentPasswordLabel;
+  String get enterCurrentPasswordError;
+  String get newPasswordLabel;
+  String get minCharactersError;
+  String get confirmNewPasswordLabel;
+  String get passwordsDoNotMatchError;
+  String get passwordUpdatedMsg;
+  String get incorrectCurrentPasswordMsg;
+  String get changePasswordErrorMsg;
+  String get updatePasswordButton;
+
+  String get editProfileTitle;
+  String get publicInfoHeading;
+  String get fullNameLabel;
+  String get nameRequiredError;
+  String get profileUpdatedMsg;
+  String get profileUpdateErrorMsg;
+
+  // ── Exportación ────────────────────────────────────────────────────────────
+  String get exportDataTitle;
+  String get exportCsvTitle;
+  String get exportCsvSubtitle;
+  String get dateRangeLabel;
+  String get fromLabel;
+  String get toLabel;
+  String get allTypeLabel;
+  String get generatingLabel;
+  String get exportAndShareCsv;
+  String get exportPdfTitle;
+  String get exportPdfSubtitle;
+  String get periodLabel;
+  String get periodMonth;
+  String get periodYear;
+  String get periodCustom;
+  String get yearLabel;
+  String get monthLabel;
+  String get generateAndSharePdf;
+  String get pdfFinancialReport;
+  String get pdfGeneratedAt;
+  String get pdfExecutiveSummary;
+  String get pdfExpensesByCategory;
+  String get pdfPeriodTransactions;
+  String get pdfFooter;
+  String get pdfDescription;
+  String get errorExportCsv;
+  String get errorGeneratePdf;
+
+  // Meses
+  List<String> get monthNames;
+
+  // ── Notificaciones ─────────────────────────────────────────────────────────
+  String get notificationsTitle;
+  String get settingsSavedMsg;
+  String errorSavingSettingsMsg(String error);
+  String get notificationsPermissionInfo;
+  String get notificationTypesSection;
+  String get newTransactionsTitle;
+  String get newTransactionsSubtitle;
+  String get budgetAlertsTitle;
+  String get budgetAlertsSubtitle;
+  String get goalProgressTitle;
+  String get goalProgressSubtitle;
+  String get filtersSection;
+  String get minAmountTitle;
+  String get minAmountSubtitle;
+  String get noLimitLabel;
+  String get quietHoursSection;
+  String get quietHoursTitle;
+  String get quietHoursSubtitle;
+  String get startLabel;
+  String get endLabel;
+  String toggleStatusSemantics(String title, bool value);
+
+  // ── Onboarding ─────────────────────────────────────────────────────────────
+  String get skipButton;
+  String get nextButton;
+  String get startNowButton;
+  String get skipIntroductionSemantics;
+
+  String get onboardingStep1Title;
+  String get onboardingStep1Subtitle;
+  String get onboardingStep1Description;
+
+  String get onboardingStep2Title;
+  String get onboardingStep2Subtitle;
+  String get onboardingStep2Description;
+
+  String get onboardingStep3Title;
+  String get onboardingStep3Subtitle;
+  String get onboardingStep3Description;
+
+  String get onboardingStep4Title;
+  String get onboardingStep4Subtitle;
+  String get onboardingStep4Description;
+
+  // ── Transacciones ──────────────────────────────────────────────────────────
+  String get transactionsTitle;
+  String get searchHint;
+  String get resultsCount;
+  String get resultCount;
+  String get filterAll;
+  String get filterExpenses;
+  String get filterIncomes;
+  String get clearFilters;
+  String accountFilterLabel(String name);
+  String dateGroupLabel(int day, String month);
+  String get advancedFiltersTitle;
+  String get selectDate;
+  String get paymentMethodLabel;
+  String get applyFilters;
+  String get noTransactionsYet;
+  String get registerFirstTransaction;
+  String get noResultsFound;
+  String noResultsMatching(String query);
+  String get noResultsWithFilters;
+  String get transactionDeleted;
+  String get undo;
+  String get deleteConfirmTitle;
+  String get deleteConfirmContent;
+  String get pendingSync;
+  String get moreItems;
+
+  // Semantics
+  String transactionSemantics({
+    required bool isExpense,
+    required String category,
+    required String amount,
+    required String? description,
+    required String date,
+    required bool pending,
+  });
+
+  // ── Plurales y Conteo (Dinámicos) ──────────────────────────────────────────
+  String newLabel(int count);
+  String transactionCountLabel(int count);
+  String connectedLabel(int count);
+
+  // ── PSD2 y Conexión ────────────────────────────────────────────────────────
+  String get syncPsd2Info;
+  String get connectAccount;
+  String get noConnectedAccounts;
+  String get connectBankForSync;
+  String get totalBankBalance;
+  String get disconnectBank;
+  String get disconnectWarningTitle;
+  String get disconnectHistoryKept;
+  String get disconnectSyncStop;
+  String get disconnectRevokeAccess;
+
+  // ── Gráficos y Tiempos ─────────────────────────────────────────────────────
+  String get usageByPaymentMethod;
+  String get importingTransactions;
+  String get syncingPsd2;
+  String get justNow;
+  String agoDays(int days);
+  String agoMins(int mins);
+  String agoHours(int hours);
+  String get lastSync;
+  String get synchronize;
+  String get viewTransactions;
+  String get editCards;
+
+  // ── Tarjetas ───────────────────────────────────────────────────────────────
+  String get noCardsAdd;
+  String get exampleCardName;
+
   // ── Asistente IA ─────────────────────────────────────────────────────────
   String get assistantOnlineStatus;
   String get pinchToZoom;
@@ -405,6 +676,7 @@ abstract class AppStringsBase {
   String get affordabilityMaybe;
   String get availableBalanceLabel;
   String get balanceAfterPurchase;
+  String get exampleOfDescription;
   String get monthlySurplusLabel;
   String get couldSaveIn;
   String get impactOnGoalsLabel;
@@ -415,6 +687,107 @@ abstract class AppStringsBase {
   String get finnAsisstant;
   String get subtitleFinn;
   String get lastTransactions;
+  String get noLinkedAccounts;
+  String get cardBankAccount;
+  String get noCardsInAccount;
+  String get selectCardOptional;
+  String get receiptPhoto;
+  String get addReceiptPhoto;
+  String get change;
+  String get transactionRecorded;
+  String get saveTransaction;
+
+  // ── Métodos de Pago ────────────────────────────────────────────────────────
+  String get paymentCash;
+  String get paymentDebit;
+  String get paymentCredit;
+  String get paymentPrepaid;
+  String get paymentTransfer;
+  String get paymentDirectDebit;
+  String get paymentCheque;
+  String get paymentVoucher;
+  String get paymentCrypto;
+
+  // ── IA & Predicciones ──────────────────────────────────────────────────────
+  String get aiPredictionsTitle;
+  String get tabPrediction;
+  String get tabSavings;
+  String get tabAnomalies;
+  String get tabSubscriptions;
+
+  String get aiEmptyDataTitle;
+  String get aiEmptyDataSubtitle;
+  String get aiPredictionVsLastMonth;
+  String get aiPreviousMonth;
+  String get aiTrendIncreasing;
+  String get aiTrendDecreasing;
+  String get aiTrendStable;
+  String get aiNextMonthPrediction;
+  String aiRangeLabel(String min, String max);
+  String aiPreviousMonthLabel(String amount);
+  String aiHistoryMonths(int count);
+  String aiModelsLabel(String models);
+  String aiAnalyzedMonths(int count);
+  String get aiConfidenceLevel;
+
+  // ── IA & Ahorro ──────────────────────────────────────────────────────────
+  String get aiSavingsNoData;
+  String get aiSavingsExcellentTitle;
+  String get aiSavingsExcellentSubtitle;
+  String get aiImprovementAreas;
+  String get aiFinancialHealth;
+  String get aiAvgIncome;
+  String get aiAvgExpense;
+  String get aiSavingsCapacity;
+  String get aiSavingsPotential;
+  String get aiCurrent;
+  String get aiSuggested;
+
+  // ── IA & Anomalías ─────────────────────────────────────────────────────────
+  String get aiNoAnomaliesTitle;
+  String get aiNoAnomaliesSubtitle;
+  String get aiUnusualExpensesDetected;
+  String get aiAnomaliesSummary;
+  String get aiHighSeverity;
+  String get aiAnalyzedCategories;
+  String get aiAnomalyExplanation;
+  String aiNormalAverage(String amount);
+
+  // ── IA & Suscripciones ─────────────────────────────────────────────────────
+  String get aiNoSubscriptionsTitle;
+  String get aiNoSubscriptionsSubtitle;
+  String get aiRecurringExpensesDetected;
+  String aiAnnualCost(String amount);
+  String aiDetectedCount(int count);
+  String get aiUpcomingCharges;
+  String get aiActiveSubscriptions;
+  String aiOccurrences(int count);
+  String get aiNextCharge;
+
+  String get aiPeriodWeekly;
+  String get aiPeriodMonthly;
+  String get aiPeriodQuarterly;
+  String get aiPeriodAnnual;
+
+  // ── Errores IA ─────────────────────────────────────────────────────────────
+  String get aiErrorLoading;
+  String get aiServiceUnavailable;
+  String get aiCurrentLabel;
+  String get aiSuggestedLabel;
+  String aiRecommendationSemantics(String category, String message);
+
+  // ── Métodos de Pago ────────────────────────────────────────────────────────
+  String get pmDebitCard;
+  String get pmCreditCard;
+  String get pmPrepaidCard;
+  String get pmCard;
+  String get pmBankTransfer;
+  String get pmTransfer;
+  String get pmSepa;
+  String get pmWire;
+  String get pmDirectDebit;
+  String get pmVoucher;
+  String get pmCrypto;
 
   // ── Bancos — UI strings ───────────────────────────────────────────────────
   String get selectAccounts;
@@ -576,6 +949,27 @@ class _AppStringsEs extends AppStringsBase {
   String get twoFactorAuth => 'Autenticación en dos pasos';
 
   @override
+  String biometricEnabledStatus(String label) =>
+      '$label activado — toca para desactivar';
+  @override
+  String biometricDisabledStatus(String label) =>
+      'Activa el acceso rápido con $label';
+  @override
+  String get biometricNotAvailable => 'No disponible en este dispositivo';
+  @override
+  String get notAvailable => 'No disponible';
+  @override
+  String get biometricFaceId => 'Face ID';
+  @override
+  String get biometricFingerprint => 'Huella Digital';
+  @override
+  String get biometricGeneric => 'Biometría';
+
+  @override
+  String get hisorySuggestions => 'Sugeridas por historial';
+  @override
+  String get newTransaction => 'Nueva transacción';
+  @override
   String get addTransaction => 'Añadir transacción';
   @override
   String get editTransaction => 'Editar transacción';
@@ -601,6 +995,102 @@ class _AppStringsEs extends AppStringsBase {
   String get history => 'Historial';
   @override
   String get monthlySummary => 'Resumen del mes';
+  @override
+  String get firstTransaction =>
+      'Registra tu primera transacción para ver tu balance';
+  @override
+  String get registerFirst => 'Pulsa + para registrar tu primera transacción';
+
+  @override
+  String get finnWelcomeMessage =>
+      '¡Hola! Soy **Finn**, tu asistente financiero de Finora.\n\n'
+      'Puedo ayudarte a entender tus finanzas, analizar tus gastos '
+      'y responder preguntas como *"¿cuánto gasté este mes?"* o '
+      '*"¿puedo permitirme un viaje de 500€?"*.\n\n'
+      '¿En qué puedo ayudarte hoy?';
+
+  @override
+  String get suggestionSpentMonth => '¿Cuánto gasté este mes?';
+  @override
+  String get suggestionTopCategory => '¿En qué categoría gasto más?';
+  @override
+  String get suggestionGoalsProgress => '¿Cómo van mis objetivos de ahorro?';
+  @override
+  String get suggestionAffordabilityExample =>
+      '¿Puedo comprar un portátil de 800€?';
+  @override
+  String get suggestionSavingTips => 'Dame consejos para ahorrar';
+  @override
+  String get suggestionCurrentBalance => '¿Cuál es mi saldo actual?';
+
+  @override
+  List<String> get affordabilityKeywords => [
+    'puedo comprar',
+    'puedo permitir',
+    'me puedo',
+    'puedo pagar',
+    'puedo darme',
+    'puedo costear',
+    'tengo para',
+    'me alcanza',
+  ];
+
+  @override
+  String get aiRecsHeader =>
+      'Aquí tienes tus recomendaciones de optimización financiera:';
+  @override
+  String get aiRecsBalanced =>
+      '\n✅ ¡Tus finanzas están bien equilibradas! No tengo recomendaciones urgentes.';
+  @override
+  String aiFinancialScore(int score) =>
+      '\n📊 **Puntuación financiera: $score/100**';
+  @override
+  String aiPotentialSavingMonthly(String amount) =>
+      '💰 Ahorro potencial: $amount/mes\n';
+  @override
+  String monthCountLabel(int count) => count == 1 ? 'mes' : 'meses';
+
+  @override
+  String get budgetsTitle => 'Presupuestos';
+  @override
+  String get budgetStatusTab => 'Estado actual';
+  @override
+  String get myBudgetsTab => 'Mis presupuestos';
+  @override
+  String get editBudgetTitle => 'Editar presupuesto';
+  @override
+  String get newBudgetTitle => 'Nuevo presupuesto';
+  @override
+  String get monthlyLimitLabel => 'Límite mensual (€)';
+  @override
+  String get invalidAmountError => 'Introduce un importe válido';
+  @override
+  String get budgetSavedMsg => 'Presupuesto guardado';
+  @override
+  String get deleteBudgetTitle => 'Eliminar presupuesto';
+  @override
+  String deleteBudgetConfirm(String category) =>
+      '¿Eliminar el presupuesto de "$category"?';
+  @override
+  String get noBudgetsConfigured => 'Sin presupuestos configurados';
+  @override
+  String get createFirstBudgetInfo =>
+      'Crea tu primer presupuesto para hacer seguimiento';
+  @override
+  String get budgetExceededLabel => 'Superado';
+  @override
+  String get budget80ReachedLabel => '80% alcanzado';
+  @override
+  String get remainingLabel => 'Restante';
+  @override
+  String get unbudgetedTitle => 'Sin presupuesto';
+  @override
+  String get addLimitLabel => 'Añadir límite';
+  @override
+  String activeAlertsMsg(int count) =>
+      '$count presupuesto${count > 1 ? 's' : ''} con alerta activa';
+  @override
+  String get spentOfLabel => 'de';
 
   @override
   String get spendingByCategory => 'Gastos por categoría';
@@ -614,6 +1104,24 @@ class _AppStringsEs extends AppStringsBase {
   String get temporalEvolution => 'Evolución temporal';
   @override
   String get period => 'Período';
+  @override
+  String get reset => 'Restablecer';
+  @override
+  String get expenseProgress => 'Progreso de gasto';
+  @override
+  String get ofIncome => 'de ingresos';
+  @override
+  String get yesterday => 'Ayer';
+  @override
+  String get objectiveLoadFailure => 'No se pudieron cargar los objetivos';
+  @override
+  String get ofText => 'de';
+  @override
+  String get today => 'Hoy';
+  @override
+  String get tomorrow => 'Mañana';
+  @override
+  String get inDays => 'En';
   @override
   String get days => 'Días';
   @override
@@ -714,6 +1222,8 @@ class _AppStringsEs extends AppStringsBase {
   String get recoveryCodes => 'Códigos de recuperación';
   @override
   String get disable2fa => 'Desactivar 2FA';
+  @override
+  String get user => 'Usuario';
 
   @override
   String get save => 'Guardar';
@@ -792,11 +1302,49 @@ class _AppStringsEs extends AppStringsBase {
   String get sessionExpired => 'Sesión expirada. Inicia sesión de nuevo.';
 
   @override
+  String get twoFaProtectionInfo =>
+      'Tu cuenta está protegida con autenticación en dos pasos';
+  @override
+  String get twoFaActivatePrompt =>
+      'Activa el 2FA para mayor seguridad en tu cuenta';
+  @override
+  String get twoFaIncorrectCode =>
+      'Código incorrecto. Verifica que la hora de tu dispositivo sea correcta.';
+  @override
+  String get twoFaEnterPasswordDisable =>
+      'Introduce tu contraseña para desactivar el 2FA';
+  @override
+  String get incorrectPassword => 'Contraseña incorrecta';
+  @override
+  String get howDoesItWork => '¿Cómo funciona?';
+  @override
+  String get installAuthApp =>
+      'Instala una app autenticadora como Google Authenticator o Authy';
+  @override
+  String get sessionRequirement2fa =>
+      'En cada inicio de sesión se pedirá el código temporal';
+  @override
+  String get openAuthAppPrompt =>
+      'Abre Google Authenticator o Authy y escanea este código:';
+  @override
+  String get manualKeyPrompt =>
+      '¿No puedes escanear el QR? Introduce la clave manual:';
+  @override
+  String get active2faInfo => '2FA activo. Se pedirá código al iniciar sesión.';
+  @override
+  String get currentPassword => 'Contraseña actual';
+  @override
+  String get saveCodesWarning =>
+      '¡Guarda estos códigos ahora! Solo se muestran una vez. Úsalos si pierdes acceso a tu autenticador.';
+
+  @override
   String get nutrition => 'Alimentación';
   @override
   String get transport => 'Transporte';
   @override
   String get leisure => 'Ocio';
+  @override
+  String get salary => 'Salario';
   @override
   String get health => 'Salud';
   @override
@@ -1007,8 +1555,6 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get enableBiometric => 'Activar biométrico';
   @override
-  String get biometricNotAvailable => 'No disponible en este dispositivo';
-  @override
   String get biometricDescription =>
       'Usa tu huella dactilar o Face ID para acceder de forma rápida y segura';
   @override
@@ -1066,6 +1612,8 @@ class _AppStringsEs extends AppStringsBase {
   String get transactionType => 'Tipo de transacción';
   @override
   String get selectCategory => 'Seleccionar categoría';
+  @override
+  String get selectACategory => 'Seleccionar categoría';
   @override
   String get note => 'Nota';
   @override
@@ -1159,6 +1707,388 @@ class _AppStringsEs extends AppStringsBase {
       'Corrige datos inexactos (próximamente)';
 
   @override
+  String get cashMoney => 'Dinero en efectivo';
+  @override
+  String get howMuchCash => '¿Cuánto efectivo tienes ahora mismo?';
+  @override
+  String get cashSetupInfo =>
+      'A partir de aquí, Finora irá sumando tus ingresos y restando tus gastos en efectivo.';
+  @override
+  String get transactionBalance => 'Balance de transacciones';
+  @override
+  String get realData => 'Datos reales';
+  @override
+  String get bankAccounts => 'Cuentas bancarias';
+  @override
+  String get availableBalance => 'Saldo disponible';
+  @override
+  String get ibanLabel => 'IBAN';
+  @override
+  String get synchronized => 'Sincronizado';
+
+  @override
+  String get connectionError => 'Error al conectar';
+  @override
+  String get disconnectedAccessRevoked => 'desconectada. Acceso revocado';
+  @override
+  String get accountDisconnectedAccessRevoked =>
+      'Cuenta desconectada. Acceso revocado';
+  @override
+  String get accountsErrorPrefix => 'Error cuentas:';
+  @override
+  String psd2ExpiryMsg(int days) =>
+      'El consentimiento PSD2 expira en $days días. Renuévalo en Ajustes.';
+  @override
+  String get syncCompleteNoNews => 'Sincronización completada - sin novedades';
+  @override
+  String get bankSessionExpired => 'Sesión bancaria expirada';
+  @override
+  String get bankSessionExpiredMsg => 'Tu sesión con el banco ha caducado.';
+  @override
+  String get bankReconnectInfo =>
+      'Reconecta la cuenta para seguir importando transacciones automáticamente';
+  @override
+  String get notNow => 'Ahora no';
+  @override
+  String get reconnect => 'Reconectar';
+
+  @override
+  String get securityTitle => 'Seguridad';
+  @override
+  String get changePasswordHeading => 'Cambiar contraseña';
+  @override
+  String get passwordRequirementsInfo =>
+      'Tu nueva contraseña debe tener al menos 8 caracteres e incluir números o símbolos.';
+  @override
+  String get currentPasswordLabel => 'Contraseña actual';
+  @override
+  String get enterCurrentPasswordError => 'Introduce tu contraseña actual';
+  @override
+  String get newPasswordLabel => 'Nueva contraseña';
+  @override
+  String get minCharactersError => 'Mínimo 8 caracteres';
+  @override
+  String get confirmNewPasswordLabel => 'Confirmar nueva contraseña';
+  @override
+  String get passwordsDoNotMatchError => 'Las contraseñas no coinciden';
+  @override
+  String get passwordUpdatedMsg => 'Contraseña actualizada';
+  @override
+  String get incorrectCurrentPasswordMsg => 'Contraseña actual incorrecta';
+  @override
+  String get changePasswordErrorMsg => 'Error al cambiar contraseña';
+  @override
+  String get updatePasswordButton => 'Actualizar contraseña';
+
+  @override
+  String get editProfileTitle => 'Editar perfil';
+  @override
+  String get publicInfoHeading => 'Información pública';
+  @override
+  String get fullNameLabel => 'Nombre completo';
+  @override
+  String get nameRequiredError => 'El nombre es requerido';
+  @override
+  String get profileUpdatedMsg => 'Perfil actualizado';
+  @override
+  String get profileUpdateErrorMsg => 'Error al actualizar el perfil';
+
+  @override
+  String get exportDataTitle => 'Exportar datos';
+  @override
+  String get exportCsvTitle => 'Exportar a CSV';
+  @override
+  String get exportCsvSubtitle => 'Ideal para Excel u otras hojas de cálculo';
+  @override
+  String get dateRangeLabel => 'Rango de fechas';
+  @override
+  String get fromLabel => 'Desde';
+  @override
+  String get toLabel => 'Hasta';
+  @override
+  String get allTypeLabel => 'Todos';
+  @override
+  String get generatingLabel => 'Generando...';
+  @override
+  String get exportAndShareCsv => 'Exportar y compartir CSV';
+  @override
+  String get exportPdfTitle => 'Informe PDF';
+  @override
+  String get exportPdfSubtitle => 'Informe profesional con resumen y tablas';
+  @override
+  String get periodLabel => 'Período';
+  @override
+  String get periodMonth => 'Mes';
+  @override
+  String get periodYear => 'Año';
+  @override
+  String get periodCustom => 'Personalizado';
+  @override
+  String get yearLabel => 'Año';
+  @override
+  String get monthLabel => 'Mes';
+  @override
+  String get generateAndSharePdf => 'Generar y compartir PDF';
+  @override
+  String get pdfFinancialReport => 'Informe Financiero';
+  @override
+  String get pdfGeneratedAt => 'Generado';
+  @override
+  String get pdfExecutiveSummary => 'Resumen Ejecutivo';
+  @override
+  String get pdfExpensesByCategory => 'Gastos por Categoría';
+  @override
+  String get pdfPeriodTransactions => 'Transacciones del Período';
+  @override
+  String get pdfFooter => 'Finora — Tu gestor financiero personal';
+  @override
+  String get pdfDescription => 'Descripción';
+  @override
+  String get errorExportCsv => 'Error al exportar CSV';
+  @override
+  String get errorGeneratePdf => 'Error al generar PDF';
+
+  @override
+  List<String> get monthNames => [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Sept.',
+    'Octubre',
+    'Nov.',
+    'Dic.',
+  ];
+
+  @override
+  String get notificationsTitle => 'Notificaciones';
+  @override
+  String get settingsSavedMsg => 'Configuración guardada';
+  @override
+  String errorSavingSettingsMsg(String error) => 'Error al guardar: $error';
+  @override
+  String get notificationsPermissionInfo =>
+      'Las notificaciones requieren permisos en tu dispositivo. Asegúrate de haberlos concedido en Ajustes del sistema.';
+  @override
+  String get notificationTypesSection => 'Tipos de notificación';
+  @override
+  String get newTransactionsTitle => 'Nuevas transacciones';
+  @override
+  String get newTransactionsSubtitle =>
+      'Notificación al detectar una nueva transacción bancaria';
+  @override
+  String get budgetAlertsTitle => 'Alertas de presupuesto';
+  @override
+  String get budgetAlertsSubtitle =>
+      'Aviso al superar el 80% y 100% de un presupuesto';
+  @override
+  String get goalProgressTitle => 'Progreso de objetivos';
+  @override
+  String get goalProgressSubtitle =>
+      'Recordatorio semanal del avance de tus metas de ahorro';
+  @override
+  String get filtersSection => 'Filtros';
+  @override
+  String get minAmountTitle => 'Importe mínimo';
+  @override
+  String get minAmountSubtitle =>
+      'No notificar transacciones por debajo de este importe';
+  @override
+  String get noLimitLabel => 'Sin límite';
+  @override
+  String get quietHoursSection => 'Horario silencioso';
+  @override
+  String get quietHoursTitle => 'Horas de silencio';
+  @override
+  String get quietHoursSubtitle =>
+      'No recibir notificaciones durante este horario';
+  @override
+  String get startLabel => 'Inicio';
+  @override
+  String get endLabel => 'Fin';
+  @override
+  String toggleStatusSemantics(String title, bool value) =>
+      '$title: ${value ? "activado" : "desactivado"}';
+
+  @override
+  String get skipButton => 'Saltar';
+  @override
+  String get nextButton => 'Siguiente';
+  @override
+  String get startNowButton => '¡Empezar ahora!';
+  @override
+  String get skipIntroductionSemantics => 'Saltar introducción';
+
+  @override
+  String get onboardingStep1Title => 'Bienvenido a Finora';
+  @override
+  String get onboardingStep1Subtitle =>
+      'Tu gestor financiero personal inteligente';
+  @override
+  String get onboardingStep1Description =>
+      'Controla tus ingresos, gastos y objetivos de ahorro en un solo lugar. Finora te ayuda a tomar mejores decisiones financieras con la ayuda de IA.';
+
+  @override
+  String get onboardingStep2Title => 'Registra transacciones fácilmente';
+  @override
+  String get onboardingStep2Subtitle => 'Manual o conectando tu banco';
+  @override
+  String get onboardingStep2Description =>
+      'Añade gastos e ingresos en segundos. Conecta tu cuenta bancaria para sincronización automática. La IA categoriza cada transacción por ti.';
+
+  @override
+  String get onboardingStep3Title => 'Visualiza tus finanzas';
+  @override
+  String get onboardingStep3Subtitle => 'Gráficos interactivos y predicciones';
+  @override
+  String get onboardingStep3Description =>
+      'Analiza tus gastos por categoría, visualiza tendencias temporales y recibe predicciones de tus gastos del próximo mes con machine learning.';
+
+  @override
+  String get onboardingStep4Title => 'Alcanza tus metas';
+  @override
+  String get onboardingStep4Subtitle =>
+      'Objetivos de ahorro con recomendaciones IA';
+  @override
+  String get onboardingStep4Description =>
+      'Crea objetivos de ahorro con fechas límite y visualiza tu progreso. El asistente de IA te da recomendaciones personalizadas para ahorrar más.';
+
+  @override
+  String get transactionsTitle => 'Transacciones';
+  @override
+  String get searchHint => 'Buscar por comercio, descripción o categoría...';
+  @override
+  String get resultsCount => 'resultados';
+  @override
+  String get resultCount => 'resultado';
+  @override
+  String get filterAll => 'Todas';
+  @override
+  String get filterExpenses => 'Gastos';
+  @override
+  String get filterIncomes => 'Ingresos';
+  @override
+  String get clearFilters => 'Limpiar';
+  @override
+  String accountFilterLabel(String name) => 'Cuenta: $name';
+  @override
+  String dateGroupLabel(int day, String month) => '$day de $month';
+  @override
+  String get advancedFiltersTitle => 'Filtros avanzados';
+  @override
+  String get selectDate => 'Seleccionar';
+  @override
+  String get paymentMethodLabel => 'Método de pago';
+  @override
+  String get applyFilters => 'Aplicar filtros';
+  @override
+  String get noTransactionsYet => 'Sin transacciones aún';
+  @override
+  String get registerFirstTransaction =>
+      'Registra tu primera transacción\npulsando el botón +';
+  @override
+  String get noResultsFound => 'No hay resultados';
+  @override
+  String noResultsMatching(String query) =>
+      'No se encontraron transacciones\nque coincidan con "$query"';
+  @override
+  String get noResultsWithFilters =>
+      'No se encontraron transacciones\ncon los filtros seleccionados';
+  @override
+  String get transactionDeleted => 'Transacción eliminada';
+  @override
+  String get undo => 'Deshacer';
+  @override
+  String get deleteConfirmTitle => 'Eliminar';
+  @override
+  String get deleteConfirmContent =>
+      '¿Eliminar esta transacción? Esta acción no se puede deshacer.';
+  @override
+  String get pendingSync => 'Pendiente';
+  @override
+  String get moreItems => 'más...';
+
+  @override
+  String transactionSemantics({
+    required bool isExpense,
+    required String category,
+    required String amount,
+    required String? description,
+    required String date,
+    required bool pending,
+  }) =>
+      '${isExpense ? 'Gasto' : 'Ingreso'} en $category: ${isExpense ? 'menos' : 'más'} $amount euros. '
+      '${description?.isNotEmpty == true ? '$description. ' : ''}$date.'
+      '${pending ? ' Pendiente de sincronizar.' : ''}';
+
+  @override
+  String newLabel(int count) => count == 1 ? 'nueva' : 'nuevas';
+  @override
+  String transactionCountLabel(int count) =>
+      count == 1 ? 'transacción' : 'transacciones';
+  @override
+  String connectedLabel(int count) => count == 1 ? 'conectada' : 'conectadas';
+
+  @override
+  String get syncPsd2Info =>
+      'Sincroniza automáticamente tus cuentas bancarias mediante Open Banking PSD2.';
+  @override
+  String get connectAccount => 'Conectar cuenta';
+  @override
+  String get noConnectedAccounts => 'Sin cuentas conectadas';
+  @override
+  String get connectBankForSync =>
+      'Conecta tu banco para sincronizar automáticamente tus movimientos';
+  @override
+  String get totalBankBalance => 'Balance bancario total';
+  @override
+  String get disconnectBank => 'Desconectar banco';
+  @override
+  String get disconnectWarningTitle => '¿Qué ocurre al desconectar?';
+  @override
+  String get disconnectHistoryKept =>
+      'El historial de transacciones se conserva';
+  @override
+  String get disconnectSyncStop => 'La sincronización automática se detendrá';
+  @override
+  String get disconnectRevokeAccess =>
+      'Se revocan los permisos de acceso al banco';
+
+  @override
+  String get usageByPaymentMethod => 'Uso por método de pago';
+  @override
+  String get importingTransactions => 'Importando transacciones';
+  @override
+  String get syncingPsd2 =>
+      'Sincronizando con tu banco mediante Open Banking PSD2';
+  @override
+  String get justNow => 'hace un momento';
+  @override
+  String agoDays(int days) => 'hace $days días';
+  @override
+  String agoMins(int min) => 'hace $days min.';
+  @override
+  String agoHours(int hour) => 'hace $days h.';
+
+  @override
+  String get lastSync => 'Última sync';
+  @override
+  String get synchronize => 'Sincronizar';
+  @override
+  String get viewTransactions => 'Ver transacciones';
+  @override
+  String get editCards => 'Editar tarjetas';
+
+  @override
+  String get noCardsAdd => 'Sin tarjetas - pulsa añadir';
+  @override
+  String get exampleCardName => 'Ej. Visa BBVA';
+
+  @override
   String get assistantOnlineStatus => 'Asistente IA · En línea';
   @override
   String get pinchToZoom => 'Pellizca para ampliar';
@@ -1179,6 +2109,8 @@ class _AppStringsEs extends AppStringsBase {
   String get availableBalanceLabel => 'Balance disponible';
   @override
   String get balanceAfterPurchase => 'Balance tras compra';
+  @override
+  String get exampleOfDescription => 'Ej: Compra semanal del supermercado';
   @override
   String get monthlySurplusLabel => 'Superávit mensual';
   @override
@@ -1201,6 +2133,192 @@ class _AppStringsEs extends AppStringsBase {
       'Pregúntame lo que quieras';
   @override
   String get lastTransactions => 'Últimas transacciones';
+  @override
+  String get noLinkedAccounts => 'Sin cuentas bancarias vinculadas';
+  @override
+  String get cardBankAccount => 'Cuenta bancaria de la tarjeta';
+  @override
+  String get noCardsInAccount => 'Sin tarjetas en esta cuenta';
+  @override
+  String get selectCardOptional => 'Seleccionar tarjeta (opcional)';
+  @override
+  String get receiptPhoto => 'Foto del ticket';
+  @override
+  String get addReceiptPhoto => 'Añadir foto del ticket';
+  @override
+  String get change => 'Cambiar';
+  @override
+  String get transactionRecorded => 'Transacción registrada';
+  @override
+  String get saveTransaction => 'Guardar transacción';
+
+  @override
+  String get paymentCash => 'Efectivo';
+  @override
+  String get paymentDebit => 'Débito';
+  @override
+  String get paymentCredit => 'Crédito';
+  @override
+  String get paymentPrepaid => 'Prepago';
+  @override
+  String get paymentTransfer => 'Transfer.';
+  @override
+  String get paymentDirectDebit => 'Recibo';
+  @override
+  String get paymentCheque => 'Cheque';
+  @override
+  String get paymentVoucher => 'Vale';
+  @override
+  String get paymentCrypto => 'Cripto';
+
+  @override
+  String get aiPredictionsTitle => 'Predicciones IA';
+  @override
+  String get tabPrediction => 'Predicción';
+  @override
+  String get tabSavings => 'Ahorro';
+  @override
+  String get tabAnomalies => 'Anomalías';
+  @override
+  String get tabSubscriptions => 'Suscripciones';
+
+  @override
+  String get aiEmptyDataTitle => 'Sin datos suficientes';
+  @override
+  String get aiEmptyDataSubtitle =>
+      'Necesitas al menos 2 meses de transacciones para generar predicciones.';
+  @override
+  String get aiPredictionVsLastMonth => 'Predicción vs mes anterior (top 5)';
+  @override
+  String get aiPreviousMonth => 'Anterior';
+  @override
+  String get aiTrendIncreasing => 'Tendencia al alza';
+  @override
+  String get aiTrendDecreasing => 'Tendencia a la baja';
+  @override
+  String get aiTrendStable => 'Tendencia estable';
+  @override
+  String get aiNextMonthPrediction => 'Predicción próximo mes';
+  @override
+  String aiRangeLabel(String min, String max) => 'Rango: $min – $max €';
+  @override
+  String aiPreviousMonthLabel(String amount) => 'Mes anterior: $amount €';
+  @override
+  String aiHistoryMonths(int count) => '$count meses de historial';
+  @override
+  String aiModelsLabel(String models) => 'Modelos: $models';
+  @override
+  String aiAnalyzedMonths(int count) => '$count meses analizados';
+  @override
+  String get aiConfidenceLevel => 'Nivel de confianza';
+
+  @override
+  String get aiSavingsNoData => 'No se pudieron calcular las recomendaciones.';
+  @override
+  String get aiSavingsExcellentTitle => '¡Excelente!';
+  @override
+  String get aiSavingsExcellentSubtitle =>
+      'Tu distribución de gastos es saludable. No hay áreas de mejora identificadas.';
+  @override
+  String get aiImprovementAreas => 'Áreas de mejora';
+  @override
+  String get aiFinancialHealth => 'Salud financiera';
+  @override
+  String get aiAvgIncome => 'Ingreso prom.';
+  @override
+  String get aiAvgExpense => 'Gasto prom.';
+  @override
+  String get aiSavingsCapacity => 'Capacidad ahorro';
+  @override
+  String get aiSavingsPotential => 'Ahorro potencial';
+  @override
+  String get aiCurrent => 'Actual';
+  @override
+  String get aiSuggested => 'Sugerido';
+
+  @override
+  String get aiNoAnomaliesTitle => 'Sin anomalías detectadas';
+  @override
+  String get aiNoAnomaliesSubtitle =>
+      'Tus gastos están dentro de los rangos habituales. ¡Excelente control!';
+  @override
+  String get aiUnusualExpensesDetected => 'Gastos inusuales detectados';
+  @override
+  String get aiAnomaliesSummary => 'Resumen de anomalías';
+  @override
+  String get aiHighSeverity => 'Alta severidad';
+  @override
+  String get aiAnalyzedCategories => 'Categorías analizadas';
+  @override
+  String get aiAnomalyExplanation =>
+      'Los gastos inusuales superan 2 desviaciones estándar respecto a tu media histórica en esa categoría.';
+  @override
+  String aiNormalAverage(String amount) => 'Media habitual: $amount €';
+
+  @override
+  String get aiNoSubscriptionsTitle => 'Sin suscripciones detectadas';
+  @override
+  String get aiNoSubscriptionsSubtitle =>
+      'No se encontraron pagos recurrentes con periodicidad regular en los últimos 6 meses.';
+  @override
+  String get aiRecurringExpensesDetected => 'Gastos recurrentes detectados';
+  @override
+  String aiAnnualCost(String amount) => '$amount € al año';
+  @override
+  String aiDetectedCount(int count) => '$count detectadas';
+  @override
+  String get aiUpcomingCharges => 'Próximos cargos (7 días)';
+  @override
+  String get aiActiveSubscriptions => 'Suscripciones activas detectadas';
+  @override
+  String aiOccurrences(int count) => '${count}x detectado';
+  @override
+  String get aiNextCharge => 'Próximo cargo';
+
+  @override
+  String get aiPeriodWeekly => 'Semanal';
+  @override
+  String get aiPeriodMonthly => 'Mensual';
+  @override
+  String get aiPeriodQuarterly => 'Trimestral';
+  @override
+  String get aiPeriodAnnual => 'Anual';
+
+  @override
+  String get aiErrorLoading => 'Error al cargar datos';
+  @override
+  String get aiServiceUnavailable =>
+      'El servicio de IA no está disponible temporalmente.';
+  @override
+  String get aiCurrentLabel => 'Actual';
+  @override
+  String get aiSuggestedLabel => 'Sugerido';
+  @override
+  String aiRecommendationSemantics(String category, String message) =>
+      'Recomendación de ahorro en $category: $message';
+
+  @override
+  String get pmDebitCard => 'Tarjeta de débito';
+  @override
+  String get pmCreditCard => 'Tarjeta de crédito';
+  @override
+  String get pmPrepaidCard => 'Tarjeta prepago';
+  @override
+  String get pmCard => 'Tarjeta';
+  @override
+  String get pmBankTransfer => 'Transferencia bancaria';
+  @override
+  String get pmTransfer => 'Transferencia';
+  @override
+  String get pmSepa => 'Transferencia SEPA';
+  @override
+  String get pmWire => 'Transferencia internacional';
+  @override
+  String get pmDirectDebit => 'Domiciliación/Recibo';
+  @override
+  String get pmVoucher => 'Cupón/Vale';
+  @override
+  String get pmCrypto => 'Criptomonedas';
 
   @override
   String get selectAccounts => 'Seleccionar cuentas';
@@ -1423,6 +2541,27 @@ class _AppStringsEn extends AppStringsBase {
   String get twoFactorAuth => 'Two-factor authentication';
 
   @override
+  String biometricEnabledStatus(String label) =>
+      '$label enabled — tap to disable';
+  @override
+  String biometricDisabledStatus(String label) =>
+      'Enable quick access with $label';
+  @override
+  String get biometricNotAvailable => 'Not available on this device';
+  @override
+  String get notAvailable => 'Not available';
+  @override
+  String get biometricFaceId => 'Face ID';
+  @override
+  String get biometricFingerprint => 'Fingerprint';
+  @override
+  String get biometricGeneric => 'Biometrics';
+
+  @override
+  String get hisorySuggestions => 'History suggestions';
+  @override
+  String get newTransaction => 'New transaction';
+  @override
   String get addTransaction => 'Add transaction';
   @override
   String get editTransaction => 'Edit transaction';
@@ -1448,6 +2587,98 @@ class _AppStringsEn extends AppStringsBase {
   String get history => 'History';
   @override
   String get monthlySummary => 'Monthly summary';
+  @override
+  String get firstTransaction =>
+      'Record your first transaction to see your balance';
+  @override
+  String get registerFirst => 'Press + to record your first transaction';
+
+  @override
+  String get finnWelcomeMessage =>
+      'Hi! I am **Finn**, your Finora financial assistant.\n\n'
+      'I can help you understand your finances, analyze your spending '
+      'and answer questions like *"how much did I spend this month?"* or '
+      '*"can I afford a 500€ trip?"*.\n\n'
+      'How can I help you today?';
+
+  @override
+  String get suggestionSpentMonth => 'How much did I spend this month?';
+  @override
+  String get suggestionTopCategory => 'In which category do I spend most?';
+  @override
+  String get suggestionGoalsProgress => 'How are my savings goals doing?';
+  @override
+  String get suggestionAffordabilityExample => 'Can I afford an 800€ laptop?';
+  @override
+  String get suggestionSavingTips => 'Give me some saving tips';
+  @override
+  String get suggestionCurrentBalance => 'What is my current balance?';
+
+  @override
+  List<String> get affordabilityKeywords => [
+    'can i afford',
+    'can i buy',
+    'can i pay',
+    'can i get',
+    'do i have enough',
+    'is it affordable',
+  ];
+
+  @override
+  String get aiRecsHeader =>
+      'Here are your financial optimization recommendations:';
+  @override
+  String get aiRecsBalanced =>
+      '\n✅ Your finances are well balanced! I have no urgent recommendations.';
+  @override
+  String aiFinancialScore(int score) => '\n📊 **Financial Score: $score/100**';
+  @override
+  String aiPotentialSavingMonthly(String amount) =>
+      '💰 Potential saving: $amount/month\n';
+  @override
+  String monthCountLabel(int count) => count == 1 ? 'month' : 'months';
+
+  @override
+  String get budgetsTitle => 'Budgets';
+  @override
+  String get budgetStatusTab => 'Current status';
+  @override
+  String get myBudgetsTab => 'My budgets';
+  @override
+  String get editBudgetTitle => 'Edit budget';
+  @override
+  String get newBudgetTitle => 'New budget';
+  @override
+  String get monthlyLimitLabel => 'Monthly limit (€)';
+  @override
+  String get invalidAmountError => 'Enter a valid amount';
+  @override
+  String get budgetSavedMsg => 'Budget saved';
+  @override
+  String get deleteBudgetTitle => 'Delete budget';
+  @override
+  String deleteBudgetConfirm(String category) =>
+      'Delete the budget for "$category"?';
+  @override
+  String get noBudgetsConfigured => 'No budgets configured';
+  @override
+  String get createFirstBudgetInfo =>
+      'Create your first budget to start tracking';
+  @override
+  String get budgetExceededLabel => 'Exceeded';
+  @override
+  String get budget80ReachedLabel => '80% reached';
+  @override
+  String get remainingLabel => 'Remaining';
+  @override
+  String get unbudgetedTitle => 'No budget';
+  @override
+  String get addLimitLabel => 'Add limit';
+  @override
+  String activeAlertsMsg(int count) =>
+      '$count budget${count > 1 ? 's' : ''} with active alert';
+  @override
+  String get spentOfLabel => 'of';
 
   @override
   String get spendingByCategory => 'Spending by category';
@@ -1461,6 +2692,24 @@ class _AppStringsEn extends AppStringsBase {
   String get temporalEvolution => 'Temporal evolution';
   @override
   String get period => 'Period';
+  @override
+  String get reset => 'Reset';
+  @override
+  String get expenseProgress => 'Expense progress';
+  @override
+  String get ofIncome => 'of Income';
+  @override
+  String get yesterday => 'Yesterday';
+  @override
+  String get objectiveLoadFailure => 'Failed to load objectives';
+  @override
+  String get ofText => 'of';
+  @override
+  String get today => 'Today';
+  @override
+  String get tomorrow => 'Tomorrow';
+  @override
+  String get inDays => 'In';
   @override
   String get days => 'Days';
   @override
@@ -1561,6 +2810,8 @@ class _AppStringsEn extends AppStringsBase {
   String get recoveryCodes => 'Recovery codes';
   @override
   String get disable2fa => 'Disable 2FA';
+  @override
+  String get user => 'User';
 
   @override
   String get save => 'Save';
@@ -1637,11 +2888,48 @@ class _AppStringsEn extends AppStringsBase {
   String get sessionExpired => 'Session expired. Please sign in again.';
 
   @override
+  String get twoFaProtectionInfo =>
+      'Your account is protected with two-step authentication';
+  @override
+  String get twoFaActivatePrompt =>
+      'Activate 2FA for increased account security';
+  @override
+  String get twoFaIncorrectCode =>
+      'Incorrect code. Please verify that your device time is correct.';
+  @override
+  String get twoFaEnterPasswordDisable => 'Enter your password to disable 2FA';
+  @override
+  String get incorrectPassword => 'Incorrect password';
+  @override
+  String get howDoesItWork => 'How does it work?';
+  @override
+  String get installAuthApp =>
+      'Install an authenticator app like Google Authenticator or Authy';
+  @override
+  String get sessionRequirement2fa =>
+      'A temporary code will be requested at every login';
+  @override
+  String get openAuthAppPrompt =>
+      'Open Google Authenticator or Authy and scan this code:';
+  @override
+  String get manualKeyPrompt => 'Can\'t scan the QR? Enter the manual key:';
+  @override
+  String get active2faInfo =>
+      '2FA active. A code will be requested when logging in.';
+  @override
+  String get currentPassword => 'Current password';
+  @override
+  String get saveCodesWarning =>
+      'Save these codes now! They are only shown once. Use them if you lose access to your authenticator.';
+
+  @override
   String get nutrition => 'Nutrition';
   @override
   String get transport => 'Transport';
   @override
   String get leisure => 'Leisure';
+  @override
+  String get salary => 'Salary';
   @override
   String get health => 'Health';
   @override
@@ -1849,8 +3137,6 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get enableBiometric => 'Enable biometric';
   @override
-  String get biometricNotAvailable => 'Not available on this device';
-  @override
   String get biometricDescription =>
       'Use your fingerprint or Face ID for quick and secure access';
   @override
@@ -1908,6 +3194,8 @@ class _AppStringsEn extends AppStringsBase {
   String get transactionType => 'Transaction type';
   @override
   String get selectCategory => 'Select category';
+  @override
+  String get selectACategory => 'Select a category';
   @override
   String get note => 'Note';
   @override
@@ -2000,6 +3288,382 @@ class _AppStringsEn extends AppStringsBase {
       'Correct inaccurate data (coming soon)';
 
   @override
+  String get cashMoney => 'Cash money';
+  @override
+  String get howMuchCash => 'How much cash do you have right now?';
+  @override
+  String get cashSetupInfo =>
+      'From here on, Finora will add your income and subtract your cash expenses.';
+  @override
+  String get transactionBalance => 'Transaction balance';
+  @override
+  String get realData => 'Real data';
+  @override
+  String get bankAccounts => 'Bank accounts';
+  @override
+  String get availableBalance => 'Available balance';
+  @override
+  String get ibanLabel => 'IBAN';
+  @override
+  String get synchronized => 'Synchronized';
+
+  @override
+  String get connectionError => 'Connection error';
+  @override
+  String get disconnectedAccessRevoked => 'disconnected. Access revoked';
+  @override
+  String get accountDisconnectedAccessRevoked =>
+      'Account disconnected. Access revoked';
+  @override
+  String get accountsErrorPrefix => 'Accounts error:';
+  @override
+  String psd2ExpiryMsg(int days) =>
+      'PSD2 consent expires in $days days. Renew it in Settings.';
+  @override
+  String get syncCompleteNoNews => 'Sync completed - no updates';
+  @override
+  String get bankSessionExpired => 'Bank session expired';
+  @override
+  String get bankSessionExpiredMsg => 'Your session with the bank has expired.';
+  @override
+  String get bankReconnectInfo =>
+      'Reconnect the account to continue importing transactions automatically';
+  @override
+  String get notNow => 'Not now';
+  @override
+  String get reconnect => 'Reconnect';
+
+  @override
+  String get securityTitle => 'Security';
+  @override
+  String get changePasswordHeading => 'Change password';
+  @override
+  String get passwordRequirementsInfo =>
+      'Your new password must be at least 8 characters long and include numbers or symbols.';
+  @override
+  String get currentPasswordLabel => 'Current password';
+  @override
+  String get enterCurrentPasswordError => 'Enter your current password';
+  @override
+  String get newPasswordLabel => 'New password';
+  @override
+  String get minCharactersError => 'Minimum 8 characters';
+  @override
+  String get confirmNewPasswordLabel => 'Confirm new password';
+  @override
+  String get passwordsDoNotMatchError => 'Passwords do not match';
+  @override
+  String get passwordUpdatedMsg => 'Password updated';
+  @override
+  String get incorrectCurrentPasswordMsg => 'Incorrect current password';
+  @override
+  String get changePasswordErrorMsg => 'Error changing password';
+  @override
+  String get updatePasswordButton => 'Update password';
+
+  @override
+  String get editProfileTitle => 'Edit profile';
+  @override
+  String get publicInfoHeading => 'Public information';
+  @override
+  String get fullNameLabel => 'Full name';
+  @override
+  String get nameRequiredError => 'Name is required';
+  @override
+  String get profileUpdatedMsg => 'Profile updated';
+  @override
+  String get profileUpdateErrorMsg => 'Error updating profile';
+
+  @override
+  String get exportDataTitle => 'Export data';
+  @override
+  String get exportCsvTitle => 'Export to CSV';
+  @override
+  String get exportCsvSubtitle => 'Ideal for Excel or other spreadsheets';
+  @override
+  String get dateRangeLabel => 'Date range';
+  @override
+  String get fromLabel => 'From';
+  @override
+  String get toLabel => 'To';
+  @override
+  String get allTypeLabel => 'All';
+  @override
+  String get generatingLabel => 'Generating...';
+  @override
+  String get exportAndShareCsv => 'Export and share CSV';
+  @override
+  String get exportPdfTitle => 'PDF Report';
+  @override
+  String get exportPdfSubtitle => 'Professional report with summary and tables';
+  @override
+  String get periodLabel => 'Period';
+  @override
+  String get periodMonth => 'Month';
+  @override
+  String get periodYear => 'Year';
+  @override
+  String get periodCustom => 'Custom';
+  @override
+  String get yearLabel => 'Year';
+  @override
+  String get monthLabel => 'Month';
+  @override
+  String get generateAndSharePdf => 'Generate and share PDF';
+  @override
+  String get pdfFinancialReport => 'Financial Report';
+  @override
+  String get pdfGeneratedAt => 'Generated';
+  @override
+  String get pdfExecutiveSummary => 'Executive Summary';
+  @override
+  String get pdfExpensesByCategory => 'Expenses by Category';
+  @override
+  String get pdfPeriodTransactions => 'Period Transactions';
+  @override
+  String get pdfFooter => 'Finora — Your personal financial manager';
+  @override
+  String get pdfDescription => 'Description';
+  @override
+  String get errorExportCsv => 'Error exporting CSV';
+  @override
+  String get errorGeneratePdf => 'Error generating PDF';
+
+  @override
+  List<String> get monthNames => [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'Sept.',
+    'October',
+    'November',
+    'December',
+  ];
+
+  @override
+  String get notificationsTitle => 'Notifications';
+  @override
+  String get settingsSavedMsg => 'Settings saved';
+  @override
+  String errorSavingSettingsMsg(String error) => 'Error saving: $error';
+  @override
+  String get notificationsPermissionInfo =>
+      'Notifications require permissions on your device. Make sure you have granted them in System Settings.';
+  @override
+  String get notificationTypesSection => 'Notification types';
+  @override
+  String get newTransactionsTitle => 'New transactions';
+  @override
+  String get newTransactionsSubtitle =>
+      'Notification when a new bank transaction is detected';
+  @override
+  String get budgetAlertsTitle => 'Budget alerts';
+  @override
+  String get budgetAlertsSubtitle =>
+      'Alert when reaching 80% and 100% of a budget';
+  @override
+  String get goalProgressTitle => 'Goal progress';
+  @override
+  String get goalProgressSubtitle =>
+      'Weekly reminder of your savings goals progress';
+  @override
+  String get filtersSection => 'Filters';
+  @override
+  String get minAmountTitle => 'Minimum amount';
+  @override
+  String get minAmountSubtitle =>
+      'Do not notify transactions below this amount';
+  @override
+  String get noLimitLabel => 'No limit';
+  @override
+  String get quietHoursSection => 'Quiet hours';
+  @override
+  String get quietHoursTitle => 'Quiet hours';
+  @override
+  String get quietHoursSubtitle =>
+      'Do not receive notifications during this time';
+  @override
+  String get startLabel => 'Start';
+  @override
+  String get endLabel => 'End';
+  @override
+  String toggleStatusSemantics(String title, bool value) =>
+      '$title: ${value ? "enabled" : "disabled"}';
+
+  @override
+  String get skipButton => 'Skip';
+  @override
+  String get nextButton => 'Next';
+  @override
+  String get startNowButton => 'Start now!';
+  @override
+  String get skipIntroductionSemantics => 'Skip introduction';
+
+  @override
+  String get onboardingStep1Title => 'Welcome to Finora';
+  @override
+  String get onboardingStep1Subtitle => 'Your smart personal financial manager';
+  @override
+  String get onboardingStep1Description =>
+      'Track your income, expenses, and savings goals in one place. Finora helps you make better financial decisions with the help of AI.';
+
+  @override
+  String get onboardingStep2Title => 'Record transactions easily';
+  @override
+  String get onboardingStep2Subtitle => 'Manual or by connecting your bank';
+  @override
+  String get onboardingStep2Description =>
+      'Add expenses and income in seconds. Connect your bank account for automatic synchronization. AI categorizes every transaction for you.';
+
+  @override
+  String get onboardingStep3Title => 'Visualize your finances';
+  @override
+  String get onboardingStep3Subtitle => 'Interactive charts and predictions';
+  @override
+  String get onboardingStep3Description =>
+      'Analyze your spending by category, view time trends, and receive predictions of your next month\'s expenses with machine learning.';
+
+  @override
+  String get onboardingStep4Title => 'Reach your goals';
+  @override
+  String get onboardingStep4Subtitle => 'Savings goals with AI recommendations';
+  @override
+  String get onboardingStep4Description =>
+      'Create savings goals with deadlines and visualize your progress. The AI assistant gives you personalized recommendations to save more.';
+
+  @override
+  String get transactionsTitle => 'Transactions';
+  @override
+  String get searchHint => 'Search by merchant, description or category...';
+  @override
+  String get resultsCount => 'results';
+  @override
+  String get resultCount => 'result';
+  @override
+  String get filterAll => 'All';
+  @override
+  String get filterExpenses => 'Expenses';
+  @override
+  String get filterIncomes => 'Incomes';
+  @override
+  String get clearFilters => 'Clear';
+  @override
+  String accountFilterLabel(String name) => 'Account: $name';
+  @override
+  String dateGroupLabel(int day, String month) => '$month $day';
+  @override
+  String get advancedFiltersTitle => 'Advanced filters';
+  @override
+  String get selectDate => 'Select';
+  @override
+  String get paymentMethodLabel => 'Payment method';
+  @override
+  String get applyFilters => 'Apply filters';
+  @override
+  String get noTransactionsYet => 'No transactions yet';
+  @override
+  String get registerFirstTransaction =>
+      'Register your first transaction\nby pressing the + button';
+  @override
+  String get noResultsFound => 'No results found';
+  @override
+  String noResultsMatching(String query) =>
+      'No transactions found\nmatching "$query"';
+  @override
+  String get noResultsWithFilters =>
+      'No transactions found\nwith the selected filters';
+  @override
+  String get transactionDeleted => 'Transaction deleted';
+  @override
+  String get undo => 'Undo';
+  @override
+  String get deleteConfirmTitle => 'Delete';
+  @override
+  String get deleteConfirmContent =>
+      'Delete this transaction? This action cannot be undone.';
+  @override
+  String get pendingSync => 'Pending';
+  @override
+  String get moreItems => 'more...';
+
+  @override
+  String transactionSemantics({
+    required bool isExpense,
+    required String category,
+    required String amount,
+    required String? description,
+    required String date,
+    required bool pending,
+  }) =>
+      '${isExpense ? 'Expense' : 'Income'} in $category: ${isExpense ? 'minus' : 'plus'} $amount euros. '
+      '${description?.isNotEmpty == true ? '$description. ' : ''}$date.'
+      '${pending ? ' Pending synchronization.' : ''}';
+
+  @override
+  String newLabel(int count) => 'new'; // En inglés 'new' no varía
+  @override
+  String transactionCountLabel(int count) =>
+      count == 1 ? 'transaction' : 'transactions';
+  @override
+  String connectedLabel(int count) => count == 1 ? 'connected' : 'connected';
+
+  @override
+  String get syncPsd2Info =>
+      'Automatically sync your bank accounts via PSD2 Open Banking.';
+  @override
+  String get connectAccount => 'Connect account';
+  @override
+  String get noConnectedAccounts => 'No connected accounts';
+  @override
+  String get connectBankForSync =>
+      'Connect your bank to automatically sync your movements';
+  @override
+  String get totalBankBalance => 'Total bank balance';
+  @override
+  String get disconnectBank => 'Disconnect bank';
+  @override
+  String get disconnectWarningTitle => 'What happens when you disconnect?';
+  @override
+  String get disconnectHistoryKept => 'Transaction history is preserved';
+  @override
+  String get disconnectSyncStop => 'Automatic synchronization will stop';
+  @override
+  String get disconnectRevokeAccess => 'Bank access permissions are revoked';
+
+  @override
+  String get usageByPaymentMethod => 'Usage by payment method';
+  @override
+  String get importingTransactions => 'Importing transactions';
+  @override
+  String get syncingPsd2 => 'Syncing with your bank via PSD2 Open Banking';
+  @override
+  String get justNow => 'just now';
+  @override
+  String agoDays(int days) => '$days days ago';
+  @override
+  String agoMins(int min) => '$days min. ago';
+  @override
+  String agoHours(int hour) => '$days h. ago';
+  @override
+  String get lastSync => 'Last sync';
+  @override
+  String get synchronize => 'Synchronize';
+  @override
+  String get viewTransactions => 'View transactions';
+  @override
+  String get editCards => 'Edit cards';
+
+  @override
+  String get noCardsAdd => 'No cards - tap to add';
+  @override
+  String get exampleCardName => 'e.g. Visa Chase';
+
+  @override
   String get assistantOnlineStatus => 'AI Assistant · Online';
   @override
   String get pinchToZoom => 'Pinch to zoom';
@@ -2020,6 +3684,8 @@ class _AppStringsEn extends AppStringsBase {
   String get availableBalanceLabel => 'Available balance';
   @override
   String get balanceAfterPurchase => 'Balance after purchase';
+  @override
+  String get exampleOfDescription => 'Ex: Weekly supermarket purchase';
   @override
   String get monthlySurplusLabel => 'Monthly surplus';
   @override
@@ -2042,6 +3708,192 @@ class _AppStringsEn extends AppStringsBase {
       'Ask me whatever you want';
   @override
   String get lastTransactions => 'Last transactions';
+  @override
+  String get noLinkedAccounts => 'No linked bank accounts';
+  @override
+  String get cardBankAccount => 'Card bank account';
+  @override
+  String get noCardsInAccount => 'No cards associated with this account';
+  @override
+  String get selectCardOptional => 'Select card (optional)';
+  @override
+  String get receiptPhoto => 'Receipt photo';
+  @override
+  String get addReceiptPhoto => 'Add receipt photo';
+  @override
+  String get change => 'Change';
+  @override
+  String get transactionRecorded => 'Transaction recorded';
+  @override
+  String get saveTransaction => 'Save transaction';
+
+  @override
+  String get paymentCash => 'Cash';
+  @override
+  String get paymentDebit => 'Debit';
+  @override
+  String get paymentCredit => 'Credit';
+  @override
+  String get paymentPrepaid => 'Prepaid';
+  @override
+  String get paymentTransfer => 'Transf.';
+  @override
+  String get paymentDirectDebit => 'Debit';
+  @override
+  String get paymentCheque => 'Check';
+  @override
+  String get paymentVoucher => 'Voucher';
+  @override
+  String get paymentCrypto => 'Crypto';
+
+  @override
+  String get aiPredictionsTitle => 'AI Predictions';
+  @override
+  String get tabPrediction => 'Prediction';
+  @override
+  String get tabSavings => 'Savings';
+  @override
+  String get tabAnomalies => 'Anomalies';
+  @override
+  String get tabSubscriptions => 'Subscriptions';
+
+  @override
+  String get aiEmptyDataTitle => 'Insufficient data';
+  @override
+  String get aiEmptyDataSubtitle =>
+      'You need at least 2 months of transactions to generate predictions.';
+  @override
+  String get aiPredictionVsLastMonth => 'Prediction vs last month (top 5)';
+  @override
+  String get aiPreviousMonth => 'Previous';
+  @override
+  String get aiTrendIncreasing => 'Upward trend';
+  @override
+  String get aiTrendDecreasing => 'Downward trend';
+  @override
+  String get aiTrendStable => 'Stable trend';
+  @override
+  String get aiNextMonthPrediction => 'Next month prediction';
+  @override
+  String aiRangeLabel(String min, String max) => 'Range: $min – $max €';
+  @override
+  String aiPreviousMonthLabel(String amount) => 'Last month: $amount €';
+  @override
+  String aiHistoryMonths(int count) => '$count months of history';
+  @override
+  String aiModelsLabel(String models) => 'Models: $models';
+  @override
+  String aiAnalyzedMonths(int count) => '$count months analyzed';
+  @override
+  String get aiConfidenceLevel => 'Confidence level';
+
+  @override
+  String get aiSavingsNoData => 'Could not calculate recommendations.';
+  @override
+  String get aiSavingsExcellentTitle => 'Excellent!';
+  @override
+  String get aiSavingsExcellentSubtitle =>
+      'Your spending distribution is healthy. No areas for improvement identified.';
+  @override
+  String get aiImprovementAreas => 'Areas for improvement';
+  @override
+  String get aiFinancialHealth => 'Financial health';
+  @override
+  String get aiAvgIncome => 'Avg Income';
+  @override
+  String get aiAvgExpense => 'Avg Expense';
+  @override
+  String get aiSavingsCapacity => 'Savings capacity';
+  @override
+  String get aiSavingsPotential => 'Potential savings';
+  @override
+  String get aiCurrent => 'Current';
+  @override
+  String get aiSuggested => 'Suggested';
+
+  @override
+  String get aiNoAnomaliesTitle => 'No anomalies detected';
+  @override
+  String get aiNoAnomaliesSubtitle =>
+      'Your expenses are within usual ranges. Excellent control!';
+  @override
+  String get aiUnusualExpensesDetected => 'Unusual expenses detected';
+  @override
+  String get aiAnomaliesSummary => 'Anomalies summary';
+  @override
+  String get aiHighSeverity => 'High severity';
+  @override
+  String get aiAnalyzedCategories => 'Categories analyzed';
+  @override
+  String get aiAnomalyExplanation =>
+      'Unusual expenses exceed 2 standard deviations from your historical average in that category.';
+  @override
+  String aiNormalAverage(String amount) => 'Habitual average: $amount €';
+
+  @override
+  String get aiNoSubscriptionsTitle => 'No subscriptions detected';
+  @override
+  String get aiNoSubscriptionsSubtitle =>
+      'No recurring payments with regular periodicity found in the last 6 months.';
+  @override
+  String get aiRecurringExpensesDetected => 'Recurring expenses detected';
+  @override
+  String aiAnnualCost(String amount) => '$amount € per year';
+  @override
+  String aiDetectedCount(int count) => '$count detected';
+  @override
+  String get aiUpcomingCharges => 'Upcoming charges (7 days)';
+  @override
+  String get aiActiveSubscriptions => 'Active subscriptions detected';
+  @override
+  String aiOccurrences(int count) => '${count}x detected';
+  @override
+  String get aiNextCharge => 'Next charge';
+
+  @override
+  String get aiPeriodWeekly => 'Weekly';
+  @override
+  String get aiPeriodMonthly => 'Monthly';
+  @override
+  String get aiPeriodQuarterly => 'Quarterly';
+  @override
+  String get aiPeriodAnnual => 'Annual';
+
+  @override
+  String get aiErrorLoading => 'Error loading data';
+  @override
+  String get aiServiceUnavailable =>
+      'The AI service is temporarily unavailable.';
+  @override
+  String get aiCurrentLabel => 'Current';
+  @override
+  String get aiSuggestedLabel => 'Suggested';
+  @override
+  String aiRecommendationSemantics(String category, String message) =>
+      'Savings recommendation in $category: $message';
+
+  @override
+  String get pmDebitCard => 'Debit Card';
+  @override
+  String get pmCreditCard => 'Credit Card';
+  @override
+  String get pmPrepaidCard => 'Prepaid Card';
+  @override
+  String get pmCard => 'Card';
+  @override
+  String get pmBankTransfer => 'Bank Transfer';
+  @override
+  String get pmTransfer => 'Transfer';
+  @override
+  String get pmSepa => 'SEPA Transfer';
+  @override
+  String get pmWire => 'Wire Transfer';
+  @override
+  String get pmDirectDebit => 'Direct Debit';
+  @override
+  String get pmVoucher => 'Voucher';
+  @override
+  String get pmCrypto => 'Cryptocurrencies';
 
   @override
   String get selectAccounts => 'Select accounts';

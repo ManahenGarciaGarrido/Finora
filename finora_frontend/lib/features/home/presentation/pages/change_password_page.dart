@@ -3,6 +3,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
+import '../../../../core/l10n/app_localizations.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});
@@ -22,6 +23,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   bool _obscureNew = true;
 
   Future<void> _submit() async {
+    final s = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
@@ -37,8 +39,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Contraseña actualizada'),
+          SnackBar(
+            content: Text(s.passwordUpdatedMsg),
             backgroundColor: AppColors.success,
           ),
         );
@@ -48,8 +50,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       setState(() => _loading = false);
       if (mounted) {
         final msg = e.toString().contains('401')
-            ? 'Contraseña actual incorrecta'
-            : 'Error al cambiar contraseña';
+            ? s.incorrectCurrentPasswordMsg
+            : s.changePasswordErrorMsg;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: AppColors.error),
         );
@@ -59,10 +61,11 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: Text('Seguridad', style: AppTypography.titleMedium()),
+        title: Text(s.securityTitle, style: AppTypography.titleMedium()),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
@@ -75,10 +78,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Cambiar contraseña', style: AppTypography.headlineSmall()),
+              Text(
+                s.changePasswordHeading,
+                style: AppTypography.headlineSmall(),
+              ),
               const SizedBox(height: 8),
               Text(
-                'Tu nueva contraseña debe tener al menos 8 caracteres e incluir números o símbolos.',
+                s.passwordRequirementsInfo,
                 style: AppTypography.bodySmall(
                   color: AppColors.textSecondaryLight,
                 ),
@@ -89,7 +95,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                 controller: _currentCtrl,
                 obscureText: _obscureCurrent,
                 decoration: InputDecoration(
-                  labelText: 'Contraseña actual',
+                  labelText: s.currentPasswordLabel,
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -102,7 +108,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                   ),
                 ),
                 validator: (v) => (v == null || v.isEmpty)
-                    ? 'Introduce tu contraseña actual'
+                    ? s.enterCurrentPasswordError
                     : null,
               ),
               const SizedBox(height: 20),
@@ -111,7 +117,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                 controller: _newCtrl,
                 obscureText: _obscureNew,
                 decoration: InputDecoration(
-                  labelText: 'Nueva contraseña',
+                  labelText: s.newPasswordLabel,
                   prefixIcon: const Icon(Icons.lock_reset_rounded),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -123,20 +129,19 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                   ),
                 ),
                 validator: (v) =>
-                    (v != null && v.length < 8) ? 'Mínimo 8 caracteres' : null,
+                    (v != null && v.length < 8) ? s.minCharactersError : null,
               ),
               const SizedBox(height: 20),
 
               TextFormField(
                 controller: _confirmCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Confirmar nueva contraseña',
-                  prefixIcon: Icon(Icons.lock_rounded),
+                decoration: InputDecoration(
+                  labelText: s.confirmNewPasswordLabel,
+                  prefixIcon: const Icon(Icons.lock_rounded),
                 ),
-                validator: (v) => (v != _newCtrl.text)
-                    ? 'Las contraseñas no coinciden'
-                    : null,
+                validator: (v) =>
+                    (v != _newCtrl.text) ? s.passwordsDoNotMatchError : null,
               ),
 
               const SizedBox(height: 40),
@@ -158,7 +163,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Actualizar contraseña'),
+                    : Text(s.updatePasswordButton),
               ),
             ],
           ),

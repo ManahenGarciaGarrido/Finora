@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:finora_frontend/features/transactions/presentation/bloc/transaction_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -138,6 +139,78 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     return null;
   }
 
+  // --- Traducción de categorías ---
+  String _getTranslatedCategory(BuildContext context, String categoryKey) {
+    final s = AppLocalizations.of(context);
+
+    switch (categoryKey.toLowerCase()) {
+      case 'alimentación':
+        return s.nutrition;
+      case 'transporte':
+        return s.transport;
+      case 'ocio':
+        return s.leisure;
+      case 'salud':
+        return s.health;
+      case 'vivienda':
+        return s.housing;
+      case 'servicios':
+        return s.services;
+      case 'educación':
+        return s.education;
+      case 'ropa':
+        return s.clothing;
+      case 'otros':
+        return s.other;
+      case 'ahorro':
+        return s.saving;
+      default:
+        return categoryKey;
+    }
+  }
+
+  String _getPaymentMethodLabel(BuildContext context, PaymentMethod method) {
+    final s = AppLocalizations.of(context);
+
+    switch (method) {
+      case PaymentMethod.cash:
+        return s.paymentCash;
+      case PaymentMethod.debitCard:
+        return s.pmDebitCard;
+      case PaymentMethod.creditCard:
+        return s.pmCreditCard;
+      case PaymentMethod.prepaidCard:
+        return s.pmPrepaidCard;
+      case PaymentMethod.card:
+        return s.pmCard;
+      case PaymentMethod.bankTransfer:
+        return s.pmBankTransfer;
+      case PaymentMethod.transfer:
+        return s.pmTransfer;
+      case PaymentMethod.sepa:
+        return s.pmSepa;
+      case PaymentMethod.wire:
+        return s.pmWire;
+      case PaymentMethod.directDebit:
+        return s.pmDirectDebit;
+      case PaymentMethod.cheque:
+        return s.paymentCheque;
+      case PaymentMethod.voucher:
+        return s.pmVoucher;
+      case PaymentMethod.crypto:
+        return s.pmCrypto;
+
+      // Nombres que no se traducen (Estáticos)
+      case PaymentMethod.bizum:
+        return 'Bizum';
+      case PaymentMethod.paypal:
+        return 'PayPal';
+      case PaymentMethod.applePay:
+        return 'Apple Pay';
+      case PaymentMethod.googlePay:
+        return 'Google Pay';
+    }
+  }
   // --- Fecha ---
 
   Future<void> _selectDate() async {
@@ -364,6 +437,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return MultiBlocListener(
       listeners: [
         BlocListener<TransactionBloc, TransactionState>(
@@ -419,7 +493,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             ),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text('Nueva transacción', style: AppTypography.titleLarge()),
+          title: Text(s.newTransaction, style: AppTypography.titleLarge()),
           centerTitle: true,
         ),
         body: ResponsiveBuilder(
@@ -483,26 +557,26 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTypeSelector(),
+          _buildTypeSelector(context),
           const SizedBox(height: 24),
-          _buildAmountField(),
+          _buildAmountField(context),
           const SizedBox(height: 24),
-          _buildCategorySelector(),
+          _buildCategorySelector(context),
           const SizedBox(height: 24),
-          _buildDescriptionField(),
+          _buildDescriptionField(context),
           const SizedBox(height: 24),
-          _buildDateSelector(),
+          _buildDateSelector(context),
           const SizedBox(height: 24),
-          _buildPaymentMethodSelector(),
+          _buildPaymentMethodSelector(context),
           if (_selectedPaymentMethod.isCard ||
               _selectedPaymentMethod.isBank) ...[
             const SizedBox(height: 16),
-            _buildAccountCardSelector(),
+            _buildAccountCardSelector(context),
           ],
           const SizedBox(height: 24),
-          _buildPhotoTicketSection(), // HU-03: foto del ticket
+          _buildPhotoTicketSection(context), // HU-03: foto del ticket
           const SizedBox(height: 32),
-          _buildSubmitButton(),
+          _buildSubmitButton(context),
           const SizedBox(height: 16),
         ],
       ),
@@ -513,12 +587,13 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   // WIDGETS DEL FORMULARIO
   // =========================================================================
 
-  Widget _buildTypeSelector() {
+  Widget _buildTypeSelector(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tipo de transacción',
+          s.transactionType,
           style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
@@ -531,13 +606,13 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             children: [
               _buildTypeOption(
                 TransactionType.expense,
-                'Gasto',
+                s.expense,
                 Icons.arrow_downward_rounded,
                 AppColors.error,
               ),
               _buildTypeOption(
                 TransactionType.income,
-                'Ingreso',
+                s.income,
                 Icons.arrow_upward_rounded,
                 AppColors.success,
               ),
@@ -606,12 +681,13 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
   }
 
-  Widget _buildAmountField() {
+  Widget _buildAmountField(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Cantidad',
+          s.amount,
           style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
@@ -676,7 +752,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   /// HU-03: Selector de categoría con autocompletado por historial.
   /// Las categorías más usadas aparecen primero y marcadas con un badge.
-  Widget _buildCategorySelector() {
+  Widget _buildCategorySelector(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return BlocBuilder<CategoryBloc, CategoryState>(
       builder: (context, categoryState) {
         List<CategoryEntity> categories;
@@ -711,7 +788,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             Row(
               children: [
                 Text(
-                  'Categoría',
+                  s.category,
                   style: AppTypography.labelMedium(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -728,7 +805,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      'Sugeridas por historial',
+                      s.hisorySuggestions,
                       style: AppTypography.labelSmall(color: AppColors.primary),
                     ),
                   ),
@@ -783,7 +860,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          cat.name,
+                          _getTranslatedCategory(context, cat.name),
                           style: AppTypography.labelMedium(
                             color: isSelected
                                 ? AppColors.white
@@ -809,7 +886,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '* Selecciona una categoría',
+                  '* ${s.selectACategory}',
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -821,21 +898,22 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
   }
 
-  Widget _buildDescriptionField() {
+  Widget _buildDescriptionField(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Descripción',
+              s.description,
               style: AppTypography.labelMedium(
                 color: AppColors.textSecondaryLight,
               ),
             ),
             const SizedBox(width: 4),
             Text(
-              '(opcional)',
+              '(${s.optional})',
               style: AppTypography.bodySmall(
                 color: AppColors.textTertiaryLight,
               ),
@@ -849,7 +927,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           maxLength: 500,
           style: AppTypography.input(),
           decoration: InputDecoration(
-            hintText: 'Ej: Compra semanal del supermercado',
+            hintText: s.exampleOfDescription,
             hintStyle: AppTypography.hint(),
             counterText: '',
             filled: true,
@@ -880,12 +958,13 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
   }
 
-  Widget _buildDateSelector() {
+  Widget _buildDateSelector(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Fecha',
+          s.date,
           style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
@@ -939,14 +1018,15 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     PaymentMethod.crypto,
   ];
 
-  Widget _buildPaymentMethodSelector() {
+  Widget _buildPaymentMethodSelector(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Método de pago',
+              s.paymentMethod,
               style: AppTypography.labelMedium(
                 color: AppColors.textSecondaryLight,
               ),
@@ -968,7 +1048,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    _selectedPaymentMethod.label,
+                    _getPaymentMethodLabel(context, _selectedPaymentMethod),
                     style: AppTypography.labelSmall(color: AppColors.primary),
                   ),
                 ],
@@ -1031,7 +1111,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _shortPaymentLabel(method),
+                        _shortPaymentLabel(context, method),
                         style: AppTypography.labelSmall(
                           color: isSelected
                               ? AppColors.white
@@ -1052,7 +1132,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
   }
 
-  Widget _buildAccountCardSelector() {
+  Widget _buildAccountCardSelector(BuildContext context) {
     final isCard = _selectedPaymentMethod.isCard;
 
     return Column(
@@ -1076,7 +1156,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'Sin cuentas bancarias vinculadas',
+                  AppLocalizations.of(context).noLinkedAccounts,
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -1086,7 +1166,9 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           )
         else ...[
           Text(
-            isCard ? 'Cuenta bancaria de la tarjeta' : 'Cuenta bancaria',
+            isCard
+                ? AppLocalizations.of(context).cardBankAccount
+                : AppLocalizations.of(context).accounts,
             style: AppTypography.labelMedium(
               color: AppColors.textSecondaryLight,
             ),
@@ -1094,7 +1176,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           const SizedBox(height: 8),
           _buildDropdown(
             value: _selectedBankAccountId,
-            hint: 'Seleccionar cuenta',
+            hint: AppLocalizations.of(context).selectAccounts,
             items: _bankAccounts
                 .map(
                   (acct) => DropdownMenuItem(
@@ -1117,7 +1199,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
           if (isCard) ...[
             const SizedBox(height: 12),
             Text(
-              'Tarjeta',
+              AppLocalizations.of(context).pmCard,
               style: AppTypography.labelMedium(
                 color: AppColors.textSecondaryLight,
               ),
@@ -1152,7 +1234,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          'Sin tarjetas en esta cuenta',
+                          AppLocalizations.of(context).noCardsInAccount,
                           style: AppTypography.bodySmall(
                             color: AppColors.textTertiaryLight,
                           ),
@@ -1163,7 +1245,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                 }
                 return _buildDropdown(
                   value: _selectedBankCardId,
-                  hint: 'Seleccionar tarjeta (opcional)',
+                  hint: AppLocalizations.of(context).selectCardOptional,
                   items: filteredCards
                       .map(
                         (card) => DropdownMenuItem(
@@ -1227,18 +1309,30 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     );
   }
 
-  String _shortPaymentLabel(PaymentMethod method) {
+  String _shortPaymentLabel(BuildContext context, PaymentMethod method) {
+    final s = AppLocalizations.of(context);
+
     switch (method) {
       case PaymentMethod.cash:
-        return 'Efectivo';
+        return s.paymentCash;
       case PaymentMethod.debitCard:
-        return 'Débito';
+        return s.paymentDebit;
       case PaymentMethod.creditCard:
-        return 'Crédito';
+        return s.paymentCredit;
       case PaymentMethod.prepaidCard:
-        return 'Prepago';
+        return s.paymentPrepaid;
       case PaymentMethod.bankTransfer:
-        return 'Transfer.';
+        return s.paymentTransfer;
+      case PaymentMethod.directDebit:
+        return s.paymentDirectDebit;
+      case PaymentMethod.cheque:
+        return s.paymentCheque;
+      case PaymentMethod.voucher:
+        return s.paymentVoucher;
+      case PaymentMethod.crypto:
+        return s.paymentCrypto;
+
+      // Estos se quedan estáticos porque no cambian entre idiomas
       case PaymentMethod.sepa:
         return 'SEPA';
       case PaymentMethod.wire:
@@ -1251,16 +1345,9 @@ class _AddTransactionPageState extends State<AddTransactionPage>
         return 'Apple Pay';
       case PaymentMethod.googlePay:
         return 'Google Pay';
-      case PaymentMethod.directDebit:
-        return 'Recibo';
-      case PaymentMethod.cheque:
-        return 'Cheque';
-      case PaymentMethod.voucher:
-        return 'Vale';
-      case PaymentMethod.crypto:
-        return 'Cripto';
+
       default:
-        return method.label;
+        return _getPaymentMethodLabel(context, _selectedPaymentMethod);
     }
   }
 
@@ -1302,21 +1389,21 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   }
 
   /// HU-03: Sección para añadir foto del ticket (opcional)
-  Widget _buildPhotoTicketSection() {
+  Widget _buildPhotoTicketSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Foto del ticket',
+              AppLocalizations.of(context).receiptPhoto,
               style: AppTypography.labelMedium(
                 color: AppColors.textSecondaryLight,
               ),
             ),
             const SizedBox(width: 4),
             Text(
-              '(opcional)',
+              '(${AppLocalizations.of(context).optional})',
               style: AppTypography.bodySmall(
                 color: AppColors.textTertiaryLight,
               ),
@@ -1357,7 +1444,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
               ),
               const SizedBox(height: 6),
               Text(
-                'Añadir foto del ticket',
+                AppLocalizations.of(context).addReceiptPhoto,
                 style: AppTypography.labelMedium(
                   color: AppColors.primary.withValues(alpha: 0.8),
                 ),
@@ -1424,7 +1511,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Cambiar',
+                    AppLocalizations.of(context).change,
                     style: AppTypography.labelSmall(color: AppColors.white),
                   ),
                 ],
@@ -1437,7 +1524,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   }
 
   // HU-03: Botón de guardado con confirmación visual animada
-  Widget _buildSubmitButton() {
+  Widget _buildSubmitButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -1450,7 +1537,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                   color: AppColors.success,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Center(
+                child: Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -1461,7 +1548,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                       ),
                       SizedBox(width: 8),
                       Text(
-                        'Transacción registrada',
+                        AppLocalizations.of(context).transactionRecorded,
                         style: TextStyle(
                           color: AppColors.white,
                           fontSize: 16,
@@ -1504,7 +1591,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Guardar transacción',
+                                AppLocalizations.of(context).saveTransaction,
                                 style: AppTypography.button(),
                               ),
                             ],

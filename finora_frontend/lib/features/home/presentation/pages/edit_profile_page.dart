@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
@@ -38,6 +39,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _saveProfile() async {
+    final s = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
@@ -53,8 +55,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           UpdateProfileName(name: _nameController.text.trim()),
         );
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Perfil actualizado'),
+          SnackBar(
+            content: Text(s.profileUpdatedMsg),
             backgroundColor: AppColors.success,
           ),
         );
@@ -64,8 +66,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       setState(() => _isSaving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error al actualizar el perfil'),
+          SnackBar(
+            content: Text(s.profileUpdateErrorMsg),
             backgroundColor: AppColors.error,
           ),
         );
@@ -75,10 +77,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
-        title: Text('Editar perfil', style: AppTypography.titleMedium()),
+        title: Text(s.editProfileTitle, style: AppTypography.titleMedium()),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
@@ -99,8 +102,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             TextButton(
               onPressed: _saveProfile,
               child: Text(
-                'Guardar',
-                style: TextStyle(
+                s.save,
+                style: const TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
@@ -151,7 +154,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 32),
               Text(
-                'Información pública',
+                s.publicInfoHeading,
                 style: AppTypography.labelMedium(
                   color: AppColors.textSecondaryLight,
                 ),
@@ -160,18 +163,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  labelText: 'Nombre completo',
+                  labelText: s.fullNameLabel,
                   prefixIcon: const Icon(Icons.person_outline_rounded),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'El nombre es requerido'
+                    ? s.nameRequiredError
                     : null,
               ),
               const SizedBox(height: 24),
-              // Aquí podrías añadir más campos como bio, teléfono, etc.
             ],
           ),
         ),
