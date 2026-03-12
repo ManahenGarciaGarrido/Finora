@@ -144,11 +144,12 @@ class _DashboardContentState extends State<DashboardContent>
 
   String _getUserFirstName(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
+    final s = AppLocalizations.of(context);
     if (authState is Authenticated) {
       final name = authState.user.name;
       return name.split(' ').first;
     }
-    return 'Usuario';
+    return s.user;
   }
 
   String _getUserInitials(BuildContext context) {
@@ -830,7 +831,7 @@ class _DashboardContentState extends State<DashboardContent>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Registra tu primera transacción para ver tu balance',
+                      s.firstTransaction,
                       style: AppTypography.labelSmall(color: AppColors.white),
                     ),
                   ),
@@ -1115,7 +1116,7 @@ class _DashboardContentState extends State<DashboardContent>
             ),
           );
         }
-        return SliverToBoxAdapter(child: _buildEmptyTransactions());
+        return SliverToBoxAdapter(child: _buildEmptyTransactions(context));
       },
     );
   }
@@ -1129,7 +1130,7 @@ class _DashboardContentState extends State<DashboardContent>
             children: items.map((t) => _buildTransactionTile(t)).toList(),
           );
         }
-        return _buildEmptyTransactions();
+        return _buildEmptyTransactions(context);
       },
     );
   }
@@ -1227,7 +1228,7 @@ class _DashboardContentState extends State<DashboardContent>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _formatRelativeDate(t.date),
+                  _formatRelativeDate(t.date, context),
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -1240,7 +1241,8 @@ class _DashboardContentState extends State<DashboardContent>
     );
   }
 
-  Widget _buildEmptyTransactions() {
+  Widget _buildEmptyTransactions(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
@@ -1264,10 +1266,10 @@ class _DashboardContentState extends State<DashboardContent>
             ),
           ),
           const SizedBox(height: 16),
-          Text('Sin transacciones', style: AppTypography.titleSmall()),
+          Text(s.noTransactions, style: AppTypography.titleSmall()),
           const SizedBox(height: 4),
           Text(
-            'Pulsa + para registrar tu primera transacción',
+            s.registerFirst,
             style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
             textAlign: TextAlign.center,
           ),
@@ -1720,7 +1722,7 @@ class _DashboardContentState extends State<DashboardContent>
                   ),
                 )
               else
-                ...recurring.map((r) => _buildRecurringTile(r)),
+                ...recurring.map((r) => _buildRecurringTile(r, context)),
             ],
           ),
         );
@@ -1728,13 +1730,14 @@ class _DashboardContentState extends State<DashboardContent>
     );
   }
 
-  Widget _buildRecurringTile(Map<String, dynamic> r) {
+  Widget _buildRecurringTile(Map<String, dynamic> r, BuildContext context) {
+    final s = AppLocalizations.of(context);
     final daysUntil = r['daysUntil'] as int;
     final label = daysUntil == 0
-        ? 'Hoy'
+        ? s.today
         : daysUntil == 1
-        ? 'Mañana'
-        : 'En $daysUntil días';
+        ? s.tomorrow
+        : '${s.inDays} $daysUntil ${s.days}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -2039,9 +2042,9 @@ class _DashboardContentState extends State<DashboardContent>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Progreso de gasto', style: AppTypography.bodySmall()),
+                    Text(s.expenseProgress, style: AppTypography.bodySmall()),
                     Text(
-                      '${(expenses / income * 100).clamp(0, 999).toStringAsFixed(0)}% de ingresos',
+                      '${(expenses / income * 100).clamp(0, 999).toStringAsFixed(0)}% ${s.ofIncome}',
                       style: AppTypography.badge(
                         color: (expenses / income) > 0.9
                             ? AppColors.error
@@ -2160,13 +2163,14 @@ class _DashboardContentState extends State<DashboardContent>
   // ============================================
   // UTILS
   // ============================================
-  String _formatRelativeDate(DateTime date) {
+  String _formatRelativeDate(DateTime date, BuildContext context) {
+    final s = AppLocalizations.of(context);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final d = DateTime(date.year, date.month, date.day);
-    if (d == today) return 'Hoy';
-    if (d == yesterday) return 'Ayer';
+    if (d == today) return s.today;
+    if (d == yesterday) return s.yesterday;
     const m = [
       'Ene',
       'Feb',
@@ -2283,6 +2287,7 @@ class _GoalsSectionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return BlocBuilder<GoalBloc, GoalState>(
       builder: (context, state) {
         if (state is GoalLoading || state is GoalInitial) {
@@ -2304,7 +2309,7 @@ class _GoalsSectionContent extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  'No se pudieron cargar los objetivos',
+                  s.objectiveLoadFailure,
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -2405,6 +2410,7 @@ class _GoalsSectionContent extends StatelessWidget {
   }
 
   Widget _buildGoalRow(BuildContext context, SavingsGoalEntity goal) {
+    final s = AppLocalizations.of(context);
     final barColor = _barColor(goal.progressColor);
     final iconColor = _progressColor(goal.color);
     final progress = goal.percentageDecimal.clamp(0.0, 1.0);
@@ -2464,7 +2470,7 @@ class _GoalsSectionContent extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        '${_formatCurrency(goal.currentAmount)} de ${_formatCurrency(goal.targetAmount)}',
+                        '${_formatCurrency(goal.currentAmount)} ${s.ofText} ${_formatCurrency(goal.targetAmount)}',
                         style: AppTypography.bodySmall(
                           color: AppColors.textTertiaryLight,
                         ),

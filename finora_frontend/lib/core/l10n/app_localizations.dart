@@ -120,6 +120,17 @@ class AppLocalizations extends AppStringsBase {
   String get twoFactorAuth => _strings.twoFactorAuth;
 
   @override
+  String biometricEnabledStatus(String label) =>
+      _strings.biometricEnabledStatus(label);
+  @override
+  String biometricDisabledStatus(String label) =>
+      _strings.biometricDisabledStatus(label);
+
+  @override
+  String get newTransaction => _strings.newTransaction;
+  @override
+  String get hisorySuggestions => _strings.hisorySuggestions;
+  @override
   String get addTransaction => _strings.addTransaction;
   @override
   String get editTransaction => _strings.editTransaction;
@@ -145,6 +156,79 @@ class AppLocalizations extends AppStringsBase {
   String get history => _strings.history;
   @override
   String get monthlySummary => _strings.monthlySummary;
+  @override
+  String get firstTransaction => _strings.firstTransaction;
+  @override
+  String get registerFirst => _strings.registerFirst;
+
+  @override
+  String get finnWelcomeMessage => _strings.finnWelcomeMessage;
+  @override
+  String get suggestionSpentMonth => _strings.suggestionSpentMonth;
+  @override
+  String get suggestionTopCategory => _strings.suggestionTopCategory;
+  @override
+  String get suggestionGoalsProgress => _strings.suggestionGoalsProgress;
+  @override
+  String get suggestionAffordabilityExample =>
+      _strings.suggestionAffordabilityExample;
+  @override
+  String get suggestionSavingTips => _strings.suggestionSavingTips;
+  @override
+  String get suggestionCurrentBalance => _strings.suggestionCurrentBalance;
+  @override
+  List<String> get affordabilityKeywords => _strings.affordabilityKeywords;
+  @override
+  String get aiRecsHeader => _strings.aiRecsHeader;
+  @override
+  String get aiRecsBalanced => _strings.aiRecsBalanced;
+  @override
+  String aiFinancialScore(int score) => _strings.aiFinancialScore(score);
+  @override
+  String aiPotentialSavingMonthly(String amount) =>
+      _strings.aiPotentialSavingMonthly(amount);
+  @override
+  String monthCountLabel(int count) => _strings.monthCountLabel(count);
+
+  @override
+  String get budgetsTitle => _strings.budgetsTitle;
+  @override
+  String get budgetStatusTab => _strings.budgetStatusTab;
+  @override
+  String get myBudgetsTab => _strings.myBudgetsTab;
+  @override
+  String get editBudgetTitle => _strings.editBudgetTitle;
+  @override
+  String get newBudgetTitle => _strings.newBudgetTitle;
+  @override
+  String get monthlyLimitLabel => _strings.monthlyLimitLabel;
+  @override
+  String get invalidAmountError => _strings.invalidAmountError;
+  @override
+  String get budgetSavedMsg => _strings.budgetSavedMsg;
+  @override
+  String get deleteBudgetTitle => _strings.deleteBudgetTitle;
+  @override
+  String deleteBudgetConfirm(String category) =>
+      _strings.deleteBudgetConfirm(category);
+  @override
+  String get noBudgetsConfigured => _strings.noBudgetsConfigured;
+  @override
+  String get createFirstBudgetInfo => _strings.createFirstBudgetInfo;
+  @override
+  String get budgetExceededLabel => _strings.budgetExceededLabel;
+  @override
+  String get budget80ReachedLabel => _strings.budget80ReachedLabel;
+  @override
+  String get remainingLabel => _strings.remainingLabel;
+  @override
+  String get unbudgetedTitle => _strings.unbudgetedTitle;
+  @override
+  String get addLimitLabel => _strings.addLimitLabel;
+  @override
+  String activeAlertsMsg(int count) => _strings.activeAlertsMsg(count);
+  @override
+  String get spentOfLabel => _strings.spentOfLabel;
 
   @override
   String get spendingByCategory => _strings.spendingByCategory;
@@ -158,6 +242,24 @@ class AppLocalizations extends AppStringsBase {
   String get temporalEvolution => _strings.temporalEvolution;
   @override
   String get period => _strings.period;
+  @override
+  String get reset => _strings.reset;
+  @override
+  String get expenseProgress => _strings.expenseProgress;
+  @override
+  String get ofIncome => _strings.ofIncome;
+  @override
+  String get yesterday => _strings.yesterday;
+  @override
+  String get objectiveLoadFailure => _strings.objectiveLoadFailure;
+  @override
+  String get ofText => _strings.ofText;
+  @override
+  String get today => _strings.today;
+  @override
+  String get tomorrow => _strings.tomorrow;
+  @override
+  String get inDays => _strings.inDays;
   @override
   String get days => _strings.days;
   @override
@@ -253,6 +355,8 @@ class AppLocalizations extends AppStringsBase {
   String get recoveryCodes => _strings.recoveryCodes;
   @override
   String get disable2fa => _strings.disable2fa;
+  @override
+  String get user => _strings.user;
 
   @override
   String get save => _strings.save;
@@ -328,11 +432,40 @@ class AppLocalizations extends AppStringsBase {
   String get sessionExpired => _strings.sessionExpired;
 
   @override
+  String get twoFaProtectionInfo => _strings.twoFaProtectionInfo;
+  @override
+  String get twoFaActivatePrompt => _strings.twoFaActivatePrompt;
+  @override
+  String get twoFaIncorrectCode => _strings.twoFaIncorrectCode;
+  @override
+  String get twoFaEnterPasswordDisable => _strings.twoFaEnterPasswordDisable;
+  @override
+  String get incorrectPassword => _strings.incorrectPassword;
+  @override
+  String get howDoesItWork => _strings.howDoesItWork;
+  @override
+  String get installAuthApp => _strings.installAuthApp;
+  @override
+  String get sessionRequirement2fa => _strings.sessionRequirement2fa;
+  @override
+  String get openAuthAppPrompt => _strings.openAuthAppPrompt;
+  @override
+  String get manualKeyPrompt => _strings.manualKeyPrompt;
+  @override
+  String get active2faInfo => _strings.active2faInfo;
+  @override
+  String get currentPassword => _strings.currentPassword;
+  @override
+  String get saveCodesWarning => _strings.saveCodesWarning;
+
+  @override
   String get nutrition => _strings.nutrition;
   @override
   String get transport => _strings.transport;
   @override
   String get leisure => _strings.leisure;
+  @override
+  String get salary => _strings.salary;
   @override
   String get health => _strings.health;
   @override
@@ -539,6 +672,14 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get biometricNotAvailable => _strings.biometricNotAvailable;
   @override
+  String get notAvailable => _strings.notAvailable;
+  @override
+  String get biometricFaceId => _strings.biometricFaceId;
+  @override
+  String get biometricFingerprint => _strings.biometricFingerprint;
+  @override
+  String get biometricGeneric => _strings.biometricGeneric;
+  @override
   String get biometricDescription => _strings.biometricDescription;
   @override
   String get disableBiometric => _strings.disableBiometric;
@@ -594,6 +735,8 @@ class AppLocalizations extends AppStringsBase {
   String get transactionType => _strings.transactionType;
   @override
   String get selectCategory => _strings.selectCategory;
+  @override
+  String get selectACategory => _strings.selectACategory;
   @override
   String get note => _strings.note;
   @override
@@ -730,6 +873,357 @@ class AppLocalizations extends AppStringsBase {
   String get rightOfRectificationDesc => _strings.rightOfRectificationDesc;
 
   @override
+  String get cashMoney => _strings.cashMoney;
+  @override
+  String get howMuchCash => _strings.howMuchCash;
+  @override
+  String get cashSetupInfo => _strings.cashSetupInfo;
+  @override
+  String get transactionBalance => _strings.transactionBalance;
+  @override
+  String get realData => _strings.realData;
+  @override
+  String get bankAccounts => _strings.bankAccounts;
+  @override
+  String get availableBalance => _strings.availableBalance;
+  @override
+  String get ibanLabel => _strings.ibanLabel;
+  @override
+  String get synchronized => _strings.synchronized;
+
+  @override
+  String get connectionError => _strings.connectionError;
+  @override
+  String get disconnectedAccessRevoked => _strings.disconnectedAccessRevoked;
+  @override
+  String get accountDisconnectedAccessRevoked =>
+      _strings.accountDisconnectedAccessRevoked;
+  @override
+  String get accountsErrorPrefix => _strings.accountsErrorPrefix;
+  @override
+  String psd2ExpiryMsg(int days) => _strings.psd2ExpiryMsg(days);
+  @override
+  String get syncCompleteNoNews => _strings.syncCompleteNoNews;
+  @override
+  String get bankSessionExpired => _strings.bankSessionExpired;
+  @override
+  String get bankSessionExpiredMsg => _strings.bankSessionExpiredMsg;
+  @override
+  String get bankReconnectInfo => _strings.bankReconnectInfo;
+  @override
+  String get notNow => _strings.notNow;
+  @override
+  String get reconnect => _strings.reconnect;
+
+  @override
+  String get securityTitle => _strings.securityTitle;
+  @override
+  String get changePasswordHeading => _strings.changePasswordHeading;
+  @override
+  String get passwordRequirementsInfo => _strings.passwordRequirementsInfo;
+  @override
+  String get currentPasswordLabel => _strings.currentPasswordLabel;
+  @override
+  String get enterCurrentPasswordError => _strings.enterCurrentPasswordError;
+  @override
+  String get newPasswordLabel => _strings.newPasswordLabel;
+  @override
+  String get minCharactersError => _strings.minCharactersError;
+  @override
+  String get confirmNewPasswordLabel => _strings.confirmNewPasswordLabel;
+  @override
+  String get passwordsDoNotMatchError => _strings.passwordsDoNotMatchError;
+  @override
+  String get passwordUpdatedMsg => _strings.passwordUpdatedMsg;
+  @override
+  String get incorrectCurrentPasswordMsg =>
+      _strings.incorrectCurrentPasswordMsg;
+  @override
+  String get changePasswordErrorMsg => _strings.changePasswordErrorMsg;
+  @override
+  String get updatePasswordButton => _strings.updatePasswordButton;
+
+  @override
+  String get editProfileTitle => _strings.editProfileTitle;
+  @override
+  String get publicInfoHeading => _strings.publicInfoHeading;
+  @override
+  String get fullNameLabel => _strings.fullNameLabel;
+  @override
+  String get nameRequiredError => _strings.nameRequiredError;
+  @override
+  String get profileUpdatedMsg => _strings.profileUpdatedMsg;
+  @override
+  String get profileUpdateErrorMsg => _strings.profileUpdateErrorMsg;
+
+  @override
+  String get exportDataTitle => _strings.exportDataTitle;
+  @override
+  String get exportCsvTitle => _strings.exportCsvTitle;
+  @override
+  String get exportCsvSubtitle => _strings.exportCsvSubtitle;
+  @override
+  String get dateRangeLabel => _strings.dateRangeLabel;
+  @override
+  String get fromLabel => _strings.fromLabel;
+  @override
+  String get toLabel => _strings.toLabel;
+  @override
+  String get allTypeLabel => _strings.allTypeLabel;
+  @override
+  String get generatingLabel => _strings.generatingLabel;
+  @override
+  String get exportAndShareCsv => _strings.exportAndShareCsv;
+  @override
+  String get exportPdfTitle => _strings.exportPdfTitle;
+  @override
+  String get exportPdfSubtitle => _strings.exportPdfSubtitle;
+  @override
+  String get periodLabel => _strings.periodLabel;
+  @override
+  String get periodMonth => _strings.periodMonth;
+  @override
+  String get periodYear => _strings.periodYear;
+  @override
+  String get periodCustom => _strings.periodCustom;
+  @override
+  String get yearLabel => _strings.yearLabel;
+  @override
+  String get monthLabel => _strings.monthLabel;
+  @override
+  String get generateAndSharePdf => _strings.generateAndSharePdf;
+  @override
+  String get pdfFinancialReport => _strings.pdfFinancialReport;
+  @override
+  String get pdfGeneratedAt => _strings.pdfGeneratedAt;
+  @override
+  String get pdfExecutiveSummary => _strings.pdfExecutiveSummary;
+  @override
+  String get pdfExpensesByCategory => _strings.pdfExpensesByCategory;
+  @override
+  String get pdfPeriodTransactions => _strings.pdfPeriodTransactions;
+  @override
+  String get pdfFooter => _strings.pdfFooter;
+  @override
+  String get pdfDescription => _strings.pdfDescription;
+  @override
+  String get errorExportCsv => _strings.errorExportCsv;
+  @override
+  String get errorGeneratePdf => _strings.errorGeneratePdf;
+  @override
+  List<String> get monthNames => _strings.monthNames;
+
+  @override
+  String get notificationsTitle => _strings.notificationsTitle;
+  @override
+  String get settingsSavedMsg => _strings.settingsSavedMsg;
+  @override
+  String errorSavingSettingsMsg(String error) =>
+      _strings.errorSavingSettingsMsg(error);
+  @override
+  String get notificationsPermissionInfo =>
+      _strings.notificationsPermissionInfo;
+  @override
+  String get notificationTypesSection => _strings.notificationTypesSection;
+  @override
+  String get newTransactionsTitle => _strings.newTransactionsTitle;
+  @override
+  String get newTransactionsSubtitle => _strings.newTransactionsSubtitle;
+  @override
+  String get budgetAlertsTitle => _strings.budgetAlertsTitle;
+  @override
+  String get budgetAlertsSubtitle => _strings.budgetAlertsSubtitle;
+  @override
+  String get goalProgressTitle => _strings.goalProgressTitle;
+  @override
+  String get goalProgressSubtitle => _strings.goalProgressSubtitle;
+  @override
+  String get filtersSection => _strings.filtersSection;
+  @override
+  String get minAmountTitle => _strings.minAmountTitle;
+  @override
+  String get minAmountSubtitle => _strings.minAmountSubtitle;
+  @override
+  String get noLimitLabel => _strings.noLimitLabel;
+  @override
+  String get quietHoursSection => _strings.quietHoursSection;
+  @override
+  String get quietHoursTitle => _strings.quietHoursTitle;
+  @override
+  String get quietHoursSubtitle => _strings.quietHoursSubtitle;
+  @override
+  String get startLabel => _strings.startLabel;
+  @override
+  String get endLabel => _strings.endLabel;
+  @override
+  String toggleStatusSemantics(String title, bool value) =>
+      _strings.toggleStatusSemantics(title, value);
+
+  @override
+  String get skipButton => _strings.skipButton;
+  @override
+  String get nextButton => _strings.nextButton;
+  @override
+  String get startNowButton => _strings.startNowButton;
+  @override
+  String get skipIntroductionSemantics => _strings.skipIntroductionSemantics;
+  @override
+  String get onboardingStep1Title => _strings.onboardingStep1Title;
+  @override
+  String get onboardingStep1Subtitle => _strings.onboardingStep1Subtitle;
+  @override
+  String get onboardingStep1Description => _strings.onboardingStep1Description;
+  @override
+  String get onboardingStep2Title => _strings.onboardingStep2Title;
+  @override
+  String get onboardingStep2Subtitle => _strings.onboardingStep2Subtitle;
+  @override
+  String get onboardingStep2Description => _strings.onboardingStep2Description;
+  @override
+  String get onboardingStep3Title => _strings.onboardingStep3Title;
+  @override
+  String get onboardingStep3Subtitle => _strings.onboardingStep3Subtitle;
+  @override
+  String get onboardingStep3Description => _strings.onboardingStep3Description;
+  @override
+  String get onboardingStep4Title => _strings.onboardingStep4Title;
+  @override
+  String get onboardingStep4Subtitle => _strings.onboardingStep4Subtitle;
+  @override
+  String get onboardingStep4Description => _strings.onboardingStep4Description;
+
+  @override
+  String get transactionsTitle => _strings.transactionsTitle;
+  @override
+  String get searchHint => _strings.searchHint;
+  @override
+  String get resultsCount => _strings.resultsCount;
+  @override
+  String get resultCount => _strings.resultCount;
+  @override
+  String get filterAll => _strings.filterAll;
+  @override
+  String get filterExpenses => _strings.filterExpenses;
+  @override
+  String get filterIncomes => _strings.filterIncomes;
+  @override
+  String get clearFilters => _strings.clearFilters;
+
+  @override
+  String accountFilterLabel(String name) => _strings.accountFilterLabel(name);
+
+  @override
+  String dateGroupLabel(int day, String month) =>
+      _strings.dateGroupLabel(day, month);
+
+  @override
+  String get advancedFiltersTitle => _strings.advancedFiltersTitle;
+  @override
+  String get selectDate => _strings.selectDate;
+  @override
+  String get paymentMethodLabel => _strings.paymentMethodLabel;
+  @override
+  String get applyFilters => _strings.applyFilters;
+  @override
+  String get noTransactionsYet => _strings.noTransactionsYet;
+  @override
+  String get registerFirstTransaction => _strings.registerFirstTransaction;
+  @override
+  String get noResultsFound => _strings.noResultsFound;
+
+  @override
+  String noResultsMatching(String query) => _strings.noResultsMatching(query);
+
+  @override
+  String get noResultsWithFilters => _strings.noResultsWithFilters;
+  @override
+  String get transactionDeleted => _strings.transactionDeleted;
+  @override
+  String get undo => _strings.undo;
+  @override
+  String get deleteConfirmTitle => _strings.deleteConfirmTitle;
+  @override
+  String get deleteConfirmContent => _strings.deleteConfirmContent;
+  @override
+  String get pendingSync => _strings.pendingSync;
+  @override
+  String get moreItems => _strings.moreItems;
+
+  @override
+  String transactionSemantics({
+    required bool isExpense,
+    required String category,
+    required String amount,
+    required String? description,
+    required String date,
+    required bool pending,
+  }) => _strings.transactionSemantics(
+    isExpense: isExpense,
+    category: category,
+    amount: amount,
+    description: description,
+    date: date,
+    pending: pending,
+  );
+
+  @override
+  String newLabel(int count) => _strings.newLabel(count);
+  @override
+  String transactionCountLabel(int count) =>
+      _strings.transactionCountLabel(count);
+  @override
+  String connectedLabel(int count) => _strings.connectedLabel(count);
+
+  @override
+  String get syncPsd2Info => _strings.syncPsd2Info;
+  @override
+  String get connectAccount => _strings.connectAccount;
+  @override
+  String get noConnectedAccounts => _strings.noConnectedAccounts;
+  @override
+  String get connectBankForSync => _strings.connectBankForSync;
+  @override
+  String get totalBankBalance => _strings.totalBankBalance;
+  @override
+  String get disconnectBank => _strings.disconnectBank;
+  @override
+  String get disconnectWarningTitle => _strings.disconnectWarningTitle;
+  @override
+  String get disconnectHistoryKept => _strings.disconnectHistoryKept;
+  @override
+  String get disconnectSyncStop => _strings.disconnectSyncStop;
+  @override
+  String get disconnectRevokeAccess => _strings.disconnectRevokeAccess;
+
+  @override
+  String get usageByPaymentMethod => _strings.usageByPaymentMethod;
+  @override
+  String get importingTransactions => _strings.importingTransactions;
+  @override
+  String get syncingPsd2 => _strings.syncingPsd2;
+  @override
+  String get justNow => _strings.justNow;
+  @override
+  String agoDays(int days) => _strings.agoDays(days);
+  @override
+  String agoMins(int min) => _strings.agoMins(min);
+  @override
+  String agoHours(int hour) => _strings.agoHours(hour);
+  @override
+  String get lastSync => _strings.lastSync;
+  @override
+  String get synchronize => _strings.synchronize;
+  @override
+  String get viewTransactions => _strings.viewTransactions;
+  @override
+  String get editCards => _strings.editCards;
+
+  @override
+  String get noCardsAdd => _strings.noCardsAdd;
+  @override
+  String get exampleCardName => _strings.exampleCardName;
+
+  @override
   String get assistantOnlineStatus => _strings.assistantOnlineStatus;
   @override
   String get pinchToZoom => _strings.pinchToZoom;
@@ -750,6 +1244,8 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get balanceAfterPurchase => _strings.balanceAfterPurchase;
   @override
+  String get exampleOfDescription => _strings.exampleOfDescription;
+  @override
   String get monthlySurplusLabel => _strings.monthlySurplusLabel;
   @override
   String get couldSaveIn => _strings.couldSaveIn;
@@ -769,6 +1265,183 @@ class AppLocalizations extends AppStringsBase {
   String get subtitleFinn => _strings.subtitleFinn;
   @override
   String get lastTransactions => _strings.lastTransactions;
+  @override
+  String get noLinkedAccounts => _strings.noLinkedAccounts;
+  @override
+  String get cardBankAccount => _strings.cardBankAccount;
+  @override
+  String get noCardsInAccount => _strings.noCardsInAccount;
+  @override
+  String get selectCardOptional => _strings.selectCardOptional;
+  @override
+  String get receiptPhoto => _strings.receiptPhoto;
+  @override
+  String get addReceiptPhoto => _strings.addReceiptPhoto;
+  @override
+  String get change => _strings.change;
+  @override
+  String get transactionRecorded => _strings.transactionRecorded;
+  @override
+  String get saveTransaction => _strings.saveTransaction;
+
+  @override
+  String get paymentCash => _strings.paymentCash;
+  @override
+  String get paymentDebit => _strings.paymentDebit;
+  @override
+  String get paymentCredit => _strings.paymentCredit;
+  @override
+  String get paymentPrepaid => _strings.paymentPrepaid;
+  @override
+  String get paymentTransfer => _strings.paymentTransfer;
+  @override
+  String get paymentDirectDebit => _strings.paymentDirectDebit;
+  @override
+  String get paymentCheque => _strings.paymentCheque;
+  @override
+  String get paymentVoucher => _strings.paymentVoucher;
+  @override
+  String get paymentCrypto => _strings.paymentCrypto;
+
+  @override
+  String get aiPredictionsTitle => _strings.aiPredictionsTitle;
+  @override
+  String get tabPrediction => _strings.tabPrediction;
+  @override
+  String get tabSavings => _strings.tabSavings;
+  @override
+  String get tabAnomalies => _strings.tabAnomalies;
+  @override
+  String get tabSubscriptions => _strings.tabSubscriptions;
+  @override
+  String get aiEmptyDataTitle => _strings.aiEmptyDataTitle;
+  @override
+  String get aiEmptyDataSubtitle => _strings.aiEmptyDataSubtitle;
+  @override
+  String get aiPredictionVsLastMonth => _strings.aiPredictionVsLastMonth;
+  @override
+  String get aiPreviousMonth => _strings.aiPreviousMonth;
+  @override
+  String get aiTrendIncreasing => _strings.aiTrendIncreasing;
+  @override
+  String get aiTrendDecreasing => _strings.aiTrendDecreasing;
+  @override
+  String get aiTrendStable => _strings.aiTrendStable;
+  @override
+  String get aiNextMonthPrediction => _strings.aiNextMonthPrediction;
+  @override
+  String aiRangeLabel(String min, String max) =>
+      _strings.aiRangeLabel(min, max);
+  @override
+  String aiPreviousMonthLabel(String amount) =>
+      _strings.aiPreviousMonthLabel(amount);
+  @override
+  String aiHistoryMonths(int count) => _strings.aiHistoryMonths(count);
+  @override
+  String aiModelsLabel(String models) => _strings.aiModelsLabel(models);
+  @override
+  String aiAnalyzedMonths(int count) => _strings.aiAnalyzedMonths(count);
+  @override
+  String get aiConfidenceLevel => _strings.aiConfidenceLevel;
+  @override
+  String get aiSavingsNoData => _strings.aiSavingsNoData;
+  @override
+  String get aiSavingsExcellentTitle => _strings.aiSavingsExcellentTitle;
+  @override
+  String get aiSavingsExcellentSubtitle => _strings.aiSavingsExcellentSubtitle;
+  @override
+  String get aiImprovementAreas => _strings.aiImprovementAreas;
+  @override
+  String get aiFinancialHealth => _strings.aiFinancialHealth;
+  @override
+  String get aiAvgIncome => _strings.aiAvgIncome;
+  @override
+  String get aiAvgExpense => _strings.aiAvgExpense;
+  @override
+  String get aiSavingsCapacity => _strings.aiSavingsCapacity;
+  @override
+  String get aiSavingsPotential => _strings.aiSavingsPotential;
+  @override
+  String get aiCurrent => _strings.aiCurrent;
+  @override
+  String get aiSuggested => _strings.aiSuggested;
+  @override
+  String get aiNoAnomaliesTitle => _strings.aiNoAnomaliesTitle;
+  @override
+  String get aiNoAnomaliesSubtitle => _strings.aiNoAnomaliesSubtitle;
+  @override
+  String get aiUnusualExpensesDetected => _strings.aiUnusualExpensesDetected;
+  @override
+  String get aiAnomaliesSummary => _strings.aiAnomaliesSummary;
+  @override
+  String get aiHighSeverity => _strings.aiHighSeverity;
+  @override
+  String get aiAnalyzedCategories => _strings.aiAnalyzedCategories;
+  @override
+  String get aiAnomalyExplanation => _strings.aiAnomalyExplanation;
+  @override
+  String aiNormalAverage(String amount) => _strings.aiNormalAverage(amount);
+  @override
+  String get aiNoSubscriptionsTitle => _strings.aiNoSubscriptionsTitle;
+  @override
+  String get aiNoSubscriptionsSubtitle => _strings.aiNoSubscriptionsSubtitle;
+  @override
+  String get aiRecurringExpensesDetected =>
+      _strings.aiRecurringExpensesDetected;
+  @override
+  String aiAnnualCost(String amount) => _strings.aiAnnualCost(amount);
+  @override
+  String aiDetectedCount(int count) => _strings.aiDetectedCount(count);
+  @override
+  String get aiUpcomingCharges => _strings.aiUpcomingCharges;
+  @override
+  String get aiActiveSubscriptions => _strings.aiActiveSubscriptions;
+  @override
+  String aiOccurrences(int count) => _strings.aiOccurrences(count);
+  @override
+  String get aiNextCharge => _strings.aiNextCharge;
+  @override
+  String get aiPeriodWeekly => _strings.aiPeriodWeekly;
+  @override
+  String get aiPeriodMonthly => _strings.aiPeriodMonthly;
+  @override
+  String get aiPeriodQuarterly => _strings.aiPeriodQuarterly;
+  @override
+  String get aiPeriodAnnual => _strings.aiPeriodAnnual;
+  @override
+  String get aiErrorLoading => _strings.aiErrorLoading;
+  @override
+  String get aiServiceUnavailable => _strings.aiServiceUnavailable;
+  @override
+  String get aiCurrentLabel => _strings.aiCurrentLabel;
+  @override
+  String get aiSuggestedLabel => _strings.aiSuggestedLabel;
+  @override
+  String aiRecommendationSemantics(String category, String message) =>
+      _strings.aiRecommendationSemantics(category, message);
+
+  @override
+  String get pmDebitCard => _strings.pmDebitCard;
+  @override
+  String get pmCreditCard => _strings.pmCreditCard;
+  @override
+  String get pmPrepaidCard => _strings.pmPrepaidCard;
+  @override
+  String get pmCard => _strings.pmCard;
+  @override
+  String get pmBankTransfer => _strings.pmBankTransfer;
+  @override
+  String get pmTransfer => _strings.pmTransfer;
+  @override
+  String get pmSepa => _strings.pmSepa;
+  @override
+  String get pmWire => _strings.pmWire;
+  @override
+  String get pmDirectDebit => _strings.pmDirectDebit;
+  @override
+  String get pmVoucher => _strings.pmVoucher;
+  @override
+  String get pmCrypto => _strings.pmCrypto;
 
   @override
   String get selectAccounts => _strings.selectAccounts;

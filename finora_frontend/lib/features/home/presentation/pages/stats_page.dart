@@ -500,7 +500,7 @@ class _StatsPageState extends State<StatsPage>
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Semantics(
-                label: 'Período ${p.getLabel(s)}',
+                label: '${s.period} ${p.getLabel(s)}',
                 selected: isSel,
                 button: true,
                 child: GestureDetector(
@@ -1041,7 +1041,9 @@ class _StatsPageState extends State<StatsPage>
                             tooltipRoundedRadius: 8,
                             getTooltipItem: (group, _, rod, rodIdx) {
                               final d = months[group.x.toInt()];
-                              final label = rodIdx == 0 ? 'Ingresos' : 'Gastos';
+                              final label = rodIdx == 0
+                                  ? s.incomes
+                                  : s.expenses;
                               return BarTooltipItem(
                                 '${_months[d.month.month - 1]} ${d.month.year}\n'
                                 '$label: ${_fmtCurrency(rod.toY)}',
@@ -1153,7 +1155,7 @@ class _StatsPageState extends State<StatsPage>
                   child: TextButton.icon(
                     onPressed: _resetLineZoom,
                     icon: const Icon(Icons.zoom_out_map_rounded, size: 16),
-                    label: const Text('Restablecer'),
+                    label: Text(s.reset),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(

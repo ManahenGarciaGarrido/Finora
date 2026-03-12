@@ -128,7 +128,7 @@ services:
       EMAIL_FROM: noreply@finora.com
 
       # ── URLs ─────────────────────────────────────────────────────────────
-      APP_URL: http://10.77.13.29:3000
+      APP_URL: http://192.168.100.88:3000
       FRONTEND_URL: http://localhost:8080
       ALLOWED_ORIGINS: "*"
 

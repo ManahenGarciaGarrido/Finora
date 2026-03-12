@@ -14,7 +14,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/services/ai_service.dart';
 
-// Paleta del asistente
 const _kAssistantColor = Color(0xFF6C63FF);
 const _kAssistantSoft = Color(0xFFF0EFFE);
 
@@ -36,40 +35,28 @@ class _AssistantPageState extends State<AssistantPage>
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
 
-  // HU-12: historial para contexto
   final List<Map<String, String>> _history = [];
-
-  // RF-27: recomendaciones cargadas bajo demanda
   bool _loadingRecs = false;
-
-  // Preguntas sugeridas (CU-04: "Sugerencias de preguntas frecuentes")
-  static const _suggestions = [
-    '¿Cuánto gasté este mes?',
-    '¿En qué categoría gasto más?',
-    '¿Cómo van mis objetivos de ahorro?',
-    '¿Puedo comprar un portátil de 800€?',
-    'Dame consejos para ahorrar',
-    '¿Cuál es mi saldo actual?',
-  ];
 
   @override
   void initState() {
     super.initState();
-    // Mensaje de bienvenida inicial
-    _messages.add(
-      ChatMessage(
-        id: 'welcome',
-        content:
-            '¡Hola! Soy **Finn**, tu asistente financiero de Finora.\n\n'
-            'Puedo ayudarte a entender tus finanzas, analizar tus gastos '
-            'y responder preguntas como *"¿cuánto gasté este mes?"* o '
-            '*"¿puedo permitirme un viaje de 500€?"*.\n\n'
-            '¿En qué puedo ayudarte hoy?',
-        isUser: false,
-        timestamp: DateTime.now(),
-        intent: 'general',
-      ),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final s = AppLocalizations.of(context);
+        setState(() {
+          _messages.add(
+            ChatMessage(
+              id: 'welcome',
+              content: s.finnWelcomeMessage,
+              isUser: false,
+              timestamp: DateTime.now(),
+              intent: 'general',
+            ),
+          );
+        });
+      }
+    });
   }
 
   @override
@@ -80,10 +67,23 @@ class _AssistantPageState extends State<AssistantPage>
     super.dispose();
   }
 
+  List<String> _getLocalizedSuggestions() {
+    final s = AppLocalizations.of(context);
+    return [
+      s.suggestionSpentMonth,
+      s.suggestionTopCategory,
+      s.suggestionGoalsProgress,
+      s.suggestionAffordabilityExample,
+      s.suggestionSavingTips,
+      s.suggestionCurrentBalance,
+    ];
+  }
+
   Future<void> _sendMessage(String text) async {
     final msg = text.trim();
     if (msg.isEmpty || _isTyping) return;
 
+    final s = AppLocalizations.of(context);
     _inputController.clear();
     setState(() {
       _messages.add(ChatMessage.user(msg));
@@ -91,9 +91,8 @@ class _AssistantPageState extends State<AssistantPage>
     });
     _scrollToBottom();
 
-    // Detectar si es una pregunta de affordability
     final lowerMsg = msg.toLowerCase();
-    final isAffordability = _kAffordabilityKeywords.any(lowerMsg.contains);
+    final isAffordability = s.affordabilityKeywords.any(lowerMsg.contains);
 
     try {
       ChatMessage response;
@@ -111,10 +110,8 @@ class _AssistantPageState extends State<AssistantPage>
         response = await _aiService.chatWithAssistant(msg, history: _history);
       }
 
-      // HU-12: mantener historial de conversación
       _history.add({'role': 'user', 'content': msg});
       _history.add({'role': 'assistant', 'content': response.content});
-      // Limitar historial a últimas 10 interacciones (5 pares)
       if (_history.length > 20) {
         _history.removeRange(0, 2);
       }
@@ -132,7 +129,7 @@ class _AssistantPageState extends State<AssistantPage>
           _messages.add(
             ChatMessage(
               id: DateTime.now().millisecondsSinceEpoch.toString(),
-              content: AppLocalizations.of(context).assistantConnectionError,
+              content: s.assistantConnectionError,
               isUser: false,
               timestamp: DateTime.now(),
               intent: 'error',
@@ -145,29 +142,17 @@ class _AssistantPageState extends State<AssistantPage>
     }
   }
 
-  static const _kAffordabilityKeywords = [
-    'puedo comprar',
-    'puedo permitir',
-    'me puedo',
-    'puedo pagar',
-    'puedo darme',
-    'puedo costear',
-    'tengo para',
-    'me alcanza',
-  ];
-
   Future<void> _loadRecommendations() async {
     if (_loadingRecs) return;
     setState(() => _loadingRecs = true);
     try {
       final result = await _aiService.getRecommendations(months: 3);
       if (mounted) {
+        final recSummary = _buildRecsMessage(result);
         setState(() {
           _loadingRecs = false;
+          _messages.add(recSummary);
         });
-        // Añadir mensaje con resumen de recomendaciones al chat
-        final recSummary = _buildRecsMessage(result);
-        setState(() => _messages.add(recSummary));
         _scrollToBottom();
       }
     } catch (e) {
@@ -176,19 +161,14 @@ class _AssistantPageState extends State<AssistantPage>
   }
 
   ChatMessage _buildRecsMessage(RecommendationsResult result) {
+    final s = AppLocalizations.of(context);
     final sb = StringBuffer();
-    sb.writeln('Aquí tienes tus recomendaciones de optimización financiera:');
+    sb.writeln(s.aiRecsHeader);
     if (result.recommendations.isEmpty) {
-      sb.writeln(
-        '\n✅ ¡Tus finanzas están bien equilibradas! No tengo recomendaciones urgentes.',
-      );
+      sb.writeln(s.aiRecsBalanced);
     } else {
-      sb.writeln(
-        '\n📊 **Puntuación financiera: ${result.financialScore}/100**',
-      );
-      sb.writeln(
-        '💰 Ahorro potencial: ${_fmt(result.totalPotentialSaving)}/mes\n',
-      );
+      sb.writeln(s.aiFinancialScore(result.financialScore));
+      sb.writeln(s.aiPotentialSavingMonthly(_fmt(result.totalPotentialSaving)));
       for (int i = 0; i < result.recommendations.length && i < 5; i++) {
         final r = result.recommendations[i];
         final emoji = r.priority == 'high' ? '🔴' : '🟡';
@@ -235,6 +215,7 @@ class _AssistantPageState extends State<AssistantPage>
   }
 
   PreferredSizeWidget _buildAppBar() {
+    final s = AppLocalizations.of(context);
     return AppBar(
       backgroundColor: AppColors.white,
       elevation: 0,
@@ -275,7 +256,7 @@ class _AssistantPageState extends State<AssistantPage>
                 ),
               ),
               Text(
-                AppLocalizations.of(context).assistantOnlineStatus,
+                s.assistantOnlineStatus,
                 style: AppTypography.labelSmall(color: AppColors.success),
               ),
             ],
@@ -283,7 +264,6 @@ class _AssistantPageState extends State<AssistantPage>
         ],
       ),
       actions: [
-        // RF-27: botón para cargar recomendaciones
         IconButton(
           icon: _loadingRecs
               ? const SizedBox(
@@ -298,7 +278,7 @@ class _AssistantPageState extends State<AssistantPage>
                   Icons.lightbulb_outline_rounded,
                   color: _kAssistantColor,
                 ),
-          tooltip: AppLocalizations.of(context).seeRecommendations,
+          tooltip: s.seeRecommendations,
           onPressed: _loadingRecs ? null : _loadRecommendations,
         ),
       ],
@@ -311,7 +291,6 @@ class _AssistantPageState extends State<AssistantPage>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: _messages.length + ((_messages.length == 1) ? 1 : 0),
       itemBuilder: (context, index) {
-        // Mostrar sugerencias después del mensaje de bienvenida
         if (_messages.length == 1 && index == 1) {
           return _buildSuggestionChips();
         }
@@ -321,12 +300,13 @@ class _AssistantPageState extends State<AssistantPage>
   }
 
   Widget _buildSuggestionChips() {
+    final suggestions = _getLocalizedSuggestions();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: _suggestions.map((s) {
+        children: suggestions.map((s) {
           return InkWell(
             onTap: () => _sendMessage(s),
             borderRadius: BorderRadius.circular(20),
@@ -449,7 +429,6 @@ class _AssistantPageState extends State<AssistantPage>
                   ),
                   child: _buildMessageContent(message),
                 ),
-                // Tarjeta de affordability si aplica
                 if (message.affordabilityResult != null)
                   _buildAffordabilityCard(message.affordabilityResult!),
               ],
@@ -461,7 +440,6 @@ class _AssistantPageState extends State<AssistantPage>
   }
 
   Widget _buildMessageContent(ChatMessage message) {
-    // Renderizado simple de markdown básico (bold **)
     final text = message.content;
     final spans = <TextSpan>[];
     final parts = text.split('**');
@@ -476,7 +454,6 @@ class _AssistantPageState extends State<AssistantPage>
           ),
         );
       } else {
-        // Manejar cursiva (*texto*)
         final italicParts = parts[i].split('*');
         for (int j = 0; j < italicParts.length; j++) {
           spans.add(
@@ -525,7 +502,6 @@ class _AssistantPageState extends State<AssistantPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Veredicto
           Row(
             children: [
               Icon(verdictIcon, color: verdictColor, size: 22),
@@ -542,7 +518,6 @@ class _AssistantPageState extends State<AssistantPage>
             ],
           ),
           const SizedBox(height: 12),
-          // Métricas clave
           _affordabilityRow(
             s.availableBalanceLabel,
             _fmt(result.availableBalance),
@@ -560,10 +535,9 @@ class _AssistantPageState extends State<AssistantPage>
           if (result.monthsToSave != null)
             _affordabilityRow(
               s.couldSaveIn,
-              '${result.monthsToSave} mes(es)',
+              '${result.monthsToSave} ${s.monthCountLabel(result.monthsToSave!)}',
               valueColor: AppColors.primary,
             ),
-          // Impacto en objetivos
           if (result.impactOnGoals.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -576,7 +550,7 @@ class _AssistantPageState extends State<AssistantPage>
               (g) => _affordabilityRow(
                 g.goalName,
                 g.monthsDelayed > 0
-                    ? "+${g.monthsDelayed} mes(es)"
+                    ? "+${g.monthsDelayed} ${s.monthCountLabel(g.monthsDelayed)}"
                     : s.noImpactLabel,
                 valueColor: g.monthsDelayed > 0
                     ? AppColors.warning
@@ -584,7 +558,6 @@ class _AssistantPageState extends State<AssistantPage>
               ),
             ),
           ],
-          // Alternativas
           if (result.alternatives.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -642,7 +615,6 @@ class _AssistantPageState extends State<AssistantPage>
     );
   }
 
-  // HU-12: Typing indicator mientras IA procesa
   Widget _buildTypingIndicator() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
@@ -679,6 +651,7 @@ class _AssistantPageState extends State<AssistantPage>
   }
 
   Widget _buildInputArea() {
+    final s = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -709,7 +682,7 @@ class _AssistantPageState extends State<AssistantPage>
                 minLines: 1,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText: AppLocalizations.of(context).typeYourQuestion,
+                  hintText: s.typeYourQuestion,
                   hintStyle: AppTypography.bodyMedium(color: AppColors.gray400),
                   filled: true,
                   fillColor: AppColors.backgroundLight,
@@ -726,7 +699,6 @@ class _AssistantPageState extends State<AssistantPage>
               ),
             ),
             const SizedBox(width: 8),
-            // Botón de enviar
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 48,
@@ -763,8 +735,6 @@ class _AssistantPageState extends State<AssistantPage>
   }
 }
 
-// ─── Typing dots animation (HU-12: typing indicator) ─────────────────────────
-
 class _TypingDots extends StatefulWidget {
   @override
   State<_TypingDots> createState() => _TypingDotsState();
@@ -791,7 +761,6 @@ class _TypingDotsState extends State<_TypingDots>
       ).animate(CurvedAnimation(parent: c, curve: Curves.easeInOut));
     }).toList();
 
-    // Escalonar el inicio de cada dot
     for (int i = 0; i < 3; i++) {
       Future.delayed(Duration(milliseconds: i * 150), () {
         if (mounted) _controllers[i].repeat(reverse: true);
