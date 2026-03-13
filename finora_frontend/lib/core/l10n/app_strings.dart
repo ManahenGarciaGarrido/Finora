@@ -327,11 +327,40 @@ abstract class AppStringsBase {
   String get noAccountYet;
   String get emailHint;
 
+  // ── Reset Password ─────────────────────────────────────────────────────────
+  String get resetPasswordTitle;
+  String get resetPasswordSubtitle;
+  String get newPasswordLabel;
+  String get confirmPasswordLabel;
+  String get confirmPasswordRequired;
+  String get resetPasswordButton;
+  String get successTitle;
+  String get passwordRequirementsHeader;
+
+  // ── Contenido Legal: Términos y Condiciones ────────────────────────────────
+  String get termsSection1Title;
+  String get termsSection1Body;
+  String get termsSection2Title;
+  String get termsSection2Body;
+  String get termsSection3Title;
+  String get termsSection3Body;
+  String get termsSection4Title;
+  String get termsSection4Body;
+  String get termsSection5Title;
+  String get termsSection5Body;
+  String get termsSection6Title;
+  String get termsSection6Body;
+  String get termsSection7Title;
+  String get termsSection7Body;
+
+  // ── Contenido Legal: Privacidad ────────────────────────────────────────────
+  String get privacyPolicyContact;
+  String get gdprComplianceFull;
+
   // ── Registro ───────────────────────────────────────────────────────────────
   String get fullName;
   String get nameRequired;
   String get nameHint;
-  String get confirmPasswordRequired;
   String get passwordsDoNotMatch;
   String get alreadyHaveAccount;
   String get passwordMinLength;
@@ -434,7 +463,68 @@ abstract class AppStringsBase {
   String get termsOfService;
   String get dataConsent;
   String get deleteAccount;
+  String get deleteAllData;
   String get downloadData;
+
+  // ── Registro (RF-01) ───────────────────────────────────────────────────────
+  String get registerTitle;
+  String get registerSubtitle;
+  String get nameTooShort;
+  String get passwordTooShort;
+  String get passwordUppercase;
+  String get passwordNumber;
+  String get passwordSpecial;
+  String get passwordsDontMatch;
+  String get acceptTermsPrivacyError;
+  String get registerSuccessTitle;
+  String get verificationEmailSent;
+  String get checkInboxVerify;
+  String get verificationWarning;
+  String get goToLogin;
+  String get fullNameLabel;
+  String get fullNameHint;
+  String get passwordStrengthVeryWeak;
+  String get passwordStrengthWeak;
+  String get passwordStrengthMedium;
+  String get passwordStrengthStrong;
+  String get reqChars;
+  String get reqUpper;
+  String get reqNumber;
+  String get reqSpecial;
+  String get acceptTermsPart1;
+  String get termsAndConditions;
+  String get acceptPrivacyPart1;
+  String get loginLink;
+  String get requiredBadge;
+  String get consentManagementTitle;
+  String get consentDescription;
+  String get essentialDataTitle;
+  String get essentialDataDesc;
+  String get dataProcessingTitle;
+  String get dataProcessingDesc;
+  String get analyticsTitle;
+  String get analyticsDesc;
+  String get marketingTitle;
+  String get marketingDesc;
+  String get thirdPartyTitle;
+  String get thirdPartyDesc;
+  String get personalizationTitle;
+  String get personalizationDesc;
+  String get policySummaryTitle;
+  String get gdprComplianceText;
+  String get lastUpdateText;
+  String get acceptTermsButton;
+  String get acceptPrivacyButton;
+
+  // ── Forgot Password ────────────────────────────────────────────────────────
+  String get forgotPasswordTitle;
+  String get forgotPasswordSubtitle;
+  String get emailLabel;
+  String get invalidEmail;
+  String get sendLink;
+  String get backToLogin;
+  String get emailSentTitle;
+  String get emailSentInstructions;
 
   // ── Privacidad — UI strings ────────────────────────────────────────────────
   String get privacyAndData;
@@ -501,7 +591,6 @@ abstract class AppStringsBase {
   String get passwordRequirementsInfo;
   String get currentPasswordLabel;
   String get enterCurrentPasswordError;
-  String get newPasswordLabel;
   String get minCharactersError;
   String get confirmNewPasswordLabel;
   String get passwordsDoNotMatchError;
@@ -512,10 +601,12 @@ abstract class AppStringsBase {
 
   String get editProfileTitle;
   String get publicInfoHeading;
-  String get fullNameLabel;
   String get nameRequiredError;
   String get profileUpdatedMsg;
   String get profileUpdateErrorMsg;
+
+  // ── Splash Screen ──────────────────────────────────────────────────────────
+  String get splashSubtitle;
 
   // ── Exportación ────────────────────────────────────────────────────────────
   String get exportDataTitle;
@@ -571,6 +662,56 @@ abstract class AppStringsBase {
   String get startLabel;
   String get endLabel;
   String toggleStatusSemantics(String title, bool value);
+
+  // ── Bank Selection (RF-10) ────────────────────────────────────────────────
+  String accountsFromInstitution(String name);
+  String get selectAccountsSubtitle;
+  String confirmLinkAccounts(int count);
+  String linkingAccounts(String label);
+  String accountCountLabel(int count);
+
+  // Mensajes del Overlay de Carga
+  String get linkingStep1;
+  String get linkingStep2;
+  String get linkingStep3;
+  String get linkingStep4;
+  String get linkingStep5;
+  String get linkingStep6;
+  String get linkingStep7;
+  String get linkingStep8;
+  String get linkingStep9;
+
+  // ── Bank Setup ─────────────────────────────────────────────────────────────
+  String get newAccountTitle;
+  String get accountNameLabel;
+  String get accountNameHint;
+  String get accountTypeLabel;
+  String get accountTypeCurrent;
+  String get accountTypeSavings;
+  String get accountTypeInvestment;
+  String get accountTypeOther;
+  String get ibanOptional;
+  String get ibanHint;
+  String get cardsLabel;
+  String get addBtn;
+  String get noCardsOptional;
+  String get cardTypeDebit;
+  String get cardTypeCredit;
+  String get cardTypePrepaid;
+  String get addCardTitle;
+  String get cardNameLabel;
+  String get cardNameHint;
+  String get lastFourDigitsLabel;
+  String get importCsvLabel;
+  String get csvImportDesc;
+  String get csvFormatHelper;
+  String get selectCsvFile;
+  String csvMovementsDetected(int count);
+  String csvImportResult(int imported, int skipped);
+  String get csvReadError;
+  String get cardAddError;
+  String get csvImportError;
+  String get saveAccountBtn;
 
   // ── Onboarding ─────────────────────────────────────────────────────────────
   String get skipButton;
@@ -810,24 +951,14 @@ abstract class AppStringsBase {
   String get bankChooseOtherBank;
   String get bankContactSupport;
   String get bankWhatYouCanDo;
-  String get newAccountTitle;
-  String get accountTypeLabel;
-  String get ibanOptional;
-  String get saveAccountBtn;
-  String get addCardTitle;
-  String get selectCsvFile;
   String get dontCloseAppMsg;
   String get aiAnalysisLabel;
   String get configureAccountMsg;
-  String get cardsLabel;
-  String get noCardsOptional;
-  String get importCsvLabel;
   String get creditCardType;
   String get debitCardType;
   String get prepaidCardType;
   String get lastFourDigitsOptional;
   String get enterAccountNameError;
-  String get csvImportDesc;
 
   // ── Misc ───────────────────────────────────────────────────────────────────
   String get appVersion;
@@ -1451,13 +1582,73 @@ class _AppStringsEs extends AppStringsBase {
   String get emailHint => 'correo@ejemplo.com';
 
   @override
+  String get resetPasswordTitle => 'Restablecer Contraseña';
+  @override
+  String get resetPasswordSubtitle =>
+      'Ingresa tu nueva contraseña. Asegúrate de que cumple con los requisitos de seguridad.';
+  @override
+  String get newPasswordLabel => 'Nueva Contraseña';
+  @override
+  String get confirmPasswordLabel => 'Confirmar Contraseña';
+  @override
+  String get confirmPasswordRequired => 'Debes confirmar la contraseña';
+  @override
+  String get resetPasswordButton => 'Restablecer Contraseña';
+  @override
+  String get successTitle => '¡Éxito!';
+  @override
+  String get passwordRequirementsHeader => 'Requisitos de contraseña:';
+
+  // ── Contenido Legal: Términos y Condiciones ────────────────────────────────
+  @override
+  String get termsSection1Title => '1. Aceptación de los Términos';
+  @override
+  String get termsSection1Body =>
+      'Al registrarse y utilizar Finora, usted acepta estos Términos y Condiciones y se compromete a cumplirlos. Si no está de acuerdo, no debe utilizar el servicio.';
+  @override
+  String get termsSection2Title => '2. Descripción del Servicio';
+  @override
+  String get termsSection2Body =>
+      'Finora es una aplicación de gestión financiera personal que permite registrar transacciones, visualizar estadísticas y gestionar categorías de gastos e ingresos.';
+  @override
+  String get termsSection3Title => '3. Cuenta de Usuario';
+  @override
+  String get termsSection3Body =>
+      'Usted es responsable de mantener la confidencialidad de su cuenta y contraseña. Debe proporcionar información veraz y actualizada.';
+  @override
+  String get termsSection4Title => '4. Uso Aceptable';
+  @override
+  String get termsSection4Body =>
+      'El servicio debe usarse solo para fines legales y de gestión financiera personal. Queda prohibido cualquier uso fraudulento o ilegal.';
+  @override
+  String get termsSection5Title => '5. Protección de Datos';
+  @override
+  String get termsSection5Body =>
+      'Sus datos se tratan conforme al GDPR. Consulte nuestra Política de Privacidad para más información sobre el tratamiento de datos personales.';
+  @override
+  String get termsSection6Title => '6. Limitación de Responsabilidad';
+  @override
+  String get termsSection6Body =>
+      'Finora no se responsabiliza de decisiones financieras tomadas en base a la información proporcionada por la aplicación. El servicio es orientativo.';
+  @override
+  String get termsSection7Title => '7. Modificaciones';
+  @override
+  String get termsSection7Body =>
+      'Nos reservamos el derecho de modificar estos términos. Se notificará a los usuarios sobre cambios significativos.';
+
+  // ── Contenido Legal: Privacidad ────────────────────────────────────────────
+  @override
+  String get privacyPolicyContact => 'Contacto: privacy@finora.app';
+  @override
+  String get gdprComplianceFull =>
+      'Finora cumple con el GDPR de la UE. Tus datos están protegidos y tienes control total sobre ellos. Puedes modificar estos ajustes en cualquier momento desde Ajustes > Privacidad.';
+
+  @override
   String get fullName => 'Nombre completo';
   @override
   String get nameRequired => 'El nombre es requerido';
   @override
   String get nameHint => 'Juan García';
-  @override
-  String get confirmPasswordRequired => 'Por favor, confirma tu contraseña';
   @override
   String get passwordsDoNotMatch => 'Las contraseñas no coinciden';
   @override
@@ -1630,7 +1821,138 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get deleteAccount => 'Eliminar cuenta';
   @override
+  String get deleteAllData => 'Borrar todos los datos';
+  @override
   String get downloadData => 'Descargar mis datos';
+
+  @override
+  String get registerTitle => 'Crear cuenta';
+  @override
+  String get registerSubtitle =>
+      'Comienza a gestionar tus finanzas de forma inteligente';
+  @override
+  String get nameTooShort => 'El nombre debe tener al menos 2 caracteres';
+  @override
+  String get passwordTooShort => 'Mínimo 8 caracteres';
+  @override
+  String get passwordUppercase => 'Debe contener al menos una mayúscula';
+  @override
+  String get passwordNumber => 'Debe contener al menos un número';
+  @override
+  String get passwordSpecial => 'Debe contener al menos un carácter especial';
+  @override
+  String get passwordsDontMatch => 'Las contraseñas no coinciden';
+  @override
+  String get acceptTermsPrivacyError =>
+      'Debes aceptar los términos y la política de privacidad';
+  @override
+  String get registerSuccessTitle => '¡Registro Exitoso!';
+  @override
+  String get verificationEmailSent =>
+      'Te hemos enviado un correo de verificación.';
+  @override
+  String get checkInboxVerify =>
+      'Revisa tu bandeja de entrada y haz clic en el enlace para verificar tu cuenta.';
+  @override
+  String get verificationWarning =>
+      'No podrás iniciar sesión hasta verificar tu email.';
+  @override
+  String get goToLogin => 'Ir a Iniciar Sesión';
+  @override
+  String get fullNameLabel => 'Nombre completo';
+  @override
+  String get fullNameHint => 'Ej: Juan García';
+  @override
+  String get passwordStrengthVeryWeak => 'Muy débil';
+  @override
+  String get passwordStrengthWeak => 'Débil';
+  @override
+  String get passwordStrengthMedium => 'Media';
+  @override
+  String get passwordStrengthStrong => 'Fuerte';
+  @override
+  String get reqChars => '8+ caracteres';
+  @override
+  String get reqUpper => 'Mayúscula';
+  @override
+  String get reqNumber => 'Número';
+  @override
+  String get reqSpecial => 'Especial';
+  @override
+  String get acceptTermsPart1 => 'Acepto los ';
+  @override
+  String get termsAndConditions => 'Términos y Condiciones';
+  @override
+  String get acceptPrivacyPart1 => 'He leído y acepto la ';
+  @override
+  String get loginLink => 'Inicia sesión';
+  @override
+  String get requiredBadge => 'Requerido';
+  @override
+  String get consentManagementTitle => 'Gestión de Consentimientos';
+  @override
+  String get consentDescription =>
+      'Selecciona qué tipos de datos deseas permitirnos procesar. Los marcados como "Requerido" son necesarios para usar el servicio.';
+  @override
+  String get essentialDataTitle => 'Cookies y datos esenciales';
+  @override
+  String get essentialDataDesc =>
+      'Necesarios para el funcionamiento básico de la aplicación.';
+  @override
+  String get dataProcessingTitle => 'Procesamiento de datos financieros';
+  @override
+  String get dataProcessingDesc =>
+      'Procesar tus transacciones para ofrecerte análisis financiero.';
+  @override
+  String get analyticsTitle => 'Análisis y mejora del servicio';
+  @override
+  String get analyticsDesc =>
+      'Nos permite analizar cómo usas la app para mejorar la experiencia.';
+  @override
+  String get marketingTitle => 'Comunicaciones de marketing';
+  @override
+  String get marketingDesc =>
+      'Te enviaremos ofertas, novedades y consejos financieros.';
+  @override
+  String get thirdPartyTitle => 'Compartir datos con terceros';
+  @override
+  String get thirdPartyDesc =>
+      'Compartir información con socios para productos relevantes.';
+  @override
+  String get personalizationTitle => 'Personalización del servicio';
+  @override
+  String get personalizationDesc =>
+      'Usar tus datos para personalizar recomendaciones y alertas.';
+  @override
+  String get policySummaryTitle => 'Resumen de la Política';
+  @override
+  String get gdprComplianceText =>
+      'Finora cumple con el GDPR de la UE. Tus datos están protegidos y tienes control total sobre ellos.';
+  @override
+  String get lastUpdateText => 'Última actualización: Febrero 2026';
+  @override
+  String get acceptTermsButton => 'Aceptar Términos';
+  @override
+  String get acceptPrivacyButton => 'Aceptar Política de Privacidad';
+
+  @override
+  String get forgotPasswordTitle => '¿Olvidaste tu contraseña?';
+  @override
+  String get forgotPasswordSubtitle =>
+      'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.';
+  @override
+  String get emailLabel => 'Correo Electrónico';
+  @override
+  String get invalidEmail => 'Ingresa un correo electrónico válido';
+  @override
+  String get sendLink => 'Enviar Enlace';
+  @override
+  String get backToLogin => 'Volver al inicio de sesión';
+  @override
+  String get emailSentTitle => 'Email Enviado';
+  @override
+  String get emailSentInstructions =>
+      'Revisa tu bandeja de entrada y haz clic en el enlace para restablecer tu contraseña.';
 
   @override
   String get privacyAndData => 'Privacidad y Datos';
@@ -1764,8 +2086,6 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get enterCurrentPasswordError => 'Introduce tu contraseña actual';
   @override
-  String get newPasswordLabel => 'Nueva contraseña';
-  @override
   String get minCharactersError => 'Mínimo 8 caracteres';
   @override
   String get confirmNewPasswordLabel => 'Confirmar nueva contraseña';
@@ -1785,13 +2105,14 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get publicInfoHeading => 'Información pública';
   @override
-  String get fullNameLabel => 'Nombre completo';
-  @override
   String get nameRequiredError => 'El nombre es requerido';
   @override
   String get profileUpdatedMsg => 'Perfil actualizado';
   @override
   String get profileUpdateErrorMsg => 'Error al actualizar el perfil';
+
+  @override
+  String get splashSubtitle => 'Tu gestor financiero personal';
 
   @override
   String get exportDataTitle => 'Exportar datos';
@@ -1913,6 +2234,103 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String toggleStatusSemantics(String title, bool value) =>
       '$title: ${value ? "activado" : "desactivado"}';
+
+  @override
+  String accountsFromInstitution(String name) => 'Cuentas de $name';
+  @override
+  String get selectAccountsSubtitle =>
+      'Elige qué cuentas quieres vincular a Finora. Los saldos se muestran convertidos a EUR.';
+  @override
+  String confirmLinkAccounts(int count) =>
+      'Vincular $count cuenta${count == 1 ? '' : 's'}';
+  @override
+  String linkingAccounts(String label) => 'Vinculando $label';
+  @override
+  String accountCountLabel(int count) =>
+      '$count cuenta${count == 1 ? '' : 's'}';
+
+  @override
+  String get linkingStep1 => 'Conectando con tu banco...';
+  @override
+  String get linkingStep2 => 'Obteniendo información de tus cuentas...';
+  @override
+  String get linkingStep3 => 'Generando historial de transacciones...';
+  @override
+  String get linkingStep4 => 'Analizando tus movimientos con IA...';
+  @override
+  String get linkingStep5 => 'Categorizando transacciones automáticamente...';
+  @override
+  String get linkingStep6 => 'Calculando tus patrones de gasto...';
+  @override
+  String get linkingStep7 => 'Detectando suscripciones recurrentes...';
+  @override
+  String get linkingStep8 => 'Preparando tu perfil financiero...';
+  @override
+  String get linkingStep9 => 'Casi listo, un momento más...';
+
+  @override
+  String get newAccountTitle => 'Nueva cuenta';
+  @override
+  String get accountNameLabel => 'Nombre de la cuenta';
+  @override
+  String get accountNameHint => 'Ej. BBVA Principal';
+  @override
+  String get accountTypeLabel => 'Tipo de cuenta';
+  @override
+  String get accountTypeCurrent => 'Cuenta corriente';
+  @override
+  String get accountTypeSavings => 'Cuenta de ahorro';
+  @override
+  String get accountTypeInvestment => 'Inversión';
+  @override
+  String get accountTypeOther => 'Otro';
+  @override
+  String get ibanOptional => 'IBAN (opcional)';
+  @override
+  String get ibanHint => 'ES91 2100 0418 4502 0005 1332';
+  @override
+  String get cardsLabel => 'Tarjetas';
+  @override
+  String get addBtn => 'Añadir';
+  @override
+  String get noCardsOptional => 'No hay tarjetas (opcional)';
+  @override
+  String get cardTypeDebit => 'Débito';
+  @override
+  String get cardTypeCredit => 'Crédito';
+  @override
+  String get cardTypePrepaid => 'Prepago';
+  @override
+  String get addCardTitle => 'Añadir tarjeta';
+  @override
+  String get cardNameLabel => 'Nombre';
+  @override
+  String get cardNameHint => 'Ej. Visa BBVA';
+  @override
+  String get lastFourDigitsLabel => 'Últimos 4 dígitos (opcional)';
+  @override
+  String get importCsvLabel => 'Importar movimientos (CSV)';
+  @override
+  String get csvImportDesc =>
+      'Si tienes un archivo con movimientos antiguos, puedes subirlo ahora.';
+  @override
+  String get csvFormatHelper =>
+      'Formato: fecha,descripción,importe,tipo (income/expense)';
+  @override
+  String get selectCsvFile => 'Seleccionar archivo CSV';
+  @override
+  String csvMovementsDetected(int count) => '$count movimientos detectados';
+  @override
+  String csvImportResult(int imported, int skipped) =>
+      'CSV importado: $imported nuevas, $skipped duplicadas';
+  @override
+  String get csvReadError => 'Error al leer CSV';
+  @override
+  String get cardAddError => 'Error al añadir tarjeta';
+  @override
+  String get csvImportError => 'Error al importar CSV';
+  @override
+  String get saveAccountBtn => 'Guardar cuenta';
 
   @override
   String get skipButton => 'Saltar';
@@ -2363,29 +2781,11 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get bankWhatYouCanDo => 'Qué puedes hacer';
   @override
-  String get newAccountTitle => 'Nueva cuenta';
-  @override
-  String get accountTypeLabel => 'Tipo de cuenta';
-  @override
-  String get ibanOptional => 'IBAN (opcional)';
-  @override
-  String get saveAccountBtn => 'Guardar cuenta';
-  @override
-  String get addCardTitle => 'Añadir tarjeta';
-  @override
-  String get selectCsvFile => 'Seleccionar archivo CSV';
-  @override
   String get dontCloseAppMsg => 'No cierres la aplicación durante este proceso';
   @override
   String get aiAnalysisLabel => 'Análisis IA';
   @override
   String get configureAccountMsg => 'Configura tu cuenta para empezar';
-  @override
-  String get cardsLabel => 'Tarjetas';
-  @override
-  String get noCardsOptional => 'Sin tarjetas — opcional';
-  @override
-  String get importCsvLabel => 'Importar movimientos (CSV)';
   @override
   String get creditCardType => 'Crédito';
   @override
@@ -2396,9 +2796,6 @@ class _AppStringsEs extends AppStringsBase {
   String get lastFourDigitsOptional => 'Últimos 4 dígitos (opcional)';
   @override
   String get enterAccountNameError => 'Introduce un nombre';
-  @override
-  String get csvImportDesc =>
-      'Importa el historial de movimientos de tu cuenta.';
 
   @override
   String get appVersion => 'Versión';
@@ -3034,13 +3431,73 @@ class _AppStringsEn extends AppStringsBase {
   String get emailHint => 'email@example.com';
 
   @override
+  String get resetPasswordTitle => 'Reset Password';
+  @override
+  String get resetPasswordSubtitle =>
+      'Enter your new password. Make sure it meets the security requirements.';
+  @override
+  String get newPasswordLabel => 'New Password';
+  @override
+  String get confirmPasswordLabel => 'Confirm Password';
+  @override
+  String get confirmPasswordRequired => 'You must confirm the password';
+  @override
+  String get resetPasswordButton => 'Reset Password';
+  @override
+  String get successTitle => 'Success!';
+  @override
+  String get passwordRequirementsHeader => 'Password requirements:';
+
+  // ── Contenido Legal: Términos y Condiciones ────────────────────────────────
+  @override
+  String get termsSection1Title => '1. Acceptance of Terms';
+  @override
+  String get termsSection1Body =>
+      'By registering and using Finora, you accept these Terms and Conditions and agree to comply with them. If you do not agree, you must not use the service.';
+  @override
+  String get termsSection2Title => '2. Service Description';
+  @override
+  String get termsSection2Body =>
+      'Finora is a personal financial management application that allows you to record transactions, view statistics, and manage expense and income categories.';
+  @override
+  String get termsSection3Title => '3. User Account';
+  @override
+  String get termsSection3Body =>
+      'You are responsible for maintaining the confidentiality of your account and password. You must provide accurate and up-to-date information.';
+  @override
+  String get termsSection4Title => '4. Acceptable Use';
+  @override
+  String get termsSection4Body =>
+      'The service must be used only for legal purposes and personal financial management. Any fraudulent or illegal use is prohibited.';
+  @override
+  String get termsSection5Title => '5. Data Protection';
+  @override
+  String get termsSection5Body =>
+      'Your data is treated in accordance with the GDPR. Please consult our Privacy Policy for more information on the processing of personal data.';
+  @override
+  String get termsSection6Title => '6. Limitation of Liability';
+  @override
+  String get termsSection6Body =>
+      'Finora is not responsible for financial decisions made based on the information provided by the application. The service is for guidance only.';
+  @override
+  String get termsSection7Title => '7. Modifications';
+  @override
+  String get termsSection7Body =>
+      'We reserve the right to modify these terms. Users will be notified of significant changes.';
+
+  // ── Contenido Legal: Privacidad ────────────────────────────────────────────
+  @override
+  String get privacyPolicyContact => 'Contact: privacy@finora.app';
+  @override
+  String get gdprComplianceFull =>
+      'Finora complies with the EU GDPR. Your data is protected and you have full control over it. You can modify these settings at any time from Settings > Privacy.';
+
+  @override
   String get fullName => 'Full name';
   @override
   String get nameRequired => 'Name is required';
   @override
   String get nameHint => 'John Smith';
-  @override
-  String get confirmPasswordRequired => 'Please confirm your password';
   @override
   String get passwordsDoNotMatch => 'Passwords do not match';
   @override
@@ -3212,7 +3669,136 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get deleteAccount => 'Delete account';
   @override
+  String get deleteAllData => 'Delete all data';
+  @override
   String get downloadData => 'Download my data';
+
+  @override
+  String get registerTitle => 'Create account';
+  @override
+  String get registerSubtitle => 'Start managing your finances the smart way';
+  @override
+  String get nameTooShort => 'Name must be at least 2 characters long';
+  @override
+  String get passwordTooShort => 'Minimum 8 characters';
+  @override
+  String get passwordUppercase => 'Must contain at least one uppercase letter';
+  @override
+  String get passwordNumber => 'Must contain at least one number';
+  @override
+  String get passwordSpecial => 'Must contain at least one special character';
+  @override
+  String get passwordsDontMatch => 'Passwords do not match';
+  @override
+  String get acceptTermsPrivacyError =>
+      'You must accept the terms and the privacy policy';
+  @override
+  String get registerSuccessTitle => 'Registration Successful!';
+  @override
+  String get verificationEmailSent => 'We have sent you a verification email.';
+  @override
+  String get checkInboxVerify =>
+      'Check your inbox and click the link to verify your account.';
+  @override
+  String get verificationWarning =>
+      'You will not be able to log in until your email is verified.';
+  @override
+  String get goToLogin => 'Go to Login';
+  @override
+  String get fullNameLabel => 'Full Name';
+  @override
+  String get fullNameHint => 'e.g., John Doe';
+  @override
+  String get passwordStrengthVeryWeak => 'Very weak';
+  @override
+  String get passwordStrengthWeak => 'Weak';
+  @override
+  String get passwordStrengthMedium => 'Medium';
+  @override
+  String get passwordStrengthStrong => 'Strong';
+  @override
+  String get reqChars => '8+ characters';
+  @override
+  String get reqUpper => 'Uppercase';
+  @override
+  String get reqNumber => 'Number';
+  @override
+  String get reqSpecial => 'Special';
+  @override
+  String get acceptTermsPart1 => 'I accept the ';
+  @override
+  String get termsAndConditions => 'Terms and Conditions';
+  @override
+  String get acceptPrivacyPart1 => 'I have read and accept the ';
+  @override
+  String get loginLink => 'Sign in';
+  @override
+  String get requiredBadge => 'Required';
+  @override
+  String get consentManagementTitle => 'Consent Management';
+  @override
+  String get consentDescription =>
+      'Select which types of data processing you wish to allow. Items marked as "Required" are necessary to use the service.';
+  @override
+  String get essentialDataTitle => 'Essential cookies and data';
+  @override
+  String get essentialDataDesc =>
+      'Necessary for the basic operation of the application.';
+  @override
+  String get dataProcessingTitle => 'Financial data processing';
+  @override
+  String get dataProcessingDesc =>
+      'Process your transactions to offer financial analysis.';
+  @override
+  String get analyticsTitle => 'Analytics and service improvement';
+  @override
+  String get analyticsDesc =>
+      'Allows us to analyze how you use the app to improve the experience.';
+  @override
+  String get marketingTitle => 'Marketing communications';
+  @override
+  String get marketingDesc =>
+      'We will send you offers, news, and financial tips.';
+  @override
+  String get thirdPartyTitle => 'Share data with third parties';
+  @override
+  String get thirdPartyDesc =>
+      'Share information with partners for relevant products.';
+  @override
+  String get personalizationTitle => 'Service personalization';
+  @override
+  String get personalizationDesc =>
+      'Use your data to personalize recommendations and alerts.';
+  @override
+  String get policySummaryTitle => 'Policy Summary';
+  @override
+  String get gdprComplianceText =>
+      'Finora complies with the EU GDPR. Your data is protected and you have full control over it.';
+  @override
+  String get lastUpdateText => 'Last updated: February 2026';
+  @override
+  String get acceptTermsButton => 'Accept Terms';
+  @override
+  String get acceptPrivacyButton => 'Accept Privacy Policy';
+
+  @override
+  String get forgotPasswordTitle => 'Forgot your password?';
+  @override
+  String get forgotPasswordSubtitle =>
+      'Enter your email and we will send you a link to reset your password.';
+  @override
+  String get emailLabel => 'Email Address';
+  @override
+  String get invalidEmail => 'Enter a valid email';
+  @override
+  String get sendLink => 'Send Link';
+  @override
+  String get backToLogin => 'Back to login';
+  @override
+  String get emailSentTitle => 'Email Sent';
+  @override
+  String get emailSentInstructions =>
+      'Check your inbox and click the link to reset your password.';
 
   @override
   String get privacyAndData => 'Privacy & Data';
@@ -3345,8 +3931,6 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get enterCurrentPasswordError => 'Enter your current password';
   @override
-  String get newPasswordLabel => 'New password';
-  @override
   String get minCharactersError => 'Minimum 8 characters';
   @override
   String get confirmNewPasswordLabel => 'Confirm new password';
@@ -3366,13 +3950,14 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get publicInfoHeading => 'Public information';
   @override
-  String get fullNameLabel => 'Full name';
-  @override
   String get nameRequiredError => 'Name is required';
   @override
   String get profileUpdatedMsg => 'Profile updated';
   @override
   String get profileUpdateErrorMsg => 'Error updating profile';
+
+  @override
+  String get splashSubtitle => 'Your personal financial manager';
 
   @override
   String get exportDataTitle => 'Export data';
@@ -3494,6 +4079,103 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String toggleStatusSemantics(String title, bool value) =>
       '$title: ${value ? "enabled" : "disabled"}';
+
+  @override
+  String accountsFromInstitution(String name) => '$name Accounts';
+  @override
+  String get selectAccountsSubtitle =>
+      'Choose which accounts you want to link to Finora. Balances are shown converted to EUR.';
+  @override
+  String confirmLinkAccounts(int count) =>
+      'Link $count account${count == 1 ? '' : 's'}';
+  @override
+  String linkingAccounts(String label) => 'Linking $label';
+  @override
+  String accountCountLabel(int count) =>
+      '$count account${count == 1 ? '' : 's'}';
+
+  @override
+  String get linkingStep1 => 'Connecting to your bank...';
+  @override
+  String get linkingStep2 => 'Fetching account information...';
+  @override
+  String get linkingStep3 => 'Generating transaction history...';
+  @override
+  String get linkingStep4 => 'Analyzing your movements with AI...';
+  @override
+  String get linkingStep5 => 'Automatically categorizing transactions...';
+  @override
+  String get linkingStep6 => 'Calculating your spending patterns...';
+  @override
+  String get linkingStep7 => 'Detecting recurring subscriptions...';
+  @override
+  String get linkingStep8 => 'Preparing your financial profile...';
+  @override
+  String get linkingStep9 => 'Almost ready, one more moment...';
+
+  @override
+  String get newAccountTitle => 'New Account';
+  @override
+  String get accountNameLabel => 'Account Name';
+  @override
+  String get accountNameHint => 'e.g., Main Bank Account';
+  @override
+  String get accountTypeLabel => 'Account Type';
+  @override
+  String get accountTypeCurrent => 'Current Account';
+  @override
+  String get accountTypeSavings => 'Savings Account';
+  @override
+  String get accountTypeInvestment => 'Investment';
+  @override
+  String get accountTypeOther => 'Other';
+  @override
+  String get ibanOptional => 'IBAN (optional)';
+  @override
+  String get ibanHint => 'IBAN format...';
+  @override
+  String get cardsLabel => 'Cards';
+  @override
+  String get addBtn => 'Add';
+  @override
+  String get noCardsOptional => 'No cards (optional)';
+  @override
+  String get cardTypeDebit => 'Debit';
+  @override
+  String get cardTypeCredit => 'Credit';
+  @override
+  String get cardTypePrepaid => 'Prepaid';
+  @override
+  String get addCardTitle => 'Add Card';
+  @override
+  String get cardNameLabel => 'Name';
+  @override
+  String get cardNameHint => 'e.g., BBVA Visa';
+  @override
+  String get lastFourDigitsLabel => 'Last 4 digits (optional)';
+  @override
+  String get importCsvLabel => 'Import transactions (CSV)';
+  @override
+  String get csvImportDesc =>
+      'If you have a file with old transactions, you can upload it now.';
+  @override
+  String get csvFormatHelper =>
+      'Format: date,description,amount,type (income/expense)';
+  @override
+  String get selectCsvFile => 'Select CSV file';
+  @override
+  String csvMovementsDetected(int count) => '$count transactions detected';
+  @override
+  String csvImportResult(int imported, int skipped) =>
+      'CSV imported: $imported new, $skipped duplicates';
+  @override
+  String get csvReadError => 'Error reading CSV';
+  @override
+  String get cardAddError => 'Error adding card';
+  @override
+  String get csvImportError => 'Error importing CSV';
+  @override
+  String get saveAccountBtn => 'Save Account';
 
   @override
   String get skipButton => 'Skip';
@@ -3938,29 +4620,11 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get bankWhatYouCanDo => 'What you can do';
   @override
-  String get newAccountTitle => 'New account';
-  @override
-  String get accountTypeLabel => 'Account type';
-  @override
-  String get ibanOptional => 'IBAN (optional)';
-  @override
-  String get saveAccountBtn => 'Save account';
-  @override
-  String get addCardTitle => 'Add card';
-  @override
-  String get selectCsvFile => 'Select CSV file';
-  @override
   String get dontCloseAppMsg => "Don't close the app during this process";
   @override
   String get aiAnalysisLabel => 'AI Analysis';
   @override
   String get configureAccountMsg => 'Configure your account to get started';
-  @override
-  String get cardsLabel => 'Cards';
-  @override
-  String get noCardsOptional => 'No cards — optional';
-  @override
-  String get importCsvLabel => 'Import transactions (CSV)';
   @override
   String get creditCardType => 'Credit';
   @override
@@ -3971,8 +4635,6 @@ class _AppStringsEn extends AppStringsBase {
   String get lastFourDigitsOptional => 'Last 4 digits (optional)';
   @override
   String get enterAccountNameError => 'Enter a name';
-  @override
-  String get csvImportDesc => 'Import your account transaction history.';
 
   @override
   String get appVersion => 'Version';
