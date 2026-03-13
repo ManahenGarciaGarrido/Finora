@@ -535,6 +535,42 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get dateFormat => _strings.dateFormat;
 
+  // ── Contenido Legal: Términos y Condiciones ────────────────────────────────
+  @override
+  String get termsSection1Title => _strings.termsSection1Title;
+  @override
+  String get termsSection1Body => _strings.termsSection1Body;
+  @override
+  String get termsSection2Title => _strings.termsSection2Title;
+  @override
+  String get termsSection2Body => _strings.termsSection2Body;
+  @override
+  String get termsSection3Title => _strings.termsSection3Title;
+  @override
+  String get termsSection3Body => _strings.termsSection3Body;
+  @override
+  String get termsSection4Title => _strings.termsSection4Title;
+  @override
+  String get termsSection4Body => _strings.termsSection4Body;
+  @override
+  String get termsSection5Title => _strings.termsSection5Title;
+  @override
+  String get termsSection5Body => _strings.termsSection5Body;
+  @override
+  String get termsSection6Title => _strings.termsSection6Title;
+  @override
+  String get termsSection6Body => _strings.termsSection6Body;
+  @override
+  String get termsSection7Title => _strings.termsSection7Title;
+  @override
+  String get termsSection7Body => _strings.termsSection7Body;
+
+  // ── Contenido Legal: Privacidad ────────────────────────────────────────────
+  @override
+  String get privacyPolicyContact => _strings.privacyPolicyContact;
+  @override
+  String get gdprComplianceFull => _strings.gdprComplianceFull;
+
   @override
   String get welcomeBack => _strings.welcomeBack;
   @override
@@ -567,13 +603,28 @@ class AppLocalizations extends AppStringsBase {
   String get emailHint => _strings.emailHint;
 
   @override
+  String get resetPasswordTitle => _strings.resetPasswordTitle;
+  @override
+  String get resetPasswordSubtitle => _strings.resetPasswordSubtitle;
+  @override
+  String get newPasswordLabel => _strings.newPasswordLabel;
+  @override
+  String get confirmPasswordLabel => _strings.confirmPasswordLabel;
+  @override
+  String get confirmPasswordRequired => _strings.confirmPasswordRequired;
+  @override
+  String get resetPasswordButton => _strings.resetPasswordButton;
+  @override
+  String get successTitle => _strings.successTitle;
+  @override
+  String get passwordRequirementsHeader => _strings.passwordRequirementsHeader;
+
+  @override
   String get fullName => _strings.fullName;
   @override
   String get nameRequired => _strings.nameRequired;
   @override
   String get nameHint => _strings.nameHint;
-  @override
-  String get confirmPasswordRequired => _strings.confirmPasswordRequired;
   @override
   String get passwordsDoNotMatch => _strings.passwordsDoNotMatch;
   @override
@@ -753,7 +804,123 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get deleteAccount => _strings.deleteAccount;
   @override
+  String get deleteAllData => _strings.deleteAllData;
+  @override
   String get downloadData => _strings.downloadData;
+
+  @override
+  String get registerTitle => _strings.registerTitle;
+  @override
+  String get registerSubtitle => _strings.registerSubtitle;
+  @override
+  String get nameTooShort => _strings.nameTooShort;
+  @override
+  String get passwordTooShort => _strings.passwordTooShort;
+  @override
+  String get passwordUppercase => _strings.passwordUppercase;
+  @override
+  String get passwordNumber => _strings.passwordNumber;
+  @override
+  String get passwordSpecial => _strings.passwordSpecial;
+  @override
+  String get passwordsDontMatch => _strings.passwordsDontMatch;
+  @override
+  String get acceptTermsPrivacyError => _strings.acceptTermsPrivacyError;
+  @override
+  String get registerSuccessTitle => _strings.registerSuccessTitle;
+  @override
+  String get verificationEmailSent => _strings.verificationEmailSent;
+  @override
+  String get checkInboxVerify => _strings.checkInboxVerify;
+  @override
+  String get verificationWarning => _strings.verificationWarning;
+  @override
+  String get goToLogin => _strings.goToLogin;
+  @override
+  String get fullNameLabel => _strings.fullNameLabel;
+  @override
+  String get fullNameHint => _strings.fullNameHint;
+  @override
+  String get passwordStrengthVeryWeak => _strings.passwordStrengthVeryWeak;
+  @override
+  String get passwordStrengthWeak => _strings.passwordStrengthWeak;
+  @override
+  String get passwordStrengthMedium => _strings.passwordStrengthMedium;
+  @override
+  String get passwordStrengthStrong => _strings.passwordStrengthStrong;
+  @override
+  String get reqChars => _strings.reqChars;
+  @override
+  String get reqUpper => _strings.reqUpper;
+  @override
+  String get reqNumber => _strings.reqNumber;
+  @override
+  String get reqSpecial => _strings.reqSpecial;
+  @override
+  String get acceptTermsPart1 => _strings.acceptTermsPart1;
+  @override
+  String get termsAndConditions => _strings.termsAndConditions;
+  @override
+  String get acceptPrivacyPart1 => _strings.acceptPrivacyPart1;
+  @override
+  String get loginLink => _strings.loginLink;
+  @override
+  String get requiredBadge => _strings.requiredBadge;
+  @override
+  String get consentManagementTitle => _strings.consentManagementTitle;
+  @override
+  String get consentDescription => _strings.consentDescription;
+  @override
+  String get essentialDataTitle => _strings.essentialDataTitle;
+  @override
+  String get essentialDataDesc => _strings.essentialDataDesc;
+  @override
+  String get dataProcessingTitle => _strings.dataProcessingTitle;
+  @override
+  String get dataProcessingDesc => _strings.dataProcessingDesc;
+  @override
+  String get analyticsTitle => _strings.analyticsTitle;
+  @override
+  String get analyticsDesc => _strings.analyticsDesc;
+  @override
+  String get marketingTitle => _strings.marketingTitle;
+  @override
+  String get marketingDesc => _strings.marketingDesc;
+  @override
+  String get thirdPartyTitle => _strings.thirdPartyTitle;
+  @override
+  String get thirdPartyDesc => _strings.thirdPartyDesc;
+  @override
+  String get personalizationTitle => _strings.personalizationTitle;
+  @override
+  String get personalizationDesc => _strings.personalizationDesc;
+  @override
+  String get policySummaryTitle => _strings.policySummaryTitle;
+  @override
+  String get gdprComplianceText => _strings.gdprComplianceText;
+  @override
+  String get lastUpdateText => _strings.lastUpdateText;
+  @override
+  String get acceptTermsButton => _strings.acceptTermsButton;
+  @override
+  String get acceptPrivacyButton => _strings.acceptPrivacyButton;
+
+  @override
+  String get forgotPasswordTitle => _strings.forgotPasswordTitle;
+  @override
+  String get forgotPasswordSubtitle => _strings.forgotPasswordSubtitle;
+  @override
+  String get emailLabel => _strings.emailLabel;
+  @override
+  String get invalidEmail => _strings.invalidEmail;
+  @override
+  String get sendLink => _strings.sendLink;
+  @override
+  String get backToLogin => _strings.backToLogin;
+  @override
+  String get emailSentTitle => _strings.emailSentTitle;
+  @override
+  String get emailSentInstructions => _strings.emailSentInstructions;
 
   @override
   String get appVersion => _strings.appVersion;
@@ -926,8 +1093,6 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get enterCurrentPasswordError => _strings.enterCurrentPasswordError;
   @override
-  String get newPasswordLabel => _strings.newPasswordLabel;
-  @override
   String get minCharactersError => _strings.minCharactersError;
   @override
   String get confirmNewPasswordLabel => _strings.confirmNewPasswordLabel;
@@ -948,13 +1113,14 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get publicInfoHeading => _strings.publicInfoHeading;
   @override
-  String get fullNameLabel => _strings.fullNameLabel;
-  @override
   String get nameRequiredError => _strings.nameRequiredError;
   @override
   String get profileUpdatedMsg => _strings.profileUpdatedMsg;
   @override
   String get profileUpdateErrorMsg => _strings.profileUpdateErrorMsg;
+
+  @override
+  String get splashSubtitle => _strings.splashSubtitle;
 
   @override
   String get exportDataTitle => _strings.exportDataTitle;
@@ -1058,6 +1224,100 @@ class AppLocalizations extends AppStringsBase {
   @override
   String toggleStatusSemantics(String title, bool value) =>
       _strings.toggleStatusSemantics(title, value);
+
+  @override
+  String accountsFromInstitution(String name) =>
+      _strings.accountsFromInstitution(name);
+  @override
+  String get selectAccountsSubtitle => _strings.selectAccountsSubtitle;
+  @override
+  String confirmLinkAccounts(int count) => _strings.confirmLinkAccounts(count);
+  @override
+  String linkingAccounts(String label) => _strings.linkingAccounts(label);
+  @override
+  String accountCountLabel(int count) => _strings.accountCountLabel(count);
+
+  @override
+  String get linkingStep1 => _strings.linkingStep1;
+  @override
+  String get linkingStep2 => _strings.linkingStep2;
+  @override
+  String get linkingStep3 => _strings.linkingStep3;
+  @override
+  String get linkingStep4 => _strings.linkingStep4;
+  @override
+  String get linkingStep5 => _strings.linkingStep5;
+  @override
+  String get linkingStep6 => _strings.linkingStep6;
+  @override
+  String get linkingStep7 => _strings.linkingStep7;
+  @override
+  String get linkingStep8 => _strings.linkingStep8;
+  @override
+  String get linkingStep9 => _strings.linkingStep9;
+
+  @override
+  String get newAccountTitle => _strings.newAccountTitle;
+  @override
+  String get accountNameLabel => _strings.accountNameLabel;
+  @override
+  String get accountNameHint => _strings.accountNameHint;
+  @override
+  String get accountTypeLabel => _strings.accountTypeLabel;
+  @override
+  String get accountTypeCurrent => _strings.accountTypeCurrent;
+  @override
+  String get accountTypeSavings => _strings.accountTypeSavings;
+  @override
+  String get accountTypeInvestment => _strings.accountTypeInvestment;
+  @override
+  String get accountTypeOther => _strings.accountTypeOther;
+  @override
+  String get ibanOptional => _strings.ibanOptional;
+  @override
+  String get ibanHint => _strings.ibanHint;
+  @override
+  String get cardsLabel => _strings.cardsLabel;
+  @override
+  String get addBtn => _strings.addBtn;
+  @override
+  String get noCardsOptional => _strings.noCardsOptional;
+  @override
+  String get cardTypeDebit => _strings.cardTypeDebit;
+  @override
+  String get cardTypeCredit => _strings.cardTypeCredit;
+  @override
+  String get cardTypePrepaid => _strings.cardTypePrepaid;
+  @override
+  String get addCardTitle => _strings.addCardTitle;
+  @override
+  String get cardNameLabel => _strings.cardNameLabel;
+  @override
+  String get cardNameHint => _strings.cardNameHint;
+  @override
+  String get lastFourDigitsLabel => _strings.lastFourDigitsLabel;
+  @override
+  String get importCsvLabel => _strings.importCsvLabel;
+  @override
+  String get csvImportDesc => _strings.csvImportDesc;
+  @override
+  String get csvFormatHelper => _strings.csvFormatHelper;
+  @override
+  String get selectCsvFile => _strings.selectCsvFile;
+  @override
+  String csvMovementsDetected(int count) =>
+      _strings.csvMovementsDetected(count);
+  @override
+  String csvImportResult(int imported, int skipped) =>
+      _strings.csvImportResult(imported, skipped);
+  @override
+  String get csvReadError => _strings.csvReadError;
+  @override
+  String get cardAddError => _strings.cardAddError;
+  @override
+  String get csvImportError => _strings.csvImportError;
+  @override
+  String get saveAccountBtn => _strings.saveAccountBtn;
 
   @override
   String get skipButton => _strings.skipButton;
@@ -1486,29 +1746,11 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get bankWhatYouCanDo => _strings.bankWhatYouCanDo;
   @override
-  String get newAccountTitle => _strings.newAccountTitle;
-  @override
-  String get accountTypeLabel => _strings.accountTypeLabel;
-  @override
-  String get ibanOptional => _strings.ibanOptional;
-  @override
-  String get saveAccountBtn => _strings.saveAccountBtn;
-  @override
-  String get addCardTitle => _strings.addCardTitle;
-  @override
-  String get selectCsvFile => _strings.selectCsvFile;
-  @override
   String get dontCloseAppMsg => _strings.dontCloseAppMsg;
   @override
   String get aiAnalysisLabel => _strings.aiAnalysisLabel;
   @override
   String get configureAccountMsg => _strings.configureAccountMsg;
-  @override
-  String get cardsLabel => _strings.cardsLabel;
-  @override
-  String get noCardsOptional => _strings.noCardsOptional;
-  @override
-  String get importCsvLabel => _strings.importCsvLabel;
   @override
   String get creditCardType => _strings.creditCardType;
   @override
@@ -1519,8 +1761,6 @@ class AppLocalizations extends AppStringsBase {
   String get lastFourDigitsOptional => _strings.lastFourDigitsOptional;
   @override
   String get enterAccountNameError => _strings.enterAccountNameError;
-  @override
-  String get csvImportDesc => _strings.csvImportDesc;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────

@@ -734,7 +734,7 @@ class _ExportPageState extends State<ExportPage> {
   Widget _yearDropdown() {
     final s = AppLocalizations.of(context);
     return DropdownButtonFormField<int>(
-      value: _pdfYear,
+      initialValue: _pdfYear,
       decoration: InputDecoration(
         labelText: s.yearLabel,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -751,7 +751,7 @@ class _ExportPageState extends State<ExportPage> {
   Widget _monthDropdown() {
     final s = AppLocalizations.of(context);
     return DropdownButtonFormField<int>(
-      value: _pdfMonth,
+      initialValue: _pdfMonth,
       decoration: InputDecoration(
         labelText: s.monthLabel,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

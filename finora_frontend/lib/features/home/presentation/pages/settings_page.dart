@@ -512,8 +512,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.delete_outline_rounded,
-                    title: 'Eliminar cuenta',
-                    subtitle: 'Borrar todos los datos',
+                    title: s.deleteAccount,
+                    subtitle: s.deleteAllData,
                     isDeveloping: true,
                     isDanger: true,
                   ),
@@ -655,6 +655,7 @@ class _SettingsPageState extends State<SettingsPage> {
     bool isDanger = false,
     VoidCallback? onTap,
   }) {
+    final s = AppLocalizations.of(context);
     final content = Semantics(
       label: title,
       hint: subtitle,
@@ -709,7 +710,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'Próximamente',
+                  s.comingSoon,
                   style: AppTypography.badge(color: AppColors.warningDark),
                 ),
               )
