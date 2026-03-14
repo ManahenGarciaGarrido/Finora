@@ -1761,6 +1761,670 @@ class AppLocalizations extends AppStringsBase {
   String get lastFourDigitsOptional => _strings.lastFourDigitsOptional;
   @override
   String get enterAccountNameError => _strings.enterAccountNameError;
+
+  // ── Editar Perfil — campos adicionales ────────────────────────────────────
+  @override
+  String get phoneNumber => _strings.phoneNumber;
+  @override
+  String get profileBio => _strings.profileBio;
+  @override
+  String get languageAndCurrency => _strings.languageAndCurrency;
+  @override
+  String get preferencesSectionTitle => _strings.preferencesSectionTitle;
+
+  // ── Biometría — mensajes de snackbar ──────────────────────────────────────
+  @override
+  String biometricActivatedMsg(String label) =>
+      _strings.biometricActivatedMsg(label);
+  @override
+  String get biometricCancelledMsg => _strings.biometricCancelledMsg;
+  @override
+  String get biometricDeactivatedMsg => _strings.biometricDeactivatedMsg;
+  @override
+  String biometricSetupDeviceMsg(String label) =>
+      _strings.biometricSetupDeviceMsg(label);
+  @override
+  String get biometricErrorMsg => _strings.biometricErrorMsg;
+
+  // ── Moneda — mensajes ─────────────────────────────────────────────────────
+  @override
+  String currencyChangedMsg(String code, String symbol) =>
+      _strings.currencyChangedMsg(code, symbol);
+
+  @override
+  String get actionConsentUpdated => _strings.actionConsentUpdated;
+
+  @override
+  String get actionConsentWithdrawn => _strings.actionConsentWithdrawn;
+
+  @override
+  String get actionInitialRegistration => _strings.actionInitialRegistration;
+
+  @override
+  String get addTicketPhoto => _strings.addTicketPhoto;
+
+  @override
+  String aiPredictionSemantics(String category, String amount) =>
+      _strings.aiPredictionSemantics(category, amount);
+
+  @override
+  String get amountExceedsMax => _strings.amountExceedsMax;
+
+  @override
+  String get amountInvalidPositive => _strings.amountInvalidPositive;
+
+  @override
+  String get analyzeWithAI => _strings.analyzeWithAI;
+
+  @override
+  String get analyzingLabel => _strings.analyzingLabel;
+
+  @override
+  String get anomaliesIntroDesc => _strings.anomaliesIntroDesc;
+
+  @override
+  String get anomaliesIntroTitle => _strings.anomaliesIntroTitle;
+
+  @override
+  String get authorizeContinue => _strings.authorizeContinue;
+
+  @override
+  String get balanceRecalculateNote => _strings.balanceRecalculateNote;
+
+  @override
+  String get bankAccountBalanceLabel => _strings.bankAccountBalanceLabel;
+
+  @override
+  String get bankAccountInfoLabel => _strings.bankAccountInfoLabel;
+
+  @override
+  List<String> get bankCancelledSteps => _strings.bankCancelledSteps;
+
+  @override
+  String get bankCancelledTitle => _strings.bankCancelledTitle;
+
+  @override
+  String get bankConsentsLoadError => _strings.bankConsentsLoadError;
+
+  @override
+  String get bankConsentsTitle => _strings.bankConsentsTitle;
+
+  @override
+  String get bankFallbackName => _strings.bankFallbackName;
+
+  @override
+  List<String> get bankMaxAttemptsSteps => _strings.bankMaxAttemptsSteps;
+
+  @override
+  String get bankMaxAttemptsTitle => _strings.bankMaxAttemptsTitle;
+
+  @override
+  List<String> get bankNoInternetSteps => _strings.bankNoInternetSteps;
+
+  @override
+  String get bankNoInternetTitle => _strings.bankNoInternetTitle;
+
+  @override
+  List<String> get bankPermissionDeniedSteps =>
+      _strings.bankPermissionDeniedSteps;
+
+  @override
+  String get bankPermissionDeniedTitle => _strings.bankPermissionDeniedTitle;
+
+  @override
+  List<String> get bankServiceUnavailSteps => _strings.bankServiceUnavailSteps;
+
+  @override
+  String get bankServiceUnavailTitle => _strings.bankServiceUnavailTitle;
+
+  @override
+  List<String> get bankSessionExpiredSteps => _strings.bankSessionExpiredSteps;
+
+  @override
+  String get bankSessionExpiredTitle => _strings.bankSessionExpiredTitle;
+
+  @override
+  String get bankSupportContactMsg => _strings.bankSupportContactMsg;
+
+  @override
+  List<String> get bankSyncFailedSteps => _strings.bankSyncFailedSteps;
+
+  @override
+  String get bankSyncFailedTitle => _strings.bankSyncFailedTitle;
+
+  @override
+  List<String> get bankTimeoutSteps => _strings.bankTimeoutSteps;
+
+  @override
+  String get bankTimeoutTitle => _strings.bankTimeoutTitle;
+
+  @override
+  String get bankTransactionsLabel => _strings.bankTransactionsLabel;
+
+  @override
+  List<String> get bankUnknownErrorSteps => _strings.bankUnknownErrorSteps;
+
+  @override
+  String get bankUnknownErrorTitle => _strings.bankUnknownErrorTitle;
+
+  @override
+  String get camera => _strings.camera;
+
+  @override
+  String get cancelGoal => _strings.cancelGoal;
+
+  @override
+  String get cancelGoalConfirm => _strings.cancelGoalConfirm;
+
+  @override
+  String cancelGoalContent(String name) => _strings.cancelGoalContent(name);
+
+  @override
+  String get cancelGoalTitle => _strings.cancelGoalTitle;
+
+  @override
+  String get cashAccountName => _strings.cashAccountName;
+
+  @override
+  String get categoriesTitle => _strings.categoriesTitle;
+
+  @override
+  String get categoryDeleted => _strings.categoryDeleted;
+
+  @override
+  String get chatOnFinoraLabel => _strings.chatOnFinoraLabel;
+
+  @override
+  String get chooseBankTitle => _strings.chooseBankTitle;
+
+  @override
+  String get color => _strings.color;
+
+  @override
+  String get configureGeminiKey => _strings.configureGeminiKey;
+
+  @override
+  String get confirmChanges => _strings.confirmChanges;
+
+  @override
+  String get confirmContribution => _strings.confirmContribution;
+
+  @override
+  String get confirmSaveChangesQuestion => _strings.confirmSaveChangesQuestion;
+
+  @override
+  String get consentExpiredWarning => _strings.consentExpiredWarning;
+
+  @override
+  String consentExpiresWarning(int days) =>
+      _strings.consentExpiresWarning(days);
+
+  @override
+  String consentRenewedMsg(String bankName) =>
+      _strings.consentRenewedMsg(bankName);
+
+  @override
+  String consentRevokedMsg(String bankName) =>
+      _strings.consentRevokedMsg(bankName);
+
+  @override
+  String get consentTypeAnalytics => _strings.consentTypeAnalytics;
+
+  @override
+  String get consentTypeDataProcessing => _strings.consentTypeDataProcessing;
+
+  @override
+  String get consentTypeEssential => _strings.consentTypeEssential;
+
+  @override
+  String get consentTypeMarketing => _strings.consentTypeMarketing;
+
+  @override
+  String get consentTypePersonalization => _strings.consentTypePersonalization;
+
+  @override
+  String get consentTypeThirdParty => _strings.consentTypeThirdParty;
+
+  @override
+  String get contributionAdded => _strings.contributionAdded;
+
+  @override
+  String get contributionLabel => _strings.contributionLabel;
+
+  @override
+  String get contributions => _strings.contributions;
+
+  @override
+  String get createCategory => _strings.createCategory;
+
+  @override
+  String get createFirstCategory => _strings.createFirstCategory;
+
+  @override
+  String daysCount(int n) => _strings.daysCount(n);
+
+  @override
+  String get deleteAccountGdprNote => _strings.deleteAccountGdprNote;
+
+  @override
+  String get deleteAccountWarningItems => _strings.deleteAccountWarningItems;
+
+  @override
+  String get deleteAccountWarningTitle => _strings.deleteAccountWarningTitle;
+
+  @override
+  String get deleteCategory => _strings.deleteCategory;
+
+  @override
+  String deleteCategoryConfirm(String name) =>
+      _strings.deleteCategoryConfirm(name);
+
+  @override
+  String get deleteCategoryWarning => _strings.deleteCategoryWarning;
+
+  @override
+  String get deleteConfirmInstruction => _strings.deleteConfirmInstruction;
+
+  @override
+  String get deleteContributionTitle => _strings.deleteContributionTitle;
+
+  @override
+  String get deletePhoto => _strings.deletePhoto;
+
+  @override
+  String get deleteTransactionConfirmContent =>
+      _strings.deleteTransactionConfirmContent;
+
+  @override
+  String get descriptionHint => _strings.descriptionHint;
+
+  @override
+  String get editCategory => _strings.editCategory;
+
+  @override
+  String get enterAmount => _strings.enterAmount;
+
+  @override
+  String get enterPositiveAmount => _strings.enterPositiveAmount;
+
+  @override
+  String get errorDeletingAccount => _strings.errorDeletingAccount;
+
+  @override
+  String get errorExportingData => _strings.errorExportingData;
+
+  @override
+  String get errorLoadingBanks => _strings.errorLoadingBanks;
+
+  @override
+  String get errorLoadingCategories => _strings.errorLoadingCategories;
+
+  @override
+  String get errorRenewing => _strings.errorRenewing;
+
+  @override
+  String get errorRevoking => _strings.errorRevoking;
+
+  @override
+  String get expiresAtLabel => _strings.expiresAtLabel;
+
+  @override
+  String get expiresInLabel => _strings.expiresInLabel;
+
+  @override
+  String get exportDataDesc => _strings.exportDataDesc;
+
+  @override
+  String get exportDataIncludesLabel => _strings.exportDataIncludesLabel;
+
+  @override
+  String get exportDataItem1 => _strings.exportDataItem1;
+
+  @override
+  String get exportDataItem2 => _strings.exportDataItem2;
+
+  @override
+  String get exportDataItem3 => _strings.exportDataItem3;
+
+  @override
+  String get exportDataItem4 => _strings.exportDataItem4;
+
+  @override
+  String get exportResultNote => _strings.exportResultNote;
+
+  @override
+  String get gallery => _strings.gallery;
+
+  @override
+  String get gdprComplianceDesc => _strings.gdprComplianceDesc;
+
+  @override
+  String get geminiKeyConfigured => _strings.geminiKeyConfigured;
+
+  @override
+  String get geminiKeyDescription => _strings.geminiKeyDescription;
+
+  @override
+  String get geminiKeyRemoved => _strings.geminiKeyRemoved;
+
+  @override
+  String get geminiKeyTitle => _strings.geminiKeyTitle;
+
+  @override
+  String get goalAiHint => _strings.goalAiHint;
+
+  @override
+  String goalAmountOf(String current, String target) =>
+      _strings.goalAmountOf(current, target);
+
+  @override
+  String get goalAmountPositive => _strings.goalAmountPositive;
+
+  @override
+  String get goalAmountRequired => _strings.goalAmountRequired;
+
+  @override
+  String get goalAnalyzeAndCreate => _strings.goalAnalyzeAndCreate;
+
+  @override
+  List<String> get goalCategoriesList => _strings.goalCategoriesList;
+
+  @override
+  String get goalCategoryOptional => _strings.goalCategoryOptional;
+
+  @override
+  String goalCompletedCount(int n) => _strings.goalCompletedCount(n);
+
+  @override
+  String goalDeadlineDate(String date) => _strings.goalDeadlineDate(date);
+
+  @override
+  String get goalDeadlineOptional => _strings.goalDeadlineOptional;
+
+  @override
+  String get goalDifficultLabel => _strings.goalDifficultLabel;
+
+  @override
+  String get goalFeasibleLabel => _strings.goalFeasibleLabel;
+
+  @override
+  String get goalIconLabel => _strings.goalIconLabel;
+
+  @override
+  String goalInProgress(int n) => _strings.goalInProgress(n);
+
+  @override
+  String goalMonthlySuggested(String amount) =>
+      _strings.goalMonthlySuggested(amount);
+
+  @override
+  String get goalNameRequired => _strings.goalNameRequired;
+
+  @override
+  String get goalNoDeadline => _strings.goalNoDeadline;
+
+  @override
+  String get goalNotViableLabel => _strings.goalNotViableLabel;
+
+  @override
+  String get goalNoteHint => _strings.goalNoteHint;
+
+  @override
+  String get goalNoteOptional => _strings.goalNoteOptional;
+
+  @override
+  String goalRemainingAmount(String amount) =>
+      _strings.goalRemainingAmount(amount);
+
+  @override
+  String get goalSelectCategory => _strings.goalSelectCategory;
+
+  @override
+  String get goalTargetAmountLabel => _strings.goalTargetAmountLabel;
+
+  @override
+  String get grantedPermissionsLabel => _strings.grantedPermissionsLabel;
+
+  @override
+  String get icon => _strings.icon;
+
+  @override
+  String get labelProjection => _strings.labelProjection;
+
+  @override
+  String get labelSaved => _strings.labelSaved;
+
+  @override
+  String lastModified(String date) => _strings.lastModified(date);
+
+  @override
+  String get modified => _strings.modified;
+
+  @override
+  String get nameLabel => _strings.nameLabel;
+
+  @override
+  String get nameTooLong => _strings.nameTooLong;
+
+  @override
+  String get newCategory => _strings.newCategory;
+
+  @override
+  String get no => _strings.no;
+
+  @override
+  String get noActiveConsents => _strings.noActiveConsents;
+
+  @override
+  String get noActiveConsentsDesc => _strings.noActiveConsentsDesc;
+
+  @override
+  String get noBanksFound => _strings.noBanksFound;
+
+  @override
+  String get noCategoriesExpense => _strings.noCategoriesExpense;
+
+  @override
+  String get noCategoriesIncome => _strings.noCategoriesIncome;
+
+  @override
+  String get noChangesMsg => _strings.noChangesMsg;
+
+  @override
+  String get noContributionsYet => _strings.noContributionsYet;
+
+  @override
+  String get noDataStoredLabel => _strings.noDataStoredLabel;
+
+  @override
+  String get noLinkedBankAccount => _strings.noLinkedBankAccount;
+
+  @override
+  String get originAccount => _strings.originAccount;
+
+  @override
+  String get permanentActionWarning => _strings.permanentActionWarning;
+
+  @override
+  String get predefined => _strings.predefined;
+
+  @override
+  String get predictionIntroDesc => _strings.predictionIntroDesc;
+
+  @override
+  String get predictionIntroTitle => _strings.predictionIntroTitle;
+
+  @override
+  String get psd2AccountInfoDesc => _strings.psd2AccountInfoDesc;
+
+  @override
+  String get psd2BalanceDesc => _strings.psd2BalanceDesc;
+
+  @override
+  String get psd2ConsentLabel => _strings.psd2ConsentLabel;
+
+  @override
+  String get psd2ConsentNote => _strings.psd2ConsentNote;
+
+  @override
+  String get psd2RenewalInfoMsg => _strings.psd2RenewalInfoMsg;
+
+  @override
+  String get psd2RequestsAccess => _strings.psd2RequestsAccess;
+
+  @override
+  String psd2SecureAccessTo(String bankName) =>
+      _strings.psd2SecureAccessTo(bankName);
+
+  @override
+  String get psd2TransactionsDesc => _strings.psd2TransactionsDesc;
+
+  @override
+  String get readOnlyAccountsLabel => _strings.readOnlyAccountsLabel;
+
+  @override
+  String get reasonOptionalHint => _strings.reasonOptionalHint;
+
+  @override
+  String get recategorizeAll => _strings.recategorizeAll;
+
+  @override
+  String recategorizeSimilarMsg(String category) =>
+      _strings.recategorizeSimilarMsg(category);
+
+  @override
+  String get refreshPredictions => _strings.refreshPredictions;
+
+  @override
+  String get registrationDateLabel => _strings.registrationDateLabel;
+
+  @override
+  String get renew => _strings.renew;
+
+  @override
+  String get renew90Days => _strings.renew90Days;
+
+  @override
+  String get renewConsent => _strings.renewConsent;
+
+  @override
+  String renewConsentContent(String bankName) =>
+      _strings.renewConsentContent(bankName);
+
+  @override
+  String get renewalRequired => _strings.renewalRequired;
+
+  @override
+  String get revokeAccess => _strings.revokeAccess;
+
+  @override
+  String revokeConsentContent(String bankName) =>
+      _strings.revokeConsentContent(bankName);
+
+  @override
+  String get revokeConsentTitle => _strings.revokeConsentTitle;
+
+  @override
+  String get revokeLabel => _strings.revokeLabel;
+
+  @override
+  String get saveChanges => _strings.saveChanges;
+
+  @override
+  String get savingsIntroDesc => _strings.savingsIntroDesc;
+
+  @override
+  String get savingsIntroTitle => _strings.savingsIntroTitle;
+
+  @override
+  String get searchBankHint => _strings.searchBankHint;
+
+  @override
+  String get securePsd2Connection => _strings.securePsd2Connection;
+
+  @override
+  String get selectCategoryHint => _strings.selectCategoryHint;
+
+  @override
+  String get selectFromGallery => _strings.selectFromGallery;
+
+  @override
+  String get skipTutorial => _strings.skipTutorial;
+
+  @override
+  String get statusActive => _strings.statusActive;
+
+  @override
+  String get statusExpired => _strings.statusExpired;
+
+  @override
+  String get statusRevoked => _strings.statusRevoked;
+
+  @override
+  String get subscriptionsIntroDesc => _strings.subscriptionsIntroDesc;
+
+  @override
+  String get subscriptionsIntroTitle => _strings.subscriptionsIntroTitle;
+
+  @override
+  String get suggestedByHistory => _strings.suggestedByHistory;
+
+  @override
+  String get takePictureNow => _strings.takePictureNow;
+
+  @override
+  String get ticketPhoto => _strings.ticketPhoto;
+
+  @override
+  String get tlsEncryptedLabel => _strings.tlsEncryptedLabel;
+
+  @override
+  String get transactionUpdated => _strings.transactionUpdated;
+
+  @override
+  String get transactionsLabel => _strings.transactionsLabel;
+
+  @override
+  String get tutorialStart => _strings.tutorialStart;
+
+  @override
+  String get tutorialStep1Desc => _strings.tutorialStep1Desc;
+
+  @override
+  String get tutorialStep1Title => _strings.tutorialStep1Title;
+
+  @override
+  String get tutorialStep2Desc => _strings.tutorialStep2Desc;
+
+  @override
+  String get tutorialStep2Title => _strings.tutorialStep2Title;
+
+  @override
+  String get tutorialStep3Desc => _strings.tutorialStep3Desc;
+
+  @override
+  String get tutorialStep3Title => _strings.tutorialStep3Title;
+
+  @override
+  String get tutorialStep4Desc => _strings.tutorialStep4Desc;
+
+  @override
+  String get tutorialStep4Title => _strings.tutorialStep4Title;
+
+  @override
+  String get tutorialStep5Desc => _strings.tutorialStep5Desc;
+
+  @override
+  String get tutorialStep5Title => _strings.tutorialStep5Title;
+
+  @override
+  String get errorExportExcel => _strings.errorExportExcel;
+
+  @override
+  String get exportExcel => _strings.exportExcel;
+
+  @override
+  String get exportExcelSubtitle => _strings.exportExcelSubtitle;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────

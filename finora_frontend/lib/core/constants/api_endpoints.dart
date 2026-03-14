@@ -14,16 +14,16 @@ class ApiEndpoints {
 
     // Web platform
     if (kIsWeb) {
-      return 'http://192.168.100.88:3000/api/v1';
+      return 'http://192.168.1.21:3000/api/v1';
     }
 
     // For local development with Docker
     if (Platform.isAndroid) {
-      return 'http://192.168.100.88:3000/api/v1';
+      return 'http://192.168.1.21:3000/api/v1';
     }
 
     // iOS, Windows, macOS, Linux
-    return 'http://192.168.100.88:3000/api/v1';
+    return 'http://192.168.1.21:3000/api/v1';
   }
 
   // Authentication endpoints
@@ -145,6 +145,9 @@ class ApiEndpoints {
   static const String exportCsv = '/export/csv';
   static const String exportPdf = '/export/pdf';
   static const String shareExport = '/export/share';
+
+  // Currency exchange rates
+  static const String currencyRates = '/currency/rates';
 
   // Settings endpoints
   static const String settings = '/settings';

@@ -9,13 +9,14 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 
 /// RF-32: Gestión visual de presupuestos mensuales por categoría.
 class BudgetPage extends StatefulWidget {
@@ -53,15 +54,7 @@ class _BudgetPageState extends State<BudgetPage>
 
   // ── Helpers de Localización ────────────────────────────────────────────────
 
-  String _formatCurrency(double amount) {
-    // Detecta el locale actual del sistema/app
-    final locale = Localizations.localeOf(context).toString();
-    return NumberFormat.currency(
-      locale: locale,
-      symbol: '€',
-      decimalDigits: 2,
-    ).format(amount);
-  }
+  String _formatCurrency(double amount) => CurrencyService().format(amount);
 
   String _getTranslatedCategory(String categoryKey) {
     final s = AppLocalizations.of(context);
@@ -303,7 +296,10 @@ class _BudgetPageState extends State<BudgetPage>
         foregroundColor: Colors.white,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: SkeletonListLoader(count: 5, cardHeight: 80),
+            )
           : _error != null
           ? _buildError()
           : TabBarView(

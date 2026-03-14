@@ -28,6 +28,9 @@ import 'predictions_page.dart'; // RF-22/HU-09 + RF-21/HU-08
 import 'assistant_page.dart'; // RF-25/HU-12/CU-04 + RF-26/HU-13 + RF-27/HU-14
 import 'stats_page.dart';
 import 'transactions_page.dart';
+import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../banks/presentation/widgets/notification_bell.dart';
 
 /// Contenido del Dashboard principal
 class DashboardContent extends StatefulWidget {
@@ -49,7 +52,7 @@ class _DashboardContentState extends State<DashboardContent>
   late Animation<double> _shimmerAnim;
 
   // ─── RF-28: Resumen mensual server-side (evita problema de paginación) ────
-  List<({String label, double income, double expense})>? _monthlySummary;
+  List<({int monthNumber, double income, double expense})>? _monthlySummary;
 
   Future<void> _fetchMonthlySummary() async {
     try {
@@ -59,20 +62,6 @@ class _DashboardContentState extends State<DashboardContent>
         queryParameters: {'months': 6},
       );
       final rows = (resp.data['summary'] as List?) ?? [];
-      final labels = [
-        'Ene',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Ago',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dic',
-      ];
       // Asegurar que existen los últimos 6 meses aunque no haya datos
       final now = DateTime.now();
       final result = List.generate(6, (i) {
@@ -88,7 +77,7 @@ class _DashboardContentState extends State<DashboardContent>
           orElse: () => {'month': key, 'income': 0.0, 'expenses': 0.0},
         );
         return (
-          label: labels[m - 1],
+          monthNumber: m,
           income: (row['income'] as num?)?.toDouble() ?? 0.0,
           expense: (row['expenses'] as num?)?.toDouble() ?? 0.0,
         );
@@ -100,8 +89,10 @@ class _DashboardContentState extends State<DashboardContent>
   }
 
   String _formatCurrency(double amount) {
-    final isNegative = amount < 0;
-    final absAmount = amount.abs();
+    final currency = AppSettingsService().currentCurrency;
+    final converted = CurrencyService().convert(amount);
+    final isNegative = converted < 0;
+    final absAmount = converted.abs();
     final parts = absAmount.toStringAsFixed(2).split('.');
     final intPart = parts[0];
     final decPart = parts[1];
@@ -110,7 +101,7 @@ class _DashboardContentState extends State<DashboardContent>
       if (i > 0 && (intPart.length - i) % 3 == 0) buffer.write('.');
       buffer.write(intPart[i]);
     }
-    return '${isNegative ? '-' : ''}${buffer.toString()},$decPart €';
+    return '${isNegative ? '-' : ''}${buffer.toString()},$decPart ${currency.symbol}';
   }
 
   String _getTranslatedCategory(BuildContext context, String categoryKey) {
@@ -176,10 +167,16 @@ class _DashboardContentState extends State<DashboardContent>
       end: 0.85,
     ).animate(CurvedAnimation(parent: _shimmerCtrl, curve: Curves.easeInOut));
     _fetchMonthlySummary();
+    AppSettingsService().currencyNotifier.addListener(_onCurrencyChanged);
+  }
+
+  void _onCurrencyChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    AppSettingsService().currencyNotifier.removeListener(_onCurrencyChanged);
     _shimmerCtrl.dispose();
     super.dispose();
   }
@@ -440,23 +437,7 @@ class _DashboardContentState extends State<DashboardContent>
               ],
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.gray50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.gray200),
-            ),
-            child: IconButton(
-              icon: const Badge(
-                smallSize: 8,
-                backgroundColor: AppColors.error,
-                child: Icon(Icons.notifications_none_rounded, size: 22),
-              ),
-              onPressed: () {},
-              color: AppColors.textPrimaryLight,
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            ),
-          ),
+          const NotificationBell(),
           const SizedBox(width: 10),
           Container(
             width: 44,
@@ -646,24 +627,10 @@ class _DashboardContentState extends State<DashboardContent>
     return all.where((t) => t.date.year == y && t.date.month == m).toList();
   }
 
-  /// Últimos 6 meses: label, ingresos y gastos de cada mes
-  List<({String label, double income, double expense})> _last6MonthsData(
+  /// Últimos 6 meses: monthNumber, ingresos y gastos de cada mes
+  List<({int monthNumber, double income, double expense})> _last6MonthsData(
     List<TransactionEntity> all,
   ) {
-    const labels = [
-      'Ene',
-      'Feb',
-      'Mar',
-      'Abr',
-      'May',
-      'Jun',
-      'Jul',
-      'Ago',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dic',
-    ];
     final now = DateTime.now();
     return List.generate(6, (i) {
       int m = now.month - 5 + i;
@@ -676,13 +643,32 @@ class _DashboardContentState extends State<DashboardContent>
           .where((t) => t.date.year == y && t.date.month == m)
           .toList();
       return (
-        label: labels[m - 1],
+        monthNumber: m,
         income: txs.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount),
         expense: txs
             .where((t) => t.isExpense)
             .fold(0.0, (s, t) => s + t.amount),
       );
     });
+  }
+
+  /// Returns the localized month abbreviation for the given month number (1-12)
+  String _getMonthAbbr(AppLocalizations s, int month) {
+    switch (month) {
+      case 1: return s.jan;
+      case 2: return s.feb;
+      case 3: return s.mar;
+      case 4: return s.apr;
+      case 5: return s.mayy;
+      case 6: return s.jun;
+      case 7: return s.jul;
+      case 8: return s.aug;
+      case 9: return s.sep;
+      case 10: return s.oct;
+      case 11: return s.nov;
+      case 12: return s.dec;
+      default: return '';
+    }
   }
 
   /// Detecta gastos recurrentes (≥ 2 meses distintos) y filtra los
@@ -1600,7 +1586,7 @@ class _DashboardContentState extends State<DashboardContent>
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  d.label,
+                                  _getMonthAbbr(s, d.monthNumber),
                                   style: AppTypography.badge(
                                     color: AppColors.textTertiaryLight,
                                   ),
@@ -2254,13 +2240,7 @@ class _GoalsSectionContent extends StatelessWidget {
   const _GoalsSectionContent();
 
   String _formatCurrency(double amount) {
-    final abs = amount.abs();
-    if (abs >= 1000000) {
-      return '${(abs / 1000000).toStringAsFixed(1)}M€';
-    } else if (abs >= 1000) {
-      return '${(abs / 1000).toStringAsFixed(1)}k€';
-    }
-    return '${abs.toStringAsFixed(2)}€';
+    return CurrencyService().formatCompact(amount);
   }
 
   Color _progressColor(String hexColor) {

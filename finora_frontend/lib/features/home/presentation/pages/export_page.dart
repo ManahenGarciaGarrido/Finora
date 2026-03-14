@@ -25,6 +25,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/services/app_settings_service.dart';
 
 /// RF-34 + RF-35: Página de exportación de transacciones y generación de PDF.
 class ExportPage extends StatefulWidget {
@@ -49,6 +50,7 @@ class _ExportPageState extends State<ExportPage> {
 
   bool _csvLoading = false;
   bool _pdfLoading = false;
+  bool _xlsxLoading = false;
 
   final _apiClient = di.sl<ApiClient>();
 
@@ -99,6 +101,7 @@ class _ExportPageState extends State<ExportPage> {
 
       final params = <String, dynamic>{'from': fromStr, 'to': toStr};
       if (_csvType != 'all') params['type'] = _csvType;
+      params['lang'] = Localizations.localeOf(context).languageCode;
 
       final response = await _apiClient.get(
         '/export/csv',
@@ -137,7 +140,10 @@ class _ExportPageState extends State<ExportPage> {
     final s = AppLocalizations.of(context);
     setState(() => _pdfLoading = true);
     try {
-      final params = <String, dynamic>{'period': _pdfPeriod};
+      final params = <String, dynamic>{
+        'period': _pdfPeriod,
+        'lang': Localizations.localeOf(context).languageCode,
+      };
       if (_pdfPeriod == 'month') {
         params['year'] = _pdfYear;
         params['month'] = _pdfMonth;
@@ -179,6 +185,61 @@ class _ExportPageState extends State<ExportPage> {
     }
   }
 
+  // ── Excel (.xlsx) export ──────────────────────────────────────────────────
+
+  Future<void> _exportExcel() async {
+    final s = AppLocalizations.of(context);
+    setState(() => _xlsxLoading = true);
+    try {
+      final params = <String, dynamic>{
+        'period': _pdfPeriod,
+        'lang': Localizations.localeOf(context).languageCode,
+      };
+      if (_pdfPeriod == 'month') {
+        params['year'] = _pdfYear;
+        params['month'] = _pdfMonth;
+      } else if (_pdfPeriod == 'year') {
+        params['year'] = _pdfYear;
+      } else {
+        params['from'] = DateFormat('yyyy-MM-dd').format(_pdfFrom);
+        params['to'] = DateFormat('yyyy-MM-dd').format(_pdfTo);
+      }
+
+      final response = await _apiClient.get(
+        '/export/excel',
+        queryParameters: params,
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      final bytes = Uint8List.fromList((response.data as List<int>));
+      final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
+      final filename = 'finora_report_$dateStr.xlsx';
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$filename');
+      await file.writeAsBytes(bytes);
+
+      await Share.shareXFiles([
+        XFile(
+          file.path,
+          mimeType:
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ),
+      ], subject: s.exportExcel);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${s.errorExportExcel}: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _xlsxLoading = false);
+    }
+  }
+
   Future<Uint8List> _buildPdf(Map<String, dynamic> data) async {
     final s = AppLocalizations.of(context);
     final doc = pw.Document();
@@ -190,9 +251,10 @@ class _ExportPageState extends State<ExportPage> {
         .cast<Map<String, dynamic>>();
 
     final locale = Localizations.localeOf(context).toString();
+    final currencySymbol = AppSettingsService().currentCurrency.symbol;
     final fmtMoney = NumberFormat.currency(
       locale: locale,
-      symbol: '€',
+      symbol: currencySymbol,
       decimalDigits: 2,
     );
 
@@ -200,7 +262,6 @@ class _ExportPageState extends State<ExportPage> {
     final successC = PdfColor.fromHex('#059669');
     final errorC = PdfColor.fromHex('#DC2626');
     final grayC = PdfColor.fromHex('#6B7280');
-    final lightGrayC = PdfColor.fromHex('#F3F4F6');
     final borderC = PdfColor.fromHex('#E5E7EB');
 
     doc.addPage(
@@ -287,6 +348,16 @@ class _ExportPageState extends State<ExportPage> {
               ),
             ),
             pw.SizedBox(height: 8),
+            // ── Bar chart: expenses by category ──────────────────────────────
+            _buildCategoryBarChart(
+              categories,
+              errorC,
+              grayC,
+              primaryC,
+              fmtMoney,
+            ),
+            pw.SizedBox(height: 12),
+            // ── Category table ───────────────────────────────────────────────
             pw.Table(
               border: pw.TableBorder.all(color: borderC, width: 0.5),
               columnWidths: {
@@ -296,22 +367,28 @@ class _ExportPageState extends State<ExportPage> {
               },
               children: [
                 pw.TableRow(
-                  decoration: pw.BoxDecoration(color: lightGrayC),
+                  decoration: pw.BoxDecoration(color: primaryC),
                   children: [
-                    _cell(s.type, bold: true),
-                    _cell('Total', bold: true),
-                    _cell(s.transactions, bold: true),
+                    _cell(s.category, bold: true, color: PdfColors.white),
+                    _cell('Total', bold: true, color: PdfColors.white),
+                    _cell(s.transactions, bold: true, color: PdfColors.white),
                   ],
                 ),
-                ...categories.map(
-                  (c) => pw.TableRow(
+                ...categories.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final c = entry.value;
+                  final rowBg = i.isEven
+                      ? PdfColors.white
+                      : PdfColor.fromHex('#F9FAFB');
+                  return pw.TableRow(
+                    decoration: pw.BoxDecoration(color: rowBg),
                     children: [
                       _cell(_getTranslatedCategory(c['categoria'] as String)),
                       _cell(fmtMoney.format((c['total'] as num).toDouble())),
                       _cell('${c['transacciones']}'),
                     ],
-                  ),
-                ),
+                  );
+                }),
               ],
             ),
             pw.SizedBox(height: 20),
@@ -336,17 +413,23 @@ class _ExportPageState extends State<ExportPage> {
               },
               children: [
                 pw.TableRow(
-                  decoration: pw.BoxDecoration(color: lightGrayC),
+                  decoration: pw.BoxDecoration(color: primaryC),
                   children: [
-                    _cell(s.date, bold: true),
-                    _cell(s.pdfDescription, bold: true),
-                    _cell(s.type, bold: true),
-                    _cell('Amount', bold: true),
+                    _cell(s.date, bold: true, color: PdfColors.white),
+                    _cell(s.pdfDescription, bold: true, color: PdfColors.white),
+                    _cell(s.category, bold: true, color: PdfColors.white),
+                    _cell(s.amount, bold: true, color: PdfColors.white),
                   ],
                 ),
-                ...transactions.map((t) {
+                ...transactions.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final t = entry.value;
                   final isExp = t['tipo'] == 'expense';
+                  final rowBg = i.isEven
+                      ? PdfColors.white
+                      : PdfColor.fromHex('#F9FAFB');
                   return pw.TableRow(
+                    decoration: pw.BoxDecoration(color: rowBg),
                     children: [
                       _cell(t['fecha'] as String),
                       _cell(t['descripcion'] as String),
@@ -354,9 +437,10 @@ class _ExportPageState extends State<ExportPage> {
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(4),
                         child: pw.Text(
-                          '${isExp ? "-" : "+"}${fmtMoney.format((t['cantidad'] as num).toDouble())}',
+                          '${isExp ? "- " : "+ "}${fmtMoney.format((t['cantidad'] as num).toDouble())}',
                           style: pw.TextStyle(
                             fontSize: 9,
+                            fontWeight: pw.FontWeight.bold,
                             color: isExp ? errorC : successC,
                           ),
                         ),
@@ -405,16 +489,94 @@ class _ExportPageState extends State<ExportPage> {
     ),
   );
 
-  pw.Widget _cell(String text, {bool bold = false}) => pw.Padding(
-    padding: const pw.EdgeInsets.all(4),
-    child: pw.Text(
-      text,
-      style: pw.TextStyle(
-        fontSize: 9,
-        fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+  pw.Widget _cell(String text, {bool bold = false, PdfColor? color}) =>
+      pw.Padding(
+        padding: const pw.EdgeInsets.all(4),
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            fontSize: 9,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            color: color,
+          ),
+        ),
+      );
+
+  /// Horizontal bar chart showing expenses by category.
+  pw.Widget _buildCategoryBarChart(
+    List<Map<String, dynamic>> categories,
+    PdfColor barColor,
+    PdfColor labelColor,
+    PdfColor primaryC,
+    NumberFormat fmtMoney,
+  ) {
+    if (categories.isEmpty) return pw.SizedBox();
+    final top = categories.take(7).toList();
+    final maxVal = top
+        .map((c) => (c['total'] as num).toDouble())
+        .fold(0.0, (a, b) => a > b ? a : b);
+    if (maxVal <= 0) return pw.SizedBox();
+
+    final barHeight = 14.0;
+    final spacing = 6.0;
+    final labelWidth = 90.0;
+    final chartWidth = 330.0;
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColor.fromHex('#E5E7EB'), width: 0.5),
+        borderRadius: pw.BorderRadius.circular(4),
       ),
-    ),
-  );
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: top.asMap().entries.map((entry) {
+          final c = entry.value;
+          final val = (c['total'] as num).toDouble();
+          final pct = maxVal > 0 ? val / maxVal : 0.0;
+          final catName = _getTranslatedCategory(c['categoria'] as String);
+          final displayName = catName.length > 14
+              ? '${catName.substring(0, 13)}…'
+              : catName;
+
+          return pw.Padding(
+            padding: pw.EdgeInsets.only(bottom: spacing),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.SizedBox(
+                  width: labelWidth,
+                  child: pw.Text(
+                    displayName,
+                    style: pw.TextStyle(fontSize: 8, color: labelColor),
+                  ),
+                ),
+                pw.SizedBox(
+                  width: chartWidth * pct,
+                  height: barHeight,
+                  child: pw.Container(
+                    decoration: pw.BoxDecoration(
+                      color: barColor,
+                      borderRadius: pw.BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 4),
+                pw.Text(
+                  fmtMoney.format(val),
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    color: primaryC,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 
   Future<DateTime?> _pickDate(DateTime initial) => showDatePicker(
     context: context,
@@ -614,6 +776,100 @@ class _ExportPageState extends State<ExportPage> {
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // ── Excel card (mismos filtros de período que PDF) ─────────────────
+          _sectionCard(
+            title: s.exportExcel,
+            subtitle: s.exportExcelSubtitle,
+            icon: Icons.grid_on_rounded,
+            iconColor: const Color(0xFF217346), // Excel green
+            children: [
+              Text(
+                s.periodLabel,
+                style: AppTypography.labelSmall(color: AppColors.gray500),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _filterChip(
+                    s.periodMonth,
+                    'month',
+                    _pdfPeriod,
+                    const Color(0xFF217346),
+                    (v) => setState(() => _pdfPeriod = v),
+                  ),
+                  _filterChip(
+                    s.periodYear,
+                    'year',
+                    _pdfPeriod,
+                    const Color(0xFF217346),
+                    (v) => setState(() => _pdfPeriod = v),
+                  ),
+                  _filterChip(
+                    s.periodCustom,
+                    'custom',
+                    _pdfPeriod,
+                    const Color(0xFF217346),
+                    (v) => setState(() => _pdfPeriod = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_pdfPeriod == 'month') ...[
+                Row(
+                  children: [
+                    Expanded(child: _yearDropdown()),
+                    const SizedBox(width: 8),
+                    Expanded(child: _monthDropdown()),
+                  ],
+                ),
+              ] else if (_pdfPeriod == 'year') ...[
+                _yearDropdown(),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _dateBtn(
+                        s.fromLabel,
+                        _pdfFrom,
+                        (d) => setState(() => _pdfFrom = d),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _dateBtn(
+                        s.toLabel,
+                        _pdfTo,
+                        (d) => setState(() => _pdfTo = d),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _xlsxLoading ? null : _exportExcel,
+                  icon: _xlsxLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.grid_on_rounded),
+                  label: Text(_xlsxLoading ? s.generatingLabel : s.exportExcel),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF217346),
                   ),
                 ),
               ),

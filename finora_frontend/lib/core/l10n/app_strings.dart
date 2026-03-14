@@ -221,6 +221,7 @@ abstract class AppStringsBase {
   String get loading;
   String get error;
   String get retry;
+  String get refreshPredictions;
   String get search;
   String get filter;
   String get all;
@@ -449,6 +450,52 @@ abstract class AppStringsBase {
   String get goalProgress;
   String get daysLeft;
   String get completed;
+  // goals_page
+  String goalInProgress(int n);
+  String goalCompletedCount(int n);
+  String goalAmountOf(String current, String target);
+  String goalDeadlineDate(String date);
+  String goalRemainingAmount(String amount);
+  // create_goal_page
+  String get goalNameRequired;
+  String get goalTargetAmountLabel;
+  String get goalAmountRequired;
+  String get goalAmountPositive;
+  String get goalIconLabel;
+  String get goalDeadlineOptional;
+  String get goalNoDeadline;
+  String get goalCategoryOptional;
+  String get goalSelectCategory;
+  String get goalNoteOptional;
+  String get goalNoteHint;
+  String get goalAiHint;
+  String get goalAnalyzeAndCreate;
+  String get goalFeasibleLabel;
+  String get goalDifficultLabel;
+  String get goalNotViableLabel;
+  String goalMonthlySuggested(String amount);
+  List<String> get goalCategoriesList;
+  // goal_detail_page
+  String get cancelGoal;
+  String get contributionAdded;
+  String get contributions;
+  String get labelSaved;
+  String get labelProjection;
+  String get contributionLabel;
+  String get cashAccountName;
+  String get noLinkedBankAccount;
+  String get enterAmount;
+  String get enterPositiveAmount;
+  String get originAccount;
+  String get analyzingLabel;
+  String get analyzeWithAI;
+  String get confirmContribution;
+  String get noContributionsYet;
+  String get deleteContributionTitle;
+  String get no;
+  String get cancelGoalTitle;
+  String cancelGoalContent(String name);
+  String get cancelGoalConfirm;
 
   // ── Transacciones — adicional ──────────────────────────────────────────────
   String get transactionType;
@@ -561,6 +608,33 @@ abstract class AppStringsBase {
   String get rightOfAccessDesc;
   String get rightOfRectification;
   String get rightOfRectificationDesc;
+  String get gdprComplianceDesc;
+  String get exportDataDesc;
+  String get exportDataIncludesLabel;
+  String get exportDataItem1;
+  String get exportDataItem2;
+  String get exportDataItem3;
+  String get exportDataItem4;
+  String get exportResultNote;
+  String get nameLabel;
+  String get transactionsLabel;
+  String get registrationDateLabel;
+  String get errorExportingData;
+  String get errorDeletingAccount;
+  String get deleteAccountWarningTitle;
+  String get deleteAccountWarningItems;
+  String get deleteAccountGdprNote;
+  String get deleteConfirmInstruction;
+  String get reasonOptionalHint;
+  String get consentTypeEssential;
+  String get consentTypeAnalytics;
+  String get consentTypeMarketing;
+  String get consentTypeThirdParty;
+  String get consentTypePersonalization;
+  String get consentTypeDataProcessing;
+  String get actionInitialRegistration;
+  String get actionConsentUpdated;
+  String get actionConsentWithdrawn;
 
   // ── Dinero y Cuentas ───────────────────────────────────────────────────────
   String get cashMoney;
@@ -636,6 +710,9 @@ abstract class AppStringsBase {
   String get pdfDescription;
   String get errorExportCsv;
   String get errorGeneratePdf;
+  String get exportExcel;
+  String get exportExcelSubtitle;
+  String get errorExportExcel;
 
   // Meses
   List<String> get monthNames;
@@ -860,6 +937,7 @@ abstract class AppStringsBase {
   String get aiEmptyDataSubtitle;
   String get aiPredictionVsLastMonth;
   String get aiPreviousMonth;
+  String aiPredictionSemantics(String category, String amount);
   String get aiTrendIncreasing;
   String get aiTrendDecreasing;
   String get aiTrendStable;
@@ -952,6 +1030,90 @@ abstract class AppStringsBase {
   String get bankContactSupport;
   String get bankWhatYouCanDo;
   String get dontCloseAppMsg;
+  // ── Banco — tutorial ──────────────────────────────────────────────────────
+  String get tutorialStep1Title;
+  String get tutorialStep1Desc;
+  String get tutorialStep2Title;
+  String get tutorialStep2Desc;
+  String get tutorialStep3Title;
+  String get tutorialStep3Desc;
+  String get tutorialStep4Title;
+  String get tutorialStep4Desc;
+  String get tutorialStep5Title;
+  String get tutorialStep5Desc;
+  String get skipTutorial;
+  String get tutorialStart;
+  // ── Banco — institution selector ──────────────────────────────────────────
+  String get chooseBankTitle;
+  String get securePsd2Connection;
+  String get searchBankHint;
+  String get errorLoadingBanks;
+  String get noBanksFound;
+  // ── Banco — PSD2 consent dialog ────────────────────────────────────────────
+  String get tlsEncryptedLabel;
+  String get noDataStoredLabel;
+  String get bankAccountBalanceLabel;
+  String get bankTransactionsLabel;
+  String get bankAccountInfoLabel;
+  String get authorizeContinue;
+  String psd2SecureAccessTo(String bankName);
+  String get psd2ConsentLabel;
+  String get psd2RequestsAccess;
+  String get psd2BalanceDesc;
+  String get psd2TransactionsDesc;
+  String get psd2AccountInfoDesc;
+  String get psd2ConsentNote;
+  // ── Banco — consent management ────────────────────────────────────────────
+  String get bankConsentsTitle;
+  String get bankConsentsLoadError;
+  String get renewConsent;
+  String renewConsentContent(String bankName);
+  String consentRenewedMsg(String bankName);
+  String get renew;
+  String get revokeConsentTitle;
+  String revokeConsentContent(String bankName);
+  String consentRevokedMsg(String bankName);
+  String get revokeAccess;
+  String get statusRevoked;
+  String get statusExpired;
+  String get statusActive;
+  String get renewalRequired;
+  String get expiresInLabel;
+  String get expiresAtLabel;
+  String get grantedPermissionsLabel;
+  String get readOnlyAccountsLabel;
+  String get revokeLabel;
+  String get noActiveConsents;
+  String get noActiveConsentsDesc;
+  String get psd2RenewalInfoMsg;
+  String daysCount(int n);
+  String consentExpiresWarning(int days);
+  String get consentExpiredWarning;
+  String get renew90Days;
+  String get errorRenewing;
+  String get errorRevoking;
+  // ── Banco — connecting errors ─────────────────────────────────────────────
+  String get bankFallbackName;
+  String get chatOnFinoraLabel;
+  String get bankTimeoutTitle;
+  List<String> get bankTimeoutSteps;
+  String get bankPermissionDeniedTitle;
+  List<String> get bankPermissionDeniedSteps;
+  String get bankNoInternetTitle;
+  List<String> get bankNoInternetSteps;
+  String get bankSessionExpiredTitle;
+  List<String> get bankSessionExpiredSteps;
+  String get bankServiceUnavailTitle;
+  List<String> get bankServiceUnavailSteps;
+  String get bankSyncFailedTitle;
+  List<String> get bankSyncFailedSteps;
+  String get bankCancelledTitle;
+  List<String> get bankCancelledSteps;
+  String get bankMaxAttemptsTitle;
+  List<String> get bankMaxAttemptsSteps;
+  String get bankUnknownErrorTitle;
+  List<String> get bankUnknownErrorSteps;
+  String get bankSupportContactMsg;
   String get aiAnalysisLabel;
   String get configureAccountMsg;
   String get creditCardType;
@@ -977,15 +1139,93 @@ abstract class AppStringsBase {
   String get on;
   String get off;
 
+  // ── Categorías — página ───────────────────────────────────────────────────
+  String get categoriesTitle;
+  String get noCategoriesExpense;
+  String get noCategoriesIncome;
+  String get createFirstCategory;
+  String get errorLoadingCategories;
+  String get predefined;
+  String get newCategory;
+  String get editCategory;
+  String get deleteCategory;
+  String get createCategory;
+  String get saveChanges;
+  String get icon;
+  String get color;
+  String deleteCategoryConfirm(String name);
+  String get deleteCategoryWarning;
+  String get nameTooLong;
+
   // ── Mensajes dinámicos (con parámetro) ────────────────────────────────────
   String categoryCreatedMsg(String name);
   String categoryUpdatedMsg(String name);
   String categoryDeletedMsg(String name);
+  String get categoryDeleted;
+
+  // ── Edit Transaction Page ─────────────────────────────────────────────────
+  String get amountInvalidPositive;
+  String get amountExceedsMax;
+  String get ticketPhoto;
+  String get camera;
+  String get takePictureNow;
+  String get gallery;
+  String get selectFromGallery;
+  String get deletePhoto;
+  String get noChangesMsg;
+  String get confirmChanges;
+  String get confirmSaveChangesQuestion;
+  String get modified;
+  String get balanceRecalculateNote;
+  String get selectCategoryHint;
+  String recategorizeSimilarMsg(String category);
+  String get recategorizeAll;
+  String lastModified(String date);
+  String get suggestedByHistory;
+  String get descriptionHint;
+  String get addTicketPhoto;
+  String get transactionUpdated;
+  String get deleteTransactionConfirmContent;
+  String get permanentActionWarning;
+
   String goalCreatedMsg(String name);
   String budgetCreatedMsg(String name);
   String budgetUpdatedMsg(String name);
   String budgetDeletedMsg(String name);
   String accountDeletedMsg(String name);
+
+  // ── Editar Perfil — campos adicionales ────────────────────────────────────
+  String get phoneNumber;
+  String get profileBio;
+  String get languageAndCurrency;
+  String get preferencesSectionTitle;
+
+  // ── Biometría — mensajes de snackbar ──────────────────────────────────────
+  String biometricActivatedMsg(String label);
+  String get biometricCancelledMsg;
+  String get biometricDeactivatedMsg;
+  String biometricSetupDeviceMsg(String label);
+  String get biometricErrorMsg;
+
+  // ── Moneda — mensajes ─────────────────────────────────────────────────────
+  String currencyChangedMsg(String code, String symbol);
+
+  // ── Predictions intro cards ───────────────────────────────────────────────
+  String get predictionIntroTitle;
+  String get predictionIntroDesc;
+  String get savingsIntroTitle;
+  String get savingsIntroDesc;
+  String get anomaliesIntroTitle;
+  String get anomaliesIntroDesc;
+  String get subscriptionsIntroTitle;
+  String get subscriptionsIntroDesc;
+
+  // ── Gemini ────────────────────────────────────────────────────────────────
+  String get geminiKeyTitle;
+  String get geminiKeyDescription;
+  String get geminiKeyConfigured;
+  String get geminiKeyRemoved;
+  String get configureGeminiKey;
 }
 
 // ── Español (España) ──────────────────────────────────────────────────────────
@@ -1372,6 +1612,8 @@ class _AppStringsEs extends AppStringsBase {
   String get error => 'Error';
   @override
   String get retry => 'Reintentar';
+  @override
+  String get refreshPredictions => 'Actualizar predicciones';
   @override
   String get search => 'Buscar';
   @override
@@ -1798,6 +2040,107 @@ class _AppStringsEs extends AppStringsBase {
   String get daysLeft => 'días restantes';
   @override
   String get completed => 'Completado';
+  @override
+  String goalInProgress(int n) => 'En progreso ($n)';
+  @override
+  String goalCompletedCount(int n) => 'Completados ($n)';
+  @override
+  String goalAmountOf(String current, String target) => '$current de $target';
+  @override
+  String goalDeadlineDate(String date) => 'Meta: $date';
+  @override
+  String goalRemainingAmount(String amount) => 'Faltan $amount';
+  @override
+  String get goalNameRequired => 'El nombre es obligatorio';
+  @override
+  String get goalTargetAmountLabel => 'Cantidad objetivo *';
+  @override
+  String get goalAmountRequired => 'La cantidad es obligatoria';
+  @override
+  String get goalAmountPositive => 'Introduce una cantidad positiva';
+  @override
+  String get goalIconLabel => 'Icono';
+  @override
+  String get goalDeadlineOptional => 'Fecha límite (opcional)';
+  @override
+  String get goalNoDeadline => 'Sin fecha límite';
+  @override
+  String get goalCategoryOptional => 'Categoría (opcional)';
+  @override
+  String get goalSelectCategory => 'Seleccionar categoría';
+  @override
+  String get goalNoteOptional => 'Nota (opcional)';
+  @override
+  String get goalNoteHint => '¿Por qué es importante este objetivo?';
+  @override
+  String get goalAiHint =>
+      'La IA analizará tus ingresos y gastos para evaluar '
+      'la viabilidad del objetivo y sugerir una aportación mensual.';
+  @override
+  String get goalAnalyzeAndCreate => 'Analizar y crear objetivo';
+  @override
+  String get goalFeasibleLabel => '¡Objetivo viable!';
+  @override
+  String get goalDifficultLabel => 'Objetivo difícil';
+  @override
+  String get goalNotViableLabel => 'Objetivo muy ambicioso';
+  @override
+  String goalMonthlySuggested(String amount) =>
+      'Aportación mensual sugerida: $amount €';
+  @override
+  List<String> get goalCategoriesList => [
+        'Vivienda',
+        'Transporte',
+        'Vacaciones',
+        'Educación',
+        'Emergencia',
+        'Salud',
+        'Tecnología',
+        'Negocio',
+        'Otro',
+      ];
+  @override
+  String get cancelGoal => 'Cancelar objetivo';
+  @override
+  String get contributionAdded => 'Aportación añadida correctamente';
+  @override
+  String get contributions => 'Aportaciones';
+  @override
+  String get labelSaved => 'Ahorrado';
+  @override
+  String get labelProjection => 'Proyección';
+  @override
+  String get contributionLabel => 'Aportación';
+  @override
+  String get cashAccountName => 'Efectivo';
+  @override
+  String get noLinkedBankAccount => 'Sin cuenta bancaria';
+  @override
+  String get enterAmount => 'Introduce una cantidad';
+  @override
+  String get enterPositiveAmount => 'Introduce una cantidad positiva';
+  @override
+  String get originAccount => 'Cuenta de origen';
+  @override
+  String get analyzingLabel => 'Analizando...';
+  @override
+  String get analyzeWithAI => 'Analizar con IA';
+  @override
+  String get confirmContribution => 'Confirmar aportación';
+  @override
+  String get noContributionsYet =>
+      'Todavía no hay aportaciones.\nToca "Añadir aportación" para empezar.';
+  @override
+  String get deleteContributionTitle => '¿Eliminar aportación?';
+  @override
+  String get no => 'No';
+  @override
+  String get cancelGoalTitle => '¿Cancelar objetivo?';
+  @override
+  String cancelGoalContent(String name) =>
+      'Se cancelará el objetivo "$name". El historial de aportaciones se conservará.';
+  @override
+  String get cancelGoalConfirm => 'Sí, cancelar';
 
   @override
   String get transactionType => 'Tipo de transacción';
@@ -2027,6 +2370,74 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get rightOfRectificationDesc =>
       'Corrige datos inexactos (próximamente)';
+  @override
+  String get gdprComplianceDesc =>
+      'Finora cumple con el Reglamento General de Protección de Datos (GDPR) '
+      'de la Unión Europea. Tus datos están protegidos y tienes control total sobre ellos.';
+  @override
+  String get exportDataDesc =>
+      'Se generará un archivo con todos tus datos personales '
+      'según el Artículo 20 del GDPR (Derecho de Portabilidad).';
+  @override
+  String get exportDataIncludesLabel => 'El archivo incluirá:';
+  @override
+  String get exportDataItem1 => '- Información personal';
+  @override
+  String get exportDataItem2 => '- Historial de consentimientos';
+  @override
+  String get exportDataItem3 => '- Transacciones financieras';
+  @override
+  String get exportDataItem4 => '- Categorías personalizadas';
+  @override
+  String get exportResultNote =>
+      'Los datos completos en formato JSON han sido generados correctamente.';
+  @override
+  String get nameLabel => 'Nombre';
+  @override
+  String get transactionsLabel => 'Transacciones';
+  @override
+  String get registrationDateLabel => 'Registro';
+  @override
+  String get errorExportingData => 'Error al exportar datos';
+  @override
+  String get errorDeletingAccount => 'Error al eliminar la cuenta';
+  @override
+  String get deleteAccountWarningTitle =>
+      '¿Estás seguro de que deseas eliminar tu cuenta?';
+  @override
+  String get deleteAccountWarningItems =>
+      'Esta acción es IRREVERSIBLE y eliminará PERMANENTEMENTE:\n'
+      '- Toda tu información personal\n'
+      '- Historial de transacciones\n'
+      '- Categorías personalizadas\n'
+      '- Registros de consentimiento';
+  @override
+  String get deleteAccountGdprNote =>
+      'Según el Artículo 17 del GDPR (Derecho al Olvido), '
+      'todos tus datos serán eliminados de nuestros servidores.';
+  @override
+  String get deleteConfirmInstruction =>
+      'Para confirmar, escribe "ELIMINAR" en el campo de abajo:';
+  @override
+  String get reasonOptionalHint => 'No especificada';
+  @override
+  String get consentTypeEssential => 'Datos esenciales';
+  @override
+  String get consentTypeAnalytics => 'Análisis';
+  @override
+  String get consentTypeMarketing => 'Marketing';
+  @override
+  String get consentTypeThirdParty => 'Terceros';
+  @override
+  String get consentTypePersonalization => 'Personalización';
+  @override
+  String get consentTypeDataProcessing => 'Procesamiento datos';
+  @override
+  String get actionInitialRegistration => 'Registro inicial';
+  @override
+  String get actionConsentUpdated => 'Actualizado';
+  @override
+  String get actionConsentWithdrawn => 'Retirado';
 
   @override
   String get cashMoney => 'Dinero en efectivo';
@@ -2168,6 +2579,12 @@ class _AppStringsEs extends AppStringsBase {
   String get errorExportCsv => 'Error al exportar CSV';
   @override
   String get errorGeneratePdf => 'Error al generar PDF';
+  @override
+  String get exportExcel => 'Exportar Excel (.xlsx)';
+  @override
+  String get exportExcelSubtitle => 'Informe con gráficas y tablas formateadas';
+  @override
+  String get errorExportExcel => 'Error al exportar Excel';
 
   @override
   List<String> get monthNames => [
@@ -2610,6 +3027,9 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get aiPreviousMonth => 'Anterior';
   @override
+  String aiPredictionSemantics(String category, String amount) =>
+      'Predicción $category: $amount euros';
+  @override
   String get aiTrendIncreasing => 'Tendencia al alza';
   @override
   String get aiTrendDecreasing => 'Tendencia a la baja';
@@ -2783,6 +3203,241 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get dontCloseAppMsg => 'No cierres la aplicación durante este proceso';
   @override
+  String get tutorialStep1Title => 'Conecta tu banco de forma segura';
+  @override
+  String get tutorialStep1Desc =>
+      'Finora usa la tecnología Open Banking PSD2 para conectarse a tu banco. '
+      'Es la misma tecnología que usan las apps bancarias oficiales.';
+  @override
+  String get tutorialStep2Title => 'Elige tu banco';
+  @override
+  String get tutorialStep2Desc =>
+      'Busca tu banco entre los disponibles. Soportamos los principales '
+      'bancos españoles y europeos. Si no aparece el tuyo, puedes añadirlo manualmente.';
+  @override
+  String get tutorialStep3Title => 'Autoriza el acceso';
+  @override
+  String get tutorialStep3Desc =>
+      'Serás redirigido a la página segura de tu banco para autorizar el acceso. '
+      'Finora NUNCA ve tus credenciales bancarias.';
+  @override
+  String get tutorialStep4Title => 'Sincronización automática';
+  @override
+  String get tutorialStep4Desc =>
+      'Una vez conectado, Finora sincronizará tus movimientos cada 6-12 horas '
+      'automáticamente. También puedes sincronizar manualmente arrastrando hacia abajo.';
+  @override
+  String get tutorialStep5Title => 'Acceso de solo lectura';
+  @override
+  String get tutorialStep5Desc =>
+      'Finora NUNCA puede hacer transferencias ni modificar tus cuentas. '
+      'Solo tiene acceso de lectura a saldos y movimientos.';
+  @override
+  String get skipTutorial => 'Saltar tutorial';
+  @override
+  String get tutorialStart => 'Empezar';
+  @override
+  String get chooseBankTitle => 'Elige tu banco';
+  @override
+  String get securePsd2Connection => 'Conexión segura PSD2 / Open Banking';
+  @override
+  String get searchBankHint => 'Buscar banco...';
+  @override
+  String get errorLoadingBanks => 'Error al cargar bancos';
+  @override
+  String get noBanksFound => 'No se encontraron bancos';
+  @override
+  String get tlsEncryptedLabel => 'Cifrado TLS';
+  @override
+  String get noDataStoredLabel => 'Sin datos guardados';
+  @override
+  String get bankAccountBalanceLabel => 'Saldo de tus cuentas';
+  @override
+  String get bankTransactionsLabel => 'Movimientos bancarios';
+  @override
+  String get bankAccountInfoLabel => 'Información de la cuenta';
+  @override
+  String get authorizeContinue => 'Autorizar y continuar';
+  @override
+  String psd2SecureAccessTo(String bankName) => 'Acceso seguro a $bankName';
+  @override
+  String get psd2ConsentLabel => 'Consentimiento PSD2';
+  @override
+  String get psd2RequestsAccess => 'Finora solicitará acceso a:';
+  @override
+  String get psd2BalanceDesc =>
+      'Finora lee tu saldo actual para calcular tu balance total. '
+      'No puede mover ni modificar fondos.';
+  @override
+  String get psd2TransactionsDesc =>
+      'Se importan los últimos 90 días de transacciones para '
+      'categorizar tus gastos automáticamente.';
+  @override
+  String get psd2AccountInfoDesc =>
+      'Nombre del banco, IBAN (enmascarado) y tipo de cuenta '
+      'para identificar correctamente cada cuenta.';
+  @override
+  String get psd2ConsentNote =>
+      'Este consentimiento es válido durante 90 días según '
+      'la normativa PSD2. Puedes revocarlo en cualquier '
+      'momento desde Ajustes → Bancos → Consentimientos.';
+  @override
+  String get bankConsentsTitle => 'Consentimientos bancarios';
+  @override
+  String get bankConsentsLoadError =>
+      'No se pudieron cargar los consentimientos. Inténtalo de nuevo.';
+  @override
+  String get renewConsent => 'Renovar consentimiento';
+  @override
+  String renewConsentContent(String bankName) =>
+      'Se renovará el acceso de Finora a $bankName por 90 días más (PSD2).\n\n'
+      'No se modificarán tus datos ni transacciones.';
+  @override
+  String consentRenewedMsg(String bankName) =>
+      'Consentimiento de $bankName renovado por 90 días';
+  @override
+  String get renew => 'Renovar';
+  @override
+  String get revokeConsentTitle => 'Revocar consentimiento';
+  @override
+  String revokeConsentContent(String bankName) =>
+      '¿Seguro que quieres revocar el acceso de Finora a $bankName?\n\n'
+      'Esto desconectará el banco y dejará de sincronizarse. '
+      'Tus transacciones existentes se conservarán.';
+  @override
+  String consentRevokedMsg(String bankName) =>
+      'Acceso a $bankName revocado. Banco desconectado.';
+  @override
+  String get revokeAccess => 'Revocar acceso';
+  @override
+  String get statusRevoked => 'Revocado';
+  @override
+  String get statusExpired => 'Expirado';
+  @override
+  String get statusActive => 'Activo';
+  @override
+  String get renewalRequired => 'Renovación requerida';
+  @override
+  String get expiresInLabel => 'Expira en';
+  @override
+  String get expiresAtLabel => 'Fecha de expiración';
+  @override
+  String get grantedPermissionsLabel => 'Permisos concedidos';
+  @override
+  String get readOnlyAccountsLabel => 'Solo lectura (cuentas + transacciones)';
+  @override
+  String get revokeLabel => 'Revocar';
+  @override
+  String get noActiveConsents => 'Sin consentimientos activos';
+  @override
+  String get noActiveConsentsDesc =>
+      'Cuando conectes un banco, aquí aparecerá el consentimiento PSD2 '
+      'con su estado y fecha de expiración.';
+  @override
+  String get psd2RenewalInfoMsg =>
+      'PSD2 (Directiva de Servicios de Pago) exige renovar el '
+      'consentimiento bancario cada 90 días. Finora te avisará '
+      'con 14 días de antelación.';
+  @override
+  String daysCount(int n) => '$n días';
+  @override
+  String consentExpiresWarning(int days) =>
+      'El consentimiento expira en $days días. Renuévalo para seguir sincronizando.';
+  @override
+  String get consentExpiredWarning =>
+      'El consentimiento ha expirado. Renuévalo para reactivar la sincronización.';
+  @override
+  String get renew90Days => 'Renovar 90 días';
+  @override
+  String get errorRenewing => 'Error al renovar';
+  @override
+  String get errorRevoking => 'Error al revocar';
+  @override
+  String get bankFallbackName => 'Banco';
+  @override
+  String get chatOnFinoraLabel => 'Chat en la web de Finora';
+  @override
+  String get bankTimeoutTitle => 'Tiempo de espera agotado';
+  @override
+  List<String> get bankTimeoutSteps => [
+        'La autorización del banco tarda un máximo de 3 minutos.',
+        'Asegúrate de tener buena conexión a Internet o usa WiFi.',
+        'Completa el proceso en el navegador lo antes posible.',
+        'Si el banco pide un código SMS, tenlo preparado antes de empezar.',
+      ];
+  @override
+  String get bankPermissionDeniedTitle => 'Permisos no concedidos';
+  @override
+  List<String> get bankPermissionDeniedSteps => [
+        'Parece que no autorizaste el acceso desde la web de tu banco.',
+        'Finora solo necesita permisos de lectura — nunca realizará pagos.',
+        'Pulsa "Reintentar" y acepta todos los permisos cuando te los pida tu banco.',
+        'Si tienes dudas, consulta la sección PSD2 en la web de tu banco.',
+      ];
+  @override
+  String get bankNoInternetTitle => 'Sin conexión a Internet';
+  @override
+  List<String> get bankNoInternetSteps => [
+        'Comprueba que tu dispositivo tiene conexión a Internet.',
+        'Prueba a desactivar y volver a activar el WiFi o los datos móviles.',
+        'Desactiva la VPN si tienes una activa.',
+        'Si el problema persiste, inténtalo de nuevo más tarde.',
+      ];
+  @override
+  String get bankSessionExpiredTitle => 'Sesión expirada';
+  @override
+  List<String> get bankSessionExpiredSteps => [
+        'Tu sesión en Finora ha expirado por inactividad.',
+        'Cierra esta pantalla y vuelve a iniciar sesión en Finora.',
+        'Luego podrás conectar tu banco de nuevo.',
+      ];
+  @override
+  String get bankServiceUnavailTitle => 'Servicio no disponible';
+  @override
+  List<String> get bankServiceUnavailSteps => [
+        'El servicio de conexión bancaria está temporalmente no disponible.',
+        'Espera unos minutos e inténtalo de nuevo.',
+        'Puede ser una interrupción temporal del banco o de Open Banking.',
+        'Si el problema persiste más de 1 hora, contacta con soporte.',
+      ];
+  @override
+  String get bankSyncFailedTitle => 'Error al importar cuentas';
+  @override
+  List<String> get bankSyncFailedSteps => [
+        'La autorización fue exitosa pero no se pudieron importar las cuentas.',
+        'Tus datos se sincronizarán automáticamente en unos minutos.',
+        'También puedes forzar la sincronización desde la pantalla de cuentas.',
+        'Si ves las cuentas en tu banco pero no aquí, espera unos minutos.',
+      ];
+  @override
+  String get bankCancelledTitle => 'Conexión cancelada';
+  @override
+  List<String> get bankCancelledSteps => [
+        'Has cancelado el proceso antes de completar la autorización.',
+        'Puedes volver a intentarlo cuando quieras.',
+        'Si tienes dudas sobre la seguridad, revisa la sección PSD2 antes de continuar.',
+      ];
+  @override
+  String get bankMaxAttemptsTitle => 'Demasiados intentos fallidos';
+  @override
+  List<String> get bankMaxAttemptsSteps => [
+        'Has alcanzado el límite de 3 intentos fallidos para este banco.',
+        'Por seguridad, debes esperar 1 hora antes de volver a intentarlo.',
+        'Si crees que es un error, contacta con soporte.',
+        'Prueba a conectar un banco diferente mientras esperas.',
+      ];
+  @override
+  String get bankUnknownErrorTitle => 'Error al conectar banco';
+  @override
+  List<String> get bankUnknownErrorSteps => [
+        'Se produjo un error inesperado durante la conexión.',
+        'Comprueba tu conexión a Internet e inténtalo de nuevo.',
+        'Si el error persiste, prueba a reiniciar la app.',
+        'Puedes contactar con soporte si el problema continúa.',
+      ];
+  @override
+  String get bankSupportContactMsg => 'Si el problema persiste, puedes contactarnos:';
+  @override
   String get aiAnalysisLabel => 'Análisis IA';
   @override
   String get configureAccountMsg => 'Configura tu cuenta para empezar';
@@ -2829,11 +3484,97 @@ class _AppStringsEs extends AppStringsBase {
   String get off => 'No';
 
   @override
+  String get categoriesTitle => 'Categorías';
+  @override
+  String get noCategoriesExpense => 'Sin categorías de gastos';
+  @override
+  String get noCategoriesIncome => 'Sin categorías de ingresos';
+  @override
+  String get createFirstCategory => 'Crear primera categoría';
+  @override
+  String get errorLoadingCategories => 'Error al cargar categorías';
+  @override
+  String get predefined => 'Predefinida';
+  @override
+  String get newCategory => 'Nueva categoría';
+  @override
+  String get editCategory => 'Editar categoría';
+  @override
+  String get deleteCategory => 'Eliminar categoría';
+  @override
+  String get createCategory => 'Crear categoría';
+  @override
+  String get saveChanges => 'Guardar cambios';
+  @override
+  String get icon => 'Icono';
+  @override
+  String get color => 'Color';
+  @override
+  String deleteCategoryConfirm(String name) => '¿Eliminar la categoría "$name"?';
+  @override
+  String get deleteCategoryWarning =>
+      'Las transacciones con esta categoría no se eliminarán, pero quedarán sin categoría asignada.';
+  @override
+  String get nameTooLong => 'El nombre no puede superar 100 caracteres';
+
+  @override
   String categoryCreatedMsg(String name) => 'Categoría "$name" creada';
   @override
   String categoryUpdatedMsg(String name) => 'Categoría "$name" actualizada';
   @override
   String categoryDeletedMsg(String name) => 'Categoría "$name" eliminada';
+  @override
+  String get categoryDeleted => 'Categoría eliminada';
+  @override
+  String get amountInvalidPositive => 'Introduce una cantidad válida mayor que 0';
+  @override
+  String get amountExceedsMax => 'La cantidad no puede exceder €999.999,99';
+  @override
+  String get ticketPhoto => 'Foto del ticket';
+  @override
+  String get camera => 'Cámara';
+  @override
+  String get takePictureNow => 'Hacer una foto ahora';
+  @override
+  String get gallery => 'Galería';
+  @override
+  String get selectFromGallery => 'Seleccionar de la galería';
+  @override
+  String get deletePhoto => 'Eliminar foto';
+  @override
+  String get noChangesMsg => 'No has realizado ningún cambio';
+  @override
+  String get confirmChanges => 'Confirmar cambios';
+  @override
+  String get confirmSaveChangesQuestion => '¿Deseas guardar los siguientes cambios?';
+  @override
+  String get modified => 'Modificada';
+  @override
+  String get balanceRecalculateNote =>
+      'El balance y las estadísticas se recalcularán automáticamente.';
+  @override
+  String get selectCategoryHint => '* Selecciona una categoría';
+  @override
+  String recategorizeSimilarMsg(String category) =>
+      '¿Recategorizar todas las transacciones similares a "$category"?';
+  @override
+  String get recategorizeAll => 'Recategorizar todas';
+  @override
+  String lastModified(String date) => 'Última modificación: $date';
+  @override
+  String get suggestedByHistory => 'Sugeridas por historial';
+  @override
+  String get descriptionHint => 'Ej: Compra semanal del supermercado';
+  @override
+  String get addTicketPhoto => 'Añadir foto del ticket';
+  @override
+  String get transactionUpdated => 'Transacción actualizada';
+  @override
+  String get deleteTransactionConfirmContent =>
+      '¿Estás seguro de que deseas eliminar esta transacción?';
+  @override
+  String get permanentActionWarning =>
+      'Esta acción es permanente y no se puede deshacer.';
   @override
   String goalCreatedMsg(String name) => 'Objetivo "$name" creado';
   @override
@@ -2844,6 +3585,66 @@ class _AppStringsEs extends AppStringsBase {
   String budgetDeletedMsg(String name) => 'Presupuesto "$name" eliminado';
   @override
   String accountDeletedMsg(String name) => 'Cuenta "$name" eliminada';
+
+  @override
+  String get phoneNumber => 'Número de teléfono';
+  @override
+  String get profileBio => 'Descripción';
+  @override
+  String get languageAndCurrency => 'Idioma y moneda';
+  @override
+  String get preferencesSectionTitle => 'Preferencias';
+  @override
+  String biometricActivatedMsg(String label) =>
+      '$label activado. Próximo inicio de sesión más rápido.';
+  @override
+  String get biometricCancelledMsg => 'Activación cancelada';
+  @override
+  String get biometricDeactivatedMsg => 'Inicio de sesión biométrico desactivado';
+  @override
+  String biometricSetupDeviceMsg(String label) =>
+      'Configura $label en los ajustes del dispositivo primero.';
+  @override
+  String get biometricErrorMsg => 'Error al activar la biometría';
+  @override
+  String currencyChangedMsg(String code, String symbol) =>
+      'Moneda cambiada a $code ($symbol)';
+
+  // ── Predictions intro cards ───────────────────────────────────────────────
+  @override
+  String get predictionIntroTitle => 'Predicción de gastos';
+  @override
+  String get predictionIntroDesc =>
+      'Análisis basado en tus últimos meses de historial. Te mostramos cuánto gastarás el próximo mes por categoría.';
+  @override
+  String get savingsIntroTitle => 'Oportunidades de ahorro';
+  @override
+  String get savingsIntroDesc =>
+      'Identifica dónde puedes reducir gastos. Basado en tu patrón de gasto habitual.';
+  @override
+  String get anomaliesIntroTitle => 'Gastos inusuales detectados';
+  @override
+  String get anomaliesIntroDesc =>
+      'Gastos que se salen de tu patrón normal. Pueden indicar errores o gastos inesperados.';
+  @override
+  String get subscriptionsIntroTitle => 'Suscripciones activas';
+  @override
+  String get subscriptionsIntroDesc =>
+      'Pagos recurrentes detectados automáticamente. Revisa cuáles necesitas realmente.';
+
+  // ── Gemini ────────────────────────────────────────────────────────────────
+  @override
+  String get geminiKeyTitle => 'Configurar Gemini API';
+  @override
+  String get geminiKeyDescription =>
+      'Pega tu clave de API de Google Gemini para usar la IA directamente. '
+      'Si no tienes clave, el asistente usará el servidor de Finora.';
+  @override
+  String get geminiKeyConfigured => 'Clave de Gemini configurada ✓';
+  @override
+  String get geminiKeyRemoved => 'Clave de Gemini eliminada';
+  @override
+  String get configureGeminiKey => 'Configurar Gemini';
 }
 
 // ── English (International) ───────────────────────────────────────────────────
@@ -3226,6 +4027,8 @@ class _AppStringsEn extends AppStringsBase {
   String get error => 'Error';
   @override
   String get retry => 'Retry';
+  @override
+  String get refreshPredictions => 'Refresh predictions';
   @override
   String get search => 'Search';
   @override
@@ -3646,6 +4449,107 @@ class _AppStringsEn extends AppStringsBase {
   String get daysLeft => 'days left';
   @override
   String get completed => 'Completed';
+  @override
+  String goalInProgress(int n) => 'In progress ($n)';
+  @override
+  String goalCompletedCount(int n) => 'Completed ($n)';
+  @override
+  String goalAmountOf(String current, String target) => '$current of $target';
+  @override
+  String goalDeadlineDate(String date) => 'Goal: $date';
+  @override
+  String goalRemainingAmount(String amount) => '$amount remaining';
+  @override
+  String get goalNameRequired => 'Name is required';
+  @override
+  String get goalTargetAmountLabel => 'Target amount *';
+  @override
+  String get goalAmountRequired => 'Amount is required';
+  @override
+  String get goalAmountPositive => 'Enter a positive amount';
+  @override
+  String get goalIconLabel => 'Icon';
+  @override
+  String get goalDeadlineOptional => 'Deadline (optional)';
+  @override
+  String get goalNoDeadline => 'No deadline';
+  @override
+  String get goalCategoryOptional => 'Category (optional)';
+  @override
+  String get goalSelectCategory => 'Select category';
+  @override
+  String get goalNoteOptional => 'Note (optional)';
+  @override
+  String get goalNoteHint => 'Why is this goal important to you?';
+  @override
+  String get goalAiHint =>
+      'AI will analyze your income and expenses to evaluate '
+      'goal feasibility and suggest a monthly contribution.';
+  @override
+  String get goalAnalyzeAndCreate => 'Analyze and create goal';
+  @override
+  String get goalFeasibleLabel => 'Viable goal!';
+  @override
+  String get goalDifficultLabel => 'Difficult goal';
+  @override
+  String get goalNotViableLabel => 'Very ambitious goal';
+  @override
+  String goalMonthlySuggested(String amount) =>
+      'Suggested monthly contribution: $amount';
+  @override
+  List<String> get goalCategoriesList => [
+        'Housing',
+        'Transport',
+        'Vacation',
+        'Education',
+        'Emergency',
+        'Health',
+        'Technology',
+        'Business',
+        'Other',
+      ];
+  @override
+  String get cancelGoal => 'Cancel goal';
+  @override
+  String get contributionAdded => 'Contribution added successfully';
+  @override
+  String get contributions => 'Contributions';
+  @override
+  String get labelSaved => 'Saved';
+  @override
+  String get labelProjection => 'Projection';
+  @override
+  String get contributionLabel => 'Contribution';
+  @override
+  String get cashAccountName => 'Cash';
+  @override
+  String get noLinkedBankAccount => 'No linked bank account';
+  @override
+  String get enterAmount => 'Enter an amount';
+  @override
+  String get enterPositiveAmount => 'Enter a positive amount';
+  @override
+  String get originAccount => 'Origin account';
+  @override
+  String get analyzingLabel => 'Analyzing...';
+  @override
+  String get analyzeWithAI => 'Analyze with AI';
+  @override
+  String get confirmContribution => 'Confirm contribution';
+  @override
+  String get noContributionsYet =>
+      'No contributions yet.\nTap "Add contribution" to get started.';
+  @override
+  String get deleteContributionTitle => 'Delete contribution?';
+  @override
+  String get no => 'No';
+  @override
+  String get cancelGoalTitle => 'Cancel goal?';
+  @override
+  String cancelGoalContent(String name) =>
+      'The goal "$name" will be cancelled. Contribution history will be kept.';
+  @override
+  String get cancelGoalConfirm => 'Yes, cancel';
 
   @override
   String get transactionType => 'Transaction type';
@@ -3872,6 +4776,74 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get rightOfRectificationDesc =>
       'Correct inaccurate data (coming soon)';
+  @override
+  String get gdprComplianceDesc =>
+      'Finora complies with the General Data Protection Regulation (GDPR) '
+      'of the European Union. Your data is protected and you have full control over it.';
+  @override
+  String get exportDataDesc =>
+      'A file will be generated with all your personal data '
+      'under Article 20 of the GDPR (Right to Data Portability).';
+  @override
+  String get exportDataIncludesLabel => 'The file will include:';
+  @override
+  String get exportDataItem1 => '- Personal information';
+  @override
+  String get exportDataItem2 => '- Consent history';
+  @override
+  String get exportDataItem3 => '- Financial transactions';
+  @override
+  String get exportDataItem4 => '- Custom categories';
+  @override
+  String get exportResultNote =>
+      'The full data in JSON format has been generated successfully.';
+  @override
+  String get nameLabel => 'Name';
+  @override
+  String get transactionsLabel => 'Transactions';
+  @override
+  String get registrationDateLabel => 'Registered';
+  @override
+  String get errorExportingData => 'Error exporting data';
+  @override
+  String get errorDeletingAccount => 'Error deleting account';
+  @override
+  String get deleteAccountWarningTitle =>
+      'Are you sure you want to delete your account?';
+  @override
+  String get deleteAccountWarningItems =>
+      'This action is IRREVERSIBLE and will PERMANENTLY delete:\n'
+      '- All your personal information\n'
+      '- Transaction history\n'
+      '- Custom categories\n'
+      '- Consent records';
+  @override
+  String get deleteAccountGdprNote =>
+      'Under Article 17 of the GDPR (Right to Erasure), '
+      'all your data will be deleted from our servers.';
+  @override
+  String get deleteConfirmInstruction =>
+      'To confirm, type "DELETE" in the field below:';
+  @override
+  String get reasonOptionalHint => 'Not specified';
+  @override
+  String get consentTypeEssential => 'Essential data';
+  @override
+  String get consentTypeAnalytics => 'Analytics';
+  @override
+  String get consentTypeMarketing => 'Marketing';
+  @override
+  String get consentTypeThirdParty => 'Third parties';
+  @override
+  String get consentTypePersonalization => 'Personalisation';
+  @override
+  String get consentTypeDataProcessing => 'Data processing';
+  @override
+  String get actionInitialRegistration => 'Initial registration';
+  @override
+  String get actionConsentUpdated => 'Updated';
+  @override
+  String get actionConsentWithdrawn => 'Withdrawn';
 
   @override
   String get cashMoney => 'Cash money';
@@ -4013,6 +4985,12 @@ class _AppStringsEn extends AppStringsBase {
   String get errorExportCsv => 'Error exporting CSV';
   @override
   String get errorGeneratePdf => 'Error generating PDF';
+  @override
+  String get exportExcel => 'Export Excel (.xlsx)';
+  @override
+  String get exportExcelSubtitle => 'Report with charts and formatted tables';
+  @override
+  String get errorExportExcel => 'Error exporting Excel';
 
   @override
   List<String> get monthNames => [
@@ -4449,6 +5427,9 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get aiPreviousMonth => 'Previous';
   @override
+  String aiPredictionSemantics(String category, String amount) =>
+      'Prediction $category: $amount euros';
+  @override
   String get aiTrendIncreasing => 'Upward trend';
   @override
   String get aiTrendDecreasing => 'Downward trend';
@@ -4622,6 +5603,240 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get dontCloseAppMsg => "Don't close the app during this process";
   @override
+  String get tutorialStep1Title => 'Connect your bank securely';
+  @override
+  String get tutorialStep1Desc =>
+      'Finora uses Open Banking PSD2 technology to connect to your bank. '
+      'It is the same technology used by official banking apps.';
+  @override
+  String get tutorialStep2Title => 'Choose your bank';
+  @override
+  String get tutorialStep2Desc =>
+      'Search your bank among the available ones. We support the main '
+      'Spanish and European banks. If yours is not listed, you can add it manually.';
+  @override
+  String get tutorialStep3Title => 'Authorize access';
+  @override
+  String get tutorialStep3Desc =>
+      'You will be redirected to your bank\'s secure page to authorize access. '
+      'Finora NEVER sees your banking credentials.';
+  @override
+  String get tutorialStep4Title => 'Automatic sync';
+  @override
+  String get tutorialStep4Desc =>
+      'Once connected, Finora will sync your transactions every 6-12 hours '
+      'automatically. You can also sync manually by pulling down.';
+  @override
+  String get tutorialStep5Title => 'Read-only access';
+  @override
+  String get tutorialStep5Desc =>
+      'Finora can NEVER make transfers or modify your accounts. '
+      'It only has read access to balances and transactions.';
+  @override
+  String get skipTutorial => 'Skip tutorial';
+  @override
+  String get tutorialStart => 'Start';
+  @override
+  String get chooseBankTitle => 'Choose your bank';
+  @override
+  String get securePsd2Connection => 'Secure PSD2 / Open Banking connection';
+  @override
+  String get searchBankHint => 'Search bank...';
+  @override
+  String get errorLoadingBanks => 'Error loading banks';
+  @override
+  String get noBanksFound => 'No banks found';
+  @override
+  String get tlsEncryptedLabel => 'TLS Encryption';
+  @override
+  String get noDataStoredLabel => 'No data stored';
+  @override
+  String get bankAccountBalanceLabel => 'Your account balance';
+  @override
+  String get bankTransactionsLabel => 'Bank transactions';
+  @override
+  String get bankAccountInfoLabel => 'Account information';
+  @override
+  String get authorizeContinue => 'Authorize and continue';
+  @override
+  String psd2SecureAccessTo(String bankName) => 'Secure access to $bankName';
+  @override
+  String get psd2ConsentLabel => 'PSD2 Consent';
+  @override
+  String get psd2RequestsAccess => 'Finora will request access to:';
+  @override
+  String get psd2BalanceDesc =>
+      'Finora reads your current balance to calculate your total net worth. '
+      'It cannot move or modify funds.';
+  @override
+  String get psd2TransactionsDesc =>
+      'The last 90 days of transactions are imported to '
+      'automatically categorise your expenses.';
+  @override
+  String get psd2AccountInfoDesc =>
+      'Bank name, IBAN (masked) and account type '
+      'to correctly identify each account.';
+  @override
+  String get psd2ConsentNote =>
+      'This consent is valid for 90 days under PSD2 regulations. '
+      'You can revoke it at any time from '
+      'Settings → Banks → Consents.';
+  @override
+  String get bankConsentsTitle => 'Bank consents';
+  @override
+  String get bankConsentsLoadError =>
+      'Could not load consents. Please try again.';
+  @override
+  String get renewConsent => 'Renew consent';
+  @override
+  String renewConsentContent(String bankName) =>
+      "Finora's access to $bankName will be renewed for 90 more days (PSD2).\n\n"
+      'Your data and transactions will not be modified.';
+  @override
+  String consentRenewedMsg(String bankName) =>
+      '$bankName consent renewed for 90 days';
+  @override
+  String get renew => 'Renew';
+  @override
+  String get revokeConsentTitle => 'Revoke consent';
+  @override
+  String revokeConsentContent(String bankName) =>
+      'Are you sure you want to revoke Finora\'s access to $bankName?\n\n'
+      'This will disconnect the bank and stop syncing. '
+      'Your existing transactions will be kept.';
+  @override
+  String consentRevokedMsg(String bankName) =>
+      'Access to $bankName revoked. Bank disconnected.';
+  @override
+  String get revokeAccess => 'Revoke access';
+  @override
+  String get statusRevoked => 'Revoked';
+  @override
+  String get statusExpired => 'Expired';
+  @override
+  String get statusActive => 'Active';
+  @override
+  String get renewalRequired => 'Renewal required';
+  @override
+  String get expiresInLabel => 'Expires in';
+  @override
+  String get expiresAtLabel => 'Expiry date';
+  @override
+  String get grantedPermissionsLabel => 'Granted permissions';
+  @override
+  String get readOnlyAccountsLabel => 'Read only (accounts + transactions)';
+  @override
+  String get revokeLabel => 'Revoke';
+  @override
+  String get noActiveConsents => 'No active consents';
+  @override
+  String get noActiveConsentsDesc =>
+      'When you connect a bank, the PSD2 consent will appear here '
+      'with its status and expiry date.';
+  @override
+  String get psd2RenewalInfoMsg =>
+      'PSD2 (Payment Services Directive) requires renewing bank '
+      'consent every 90 days. Finora will notify you 14 days in advance.';
+  @override
+  String daysCount(int n) => '$n days';
+  @override
+  String consentExpiresWarning(int days) =>
+      'Consent expires in $days days. Renew it to keep syncing.';
+  @override
+  String get consentExpiredWarning =>
+      'Consent has expired. Renew it to reactivate synchronisation.';
+  @override
+  String get renew90Days => 'Renew 90 days';
+  @override
+  String get errorRenewing => 'Error renewing';
+  @override
+  String get errorRevoking => 'Error revoking';
+  @override
+  String get bankFallbackName => 'Bank';
+  @override
+  String get chatOnFinoraLabel => "Chat on Finora's website";
+  @override
+  String get bankTimeoutTitle => 'Connection timed out';
+  @override
+  List<String> get bankTimeoutSteps => [
+        'Bank authorization takes a maximum of 3 minutes.',
+        'Make sure you have a good internet connection or use WiFi.',
+        'Complete the process in the browser as soon as possible.',
+        'If your bank asks for an SMS code, have it ready before starting.',
+      ];
+  @override
+  String get bankPermissionDeniedTitle => 'Permissions not granted';
+  @override
+  List<String> get bankPermissionDeniedSteps => [
+        'It seems you did not authorize access from your bank\'s website.',
+        'Finora only needs read permissions — it will never make payments.',
+        'Tap "Retry" and accept all permissions when your bank requests them.',
+        'If in doubt, check the PSD2 section on your bank\'s website.',
+      ];
+  @override
+  String get bankNoInternetTitle => 'No internet connection';
+  @override
+  List<String> get bankNoInternetSteps => [
+        'Check that your device has an internet connection.',
+        'Try turning WiFi or mobile data off and on again.',
+        'Disable VPN if you have one active.',
+        'If the problem persists, try again later.',
+      ];
+  @override
+  String get bankSessionExpiredTitle => 'Session expired';
+  @override
+  List<String> get bankSessionExpiredSteps => [
+        'Your Finora session has expired due to inactivity.',
+        'Close this screen and sign in to Finora again.',
+        'Then you can connect your bank again.',
+      ];
+  @override
+  String get bankServiceUnavailTitle => 'Service unavailable';
+  @override
+  List<String> get bankServiceUnavailSteps => [
+        'The bank connection service is temporarily unavailable.',
+        'Wait a few minutes and try again.',
+        'It may be a temporary interruption from the bank or Open Banking.',
+        'If the problem persists for more than 1 hour, contact support.',
+      ];
+  @override
+  String get bankSyncFailedTitle => 'Error importing accounts';
+  @override
+  List<String> get bankSyncFailedSteps => [
+        'Authorization was successful but accounts could not be imported.',
+        'Your data will sync automatically in a few minutes.',
+        'You can also force sync from the accounts screen.',
+        'If you see accounts in your bank but not here, wait a few minutes.',
+      ];
+  @override
+  String get bankCancelledTitle => 'Connection cancelled';
+  @override
+  List<String> get bankCancelledSteps => [
+        'You cancelled the process before completing authorization.',
+        'You can try again whenever you want.',
+        'If you have security concerns, review the PSD2 section before continuing.',
+      ];
+  @override
+  String get bankMaxAttemptsTitle => 'Too many failed attempts';
+  @override
+  List<String> get bankMaxAttemptsSteps => [
+        'You have reached the limit of 3 failed attempts for this bank.',
+        'For security, you must wait 1 hour before trying again.',
+        'If you think this is an error, contact support.',
+        'Try connecting a different bank while you wait.',
+      ];
+  @override
+  String get bankUnknownErrorTitle => 'Error connecting bank';
+  @override
+  List<String> get bankUnknownErrorSteps => [
+        'An unexpected error occurred during the connection.',
+        'Check your internet connection and try again.',
+        'If the error persists, try restarting the app.',
+        'You can contact support if the problem continues.',
+      ];
+  @override
+  String get bankSupportContactMsg => 'If the problem persists, you can contact us:';
+  @override
   String get aiAnalysisLabel => 'AI Analysis';
   @override
   String get configureAccountMsg => 'Configure your account to get started';
@@ -4668,11 +5883,97 @@ class _AppStringsEn extends AppStringsBase {
   String get off => 'Off';
 
   @override
+  String get categoriesTitle => 'Categories';
+  @override
+  String get noCategoriesExpense => 'No expense categories';
+  @override
+  String get noCategoriesIncome => 'No income categories';
+  @override
+  String get createFirstCategory => 'Create first category';
+  @override
+  String get errorLoadingCategories => 'Error loading categories';
+  @override
+  String get predefined => 'Predefined';
+  @override
+  String get newCategory => 'New category';
+  @override
+  String get editCategory => 'Edit category';
+  @override
+  String get deleteCategory => 'Delete category';
+  @override
+  String get createCategory => 'Create category';
+  @override
+  String get saveChanges => 'Save changes';
+  @override
+  String get icon => 'Icon';
+  @override
+  String get color => 'Colour';
+  @override
+  String deleteCategoryConfirm(String name) => 'Delete category "$name"?';
+  @override
+  String get deleteCategoryWarning =>
+      'Transactions with this category will not be deleted, but will be left uncategorised.';
+  @override
+  String get nameTooLong => 'Name cannot exceed 100 characters';
+
+  @override
   String categoryCreatedMsg(String name) => 'Category "$name" created';
   @override
   String categoryUpdatedMsg(String name) => 'Category "$name" updated';
   @override
   String categoryDeletedMsg(String name) => 'Category "$name" deleted';
+  @override
+  String get categoryDeleted => 'Category deleted';
+  @override
+  String get amountInvalidPositive => 'Enter a valid amount greater than 0';
+  @override
+  String get amountExceedsMax => 'Amount cannot exceed €999,999.99';
+  @override
+  String get ticketPhoto => 'Ticket photo';
+  @override
+  String get camera => 'Camera';
+  @override
+  String get takePictureNow => 'Take a picture now';
+  @override
+  String get gallery => 'Gallery';
+  @override
+  String get selectFromGallery => 'Select from gallery';
+  @override
+  String get deletePhoto => 'Delete photo';
+  @override
+  String get noChangesMsg => 'No changes made';
+  @override
+  String get confirmChanges => 'Confirm changes';
+  @override
+  String get confirmSaveChangesQuestion => 'Do you want to save the following changes?';
+  @override
+  String get modified => 'Modified';
+  @override
+  String get balanceRecalculateNote =>
+      'Balance and statistics will be recalculated automatically.';
+  @override
+  String get selectCategoryHint => '* Select a category';
+  @override
+  String recategorizeSimilarMsg(String category) =>
+      'Recategorize all transactions similar to "$category"?';
+  @override
+  String get recategorizeAll => 'Recategorize all';
+  @override
+  String lastModified(String date) => 'Last modified: $date';
+  @override
+  String get suggestedByHistory => 'Suggested by history';
+  @override
+  String get descriptionHint => 'E.g.: Weekly supermarket shop';
+  @override
+  String get addTicketPhoto => 'Add ticket photo';
+  @override
+  String get transactionUpdated => 'Transaction updated';
+  @override
+  String get deleteTransactionConfirmContent =>
+      'Are you sure you want to delete this transaction?';
+  @override
+  String get permanentActionWarning =>
+      'This action is permanent and cannot be undone.';
   @override
   String goalCreatedMsg(String name) => 'Goal "$name" created';
   @override
@@ -4683,6 +5984,66 @@ class _AppStringsEn extends AppStringsBase {
   String budgetDeletedMsg(String name) => 'Budget "$name" deleted';
   @override
   String accountDeletedMsg(String name) => 'Account "$name" deleted';
+
+  @override
+  String get phoneNumber => 'Phone number';
+  @override
+  String get profileBio => 'Bio';
+  @override
+  String get languageAndCurrency => 'Language & Currency';
+  @override
+  String get preferencesSectionTitle => 'Preferences';
+  @override
+  String biometricActivatedMsg(String label) =>
+      '$label activated. Next login will be faster.';
+  @override
+  String get biometricCancelledMsg => 'Activation cancelled';
+  @override
+  String get biometricDeactivatedMsg => 'Biometric login disabled';
+  @override
+  String biometricSetupDeviceMsg(String label) =>
+      'Set up $label in device settings first.';
+  @override
+  String get biometricErrorMsg => 'Error activating biometrics';
+  @override
+  String currencyChangedMsg(String code, String symbol) =>
+      'Currency changed to $code ($symbol)';
+
+  // ── Predictions intro cards ───────────────────────────────────────────────
+  @override
+  String get predictionIntroTitle => 'Expense Prediction';
+  @override
+  String get predictionIntroDesc =>
+      'Analysis based on your spending history. See how much you\'ll spend next month by category.';
+  @override
+  String get savingsIntroTitle => 'Savings Opportunities';
+  @override
+  String get savingsIntroDesc =>
+      'Identify where you can cut spending. Based on your usual spending patterns.';
+  @override
+  String get anomaliesIntroTitle => 'Unusual Expenses Detected';
+  @override
+  String get anomaliesIntroDesc =>
+      'Expenses outside your normal pattern. These may indicate mistakes or unexpected costs.';
+  @override
+  String get subscriptionsIntroTitle => 'Active Subscriptions';
+  @override
+  String get subscriptionsIntroDesc =>
+      'Recurring payments detected automatically. Review which ones you really need.';
+
+  // ── Gemini ────────────────────────────────────────────────────────────────
+  @override
+  String get geminiKeyTitle => 'Configure Gemini API';
+  @override
+  String get geminiKeyDescription =>
+      'Paste your Google Gemini API key to use AI directly. '
+      'If you don\'t have a key, the assistant will use the Finora server.';
+  @override
+  String get geminiKeyConfigured => 'Gemini key configured ✓';
+  @override
+  String get geminiKeyRemoved => 'Gemini key removed';
+  @override
+  String get configureGeminiKey => 'Configure Gemini';
 }
 
 // ── Factory principal ─────────────────────────────────────────────────────────

@@ -407,28 +407,29 @@ class _AddTransactionPageState extends State<AddTransactionPage>
     }
   }
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'enero',
-      'febrero',
-      'marzo',
-      'abril',
-      'mayo',
-      'junio',
-      'julio',
-      'agosto',
-      'septiembre',
-      'octubre',
-      'noviembre',
-      'diciembre',
+  String _formatDate(DateTime date, BuildContext context) {
+    final s = AppLocalizations.of(context);
+    final months = [
+      s.january,
+      s.february,
+      s.march,
+      s.april,
+      s.may,
+      s.june,
+      s.july,
+      s.august,
+      s.september,
+      s.october,
+      s.november,
+      s.december,
     ];
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dateOnly = DateTime(date.year, date.month, date.day);
     if (dateOnly == today) {
-      return 'Hoy, ${date.day} de ${months[date.month - 1]}';
+      return '${s.today}, ${date.day} ${months[date.month - 1]}';
     }
-    return '${date.day} de ${months[date.month - 1]} de ${date.year}';
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   // =========================================================================
@@ -985,7 +986,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                   size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(_formatDate(_selectedDate), style: AppTypography.input()),
+                Text(_formatDate(_selectedDate, context), style: AppTypography.input()),
                 const Spacer(),
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/services/currency_service.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../domain/entities/savings_goal_entity.dart';
@@ -72,7 +75,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
           context.read<GoalBloc>().add(const LoadGoals());
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Aportación añadida correctamente'),
+              content: Text(AppLocalizations.of(context).contributionAdded),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
             ),
@@ -195,13 +198,13 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '${_fmt(_goal.currentAmount)} €',
+                                  CurrencyService().format(_goal.currentAmount),
                                   style: AppTypography.labelMedium(
                                     color: Colors.white,
                                   ),
                                 ),
                                 Text(
-                                  'Meta: ${_fmt(_goal.targetAmount)} €',
+                                  'Meta: ${CurrencyService().format(_goal.targetAmount)}',
                                   style: AppTypography.bodySmall(
                                     color: Colors.white.withValues(alpha: 0.80),
                                   ),
@@ -219,18 +222,18 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                     onSelected: (action) {
                       if (action == 'delete') _confirmDelete(context);
                     },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.delete_outline_rounded,
                               color: Colors.red,
                               size: 20,
                             ),
-                            SizedBox(width: 8),
-                            Text('Cancelar objetivo'),
+                            const SizedBox(width: 8),
+                            Text(AppLocalizations.of(ctx).cancelGoal),
                           ],
                         ),
                       ),
@@ -270,7 +273,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                           ),
                           icon: const Icon(Icons.add_rounded),
                           label: Text(
-                            'Añadir aportación',
+                            AppLocalizations.of(context).addContribution,
                             style: AppTypography.labelMedium(
                               color: Colors.white,
                             ),
@@ -312,29 +315,27 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
   void _confirmDelete(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('¿Cancelar objetivo?'),
-        content: Text(
-          'Se cancelará el objetivo "${_goal.name}". El historial de aportaciones se conservará.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<GoalBloc>().add(DeleteGoal(_goal.id));
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Sí, cancelar',
-              style: TextStyle(color: Colors.red),
+      builder: (ctx) {
+        final s = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(s.cancelGoalTitle),
+          content: Text(s.cancelGoalContent(_goal.name)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(s.no)),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.read<GoalBloc>().add(DeleteGoal(_goal.id));
+                Navigator.pop(context);
+              },
+              child: Text(
+                s.cancelGoalConfirm,
+                style: const TextStyle(color: Colors.red),
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -357,7 +358,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              '${_goal.name}: ${_fmt(_goal.targetAmount)} €',
+              '${_goal.name}: ${CurrencyService().format(_goal.targetAmount)}',
               textAlign: TextAlign.center,
               style: AppTypography.titleSmall(color: AppColors.success),
             ),
@@ -436,10 +437,6 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
       updatedAt: goal.updatedAt,
     );
   }
-
-  static String _fmt(double v) => v
-      .toStringAsFixed(2)
-      .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
 }
 
 // ─── Métricas de progreso (RF-19) ─────────────────────────────────────────────
@@ -464,18 +461,18 @@ class _ProgressMetrics extends StatelessWidget {
           Row(
             children: [
               _Metric(
-                label: 'Ahorrado',
-                value: '${_fmt(goal.currentAmount)} €',
+                label: AppLocalizations.of(context).labelSaved,
+                value: CurrencyService().format(goal.currentAmount),
                 color: progressColor,
               ),
               _Metric(
-                label: 'Restante',
-                value: '${_fmt(goal.remainingAmount)} €',
+                label: AppLocalizations.of(context).remaining,
+                value: CurrencyService().format(goal.remainingAmount),
                 color: AppColors.textSecondaryLight,
               ),
               _Metric(
-                label: 'Objetivo',
-                value: '${_fmt(goal.targetAmount)} €',
+                label: AppLocalizations.of(context).targetAmount,
+                value: CurrencyService().format(goal.targetAmount),
                 color: AppColors.textPrimaryLight,
               ),
             ],
@@ -489,7 +486,7 @@ class _ProgressMetrics extends StatelessWidget {
                     Expanded(
                       child: _InfoRow(
                         icon: Icons.flag_rounded,
-                        label: 'Fecha límite',
+                        label: AppLocalizations.of(context).deadline,
                         value: _fmtDate(goal.deadline!),
                       ),
                     ),
@@ -497,7 +494,7 @@ class _ProgressMetrics extends StatelessWidget {
                     Expanded(
                       child: _InfoRow(
                         icon: Icons.trending_up_rounded,
-                        label: 'Proyección',
+                        label: AppLocalizations.of(context).labelProjection,
                         value: goal.projectedCompletionDate!,
                       ),
                     ),
@@ -509,6 +506,7 @@ class _ProgressMetrics extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   static String _fmt(double v) => v
       .toStringAsFixed(2)
       .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
@@ -619,7 +617,7 @@ class _AiAnalysisCard extends StatelessWidget {
               Icon(Icons.auto_awesome_rounded, color: color, size: 16),
               const SizedBox(width: 6),
               Text(
-                'Análisis IA',
+                AppLocalizations.of(context).aiAnalysisLabel,
                 style: AppTypography.labelMedium(color: color),
               ),
               const Spacer(),
@@ -659,7 +657,7 @@ class _AiAnalysisCard extends StatelessWidget {
                 Icon(Icons.savings_outlined, size: 14, color: color),
                 const SizedBox(width: 6),
                 Text(
-                  'Aportación mensual sugerida: ${goal.monthlyTarget!.toStringAsFixed(2)} €',
+                  'Aportación mensual sugerida: ${CurrencyService().format(goal.monthlyTarget!)}',
                   style: AppTypography.labelMedium(color: color),
                 ),
               ],
@@ -696,7 +694,10 @@ class _ContributionsList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Aportaciones', style: AppTypography.titleSmall()),
+          Text(
+            AppLocalizations.of(context).contributions,
+            style: AppTypography.titleSmall(),
+          ),
           const SizedBox(height: 12),
           if (isLoading)
             const Center(
@@ -710,7 +711,7 @@ class _ContributionsList extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Todavía no hay aportaciones.\nToca "Añadir aportación" para empezar.',
+                  AppLocalizations.of(context).noContributionsYet,
                   textAlign: TextAlign.center,
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
@@ -748,16 +749,19 @@ class _ContributionTile extends StatelessWidget {
       confirmDismiss: (_) async {
         return await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('¿Eliminar aportación?'),
+          builder: (ctx) => AlertDialog(
+            title: Text(AppLocalizations.of(ctx).deleteContributionTitle),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('No'),
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(AppLocalizations.of(ctx).no),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Sí', style: TextStyle(color: Colors.red)),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  AppLocalizations.of(ctx).confirm,
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
@@ -793,7 +797,7 @@ class _ContributionTile extends StatelessWidget {
                   Text(
                     contribution.note?.isNotEmpty == true
                         ? contribution.note!
-                        : 'Aportación',
+                        : AppLocalizations.of(context).contributionLabel,
                     style: AppTypography.labelMedium(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -808,7 +812,7 @@ class _ContributionTile extends StatelessWidget {
               ),
             ),
             Text(
-              '+${contribution.amount.toStringAsFixed(2)} €',
+              '+${CurrencyService().format(contribution.amount)}',
               style: AppTypography.labelMedium(color: AppColors.success),
             ),
           ],
@@ -867,7 +871,8 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
   @override
   void initState() {
     super.initState();
-    _loadAccounts();
+    // Use addPostFrameCallback so context (and AppLocalizations) is available
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAccounts());
   }
 
   @override
@@ -882,11 +887,12 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
       final client = di.sl<ApiClient>();
       final resp = await client.get(ApiEndpoints.bankAccounts);
       final list = (resp.data['accounts'] as List?) ?? [];
+      final s = AppLocalizations.of(context);
       final accounts = <_SourceAccount>[
-        const _SourceAccount(
+        _SourceAccount(
           id: null,
-          name: 'Efectivo',
-          subtitle: 'Sin cuenta bancaria',
+          name: s.cashAccountName,
+          subtitle: s.noLinkedBankAccount,
           icon: Icons.wallet_rounded,
         ),
       ];
@@ -894,13 +900,13 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
         final name = a['account_name'] as String? ?? 'Cuenta';
         final institution = a['institution_name'] as String? ?? '';
         final balanceCents = (a['balance_cents'] as num?)?.toInt() ?? 0;
-        final balance = (balanceCents / 100.0).toStringAsFixed(2);
+        final balanceEur = balanceCents / 100.0;
         accounts.add(
           _SourceAccount(
             id: a['id'] as String?,
             name: name,
             subtitle:
-                '${institution.isNotEmpty ? '$institution · ' : ''}$balance €',
+                '${institution.isNotEmpty ? '$institution · ' : ''}${CurrencyService().format(balanceEur)}',
             icon: Icons.account_balance_rounded,
           ),
         );
@@ -915,11 +921,12 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
     } catch (_) {
       if (mounted) {
         setState(() {
+          final s2 = AppLocalizations.of(context);
           _accounts = [
-            const _SourceAccount(
+            _SourceAccount(
               id: null,
-              name: 'Efectivo',
-              subtitle: 'Sin cuenta bancaria',
+              name: s2.cashAccountName,
+              subtitle: s2.noLinkedBankAccount,
               icon: Icons.wallet_rounded,
             ),
           ];
@@ -1020,7 +1027,10 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text('Añadir aportación', style: AppTypography.titleMedium()),
+              Text(
+                AppLocalizations.of(context).addContribution,
+                style: AppTypography.titleMedium(),
+              ),
               const SizedBox(height: 16),
 
               // ── Cantidad ────────────────────────────────────────────────────
@@ -1028,8 +1038,8 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
                 controller: _amountCtrl,
                 autofocus: true,
                 decoration: InputDecoration(
-                  labelText: 'Cantidad',
-                  suffixText: '€',
+                  labelText: AppLocalizations.of(context).amount,
+                  suffixText: AppSettingsService().currentCurrency.symbol,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1050,11 +1060,10 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
                   }
                 },
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Introduce una cantidad';
+                  final s = AppLocalizations.of(context);
+                  if (v == null || v.isEmpty) return s.enterAmount;
                   final n = double.tryParse(v.replaceAll(',', '.'));
-                  if (n == null || n <= 0) {
-                    return 'Introduce una cantidad positiva';
-                  }
+                  if (n == null || n <= 0) return s.enterPositiveAmount;
                   return null;
                 },
               ),
@@ -1094,7 +1103,7 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
               TextFormField(
                 controller: _noteCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Nota (opcional)',
+                  labelText: AppLocalizations.of(context).goalNoteOptional,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1104,7 +1113,10 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
               const SizedBox(height: 16),
 
               // ── Cuenta de origen ────────────────────────────────────────────
-              Text('Cuenta de origen', style: AppTypography.labelMedium()),
+              Text(
+                AppLocalizations.of(context).originAccount,
+                style: AppTypography.labelMedium(),
+              ),
               const SizedBox(height: 8),
               if (_loadingAccounts)
                 const Center(
@@ -1133,7 +1145,9 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
                           )
                         : const Icon(Icons.auto_awesome_rounded, size: 18),
                     label: Text(
-                      _loadingAdvice ? 'Analizando...' : 'Analizar con IA',
+                      _loadingAdvice
+                          ? AppLocalizations.of(context).analyzingLabel
+                          : AppLocalizations.of(context).analyzeWithAI,
                       style: AppTypography.labelMedium(
                         color: AppColors.primary,
                       ),
@@ -1166,7 +1180,7 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
                     ),
                   ),
                   child: Text(
-                    'Confirmar aportación',
+                    AppLocalizations.of(context).confirmContribution,
                     style: AppTypography.labelMedium(color: Colors.white),
                   ),
                 ),
@@ -1327,7 +1341,7 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
                 Icon(Icons.auto_awesome_rounded, size: 14, color: color),
                 const SizedBox(width: 6),
                 Text(
-                  'Análisis IA',
+                  AppLocalizations.of(context).aiAnalysisLabel,
                   style: AppTypography.labelMedium(color: color),
                 ),
                 const Spacer(),
@@ -1346,7 +1360,7 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
             if (needed != null && needed > 0) ...[
               const SizedBox(height: 6),
               Text(
-                'Necesario para cumplir el plazo: ${needed.toStringAsFixed(2)} €/mes',
+                'Necesario para cumplir el plazo: ${CurrencyService().format(needed)}/mes',
                 style: AppTypography.badge(color: color),
               ),
             ],

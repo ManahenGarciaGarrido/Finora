@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
@@ -10,6 +11,8 @@ import '../bloc/goal_event.dart';
 import '../bloc/goal_state.dart';
 import 'create_goal_page.dart';
 import 'goal_detail_page.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
+import '../../../../core/services/currency_service.dart';
 
 /// RF-18 / RF-19 / HU-07: Lista de objetivos de ahorro con progreso visual
 class GoalsPage extends StatelessWidget {
@@ -29,16 +32,17 @@ class _GoalsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.gray50,
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        title: Text('Objetivos de ahorro', style: AppTypography.titleMedium()),
+        title: Text(s.savingsGoals, style: AppTypography.titleMedium()),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),
-            tooltip: 'Nuevo objetivo',
+            tooltip: s.createGoal,
             onPressed: () => _openCreateGoal(context),
           ),
         ],
@@ -49,7 +53,7 @@ class _GoalsView extends StatelessWidget {
             context.read<GoalBloc>().add(const LoadGoals());
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Objetivo "${state.goal.name}" creado'),
+                content: Text(s.goalCreatedMsg(state.goal.name)),
                 backgroundColor: AppColors.success,
                 behavior: SnackBarBehavior.floating,
               ),
@@ -68,7 +72,10 @@ class _GoalsView extends StatelessWidget {
         },
         builder: (context, state) {
           if (state is GoalLoading || state is GoalInitial) {
-            return const Center(child: CircularProgressIndicator());
+            return const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: SkeletonListLoader(count: 4, cardHeight: 96),
+            );
           }
           if (state is GoalsLoaded) {
             if (state.goals.isEmpty) {
@@ -84,7 +91,7 @@ class _GoalsView extends StatelessWidget {
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: Text(
-          'Nuevo objetivo',
+          s.createGoal,
           style: AppTypography.labelMedium(color: Colors.white),
         ),
       ),
@@ -111,6 +118,7 @@ class _GoalsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final active = goals.where((g) => g.isActive).toList();
     final completed = goals.where((g) => g.isCompleted).toList();
 
@@ -122,12 +130,12 @@ class _GoalsList extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           if (active.isNotEmpty) ...[
-            _SectionLabel('En progreso (${active.length})'),
+            _SectionLabel(s.goalInProgress(active.length)),
             ...active.map((g) => _GoalCard(goal: g)),
           ],
           if (completed.isNotEmpty) ...[
             const SizedBox(height: 8),
-            _SectionLabel('Completados (${completed.length})'),
+            _SectionLabel(s.goalCompletedCount(completed.length)),
             ...completed.map((g) => _GoalCard(goal: g)),
           ],
           const SizedBox(height: 80),
@@ -161,6 +169,7 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final progressColor = Color(
       int.parse(goal.progressColor.replaceAll('#', 'FF'), radix: 16),
     );
@@ -228,7 +237,7 @@ class _GoalCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                '✓ Completado',
+                                '✓ ${s.completed}',
                                 style: AppTypography.badge(
                                   color: AppColors.success,
                                 ),
@@ -238,7 +247,10 @@ class _GoalCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${_formatCurrency(goal.currentAmount)} de ${_formatCurrency(goal.targetAmount)}',
+                        s.goalAmountOf(
+                          _formatCurrency(goal.currentAmount),
+                          _formatCurrency(goal.targetAmount),
+                        ),
                         style: AppTypography.bodySmall(
                           color: AppColors.textSecondaryLight,
                         ),
@@ -256,7 +268,7 @@ class _GoalCard extends StatelessWidget {
             const SizedBox(height: 12),
             // Barra de progreso (HU-07: color dinámico)
             Semantics(
-              label: 'Progreso del objetivo: ${goal.percentage}%',
+              label: s.goalProgress,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: TweenAnimationBuilder<double>(
@@ -279,7 +291,7 @@ class _GoalCard extends StatelessWidget {
               children: [
                 if (goal.deadline != null)
                   Text(
-                    'Meta: ${_formatDate(goal.deadline!)}',
+                    s.goalDeadlineDate(_formatDate(goal.deadline!)),
                     style: AppTypography.badge(
                       color: AppColors.textTertiaryLight,
                     ),
@@ -287,7 +299,7 @@ class _GoalCard extends StatelessWidget {
                 else
                   const SizedBox.shrink(),
                 Text(
-                  'Faltan ${_formatCurrency(goal.remainingAmount)}',
+                  s.goalRemainingAmount(_formatCurrency(goal.remainingAmount)),
                   style: AppTypography.badge(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -314,9 +326,7 @@ class _GoalCard extends StatelessWidget {
     bloc.add(const LoadGoals());
   }
 
-  static String _formatCurrency(double amount) {
-    return '${amount.toStringAsFixed(2).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.')} €';
-  }
+  static String _formatCurrency(double amount) => CurrencyService().format(amount);
 
   static String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -333,6 +343,7 @@ class _EmptyGoals extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -353,10 +364,10 @@ class _EmptyGoals extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text('Sin objetivos todavía', style: AppTypography.titleMedium()),
+            Text(s.noGoalsYet, style: AppTypography.titleMedium()),
             const SizedBox(height: 8),
             Text(
-              'Crea tu primer objetivo de ahorro\ny la IA te ayudará a alcanzarlo.',
+              s.createFirstGoal,
               textAlign: TextAlign.center,
               style: AppTypography.bodyMedium(
                 color: AppColors.textSecondaryLight,
@@ -378,7 +389,7 @@ class _EmptyGoals extends StatelessWidget {
               ),
               icon: const Icon(Icons.add_rounded),
               label: Text(
-                'Crear objetivo',
+                s.createGoal,
                 style: AppTypography.labelMedium(color: Colors.white),
               ),
             ),

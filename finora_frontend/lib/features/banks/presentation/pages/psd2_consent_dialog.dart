@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -29,6 +30,7 @@ class Psd2ConsentDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.backgroundLight,
@@ -76,11 +78,11 @@ class Psd2ConsentDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Acceso seguro a $bankName',
+                        s.psd2SecureAccessTo(bankName),
                         style: AppTypography.titleMedium(),
                       ),
                       Text(
-                        'Consentimiento PSD2',
+                        s.psd2ConsentLabel,
                         style: AppTypography.labelSmall(
                           color: AppColors.primary,
                         ),
@@ -97,28 +99,28 @@ class Psd2ConsentDialog extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: const [
+                children: [
                   _SecurityBadge(
                     icon: Icons.verified_user_rounded,
                     label: 'PSD2 Compliant',
                     color: AppColors.primary,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   _SecurityBadge(
                     icon: Icons.lock_rounded,
-                    label: 'Cifrado TLS',
+                    label: s.tlsEncryptedLabel,
                     color: AppColors.success,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   _SecurityBadge(
                     icon: Icons.visibility_outlined,
-                    label: 'Solo lectura',
+                    label: s.readOnlyLabel,
                     color: AppColors.warning,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   _SecurityBadge(
                     icon: Icons.delete_sweep_outlined,
-                    label: 'Sin datos guardados',
+                    label: s.noDataStoredLabel,
                     color: AppColors.gray500,
                   ),
                 ],
@@ -128,34 +130,28 @@ class Psd2ConsentDialog extends StatelessWidget {
             const SizedBox(height: 20),
 
             Text(
-              'Finora solicitará acceso a:',
+              s.psd2RequestsAccess,
               style: AppTypography.bodyMedium(color: AppColors.gray500),
             ),
             const SizedBox(height: 12),
 
             // Permisos explicados
-            const _PermissionItem(
+            _PermissionItem(
               icon: Icons.account_balance_outlined,
-              title: 'Saldo de tus cuentas',
-              description:
-                  'Finora lee tu saldo actual para calcular tu balance total. '
-                  'No puede mover ni modificar fondos.',
+              title: s.bankAccountBalanceLabel,
+              description: s.psd2BalanceDesc,
             ),
             const SizedBox(height: 10),
-            const _PermissionItem(
+            _PermissionItem(
               icon: Icons.receipt_long_outlined,
-              title: 'Movimientos bancarios',
-              description:
-                  'Se importan los últimos 90 días de transacciones para '
-                  'categorizar tus gastos automáticamente.',
+              title: s.bankTransactionsLabel,
+              description: s.psd2TransactionsDesc,
             ),
             const SizedBox(height: 10),
-            const _PermissionItem(
+            _PermissionItem(
               icon: Icons.info_outline_rounded,
-              title: 'Información de la cuenta',
-              description:
-                  'Nombre del banco, IBAN (enmascarado) y tipo de cuenta '
-                  'para identificar correctamente cada cuenta.',
+              title: s.bankAccountInfoLabel,
+              description: s.psd2AccountInfoDesc,
             ),
 
             const SizedBox(height: 20),
@@ -178,9 +174,7 @@ class Psd2ConsentDialog extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Este consentimiento es válido durante 90 días según '
-                      'la normativa PSD2. Puedes revocarlo en cualquier '
-                      'momento desde Ajustes → Bancos → Consentimientos.',
+                      s.psd2ConsentNote,
                       style: AppTypography.bodySmall(color: AppColors.primary),
                     ),
                   ),
@@ -197,7 +191,7 @@ class Psd2ConsentDialog extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: () => Navigator.pop(context, true),
                 icon: const Icon(Icons.check_rounded),
-                label: const Text('Autorizar y continuar'),
+                label: Text(s.authorizeContinue),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
@@ -213,7 +207,7 @@ class Psd2ConsentDialog extends StatelessWidget {
               child: TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: Text(
-                  'Cancelar',
+                  s.cancel,
                   style: AppTypography.labelMedium(color: AppColors.gray500),
                 ),
               ),

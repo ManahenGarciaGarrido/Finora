@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'currency_service.dart';
 
 /// Service for persisting and notifying app-wide settings:
 /// - Locale (language)
@@ -41,6 +42,8 @@ class AppSettingsService {
       orElse: () => availableCurrencies.first,
     );
     currencyNotifier.value = cfg;
+    // Fetch exchange rate in background (non-blocking)
+    CurrencyService().fetchRate(cfg.code);
   }
 
   Future<void> setLocale(String languageCode) async {
@@ -53,6 +56,8 @@ class AppSettingsService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyCurrency, cfg.code);
     currencyNotifier.value = cfg;
+    // Refresh exchange rate whenever the user changes currency
+    CurrencyService().fetchRate(cfg.code);
   }
 
   String get currentLocaleCode => localeNotifier.value.languageCode;

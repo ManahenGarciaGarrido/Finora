@@ -18,7 +18,6 @@ import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/security/biometric_service.dart';
-import '../../../../core/services/app_settings_service.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
@@ -45,18 +44,10 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _biometricLoading = false;
   String _biometricLabel = 'Huella dactilar';
 
-  // RNF-13: Idioma seleccionado
-  String _selectedLocale = 'es'; // 'es' | 'en'
-
-  // RF-10: Moneda y formato
-  late CurrencyConfig _selectedCurrency;
-
   @override
   void initState() {
     super.initState();
     _loadBiometricStatus();
-    _selectedLocale = AppSettingsService().currentLocaleCode;
-    _selectedCurrency = AppSettingsService().currentCurrency;
   }
 
   String _translateLabel(BuildContext context, String label) {
@@ -95,6 +86,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// RF-03: Toggle biometric — activa con autenticación, desactiva directamente
   Future<void> _toggleBiometric(bool value) async {
+    final s = AppLocalizations.of(context);
     final service = di.sl<BiometricService>();
     setState(() => _biometricLoading = true);
 
@@ -109,22 +101,22 @@ class _SettingsPageState extends State<SettingsPage> {
             _biometricLoading = false;
           });
           _showSnackBar(
-            '$_biometricLabel activado. Próximo inicio de sesión más rápido.',
+            s.biometricActivatedMsg(_biometricLabel),
             AppColors.success,
           );
         case BiometricResult.canceled:
           setState(() => _biometricLoading = false);
-          _showSnackBar('Activación cancelada', AppColors.gray700);
+          _showSnackBar(s.biometricCancelledMsg, AppColors.gray700);
         case BiometricResult.notAvailable:
         case BiometricResult.notEnrolled:
           setState(() => _biometricLoading = false);
           _showSnackBar(
-            'Configura $_biometricLabel en los ajustes del dispositivo primero.',
+            s.biometricSetupDeviceMsg(_biometricLabel),
             AppColors.warning,
           );
         case BiometricResult.error:
           setState(() => _biometricLoading = false);
-          _showSnackBar('Error al activar la biometría', AppColors.error);
+          _showSnackBar(s.biometricErrorMsg, AppColors.error);
         case BiometricResult.disabled:
           setState(() => _biometricLoading = false);
       }
@@ -136,72 +128,9 @@ class _SettingsPageState extends State<SettingsPage> {
         _biometricLoading = false;
       });
       _showSnackBar(
-        'Inicio de sesión biométrico desactivado',
+        s.biometricDeactivatedMsg,
         AppColors.gray700,
       );
-    }
-  }
-
-  // RNF-13: Idioma helpers
-  String _getLanguageLabel() {
-    return _selectedLocale == 'es' ? 'Español' : 'English';
-  }
-
-  Future<void> _showLanguageDialog() async {
-    final s = AppLocalizations.of(context);
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (_) => SimpleDialog(
-        title: Text(s.language),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, 'es'),
-            child: Row(
-              children: [
-                const Text('🇪🇸  '),
-                Text(
-                  s.spanish,
-                  style: _selectedLocale == 'es'
-                      ? const TextStyle(fontWeight: FontWeight.bold)
-                      : null,
-                ),
-                if (_selectedLocale == 'es')
-                  const Spacer()
-                else
-                  const SizedBox(),
-                if (_selectedLocale == 'es')
-                  const Icon(Icons.check_rounded, size: 16),
-              ],
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, 'en'),
-            child: Row(
-              children: [
-                const Text('🇬🇧  '),
-                Text(
-                  s.english,
-                  style: _selectedLocale == 'en'
-                      ? const TextStyle(fontWeight: FontWeight.bold)
-                      : null,
-                ),
-                if (_selectedLocale == 'en')
-                  const Spacer()
-                else
-                  const SizedBox(),
-                if (_selectedLocale == 'en')
-                  const Icon(Icons.check_rounded, size: 16),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-    if (selected != null && selected != _selectedLocale) {
-      setState(() => _selectedLocale = selected);
-      // Fix-12: persist + trigger MyApp rebuild via AppSettingsService notifier
-      await AppSettingsService().setLocale(selected);
-      // El overlay de cambio de idioma se muestra desde MyApp via _onLocaleChanged
     }
   }
 
@@ -219,80 +148,6 @@ class _SettingsPageState extends State<SettingsPage> {
       context,
       MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
     );
-  }
-
-  // ── Fix-10: Currency & Format Dialog ────────────────────────────────────────
-  Future<void> _showCurrencyDialog() async {
-    final selected = await showDialog<CurrencyConfig>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Moneda y formato', style: AppTypography.titleMedium()),
-        children: AppSettingsService.availableCurrencies.map((cfg) {
-          final isSelected = cfg.code == _selectedCurrency.code;
-          return SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, cfg),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primarySoft
-                          : AppColors.gray100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      cfg.symbol,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textSecondaryLight,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(cfg.code, style: AppTypography.titleSmall()),
-                        Text(
-                          cfg.name,
-                          style: AppTypography.bodySmall(
-                            color: AppColors.textTertiaryLight,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isSelected)
-                    const Icon(
-                      Icons.check_rounded,
-                      color: AppColors.primary,
-                      size: 18,
-                    ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-
-    if (selected != null && selected.code != _selectedCurrency.code) {
-      await AppSettingsService().setCurrency(selected);
-      setState(() => _selectedCurrency = selected);
-      _showSnackBar(
-        'Moneda cambiada a ${selected.code} (${selected.symbol})',
-        AppColors.success,
-      );
-    }
   }
 
   void _showSnackBar(String message, Color color) {
@@ -407,21 +262,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       context,
                       MaterialPageRoute(builder: (_) => const BudgetPage()),
                     ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.language_rounded,
-                    title: s.language,
-                    subtitle: _getLanguageLabel(),
-                    onTap: _showLanguageDialog,
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.currency_exchange_rounded,
-                    title: s.settingsCurrency,
-                    subtitle:
-                        '${_selectedCurrency.code} - ${_selectedCurrency.name}',
-                    onTap: _showCurrencyDialog,
                   ),
                 ],
               ),
@@ -611,7 +451,7 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: const Icon(Icons.edit_outlined, size: 20),
               onPressed: _navigateToEditProfile,
               color: AppColors.textSecondaryLight,
-              tooltip: 'Editar perfil',
+              tooltip: AppLocalizations.of(context).editProfileTitle,
             ),
           ),
         ],

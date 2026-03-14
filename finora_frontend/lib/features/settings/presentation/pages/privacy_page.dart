@@ -108,11 +108,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
               ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Finora cumple con el Reglamento General de Protección de Datos (GDPR) '
-              'de la Unión Europea. Tus datos están protegidos y tienes control total '
-              'sobre ellos.',
-              style: TextStyle(fontSize: 14),
+            Text(
+              AppLocalizations.of(context).gdprComplianceDesc,
+              style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
@@ -407,24 +405,21 @@ class _PrivacyPageState extends State<PrivacyPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(AppLocalizations.of(context).exportMyData),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(AppLocalizations.of(context).exportDataDesc),
+            const SizedBox(height: 16),
             Text(
-              'Se generará un archivo con todos tus datos personales '
-              'según el Artículo 20 del GDPR (Derecho de Portabilidad).',
+              AppLocalizations.of(context).exportDataIncludesLabel,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
-            Text(
-              'El archivo incluirá:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text('- Información personal'),
-            Text('- Historial de consentimientos'),
-            Text('- Transacciones financieras'),
-            Text('- Categorías personalizadas'),
+            const SizedBox(height: 8),
+            Text(AppLocalizations.of(context).exportDataItem1),
+            Text(AppLocalizations.of(context).exportDataItem2),
+            Text(AppLocalizations.of(context).exportDataItem3),
+            Text(AppLocalizations.of(context).exportDataItem4),
           ],
         ),
         actions: [
@@ -460,7 +455,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al exportar datos: $e'),
+            content: Text('${AppLocalizations.of(context).errorExportingData}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -493,16 +488,16 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              Text('Nombre: ${personalData?['name'] ?? 'N/A'}'),
+              Text('${AppLocalizations.of(context).nameLabel}: ${personalData?['name'] ?? 'N/A'}'),
               Text('Email: ${personalData?['email'] ?? 'N/A'}'),
-              Text('Transacciones: $totalTransactions'),
+              Text('${AppLocalizations.of(context).transactionsLabel}: $totalTransactions'),
               Text(
-                'Registro: ${_formatDate(personalData?['registrationDate'])}',
+                '${AppLocalizations.of(context).registrationDateLabel}: ${_formatDate(personalData?['registrationDate'])}',
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Los datos completos en formato JSON han sido generados correctamente.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Text(
+                AppLocalizations.of(context).exportResultNote,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
           ),
@@ -600,30 +595,23 @@ class _PrivacyPageState extends State<PrivacyPage> {
             Text(AppLocalizations.of(context).deleteAccountConfirmTitle),
           ],
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '¿Estás seguro de que deseas eliminar tu cuenta?',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              AppLocalizations.of(context).deleteAccountWarningTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
-              'Esta acción es IRREVERSIBLE y eliminará PERMANENTEMENTE:',
-              style: TextStyle(color: Colors.red),
+              AppLocalizations.of(context).deleteAccountWarningItems,
+              style: const TextStyle(color: Colors.red),
             ),
-            SizedBox(height: 8),
-            Text('- Toda tu información personal'),
-            Text('- Historial de transacciones'),
-            Text('- Categorías personalizadas'),
-            Text('- Registros de consentimiento'),
-            Text('- Historial de consentimientos'),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
-              'Según el Artículo 17 del GDPR (Derecho al Olvido), '
-              'todos tus datos serán eliminados de nuestros servidores.',
-              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+              AppLocalizations.of(context).deleteAccountGdprNote,
+              style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
             ),
           ],
         ),
@@ -659,9 +647,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Para confirmar, escribe "ELIMINAR" en el campo de abajo:',
-            ),
+            Text(AppLocalizations.of(context).deleteConfirmInstruction),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
@@ -719,7 +705,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
         ApiEndpoints.gdprDeleteAccount,
         data: {
           'confirmDeletion': 'DELETE_MY_ACCOUNT',
-          'reason': reason.isNotEmpty ? reason : 'No especificada',
+          'reason': reason.isNotEmpty ? reason : AppLocalizations.of(context).reasonOptionalHint,
         },
       );
 
@@ -745,7 +731,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al eliminar la cuenta: $e'),
+            content: Text('${AppLocalizations.of(context).errorDeletingAccount}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -793,33 +779,35 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
     setState(() => _loading = false);
   }
 
-  String _consentTypeName(String type) {
+  String _consentTypeName(BuildContext ctx, String type) {
+    final s = AppLocalizations.of(ctx);
     switch (type) {
       case 'essential':
-        return 'Datos esenciales';
+        return s.consentTypeEssential;
       case 'analytics':
-        return 'Análisis';
+        return s.consentTypeAnalytics;
       case 'marketing':
-        return 'Marketing';
+        return s.consentTypeMarketing;
       case 'third_party':
-        return 'Terceros';
+        return s.consentTypeThirdParty;
       case 'personalization':
-        return 'Personalización';
+        return s.consentTypePersonalization;
       case 'data_processing':
-        return 'Procesamiento datos';
+        return s.consentTypeDataProcessing;
       default:
         return type;
     }
   }
 
-  String _actionName(String action) {
+  String _actionName(BuildContext ctx, String action) {
+    final s = AppLocalizations.of(ctx);
     switch (action) {
       case 'INITIAL_REGISTRATION':
-        return 'Registro inicial';
+        return s.actionInitialRegistration;
       case 'CONSENT_UPDATED':
-        return 'Actualizado';
+        return s.actionConsentUpdated;
       case 'CONSENT_WITHDRAWN':
-        return 'Retirado';
+        return s.actionConsentWithdrawn;
       default:
         return action;
     }
@@ -890,9 +878,9 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
                       granted ? Icons.check_circle : Icons.cancel,
                       color: granted ? Colors.green : Colors.red,
                     ),
-                    title: Text(_consentTypeName(entry['consentType'] ?? '')),
+                    title: Text(_consentTypeName(context, entry['consentType'] ?? '')),
                     subtitle: Text(
-                      '${_actionName(entry['action'] ?? '')} - ${_formatTimestamp(entry['timestamp'])}',
+                      '${_actionName(context, entry['action'] ?? '')} - ${_formatTimestamp(entry['timestamp'])}',
                     ),
                     trailing: Text(
                       granted

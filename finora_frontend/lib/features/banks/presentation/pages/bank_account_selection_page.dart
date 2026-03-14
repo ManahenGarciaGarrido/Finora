@@ -8,6 +8,7 @@ import '../../domain/entities/pending_bank_account_entity.dart';
 import '../bloc/bank_bloc.dart';
 import '../bloc/bank_event.dart';
 import '../bloc/bank_state.dart';
+import '../../../../core/services/currency_service.dart';
 
 class BankAccountSelectionPage extends StatefulWidget {
   final String connectionId;
@@ -244,7 +245,7 @@ class _BankAccountSelectionPageState extends State<BankAccountSelectionPage> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '${account.balanceEur.toStringAsFixed(2)} €',
+                        CurrencyService().format(account.balanceEur),
                         style: AppTypography.bodyLarge(),
                       ),
                       Container(

@@ -1161,7 +1161,7 @@ def _build_financial_summary(transactions: list) -> dict:
     }
 
 
-def _generate_chat_response(intent: str, message: str, summary: dict, goals: list) -> dict:
+def _generate_chat_response(intent: str, message: str, summary: dict, goals: list, language: str = 'es') -> dict:
     """Genera una respuesta contextualizada según la intención detectada."""
     balance = summary['balance']
     this_month_exp = summary['this_month_expenses']
@@ -1169,6 +1169,7 @@ def _generate_chat_response(intent: str, message: str, summary: dict, goals: lis
     prev_month_exp = summary['prev_month_expenses']
     top_cats = summary['top_categories']
     savings  = summary['savings_this_month']
+    en = language == 'en'
 
     def fmt(amount):
         return f"{amount:,.2f}€".replace(',', '.')
@@ -1183,61 +1184,63 @@ def _generate_chat_response(intent: str, message: str, summary: dict, goals: lis
             diff = this_month_exp - prev_month_exp
             pct  = abs(diff) / prev_month_exp * 100
             if diff > 0:
-                vs_prev = f" ({pct:.0f}% más que el mes anterior)"
+                vs_prev = f" ({pct:.0f}% {'more than last month' if en else 'más que el mes anterior'})"
             else:
-                vs_prev = f" ({pct:.0f}% menos que el mes anterior)"
+                vs_prev = f" ({pct:.0f}% {'less than last month' if en else 'menos que el mes anterior'})"
 
-        response = f"Este mes has gastado **{fmt(this_month_exp)}**{vs_prev}."
+        response = f"{'This month you spent' if en else 'Este mes has gastado'} **{fmt(this_month_exp)}**{vs_prev}."
         if cat_detail:
-            response += f"\n\nTus principales categorías de gasto:\n{cat_detail}"
+            response += f"\n\n{'Your top spending categories:' if en else 'Tus principales categorías de gasto:'}\n{cat_detail}"
         if savings > 0:
-            response += f"\n\n💚 Llevas **{fmt(savings)}** ahorrados este mes."
+            response += f"\n\n💚 {'You have saved' if en else 'Llevas'} **{fmt(savings)}** {'this month.' if en else 'ahorrados este mes.'}"
         elif savings < 0:
-            response += f"\n\n⚠️ Estás gastando más de lo que ingresas este mes ({fmt(abs(savings))} de déficit)."
+            response += f"\n\n⚠️ {'You are spending more than you earn this month' if en else 'Estás gastando más de lo que ingresas este mes'} ({fmt(abs(savings))} {'deficit' if en else 'de déficit'})."
 
     elif intent == 'income':
-        response = f"Este mes has ingresado **{fmt(this_month_inc)}**."
+        response = f"{'This month you earned' if en else 'Este mes has ingresado'} **{fmt(this_month_inc)}**."
         if this_month_exp > 0:
             rate = (savings / this_month_inc * 100) if this_month_inc > 0 else 0
             if rate > 0:
-                response += f"\n\nDespués de gastos, te quedan **{fmt(savings)}** ({rate:.0f}% de tasa de ahorro)."
+                response += f"\n\n{'After expenses, you have' if en else 'Después de gastos, te quedan'} **{fmt(savings)}** ({rate:.0f}% {'savings rate' if en else 'de tasa de ahorro'})."
 
     elif intent == 'category':
         if top_cats:
             lines = [f"{i+1}. **{cat}**: {fmt(amt)}" for i, (cat, amt) in enumerate(top_cats[:5])]
             cat_list = '\n'.join(lines)
-            response = f"Tus categorías de mayor gasto este mes:\n\n{cat_list}"
+            response = f"{'Your top spending categories this month:' if en else 'Tus categorías de mayor gasto este mes:'}\n\n{cat_list}"
         else:
-            response = "Aún no hay suficientes transacciones este mes para analizar por categorías."
+            response = "There aren't enough transactions this month to analyze by category." if en else "Aún no hay suficientes transacciones este mes para analizar por categorías."
 
     elif intent == 'savings':
         if goals:
             goal_lines = []
             for g in goals[:3]:
-                name    = g.get('name', 'Objetivo')
+                name    = g.get('name', 'Goal' if en else 'Objetivo')
                 current = float(g.get('current_amount', 0))
                 target  = float(g.get('target_amount', 1))
                 pct     = min(current / target * 100, 100) if target > 0 else 0
                 goal_lines.append(f"• **{name}**: {fmt(current)} / {fmt(target)} ({pct:.0f}%)")
             goals_text = '\n'.join(goal_lines)
-            response = f"Tus objetivos de ahorro:\n\n{goals_text}"
+            response = f"{'Your savings goals:' if en else 'Tus objetivos de ahorro:'}\n\n{goals_text}"
             if savings > 0:
-                response += f"\n\nEste mes llevas **{fmt(savings)}** de ahorro, ¡sigue así!"
+                response += f"\n\n{'This month you have saved' if en else 'Este mes llevas'} **{fmt(savings)}** {'— keep it up!' if en else 'de ahorro, ¡sigue así!'}"
         else:
             if savings > 0:
-                response = f"Este mes llevas **{fmt(savings)}** ahorrados. No tienes objetivos de ahorro configurados. ¡Te recomiendo crear uno!"
+                response = f"{'This month you have saved' if en else 'Este mes llevas'} **{fmt(savings)}** {'saved. You have no savings goals configured. I recommend creating one!' if en else 'ahorrados. No tienes objetivos de ahorro configurados. ¡Te recomiendo crear uno!'}"
             else:
-                response = "Este mes tu balance de ahorro es negativo. Te recomiendo revisar tus gastos y establecer un objetivo de ahorro."
+                response = ("This month your savings balance is negative. I recommend reviewing your expenses and setting a savings goal." if en
+                            else "Este mes tu balance de ahorro es negativo. Te recomiendo revisar tus gastos y establecer un objetivo de ahorro.")
 
     elif intent == 'balance':
-        response = f"Tu balance total es **{fmt(balance)}**."
+        response = f"{'Your total balance is' if en else 'Tu balance total es'} **{fmt(balance)}**."
         if balance > 0:
-            response += f"\n\nEste mes has ingresado **{fmt(this_month_inc)}** y gastado **{fmt(this_month_exp)}**."
+            response += f"\n\n{'This month you earned' if en else 'Este mes has ingresado'} **{fmt(this_month_inc)}** {'and spent' if en else 'y gastado'} **{fmt(this_month_exp)}**."
         else:
-            response += "\n\n⚠️ Tu balance acumulado es negativo. Considera revisar tus finanzas."
+            response += f"\n\n⚠️ {'Your accumulated balance is negative. Consider reviewing your finances.' if en else 'Tu balance acumulado es negativo. Considera revisar tus finanzas.'}"
 
     elif intent == 'subscriptions':
-        response = "Para ver tus suscripciones y pagos recurrentes, ve a **Predicciones IA → Suscripciones**. Allí encontrarás un análisis detallado de todos tus pagos periódicos con el coste mensual equivalente."
+        response = ("To view your subscriptions and recurring payments, go to **AI Predictions → Subscriptions**. There you will find a detailed analysis of all your periodic payments with the monthly cost equivalent." if en
+                    else "Para ver tus suscripciones y pagos recurrentes, ve a **Predicciones IA → Suscripciones**. Allí encontrarás un análisis detallado de todos tus pagos periódicos con el coste mensual equivalente.")
 
     elif intent == 'recommendations':
         recs = []
@@ -1246,40 +1249,62 @@ def _generate_chat_response(intent: str, message: str, summary: dict, goals: lis
             ref_amt = this_month_inc * ref if this_month_inc > 0 else 0
             if ref_amt > 0 and amt > ref_amt * 1.2:
                 saving = round(amt - ref_amt, 2)
-                recs.append(f"• Reduce **{cat}** de {fmt(amt)} a ~{fmt(ref_amt)} → ahorrarías {fmt(saving)}/mes")
+                if en:
+                    recs.append(f"• Reduce **{cat}** from {fmt(amt)} to ~{fmt(ref_amt)} → save {fmt(saving)}/month")
+                else:
+                    recs.append(f"• Reduce **{cat}** de {fmt(amt)} a ~{fmt(ref_amt)} → ahorrarías {fmt(saving)}/mes")
         if recs:
-            response = "Áreas donde puedes optimizar:\n\n" + '\n'.join(recs)
-            response += "\n\nPara un análisis completo ve a **Predicciones IA → Ahorro**."
+            response = ("Areas where you can optimize:\n\n" if en else "Áreas donde puedes optimizar:\n\n") + '\n'.join(recs)
+            response += ("\n\nFor a full analysis go to **AI Predictions → Savings**." if en
+                         else "\n\nPara un análisis completo ve a **Predicciones IA → Ahorro**.")
         else:
-            response = "¡Tus finanzas parecen bien equilibradas! Puedes ver análisis detallados en **Predicciones IA**."
+            response = ("Your finances look well balanced! You can view detailed analyses in **AI Predictions**." if en
+                        else "¡Tus finanzas parecen bien equilibradas! Puedes ver análisis detallados en **Predicciones IA**.")
 
     elif intent == 'trend':
         if prev_month_exp > 0 and this_month_exp > 0:
             diff = this_month_exp - prev_month_exp
             pct  = abs(diff) / prev_month_exp * 100
             if diff > 5:
-                response = f"Tus gastos han **aumentado un {pct:.0f}%** respecto al mes anterior ({fmt(prev_month_exp)} → {fmt(this_month_exp)})."
+                response = (f"Your expenses have **increased by {pct:.0f}%** compared to last month ({fmt(prev_month_exp)} → {fmt(this_month_exp)})." if en
+                            else f"Tus gastos han **aumentado un {pct:.0f}%** respecto al mes anterior ({fmt(prev_month_exp)} → {fmt(this_month_exp)}).")
             elif diff < -5:
-                response = f"Tus gastos han **disminuido un {pct:.0f}%** respecto al mes anterior ({fmt(prev_month_exp)} → {fmt(this_month_exp)}). ¡Muy bien!"
+                response = (f"Your expenses have **decreased by {pct:.0f}%** compared to last month ({fmt(prev_month_exp)} → {fmt(this_month_exp)}). Great job!" if en
+                            else f"Tus gastos han **disminuido un {pct:.0f}%** respecto al mes anterior ({fmt(prev_month_exp)} → {fmt(this_month_exp)}). ¡Muy bien!")
             else:
-                response = f"Tus gastos se mantienen estables respecto al mes anterior (~{fmt(this_month_exp)})."
+                response = (f"Your expenses remain stable compared to last month (~{fmt(this_month_exp)})." if en
+                            else f"Tus gastos se mantienen estables respecto al mes anterior (~{fmt(this_month_exp)}).")
         else:
-            response = "No tengo suficiente historial para comparar tendencias. Sigue registrando tus transacciones."
+            response = ("I don't have enough history to compare trends. Keep recording your transactions." if en
+                        else "No tengo suficiente historial para comparar tendencias. Sigue registrando tus transacciones.")
 
     elif intent == 'affordability':
-        response = "Para analizar si puedes permitirte una compra, pregúntame directamente: **\"¿Puedo comprar [artículo] por [cantidad]€?\"** Por ejemplo: *\"¿Puedo comprar un portátil de 800€?\"*"
+        response = ("To analyze whether you can afford a purchase, ask me directly: **\"Can I buy [item] for [amount]€?\"** For example: *\"Can I buy a laptop for €800?\"*" if en
+                    else "Para analizar si puedes permitirte una compra, pregúntame directamente: **\"¿Puedo comprar [artículo] por [cantidad]€?\"** Por ejemplo: *\"¿Puedo comprar un portátil de 800€?\"*")
 
     else:  # general
-        response = (
-            f"Hola! Soy tu asistente financiero de Finora. "
-            f"Este mes has gastado **{fmt(this_month_exp)}** y tu balance total es **{fmt(balance)}**.\n\n"
-            "Puedo ayudarte con preguntas como:\n"
-            "• *\"¿Cuánto gasté este mes?\"*\n"
-            "• *\"¿En qué categoría gasto más?\"*\n"
-            "• *\"¿Puedo comprarme un ordenador de 600€?\"*\n"
-            "• *\"¿Cómo van mis objetivos de ahorro?\"*\n"
-            "• *\"Dame recomendaciones para ahorrar\"*"
-        )
+        if en:
+            response = (
+                f"Hi! I'm your Finora financial assistant. "
+                f"This month you spent **{fmt(this_month_exp)}** and your total balance is **{fmt(balance)}**.\n\n"
+                "I can help you with questions like:\n"
+                "• *\"How much did I spend this month?\"*\n"
+                "• *\"Which category do I spend the most on?\"*\n"
+                "• *\"Can I buy a €600 laptop?\"*\n"
+                "• *\"How are my savings goals going?\"*\n"
+                "• *\"Give me recommendations to save money\"*"
+            )
+        else:
+            response = (
+                f"Hola! Soy tu asistente financiero de Finora. "
+                f"Este mes has gastado **{fmt(this_month_exp)}** y tu balance total es **{fmt(balance)}**.\n\n"
+                "Puedo ayudarte con preguntas como:\n"
+                "• *\"¿Cuánto gasté este mes?\"*\n"
+                "• *\"¿En qué categoría gasto más?\"*\n"
+                "• *\"¿Puedo comprarme un ordenador de 600€?\"*\n"
+                "• *\"¿Cómo van mis objetivos de ahorro?\"*\n"
+                "• *\"Dame recomendaciones para ahorrar\"*"
+            )
 
     return {
         'response': response,
@@ -1312,6 +1337,7 @@ def chat():
     message      = (data.get('message') or '').strip()
     transactions = data.get('transactions', [])
     goals        = data.get('goals', [])
+    language     = (data.get('language') or 'es').lower()
 
     if not message:
         return jsonify({'error': 'message es requerido'}), 400
@@ -1319,8 +1345,8 @@ def chat():
     summary = _build_financial_summary(transactions)
 
     intent = _detect_intent(message)
-    result = _generate_chat_response(intent, message, summary, goals)
-    logger.info(f"[chat] motor=rules | intent={intent} | message_len={len(message)}")
+    result = _generate_chat_response(intent, message, summary, goals, language)
+    logger.info(f"[chat] motor=rules | intent={intent} | lang={language} | message_len={len(message)}")
     return jsonify(result)
 
 

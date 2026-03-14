@@ -39,12 +39,15 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
   String? _createdAccountId;
   int _cardIdx = 0;
 
-  static const _accountTypes = [
-    ('current', 'Cuenta corriente'),
-    ('savings', 'Cuenta de ahorro'),
-    ('investment', 'Inversión'),
-    ('other', 'Otro'),
-  ];
+  List<(String, String)> _accountTypes(BuildContext ctx) {
+    final s = AppLocalizations.of(ctx);
+    return [
+      ('current', s.accountTypeCurrent),
+      ('savings', s.accountTypeSavings),
+      ('investment', s.accountTypeInvestment),
+      ('other', s.accountTypeOther),
+    ];
+  }
 
   @override
   void initState() {
@@ -123,7 +126,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                       vertical: 14,
                     ),
                   ),
-                  items: _accountTypes
+                  items: _accountTypes(context)
                       .map(
                         (t) => DropdownMenuItem(value: t.$1, child: Text(t.$2)),
                       )
@@ -171,14 +174,18 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
       _addNextCard(context);
     } else if (state is BankCardAddFailure) {
       setState(() => _isSaving = false);
-      _showError(context, 'Error al añadir tarjeta: ${state.message}');
+      final s = AppLocalizations.of(context);
+      _showError(context, '${s.cardAddError}: ${state.message}');
     } else if (state is BankCsvImportSuccess) {
       setState(() => _isSaving = false);
       context.read<BankBloc>().add(const LoadBankAccounts());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'CSV importado: ${state.imported} nuevas, ${state.skipped} duplicadas',
+            AppLocalizations.of(context).csvImportResult(
+              state.imported,
+              state.skipped,
+            ),
           ),
           backgroundColor: AppColors.success,
         ),
@@ -186,10 +193,11 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
       Navigator.pop(context);
     } else if (state is BankCsvImportFailure) {
       setState(() => _isSaving = false);
-      _showError(context, 'Error al importar CSV: ${state.message}');
+      final s = AppLocalizations.of(context);
+      _showError(context, '${s.csvImportError}: ${state.message}');
     } else if (state is BankAccountSetupFailure) {
       setState(() => _isSaving = false);
-      _showError(context, 'Error: ${state.message}');
+      _showError(context, state.message);
     }
   }
 
@@ -289,7 +297,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                 color: AppColors.primary,
               ),
               label: Text(
-                'Añadir',
+                AppLocalizations.of(context).addBtn,
                 style: AppTypography.labelMedium(color: AppColors.primary),
               ),
               style: TextButton.styleFrom(
@@ -356,7 +364,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
               children: [
                 Text(card.name, style: AppTypography.titleSmall()),
                 Text(
-                  '${_cardTypeLabel(card.type)}${card.lastFour != null ? ' ••••${card.lastFour}' : ''}',
+                  '${_cardTypeLabel(context, card.type)}${card.lastFour != null ? ' ••••${card.lastFour}' : ''}',
                   style: AppTypography.bodySmall(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -377,14 +385,15 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
     );
   }
 
-  String _cardTypeLabel(String type) {
+  String _cardTypeLabel(BuildContext ctx, String type) {
+    final s = AppLocalizations.of(ctx);
     switch (type) {
       case 'credit':
-        return 'Crédito';
+        return s.cardTypeCredit;
       case 'prepaid':
-        return 'Prepago';
+        return s.cardTypePrepaid;
       default:
-        return 'Débito';
+        return s.cardTypeDebit;
     }
   }
 
@@ -437,7 +446,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            '$_csvRowCount movimientos detectados',
+                            AppLocalizations.of(context).csvMovementsDetected(_csvRowCount),
                             style: AppTypography.bodySmall(
                               color: AppColors.textSecondaryLight,
                             ),
@@ -468,7 +477,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Formato: fecha,descripción,importe,tipo (income/expense)',
+                  AppLocalizations.of(context).csvFormatHelper,
                   style: AppTypography.labelSmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -544,7 +553,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al leer CSV: $e'),
+            content: Text('${AppLocalizations.of(context).csvReadError}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -734,11 +743,14 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
   final _lastFourCtrl = TextEditingController();
   String _cardType = 'debit';
 
-  static const _cardTypes = [
-    ('debit', 'Débito'),
-    ('credit', 'Crédito'),
-    ('prepaid', 'Prepago'),
-  ];
+  List<(String, String)> _cardTypes(BuildContext ctx) {
+    final s = AppLocalizations.of(ctx);
+    return [
+      ('debit', s.cardTypeDebit),
+      ('credit', s.cardTypeCredit),
+      ('prepaid', s.cardTypePrepaid),
+    ];
+  }
 
   @override
   void dispose() {
@@ -784,14 +796,14 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
 
           // Card type chips
           Text(
-            'Tipo',
+            AppLocalizations.of(context).accountTypeLabel,
             style: AppTypography.labelMedium(
               color: AppColors.textSecondaryLight,
             ),
           ),
           const SizedBox(height: 8),
           Row(
-            children: _cardTypes.map((t) {
+            children: _cardTypes(context).map((t) {
               final selected = _cardType == t.$1;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -826,7 +838,7 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
 
           // Card name
           Text(
-            'Nombre',
+            AppLocalizations.of(context).cardNameLabel,
             style: AppTypography.labelMedium(
               color: AppColors.textSecondaryLight,
             ),
@@ -867,7 +879,7 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
 
           // Last 4 digits
           Text(
-            'Últimos 4 dígitos (opcional)',
+            AppLocalizations.of(context).lastFourDigitsLabel,
             style: AppTypography.labelMedium(
               color: AppColors.textSecondaryLight,
             ),

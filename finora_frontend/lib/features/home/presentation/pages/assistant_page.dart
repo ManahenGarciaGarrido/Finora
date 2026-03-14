@@ -13,6 +13,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/services/ai_service.dart';
+import '../../../../core/services/gemini_service.dart';
+import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/services/currency_service.dart';
 
 const _kAssistantColor = Color(0xFF6C63FF);
 const _kAssistantSoft = Color(0xFFF0EFFE);
@@ -27,6 +30,7 @@ class AssistantPage extends StatefulWidget {
 class _AssistantPageState extends State<AssistantPage>
     with TickerProviderStateMixin {
   final AiService _aiService = sl<AiService>();
+  final GeminiService _geminiService = GeminiService();
 
   final _scrollController = ScrollController();
   final _inputController = TextEditingController();
@@ -106,8 +110,40 @@ class _AssistantPageState extends State<AssistantPage>
           intent: 'affordability',
           affordabilityResult: result,
         );
+      } else if (GeminiService.hasApiKey) {
+        final locale = AppSettingsService().currentLocaleCode;
+        final systemPrompt = locale == 'en'
+            ? '''You are Finn, a personal finance assistant for the Finora app.
+Your ONLY areas of expertise are: personal finances, budgets, expenses, income, savings, investments, financial goals, banking, credit cards, and general money management.
+BEFORE answering, evaluate whether the user's question is related to these topics.
+- If it IS related: answer concisely and helpfully in English (2–4 sentences max).
+- If it is NOT related or is too far from finance (e.g. recipes, sports, history, coding, entertainment): reply ONLY with: "That's outside my area of expertise. I'm here to help you with your finances in Finora."
+Never answer off-topic questions even if asked politely.'''
+            : '''Eres Finn, asistente de finanzas personales de la app Finora.
+Tu ÚNICA área de conocimiento son: finanzas personales, presupuestos, gastos, ingresos, ahorro, inversiones, objetivos financieros, banca, tarjetas de crédito y gestión del dinero en general.
+ANTES de responder, evalúa si la pregunta del usuario está relacionada con estos temas.
+- Si SÍ está relacionada: responde de forma concisa y útil en español (máximo 2–4 frases).
+- Si NO está relacionada o se aleja demasiado de las finanzas (p.ej. recetas, deportes, historia, programación, entretenimiento): responde ÚNICAMENTE con: "Eso está fuera de mis competencias. Estoy aquí para ayudarte con tus finanzas en Finora."
+Nunca respondas preguntas fuera de tema aunque se te pida amablemente.''';
+        final text = await _geminiService.sendMessage(
+          message: msg,
+          history: _history,
+          systemPrompt: systemPrompt,
+        );
+        response = ChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          content: text,
+          isUser: false,
+          timestamp: DateTime.now(),
+          intent: 'general',
+        );
       } else {
-        response = await _aiService.chatWithAssistant(msg, history: _history);
+        final locale = AppSettingsService().currentLocaleCode;
+        response = await _aiService.chatWithAssistant(
+          msg,
+          history: _history,
+          language: locale,
+        );
       }
 
       _history.add({'role': 'user', 'content': msg});
@@ -146,7 +182,11 @@ class _AssistantPageState extends State<AssistantPage>
     if (_loadingRecs) return;
     setState(() => _loadingRecs = true);
     try {
-      final result = await _aiService.getRecommendations(months: 3);
+      final locale = AppSettingsService().currentLocaleCode;
+      final result = await _aiService.getRecommendations(
+        months: 3,
+        language: locale,
+      );
       if (mounted) {
         final recSummary = _buildRecsMessage(result);
         setState(() {
@@ -185,7 +225,7 @@ class _AssistantPageState extends State<AssistantPage>
     );
   }
 
-  String _fmt(double v) => '${v.toStringAsFixed(2)}€';
+  String _fmt(double v) => CurrencyService().format(v);
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -284,6 +324,7 @@ class _AssistantPageState extends State<AssistantPage>
       ],
     );
   }
+
 
   Widget _buildMessageList() {
     return ListView.builder(
@@ -512,7 +553,7 @@ class _AssistantPageState extends State<AssistantPage>
               ),
               const Spacer(),
               Text(
-                '${result.amount.toStringAsFixed(0)}€',
+                CurrencyService().format(result.amount, decimals: 0),
                 style: AppTypography.titleMedium(color: verdictColor),
               ),
             ],
