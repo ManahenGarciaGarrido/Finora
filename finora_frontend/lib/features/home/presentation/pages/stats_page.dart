@@ -38,6 +38,7 @@ import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../categories/domain/entities/category_entity.dart';
+import '../../../../core/services/currency_service.dart';
 
 // ─── Período de filtro ────────────────────────────────────────────────────────
 
@@ -66,25 +67,9 @@ enum StatsPeriod {
 
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 
-String _fmtCurrency(double amount) {
-  final isNeg = amount < 0;
-  final abs = amount.abs();
-  final parts = abs.toStringAsFixed(2).split('.');
-  final buf = StringBuffer();
-  final intPart = parts[0];
-  for (int i = 0; i < intPart.length; i++) {
-    if (i > 0 && (intPart.length - i) % 3 == 0) buf.write('.');
-    buf.write(intPart[i]);
-  }
-  return '${isNeg ? '-' : ''}${buf.toString()},${parts[1]} €';
-}
+String _fmtCurrency(double amount) => CurrencyService().format(amount);
 
-String _fmtCompact(double amount) {
-  if (amount.abs() >= 1000) {
-    return '${(amount / 1000).toStringAsFixed(1)}k€';
-  }
-  return '${amount.toStringAsFixed(0)}€';
-}
+String _fmtCompact(double amount) => CurrencyService().formatCompact(amount);
 
 const _months = [
   'Ene',

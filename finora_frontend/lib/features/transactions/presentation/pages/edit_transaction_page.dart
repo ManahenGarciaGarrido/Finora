@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
@@ -14,6 +15,7 @@ import '../../domain/entities/transaction_entity.dart';
 import '../bloc/transaction_bloc.dart';
 import '../bloc/transaction_event.dart';
 import '../../../categories/domain/entities/category_entity.dart';
+import '../../../../core/services/currency_service.dart';
 import '../../../categories/presentation/bloc/category_bloc.dart';
 import '../../../categories/presentation/bloc/category_event.dart';
 import '../../../categories/presentation/bloc/category_state.dart';
@@ -124,16 +126,17 @@ class _EditTransactionPageState extends State<EditTransactionPage>
 
   // --- Validación ---
 
-  String? _validateAmount(String? value) {
+  String? _validateAmount(BuildContext context, String? value) {
+    final s = AppLocalizations.of(context);
     if (value == null || value.isEmpty) {
-      return 'La cantidad es requerida';
+      return s.amountRequired;
     }
     final amount = double.tryParse(value.replaceAll(',', '.'));
     if (amount == null || amount <= 0) {
-      return 'Introduce una cantidad válida mayor que 0';
+      return s.amountInvalidPositive;
     }
     if (amount > 999999.99) {
-      return 'La cantidad no puede exceder €999.999,99';
+      return s.amountExceedsMax;
     }
     return null;
   }
@@ -181,6 +184,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   void _showImageSourceDialog() {
+    final s = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.white,
@@ -194,7 +198,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Foto del ticket', style: AppTypography.titleMedium()),
+              Text(s.ticketPhoto, style: AppTypography.titleMedium()),
               const SizedBox(height: 16),
               ListTile(
                 leading: Container(
@@ -209,9 +213,9 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                     color: AppColors.primary,
                   ),
                 ),
-                title: Text('Cámara', style: AppTypography.bodyMedium()),
+                title: Text(s.camera, style: AppTypography.bodyMedium()),
                 subtitle: Text(
-                  'Hacer una foto ahora',
+                  s.takePictureNow,
                   style: AppTypography.bodySmall(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -234,9 +238,9 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                     color: AppColors.primary,
                   ),
                 ),
-                title: Text('Galería', style: AppTypography.bodyMedium()),
+                title: Text(s.gallery, style: AppTypography.bodyMedium()),
                 subtitle: Text(
-                  'Seleccionar de la galería',
+                  s.selectFromGallery,
                   style: AppTypography.bodySmall(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -261,7 +265,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                     ),
                   ),
                   title: Text(
-                    'Eliminar foto',
+                    s.deletePhoto,
                     style: AppTypography.bodyMedium(color: AppColors.error),
                   ),
                   onTap: () {
@@ -302,9 +306,10 @@ class _EditTransactionPageState extends State<EditTransactionPage>
         paymentChanged;
 
     if (!hasChanges) {
+      final s = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('No has realizado ningún cambio'),
+          content: Text(s.noChangesMsg),
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -315,6 +320,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
       return false;
     }
 
+    final s = AppLocalizations.of(context);
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -334,7 +340,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               ),
             ),
             const SizedBox(width: 10),
-            Text('Confirmar cambios', style: AppTypography.titleMedium()),
+            Text(s.confirmChanges, style: AppTypography.titleMedium()),
           ],
         ),
         content: Column(
@@ -342,45 +348,45 @@ class _EditTransactionPageState extends State<EditTransactionPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '¿Deseas guardar los siguientes cambios?',
+              s.confirmSaveChangesQuestion,
               style: AppTypography.bodyMedium(),
             ),
             const SizedBox(height: 12),
             if (amountChanged)
               _buildChangeSummaryRow(
                 Icons.euro_rounded,
-                'Cantidad',
-                '${t.amount.toStringAsFixed(2)} → ${newAmount.toStringAsFixed(2)} €',
+                s.amount,
+                '${CurrencyService().format(t.amount)} → ${CurrencyService().format(newAmount)}',
               ),
             if (typeChanged)
               _buildChangeSummaryRow(
                 Icons.swap_vert_rounded,
-                'Tipo',
+                s.type,
                 '${t.type.label} → ${_selectedType.label}',
               ),
             if (categoryChanged)
               _buildChangeSummaryRow(
                 Icons.category_rounded,
-                'Categoría',
+                s.category,
                 '${t.category} → ${_selectedCategory ?? ''}',
               ),
             if (dateChanged)
               _buildChangeSummaryRow(
                 Icons.calendar_today_rounded,
-                'Fecha',
+                s.date,
                 '${_formatDateShort(t.date)} → ${_formatDateShort(_selectedDate)}',
               ),
             if (paymentChanged)
               _buildChangeSummaryRow(
                 Icons.payment_rounded,
-                'Método de pago',
+                s.paymentMethod,
                 '${t.paymentMethod.label} → ${_selectedPaymentMethod.label}',
               ),
             if (descChanged)
               _buildChangeSummaryRow(
                 Icons.edit_note_rounded,
-                'Descripción',
-                'Modificada',
+                s.description,
+                s.modified,
               ),
             if (amountChanged || typeChanged) ...[
               const SizedBox(height: 8),
@@ -400,7 +406,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'El balance y las estadísticas se recalcularán automáticamente.',
+                        s.balanceRecalculateNote,
                         style: AppTypography.bodySmall(
                           color: AppColors.warningDark,
                         ),
@@ -416,7 +422,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
-              'Cancelar',
+              s.cancel,
               style: TextStyle(color: AppColors.textSecondaryLight),
             ),
           ),
@@ -430,7 +436,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
-            child: const Text('Guardar cambios'),
+            child: Text(s.saveChanges),
           ),
         ],
       ),
@@ -477,7 +483,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
     if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Selecciona una categoría'),
+          content: Text(AppLocalizations.of(context).selectCategory),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -574,17 +580,16 @@ class _EditTransactionPageState extends State<EditTransactionPage>
     required String type,
     required String newCategory,
   }) {
+    final s = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          '¿Recategorizar todas las transacciones similares a "$newCategory"?',
-        ),
+        content: Text(s.recategorizeSimilarMsg(newCategory)),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         action: SnackBarAction(
-          label: 'Recategorizar todas',
+          label: s.recategorizeAll,
           textColor: AppColors.white,
           onPressed: () {
             context.read<CategoryBloc>().add(
@@ -600,28 +605,15 @@ class _EditTransactionPageState extends State<EditTransactionPage>
     );
   }
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'enero',
-      'febrero',
-      'marzo',
-      'abril',
-      'mayo',
-      'junio',
-      'julio',
-      'agosto',
-      'septiembre',
-      'octubre',
-      'noviembre',
-      'diciembre',
-    ];
+  String _formatDate(BuildContext context, DateTime date) {
+    final months = AppLocalizations.of(context).monthNames;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dateOnly = DateTime(date.year, date.month, date.day);
     if (dateOnly == today) {
-      return 'Hoy, ${date.day} de ${months[date.month - 1]}';
+      return '${AppLocalizations.of(context).today}, ${date.day} ${months[date.month - 1]}';
     }
-    return '${date.day} de ${months[date.month - 1]} de ${date.year}';
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   // =========================================================================
@@ -629,6 +621,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   // =========================================================================
 
   Future<void> _confirmDelete(BuildContext context) async {
+    final s = AppLocalizations.of(context);
     final navigator = Navigator.of(context);
     final transactionBloc = context.read<TransactionBloc>();
     final confirmed = await showDialog<bool>(
@@ -650,7 +643,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               ),
             ),
             const SizedBox(width: 10),
-            Text('Eliminar transacción', style: AppTypography.titleMedium()),
+            Text(s.deleteTransaction, style: AppTypography.titleMedium()),
           ],
         ),
         content: Column(
@@ -658,7 +651,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '¿Estás seguro de que deseas eliminar esta transacción?',
+              s.deleteTransactionConfirmContent,
               style: AppTypography.bodyMedium(),
             ),
             const SizedBox(height: 10),
@@ -678,7 +671,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Esta acción es permanente y no se puede deshacer.',
+                      s.permanentActionWarning,
                       style: AppTypography.bodySmall(color: AppColors.error),
                     ),
                   ),
@@ -691,7 +684,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
-              'Cancelar',
+              s.cancel,
               style: TextStyle(color: AppColors.textSecondaryLight),
             ),
           ),
@@ -704,7 +697,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text('Eliminar'),
+            child: Text(s.delete),
           ),
         ],
       ),
@@ -736,7 +729,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                 borderRadius: BorderRadius.circular(10),
               ),
               action: SnackBarAction(
-                label: 'Reintentar',
+                label: AppLocalizations.of(context).retry,
                 textColor: AppColors.white,
                 onPressed: () {
                   setState(() {
@@ -766,7 +759,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
             ),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text('Editar transacción', style: AppTypography.titleLarge()),
+          title: Text(AppLocalizations.of(context).editTransaction, style: AppTypography.titleLarge()),
           centerTitle: true,
           // RF-07: Botón de eliminar en la barra superior
           actions: [
@@ -775,7 +768,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                 Icons.delete_outline_rounded,
                 color: AppColors.error,
               ),
-              tooltip: 'Eliminar transacción',
+              tooltip: AppLocalizations.of(context).deleteTransaction,
               onPressed: () => _confirmDelete(context),
             ),
           ],
@@ -869,6 +862,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
 
   /// Banner informativo de última modificación (RF-06)
   Widget _buildLastModifiedBanner() {
+    final s = AppLocalizations.of(context);
     final updatedAt = widget.transaction.updatedAt!;
     final formatted = _formatDateShort(updatedAt);
     return Container(
@@ -884,7 +878,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
           const Icon(Icons.history_rounded, size: 16, color: AppColors.primary),
           const SizedBox(width: 8),
           Text(
-            'Última modificación: $formatted',
+            s.lastModified(formatted),
             style: AppTypography.bodySmall(color: AppColors.primary),
           ),
         ],
@@ -893,11 +887,12 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   Widget _buildTypeSelector() {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tipo de transacción',
+          s.transactionType,
           style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
@@ -910,13 +905,13 @@ class _EditTransactionPageState extends State<EditTransactionPage>
             children: [
               _buildTypeOption(
                 TransactionType.expense,
-                'Gasto',
+                s.expense,
                 Icons.arrow_downward_rounded,
                 AppColors.error,
               ),
               _buildTypeOption(
                 TransactionType.income,
-                'Ingreso',
+                s.income,
                 Icons.arrow_upward_rounded,
                 AppColors.success,
               ),
@@ -986,11 +981,12 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   Widget _buildAmountField() {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Cantidad',
+          s.amount,
           style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
@@ -1006,7 +1002,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                 : AppColors.success,
           ),
           textAlign: TextAlign.center,
-          validator: _validateAmount,
+          validator: (val) => _validateAmount(context, val),
           decoration: InputDecoration(
             hintText: '0,00',
             hintStyle: AppTypography.moneyLarge(
@@ -1078,13 +1074,14 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               ..sort((a, b) => b.value.compareTo(a.value));
         final topNames = topCategories.take(2).map((e) => e.key).toSet();
 
+        final s = AppLocalizations.of(context);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Text(
-                  'Categoría',
+                  s.category,
                   style: AppTypography.labelMedium(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -1101,7 +1098,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      'Sugeridas por historial',
+                      s.suggestedByHistory,
                       style: AppTypography.labelSmall(color: AppColors.primary),
                     ),
                   ),
@@ -1181,7 +1178,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '* Selecciona una categoría',
+                  s.selectCategoryHint,
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -1194,20 +1191,21 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   Widget _buildDescriptionField() {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Descripción',
+              s.description,
               style: AppTypography.labelMedium(
                 color: AppColors.textSecondaryLight,
               ),
             ),
             const SizedBox(width: 4),
             Text(
-              '(opcional)',
+              '(${s.optional.toLowerCase()})',
               style: AppTypography.bodySmall(
                 color: AppColors.textTertiaryLight,
               ),
@@ -1221,7 +1219,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
           maxLength: 500,
           style: AppTypography.input(),
           decoration: InputDecoration(
-            hintText: 'Ej: Compra semanal del supermercado',
+            hintText: s.descriptionHint,
             hintStyle: AppTypography.hint(),
             counterText: '',
             filled: true,
@@ -1253,11 +1251,12 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   Widget _buildDateSelector() {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Fecha',
+          s.date,
           style: AppTypography.labelMedium(color: AppColors.textSecondaryLight),
         ),
         const SizedBox(height: 8),
@@ -1278,7 +1277,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                   size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(_formatDate(_selectedDate), style: AppTypography.input()),
+                Text(_formatDate(context, _selectedDate), style: AppTypography.input()),
                 const Spacer(),
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
@@ -1312,13 +1311,14 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   ];
 
   Widget _buildPaymentMethodSelector() {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Método de pago',
+              s.paymentMethod,
               style: AppTypography.labelMedium(
                 color: AppColors.textSecondaryLight,
               ),
@@ -1396,7 +1396,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _shortPaymentLabel(method),
+                        _shortPaymentLabel(context, method),
                         style: AppTypography.labelSmall(
                           color: isSelected
                               ? AppColors.white
@@ -1417,18 +1417,19 @@ class _EditTransactionPageState extends State<EditTransactionPage>
     );
   }
 
-  String _shortPaymentLabel(PaymentMethod method) {
+  String _shortPaymentLabel(BuildContext ctx, PaymentMethod method) {
+    final s = AppLocalizations.of(ctx);
     switch (method) {
       case PaymentMethod.cash:
-        return 'Efectivo';
+        return s.paymentCash;
       case PaymentMethod.debitCard:
-        return 'Débito';
+        return s.paymentDebit;
       case PaymentMethod.creditCard:
-        return 'Crédito';
+        return s.paymentCredit;
       case PaymentMethod.prepaidCard:
-        return 'Prepago';
+        return s.paymentPrepaid;
       case PaymentMethod.bankTransfer:
-        return 'Transfer.';
+        return s.paymentTransfer;
       case PaymentMethod.sepa:
         return 'SEPA';
       case PaymentMethod.wire:
@@ -1442,13 +1443,13 @@ class _EditTransactionPageState extends State<EditTransactionPage>
       case PaymentMethod.googlePay:
         return 'Google Pay';
       case PaymentMethod.directDebit:
-        return 'Recibo';
+        return s.paymentDirectDebit;
       case PaymentMethod.cheque:
-        return 'Cheque';
+        return s.paymentCheque;
       case PaymentMethod.voucher:
-        return 'Vale';
+        return s.paymentVoucher;
       case PaymentMethod.crypto:
-        return 'Cripto';
+        return s.paymentCrypto;
       default:
         return method.label;
     }
@@ -1492,20 +1493,21 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   Widget _buildPhotoTicketSection() {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'Foto del ticket',
+              s.ticketPhoto,
               style: AppTypography.labelMedium(
                 color: AppColors.textSecondaryLight,
               ),
             ),
             const SizedBox(width: 4),
             Text(
-              '(opcional)',
+              '(${s.optional.toLowerCase()})',
               style: AppTypography.bodySmall(
                 color: AppColors.textTertiaryLight,
               ),
@@ -1543,7 +1545,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               ),
               const SizedBox(height: 6),
               Text(
-                'Añadir foto del ticket',
+                AppLocalizations.of(context).addTicketPhoto,
                 style: AppTypography.labelMedium(
                   color: AppColors.primary.withValues(alpha: 0.8),
                 ),
@@ -1610,7 +1612,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Cambiar',
+                    AppLocalizations.of(context).change,
                     style: AppTypography.labelSmall(color: AppColors.white),
                   ),
                 ],
@@ -1623,6 +1625,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   Widget _buildSubmitButton() {
+    final s = AppLocalizations.of(context);
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -1635,19 +1638,19 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                   color: AppColors.success,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Center(
+                child: Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.check_circle_rounded,
                         color: AppColors.white,
                         size: 24,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        'Transacción actualizada',
-                        style: TextStyle(
+                        s.transactionUpdated,
+                        style: const TextStyle(
                           color: AppColors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -1689,7 +1692,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Guardar cambios',
+                                s.saveChanges,
                                 style: AppTypography.button(),
                               ),
                             ],

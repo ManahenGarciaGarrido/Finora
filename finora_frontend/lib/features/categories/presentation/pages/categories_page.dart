@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
@@ -8,6 +9,7 @@ import '../../domain/entities/category_entity.dart';
 import '../bloc/category_bloc.dart';
 import '../bloc/category_event.dart';
 import '../bloc/category_state.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 
 /// Página de gestión de categorías (RF-15, RF-16)
 ///
@@ -54,7 +56,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                     size: 18,
                   ),
                   const SizedBox(width: 8),
-                  Text('Categoría "${state.category.name}" creada'),
+                  Text(AppLocalizations.of(context).categoryCreatedMsg(state.category.name)),
                 ],
               ),
               backgroundColor: AppColors.success,
@@ -67,7 +69,7 @@ class _CategoriesPageState extends State<CategoriesPage>
         } else if (state is CategoryUpdated) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Categoría actualizada'),
+              content: Text(AppLocalizations.of(context).categoryUpdatedMsg(state.category.name)),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -78,7 +80,7 @@ class _CategoriesPageState extends State<CategoriesPage>
         } else if (state is CategoryDeleted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Categoría eliminada'),
+              content: Text(AppLocalizations.of(context).categoryDeleted),
               backgroundColor: AppColors.gray600,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -113,7 +115,7 @@ class _CategoriesPageState extends State<CategoriesPage>
               ),
               onPressed: () => Navigator.pop(context),
             ),
-            title: Text('Categorías', style: AppTypography.headlineSmall()),
+            title: Text(AppLocalizations.of(context).categoriesTitle, style: AppTypography.headlineSmall()),
             centerTitle: false,
             bottom: TabBar(
               controller: _tabController,
@@ -123,9 +125,9 @@ class _CategoriesPageState extends State<CategoriesPage>
               indicatorSize: TabBarIndicatorSize.label,
               labelStyle: AppTypography.labelLarge(),
               unselectedLabelStyle: AppTypography.labelLarge(),
-              tabs: const [
-                Tab(text: 'Gastos'),
-                Tab(text: 'Ingresos'),
+              tabs: [
+                Tab(text: AppLocalizations.of(context).expense),
+                Tab(text: AppLocalizations.of(context).income),
               ],
             ),
           ),
@@ -135,13 +137,14 @@ class _CategoriesPageState extends State<CategoriesPage>
             backgroundColor: AppColors.primary,
             foregroundColor: AppColors.white,
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Nueva categoría'),
+            label: Text(AppLocalizations.of(context).newCategory),
           ),
           body: Builder(
             builder: (_) {
               if (state is CategoryLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                  child: SkeletonListLoader(count: 6, cardHeight: 60),
                 );
               }
 
@@ -164,7 +167,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Error al cargar categorías',
+                        AppLocalizations.of(context).errorLoadingCategories,
                         style: AppTypography.titleMedium(
                           color: AppColors.textSecondaryLight,
                         ),
@@ -175,7 +178,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                           context.read<CategoryBloc>().add(LoadCategories());
                         },
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Reintentar'),
+                        label: Text(AppLocalizations.of(context).retry),
                       ),
                     ],
                   ),
@@ -227,8 +230,8 @@ class _CategoriesPageState extends State<CategoriesPage>
             const SizedBox(height: 16),
             Text(
               isExpense
-                  ? 'Sin categorías de gastos'
-                  : 'Sin categorías de ingresos',
+                  ? AppLocalizations.of(context).noCategoriesExpense
+                  : AppLocalizations.of(context).noCategoriesIncome,
               style: AppTypography.titleMedium(
                 color: AppColors.textSecondaryLight,
               ),
@@ -241,7 +244,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                 defaultType: isExpense ? 'expense' : 'income',
               ),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Crear primera categoría'),
+              label: Text(AppLocalizations.of(context).createFirstCategory),
             ),
           ],
         ),
@@ -296,7 +299,9 @@ class _CategoriesPageState extends State<CategoriesPage>
                 Text(category.name, style: AppTypography.titleSmall()),
                 const SizedBox(height: 2),
                 Text(
-                  category.isExpense ? 'Gasto' : 'Ingreso',
+                  category.isExpense
+                      ? AppLocalizations.of(context).expense
+                      : AppLocalizations.of(context).income,
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -313,7 +318,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'Predefinida',
+                AppLocalizations.of(context).predefined,
                 style: AppTypography.badge(color: AppColors.textTertiaryLight),
               ),
             )
@@ -326,7 +331,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                 color: AppColors.primary,
               ),
               onPressed: () => _showCategoryForm(context, category),
-              tooltip: 'Editar',
+              tooltip: AppLocalizations.of(context).edit,
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               padding: EdgeInsets.zero,
             ),
@@ -338,7 +343,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                 color: AppColors.error,
               ),
               onPressed: () => _confirmDelete(context, category),
-              tooltip: 'Eliminar',
+              tooltip: AppLocalizations.of(context).delete,
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               padding: EdgeInsets.zero,
             ),
@@ -410,6 +415,7 @@ class _CategoriesPageState extends State<CategoriesPage>
     final nameController = TextEditingController(text: existing?.name ?? '');
     final formKey = GlobalKey<FormState>();
 
+    final s = AppLocalizations.of(context);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -446,7 +452,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        isEditing ? 'Editar categoría' : 'Nueva categoría',
+                        isEditing ? s.editCategory : s.newCategory,
                         style: AppTypography.titleLarge(),
                       ),
                       IconButton(
@@ -506,7 +512,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                           ),
                           const SizedBox(height: 20),
                           // Nombre
-                          Text('Nombre', style: AppTypography.labelMedium()),
+                          Text(s.name, style: AppTypography.labelMedium()),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: nameController,
@@ -532,10 +538,10 @@ class _CategoriesPageState extends State<CategoriesPage>
                             ),
                             validator: (v) {
                               if (v == null || v.trim().isEmpty) {
-                                return 'El nombre es requerido';
+                                return s.fieldRequired;
                               }
                               if (v.trim().length > 100) {
-                                return 'El nombre no puede superar 100 caracteres';
+                                return s.nameTooLong;
                               }
                               return null;
                             },
@@ -543,7 +549,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                           const SizedBox(height: 16),
                           // Tipo (solo al crear)
                           if (!isEditing) ...[
-                            Text('Tipo', style: AppTypography.labelMedium()),
+                            Text(s.type, style: AppTypography.labelMedium()),
                             const SizedBox(height: 8),
                             Row(
                               children: [
@@ -582,7 +588,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                                           ),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'Gasto',
+                                            s.expense,
                                             style: AppTypography.labelMedium(
                                               color: selectedType == 'expense'
                                                   ? AppColors.error
@@ -628,7 +634,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                                           ),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'Ingreso',
+                                            s.income,
                                             style: AppTypography.labelMedium(
                                               color: selectedType == 'income'
                                                   ? AppColors.success
@@ -645,7 +651,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                             const SizedBox(height: 16),
                           ],
                           // Selector de icono (RF-16)
-                          Text('Icono', style: AppTypography.labelMedium()),
+                          Text(s.icon, style: AppTypography.labelMedium()),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
@@ -699,7 +705,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                           ),
                           const SizedBox(height: 16),
                           // Selector de color (RF-16)
-                          Text('Color', style: AppTypography.labelMedium()),
+                          Text(s.color, style: AppTypography.labelMedium()),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
@@ -784,9 +790,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                                 ),
                               ),
                               child: Text(
-                                isEditing
-                                    ? 'Guardar cambios'
-                                    : 'Crear categoría',
+                                isEditing ? s.saveChanges : s.createCategory,
                                 style: AppTypography.labelLarge(
                                   color: AppColors.white,
                                 ),
@@ -811,6 +815,7 @@ class _CategoriesPageState extends State<CategoriesPage>
     BuildContext context,
     CategoryEntity category,
   ) async {
+    final s = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -830,7 +835,7 @@ class _CategoriesPageState extends State<CategoriesPage>
               ),
             ),
             const SizedBox(width: 10),
-            Text('Eliminar categoría', style: AppTypography.titleMedium()),
+            Text(s.deleteCategory, style: AppTypography.titleMedium()),
           ],
         ),
         content: Column(
@@ -838,7 +843,7 @@ class _CategoriesPageState extends State<CategoriesPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '¿Eliminar la categoría "${category.name}"?',
+              s.deleteCategoryConfirm(category.name),
               style: AppTypography.bodyMedium(),
             ),
             const SizedBox(height: 10),
@@ -858,7 +863,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Las transacciones con esta categoría no se eliminarán, pero quedarán sin categoría asignada.',
+                      s.deleteCategoryWarning,
                       style: AppTypography.bodySmall(
                         color: AppColors.warningDark,
                       ),
@@ -873,8 +878,8 @@ class _CategoriesPageState extends State<CategoriesPage>
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
-              'Cancelar',
-              style: TextStyle(color: AppColors.textSecondaryLight),
+              s.cancel,
+              style: const TextStyle(color: AppColors.textSecondaryLight),
             ),
           ),
           ElevatedButton(
@@ -886,7 +891,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text('Eliminar'),
+            child: Text(s.delete),
           ),
         ],
       ),

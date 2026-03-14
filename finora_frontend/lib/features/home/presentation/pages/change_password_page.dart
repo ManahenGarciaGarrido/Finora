@@ -22,6 +22,26 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   bool _obscureCurrent = true;
   bool _obscureNew = true;
 
+  // Password requirement checks
+  bool _hasUppercase(String v) => v.contains(RegExp(r'[A-Z]'));
+  bool _hasNumber(String v) => v.contains(RegExp(r'[0-9]'));
+  bool _hasSpecial(String v) =>
+      v.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>_\-=+]'));
+
+  @override
+  void initState() {
+    super.initState();
+    _newCtrl.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _currentCtrl.dispose();
+    _newCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _submit() async {
     final s = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
@@ -57,6 +77,63 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         );
       }
     }
+  }
+
+  Widget _buildRequirementRow(String text, bool isMet) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Icon(
+            isMet ? Icons.check_circle : Icons.circle_outlined,
+            size: 16,
+            color: isMet ? AppColors.success : AppColors.textSecondaryLight,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: isMet ? AppColors.success : AppColors.textSecondaryLight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPasswordRequirements(AppLocalizations s) {
+    final password = _newCtrl.text;
+    final hasMinLength = password.length >= 8;
+    final hasUpper = _hasUppercase(password);
+    final hasNum = _hasNumber(password);
+    final hasSpecial = _hasSpecial(password);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.gray100,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            s.passwordRequirementsHeader,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimaryLight,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildRequirementRow(s.reqChars, hasMinLength),
+          _buildRequirementRow(s.reqUpper, hasUpper),
+          _buildRequirementRow(s.reqNumber, hasNum),
+          _buildRequirementRow(s.reqSpecial, hasSpecial),
+        ],
+      ),
+    );
   }
 
   @override
@@ -128,9 +205,20 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     onPressed: () => setState(() => _obscureNew = !_obscureNew),
                   ),
                 ),
-                validator: (v) =>
-                    (v != null && v.length < 8) ? s.minCharactersError : null,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return s.passwordRequired;
+                  if (v.length < 8) return s.minCharactersError;
+                  if (!_hasUppercase(v)) return s.passwordUppercase;
+                  if (!_hasNumber(v)) return s.passwordNumber;
+                  if (!_hasSpecial(v)) return s.passwordSpecial;
+                  return null;
+                },
               ),
+              const SizedBox(height: 12),
+
+              // Visual password requirements indicator
+              if (_newCtrl.text.isNotEmpty) _buildPasswordRequirements(s),
+
               const SizedBox(height: 20),
 
               TextFormField(

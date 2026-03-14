@@ -387,7 +387,7 @@ router.post('/check-anomaly', authenticateToken, async (req, res) => {
  */
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
-    const { message, history = [] } = req.body;
+    const { message, history = [], language } = req.body;
     if (!message) {
       return res.status(400).json({ error: 'El campo message es requerido.' });
     }
@@ -401,6 +401,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
       history,
       transactions,
       monthly_income: monthlyIncome,
+      language: language || 'es',
     }, 30000);
 
     return res.json(aiResult);

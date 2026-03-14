@@ -22,6 +22,11 @@ import '../../../banks/presentation/pages/bank_connecting_page.dart';
 import '../../../banks/presentation/pages/bank_account_setup_page.dart';
 import '../../../banks/presentation/pages/bank_account_selection_page.dart';
 import '../../../banks/presentation/widgets/notification_bell.dart';
+import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../authentication/presentation/bloc/auth_state.dart';
+import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 
 /// Página de Cuentas (RF-10)
 ///
@@ -98,13 +103,20 @@ class _AccountsPageState extends State<AccountsPage> {
         );
   }
 
+  String _getUserId() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is Authenticated) return authState.user.id;
+    return 'default';
+  }
+
   Future<void> _loadCashPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    final done = prefs.getBool('cash_setup_done') ?? false;
+    final userId = _getUserId();
+    final done = prefs.getBool('cash_setup_done_$userId') ?? false;
     setState(() {
       _cashSetupDone = done;
-      _cashInitialCents = prefs.getInt('cash_initial_cents') ?? 0;
+      _cashInitialCents = prefs.getInt('cash_initial_cents_$userId') ?? 0;
     });
     if (!done && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -115,8 +127,9 @@ class _AccountsPageState extends State<AccountsPage> {
 
   Future<void> _saveCashPrefs(int cents) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('cash_initial_cents', cents);
-    await prefs.setBool('cash_setup_done', true);
+    final userId = _getUserId();
+    await prefs.setInt('cash_initial_cents_$userId', cents);
+    await prefs.setBool('cash_setup_done_$userId', true);
     if (!mounted) return;
     setState(() {
       _cashInitialCents = cents;
@@ -252,10 +265,10 @@ class _AccountsPageState extends State<AccountsPage> {
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
               ],
-              decoration: const InputDecoration(
-                prefixText: '€ ',
+              decoration: InputDecoration(
+                prefixText: '${AppSettingsService().currentCurrency.symbol} ',
                 hintText: '0,00',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
               autofocus: true,
             ),
@@ -284,19 +297,7 @@ class _AccountsPageState extends State<AccountsPage> {
     }
   }
 
-  String _formatCurrency(double amount) {
-    final isNegative = amount < 0;
-    final absAmount = amount.abs();
-    final parts = absAmount.toStringAsFixed(2).split('.');
-    final intPart = parts[0];
-    final decPart = parts[1];
-    final buffer = StringBuffer();
-    for (int i = 0; i < intPart.length; i++) {
-      if (i > 0 && (intPart.length - i) % 3 == 0) buffer.write('.');
-      buffer.write(intPart[i]);
-    }
-    return '${isNegative ? '-' : ''}${buffer.toString()},$decPart €';
-  }
+  String _formatCurrency(double amount) => CurrencyService().format(amount);
 
   @override
   Widget build(BuildContext context) {
@@ -962,14 +963,9 @@ class _AccountsPageState extends State<AccountsPage> {
             if (state is BankImportInProgress)
               const _SyncProgressCard()
             else if (isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                    strokeWidth: 2,
-                  ),
-                ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                child: SkeletonListLoader(count: 3, cardHeight: 88),
               )
             else if (accounts.isEmpty)
               _buildEmptyBanksCard(context)
@@ -2049,14 +2045,9 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
               ),
               const SizedBox(height: 16),
               if (_loading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                      strokeWidth: 2,
-                    ),
-                  ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                  child: SkeletonListLoader(count: 2, cardHeight: 72),
                 )
               else if (_cards.isEmpty)
                 Container(

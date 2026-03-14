@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -44,51 +45,41 @@ class BankConnectionTutorial extends StatefulWidget {
 class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
   int _currentStep = 0;
 
-  static const _steps = [
+  List<_TutorialStep> _buildSteps(AppLocalizations s) => [
     _TutorialStep(
       icon: Icons.account_balance_rounded,
-      title: 'Conecta tu banco de forma segura',
-      description:
-          'Finora usa la tecnología Open Banking PSD2 para conectarse a tu banco. '
-          'Es la misma tecnología que usan las apps bancarias oficiales.',
+      title: s.tutorialStep1Title,
+      description: s.tutorialStep1Desc,
       color: AppColors.primary,
     ),
     _TutorialStep(
       icon: Icons.search_rounded,
-      title: 'Elige tu banco',
-      description:
-          'Busca tu banco entre los disponibles. Soportamos los principales '
-          'bancos españoles y europeos. Si no aparece el tuyo, puedes añadirlo manualmente.',
+      title: s.tutorialStep2Title,
+      description: s.tutorialStep2Desc,
       color: AppColors.info,
     ),
     _TutorialStep(
       icon: Icons.verified_user_rounded,
-      title: 'Autoriza el acceso',
-      description:
-          'Serás redirigido a la página segura de tu banco para autorizar el acceso. '
-          'Finora NUNCA ve tus credenciales bancarias.',
+      title: s.tutorialStep3Title,
+      description: s.tutorialStep3Desc,
       color: AppColors.success,
     ),
     _TutorialStep(
       icon: Icons.sync_rounded,
-      title: 'Sincronización automática',
-      description:
-          'Una vez conectado, Finora sincronizará tus movimientos cada 6-12 horas '
-          'automáticamente. También puedes sincronizar manualmente arrastrando hacia abajo.',
+      title: s.tutorialStep4Title,
+      description: s.tutorialStep4Desc,
       color: AppColors.warning,
     ),
     _TutorialStep(
       icon: Icons.lock_outline_rounded,
-      title: 'Acceso de solo lectura',
-      description:
-          'Finora NUNCA puede hacer transferencias ni modificar tus cuentas. '
-          'Solo tiene acceso de lectura a saldos y movimientos.',
+      title: s.tutorialStep5Title,
+      description: s.tutorialStep5Desc,
       color: AppColors.secondary,
     ),
   ];
 
-  void _next() {
-    if (_currentStep < _steps.length - 1) {
+  void _next(int stepsLength) {
+    if (_currentStep < stepsLength - 1) {
       setState(() => _currentStep++);
     } else {
       Navigator.pop(context, true);
@@ -100,8 +91,10 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
 
   @override
   Widget build(BuildContext context) {
-    final step = _steps[_currentStep];
-    final isLast = _currentStep == _steps.length - 1;
+    final s = AppLocalizations.of(context);
+    final steps = _buildSteps(s);
+    final step = steps[_currentStep];
+    final isLast = _currentStep == steps.length - 1;
 
     return Container(
       decoration: const BoxDecoration(
@@ -131,7 +124,7 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
-                _steps.length,
+                steps.length,
                 (i) => AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -209,7 +202,7 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('Cancelar'),
+                      child: Text(s.cancel),
                     ),
                   )
                 else
@@ -223,7 +216,7 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('Saltar tutorial'),
+                      child: Text(s.skipTutorial),
                     ),
                   ),
 
@@ -231,7 +224,7 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
 
                 Expanded(
                   child: FilledButton(
-                    onPressed: _next,
+                    onPressed: () => _next(steps.length),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
@@ -239,7 +232,7 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: Text(isLast ? 'Empezar' : 'Siguiente'),
+                    child: Text(isLast ? s.tutorialStart : s.next),
                   ),
                 ),
               ],

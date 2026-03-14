@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/l10n/app_localizations.dart'; // Import de traducciones
+import '../../../../core/services/currency_service.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
@@ -141,15 +142,7 @@ class TransactionsPageState extends State<TransactionsPage> {
 
   // ─── Helpers de Formato Localizado (i18n) ──────────────────────────────────
 
-  /// Formatea moneda según el Locale actual (es_ES -> 1.234,56 € | en_US -> €1,234.56)
-  String _formatCurrency(double amount) {
-    final locale = Localizations.localeOf(context).toString();
-    return NumberFormat.currency(
-      locale: locale,
-      symbol: '€',
-      decimalDigits: 2,
-    ).format(amount);
-  }
+  String _formatCurrency(double amount) => CurrencyService().format(amount);
 
   /// Formatea la fecha de forma amigable (Hoy, Ayer o 12 Mar 2024)
   String _formatDate(DateTime date) {

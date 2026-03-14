@@ -110,6 +110,10 @@ class _MyAppState extends State<MyApp> {
     // Listen to locale changes (Fix-12: auto-refresh on language change)
     AppSettingsService().localeNotifier.addListener(_onLocaleChanged);
 
+    // Listen to currency changes — trigger full app rebuild so all currency
+    // displays update immediately
+    AppSettingsService().currencyNotifier.addListener(_onCurrencyChanged);
+
     // No disparar LoadTransactions aquí: el token JWT aún no está configurado
     // en ApiClient en este punto del ciclo de vida. Se dispara desde HomePage
     // una vez que la autenticación se ha completado.
@@ -172,6 +176,12 @@ class _MyAppState extends State<MyApp> {
     _isHandlingUnauthorized = false;
   }
 
+  void _onCurrencyChanged() {
+    setState(() {
+      _appKey = UniqueKey();
+    });
+  }
+
   void _onLocaleChanged() {
     final newLocale = AppSettingsService().localeNotifier.value;
     final newStrings = AppStrings.forLocale(newLocale.languageCode);
@@ -193,6 +203,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void dispose() {
     AppSettingsService().localeNotifier.removeListener(_onLocaleChanged);
+    AppSettingsService().currencyNotifier.removeListener(_onCurrencyChanged);
     _syncSubscription?.cancel();
     _unauthorizedSubscription?.cancel();
     super.dispose();
