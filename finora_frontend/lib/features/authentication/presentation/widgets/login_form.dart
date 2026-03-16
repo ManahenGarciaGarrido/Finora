@@ -1,3 +1,4 @@
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
@@ -38,6 +39,7 @@ class _LoginFormState extends State<LoginForm> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -69,10 +71,10 @@ class _LoginFormState extends State<LoginForm> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email'; // TODO: add localization key
+                    return s.invalidEmail;
                   }
                   if (!value.contains('@')) {
-                    return 'Please enter a valid email'; // TODO: add localization key
+                    return s.invalidEmail;
                   }
                   return null;
                 },
@@ -102,10 +104,10 @@ class _LoginFormState extends State<LoginForm> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password'; // TODO: add localization key
+                    return s.enterPassword;
                   }
                   if (value.length < 8) {
-                    return 'Password must be at least 8 characters'; // TODO: add localization key
+                    return s.passwordMinLength;
                   }
                   return null;
                 },
@@ -127,9 +129,7 @@ class _LoginFormState extends State<LoginForm> {
                 onPressed: () {
                   // Navigate to register page
                 },
-                child: const Text(
-                  'Don\'t have an account? Register',
-                ), // TODO: add localization key
+                child: Text('${s.noAccountYet} ${s.register}'),
               ),
 
               // Forgot password link
@@ -137,9 +137,7 @@ class _LoginFormState extends State<LoginForm> {
                 onPressed: () {
                   // Navigate to forgot password page
                 },
-                child: const Text(
-                  'Forgot password?',
-                ), // TODO: add localization key
+                child: Text(s.forgotPassword),
               ),
 
               // Add spacing at bottom for better scrolling

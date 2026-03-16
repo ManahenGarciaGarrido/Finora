@@ -921,6 +921,8 @@ class AppLocalizations extends AppStringsBase {
   String get emailSentTitle => _strings.emailSentTitle;
   @override
   String get emailSentInstructions => _strings.emailSentInstructions;
+  @override
+  String get enterPassword => _strings.enterPassword;
 
   @override
   String get appVersion => _strings.appVersion;
