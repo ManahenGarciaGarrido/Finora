@@ -21,6 +21,7 @@ const exportRoutes = require('./routes/export'); // RF-34 / RF-35
 const budgetRoutes = require('./routes/budget'); // RF-32
 const currencyRoutes = require('./routes/currency'); // Exchange rates
 const debtRoutes = require('./routes/debts');
+const investmentRoutes = require('./routes/investments');
 
 // Import services
 const emailService = require('./services/email');
@@ -132,6 +133,7 @@ app.use('/api/v1/export', exportRoutes);            // RF-34 / RF-35
 app.use('/api/v1/budget', budgetRoutes);            // RF-32
 app.use('/api/v1/currency', currencyRoutes);        // Exchange rates
 app.use('/api/v1/debts', debtRoutes);
+app.use('/api/v1/investments', investmentRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -350,6 +352,24 @@ const startServer = async () => {
       `);
       console.log('[auto-migrate] ✓ budgets table (RF-32)');
     } catch (e) { console.warn('[auto-migrate] budgets warning:', e.message); }
+
+    // Investor profiles table
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS investor_profiles (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          risk_tolerance VARCHAR(20) NOT NULL DEFAULT 'moderate'
+            CHECK (risk_tolerance IN ('conservative', 'moderate', 'aggressive')),
+          investment_horizon VARCHAR(20) NOT NULL DEFAULT 'medium'
+            CHECK (investment_horizon IN ('short', 'medium', 'long')),
+          monthly_capacity DECIMAL(12,2),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('[auto-migrate] ✓ investor_profiles table');
+    } catch (e) { console.warn('[auto-migrate] investor_profiles warning:', e.message); }
 
     // Debts table
     try {
