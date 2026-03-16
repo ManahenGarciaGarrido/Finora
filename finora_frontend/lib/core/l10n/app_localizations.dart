@@ -3057,6 +3057,15 @@ class AppLocalizations extends AppStringsBase {
 
   @override
   String get enterPassword => _strings.enterPassword;
+
+  @override
+  String get sectionAdvancedFinances => _strings.sectionAdvancedFinances;
+
+  @override
+  String get settingsDebts => _strings.settingsDebts;
+
+  @override
+  String get settingsDebtsSubtitle => _strings.settingsDebtsSubtitle;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────
