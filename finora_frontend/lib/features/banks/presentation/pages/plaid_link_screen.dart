@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -50,7 +51,8 @@ class _PlaidLinkScreenState extends State<PlaidLinkScreen> {
           try {
             final data = jsonDecode(msg.message) as Map<String, dynamic>;
             final publicToken = data['public_token'] as String?;
-            final instName = (data['institution_name'] as String?) ?? 'Banco';
+            final instName = (data['institution_name'] as String?) ??
+                (mounted ? AppLocalizations.of(context).bankFallbackName : 'Bank');
             if (publicToken != null && publicToken.isNotEmpty) {
               _closeScreen({
                 'public_token': publicToken,
@@ -104,12 +106,12 @@ class _PlaidLinkScreenState extends State<PlaidLinkScreen> {
             Icons.close_rounded,
             color: AppColors.textPrimaryLight,
           ),
-          tooltip: 'Cancelar',
+          tooltip: AppLocalizations.of(context).cancel,
           // CU-02 FA2: Devolver {'cancelled':'true'} para distinguir cancelación
           // explícita del usuario de otros tipos de cierre (error, timeout).
           onPressed: () => _closeScreen({'cancelled': 'true'}),
         ),
-        title: Text('Conectar banco', style: AppTypography.titleMedium()),
+        title: Text(AppLocalizations.of(context).connectBank, style: AppTypography.titleMedium()),
         bottom: _isLoading
             ? PreferredSize(
                 preferredSize: const Size.fromHeight(3),

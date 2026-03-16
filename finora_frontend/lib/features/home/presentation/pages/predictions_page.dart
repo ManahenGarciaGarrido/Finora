@@ -5,12 +5,14 @@
 /// CU-05: Visualizar predicción de gastos futuros
 library;
 
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/services/ai_service.dart';
+import '../../../../core/services/currency_service.dart';
 
 class PredictionsPage extends StatefulWidget {
   const PredictionsPage({super.key});
@@ -52,6 +54,9 @@ class _PredictionsPageState extends State<PredictionsPage>
     _tabController.dispose();
     super.dispose();
   }
+
+  String _fmtC(double amount, {int decimals = 2}) =>
+      CurrencyService().format(amount, decimals: decimals);
 
   Future<void> _loadData() async {
     _loadPredictions();
@@ -106,6 +111,88 @@ class _PredictionsPageState extends State<PredictionsPage>
     }
   }
 
+  String _getTranslatedCategory(BuildContext context, String categoryKey) {
+    final s = AppLocalizations.of(context);
+
+    // Normalizamos el string para que coincida sin importar mayúsculas o espacios
+    final key = categoryKey.toLowerCase().trim();
+
+    switch (key) {
+      // Gastos
+      case 'alimentación':
+      case 'food':
+        return s.nutrition; // Asegúrate de tener s.food o similar en AppStrings
+      case 'transporte':
+      case 'transport':
+        return s.transport; // Usa s.transport
+      case 'ocio':
+      case 'leisure':
+        return s.leisure; // Usa s.leisure
+      case 'salud':
+      case 'health':
+        return s.health; // Usa s.health
+      case 'vivienda':
+      case 'housing':
+        return s.housing; // Usa s.housing
+      case 'servicios':
+      case 'services':
+        return s.services; // Usa s.services
+      case 'educación':
+      case 'education':
+        return s.education; // Usa s.education
+      case 'ropa':
+      case 'clothing':
+        return s.clothing; // Usa s.clothing
+
+      // Ingresos
+      case 'salario':
+      case 'salary':
+        return s.category; // Usa s.salary
+      case 'freelance':
+        return 'Freelance'; // Suele ser igual en ambos
+      case 'otros ingresos':
+      case 'other income':
+        return s.other; // Usa s.otherIncome
+
+      // General
+      case 'otros':
+      case 'others':
+        return s.other;
+      case 'ahorro':
+      case 'saving':
+        return s.saving;
+
+      default:
+        // Si no hay match, devolvemos la original capitalizada
+        if (categoryKey.isEmpty) return '';
+        return categoryKey[0].toUpperCase() + categoryKey.substring(1);
+    }
+  }
+
+  String _getPeriodicityLabel(BuildContext context, String period) {
+    final s = AppLocalizations.of(context);
+
+    final p = period.toLowerCase().trim();
+
+    switch (p) {
+      case 'weekly':
+      case 'semanal':
+        return s.aiPeriodWeekly;
+      case 'monthly':
+      case 'mensual':
+        return s.aiPeriodMonthly;
+      case 'quarterly':
+      case 'trimestral':
+        return s.aiPeriodQuarterly;
+      case 'annual':
+      case 'anual':
+        return s.aiPeriodAnnual;
+      default:
+        // Fallback por si llega un valor crudo o nulo
+        return period.isNotEmpty ? period : s.unknownError;
+    }
+  }
+
   Future<void> _loadAnomalies() async {
     setState(() {
       _loadingAnomalies = true;
@@ -154,13 +241,14 @@ class _PredictionsPageState extends State<PredictionsPage>
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
         title: Text(
-          'Predicciones IA',
+          s.aiPredictionsTitle,
           style: AppTypography.titleMedium(color: AppColors.textPrimaryLight),
         ),
         leading: IconButton(
@@ -168,13 +256,13 @@ class _PredictionsPageState extends State<PredictionsPage>
             Icons.arrow_back_rounded,
             color: AppColors.textPrimaryLight,
           ),
-          tooltip: 'Volver',
+          tooltip: AppLocalizations.of(context).back,
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
-            tooltip: 'Actualizar predicciones',
+            tooltip: AppLocalizations.of(context).refreshPredictions,
             onPressed: _loadData,
           ),
         ],
@@ -185,21 +273,21 @@ class _PredictionsPageState extends State<PredictionsPage>
           unselectedLabelColor: AppColors.gray400,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          tabs: const [
-            Tab(icon: Icon(Icons.trending_up_rounded), text: 'Predicción'),
-            Tab(icon: Icon(Icons.savings_rounded), text: 'Ahorro'),
-            Tab(icon: Icon(Icons.warning_amber_rounded), text: 'Anomalías'),
-            Tab(icon: Icon(Icons.repeat_rounded), text: 'Suscripciones'),
+          tabs: [
+            Tab(icon: Icon(Icons.trending_up_rounded), text: s.tabPrediction),
+            Tab(icon: Icon(Icons.savings_rounded), text: s.tabSavings),
+            Tab(icon: Icon(Icons.warning_amber_rounded), text: s.tabAnomalies),
+            Tab(icon: Icon(Icons.repeat_rounded), text: s.tabSubscriptions),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildPredictionsTab(),
-          _buildSavingsTab(),
-          _buildAnomaliesTab(),
-          _buildSubscriptionsTab(),
+          _buildPredictionsTab(context),
+          _buildSavingsTab(context),
+          _buildAnomaliesTab(context),
+          _buildSubscriptionsTab(context),
         ],
       ),
     );
@@ -207,9 +295,10 @@ class _PredictionsPageState extends State<PredictionsPage>
 
   // ── Tab 1: Predicciones de gastos ──────────────────────────────────────────
 
-  Widget _buildPredictionsTab() {
+  Widget _buildPredictionsTab(BuildContext context) {
+    final s = AppLocalizations.of(context);
     if (_loadingPredictions) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildTabSkeleton();
     }
     if (_predictionsError != null) {
       return _buildError(_predictionsError!, _loadPredictions);
@@ -217,9 +306,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     if (_predictionsResult == null || _predictionsResult!.predictions.isEmpty) {
       return _buildEmpty(
         icon: Icons.insights_rounded,
-        title: 'Sin datos suficientes',
-        subtitle:
-            'Necesitas al menos 2 meses de transacciones para generar predicciones.',
+        title: s.aiEmptyDataTitle,
+        subtitle: s.aiEmptyDataSubtitle,
       );
     }
     return RefreshIndicator(
@@ -227,12 +315,18 @@ class _PredictionsPageState extends State<PredictionsPage>
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildPredictionSummaryCard(),
+          _buildIntroCard(
+            s.predictionIntroTitle,
+            s.predictionIntroDesc,
+            Icons.insights_rounded,
+            AppColors.primary,
+          ),
+          _buildPredictionSummaryCard(context),
           const SizedBox(height: 16),
-          _buildModelInfoCard(),
+          _buildModelInfoCard(context),
           const SizedBox(height: 16),
           // CU-05 / HU-09: Gráfico visual predicción vs último mes
-          _buildPredictionComparisonChart(),
+          _buildPredictionComparisonChart(context),
           const SizedBox(height: 16),
           ...(_predictionsResult!.predictions.map(
             _buildCategoryPredictionCard,
@@ -243,7 +337,8 @@ class _PredictionsPageState extends State<PredictionsPage>
   }
 
   /// CU-05 / HU-09: Gráfico comparativo predicción vs mes anterior por categoría
-  Widget _buildPredictionComparisonChart() {
+  Widget _buildPredictionComparisonChart(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final r = _predictionsResult!;
     final topCats = r.predictions.take(5).toList();
     if (topCats.isEmpty) return const SizedBox.shrink();
@@ -275,16 +370,19 @@ class _PredictionsPageState extends State<PredictionsPage>
                   size: 18,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  'Predicción vs mes anterior (top 5)',
-                  style: AppTypography.labelMedium(
-                    color: AppColors.textPrimaryLight,
+                Expanded(
+                  child: Text(
+                    s.aiPredictionVsLastMonth,
+                    style: AppTypography.labelMedium(
+                      color: AppColors.textPrimaryLight,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
-                _buildChartLegend(AppColors.primary, 'Predicción'),
-                const SizedBox(width: 12),
-                _buildChartLegend(AppColors.gray400, 'Mes anterior'),
+                const SizedBox(width: 8),
+                _buildChartLegend(AppColors.primary, s.tabPrediction),
+                const SizedBox(width: 8),
+                _buildChartLegend(AppColors.gray400, s.aiPreviousMonth),
               ],
             ),
             const SizedBox(height: 16),
@@ -307,13 +405,13 @@ class _PredictionsPageState extends State<PredictionsPage>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          p.categoria,
+                          _getTranslatedCategory(context, p.categoria),
                           style: AppTypography.bodySmall(
                             color: AppColors.textPrimaryLight,
                           ),
                         ),
                         Text(
-                          '${p.prediccion.toStringAsFixed(0)} €',
+                          _fmtC(p.prediccion, decimals: 0),
                           style: AppTypography.labelSmall(
                             color: AppColors.primary,
                           ),
@@ -393,7 +491,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     );
   }
 
-  Widget _buildPredictionSummaryCard() {
+  Widget _buildPredictionSummaryCard(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final r = _predictionsResult!;
     final trendColor = r.trend == 'increasing'
         ? AppColors.error
@@ -406,10 +505,10 @@ class _PredictionsPageState extends State<PredictionsPage>
         ? Icons.trending_down_rounded
         : Icons.trending_flat_rounded;
     final trendLabel = r.trend == 'increasing'
-        ? 'Tendencia al alza'
+        ? s.aiTrendIncreasing
         : r.trend == 'decreasing'
-        ? 'Tendencia a la baja'
-        : 'Tendencia estable';
+        ? s.aiTrendDecreasing
+        : s.aiTrendStable;
 
     return Card(
       elevation: 2,
@@ -428,7 +527,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Predicción próximo mes',
+                  s.aiNextMonthPrediction,
                   style: AppTypography.labelMedium(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -444,13 +543,16 @@ class _PredictionsPageState extends State<PredictionsPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${r.totalPredicted.toStringAsFixed(2)} €',
+                        _fmtC(r.totalPredicted),
                         style: AppTypography.headlineLarge(
                           color: AppColors.textPrimaryLight,
                         ),
                       ),
                       Text(
-                        'Rango: ${r.totalPredMin.toStringAsFixed(0)} – ${r.totalPredMax.toStringAsFixed(0)} €',
+                        s.aiRangeLabel(
+                          r.totalPredMin.toStringAsFixed(0),
+                          r.totalPredMax.toStringAsFixed(0),
+                        ),
                         style: AppTypography.bodySmall(
                           color: AppColors.textSecondaryLight,
                         ),
@@ -471,7 +573,7 @@ class _PredictionsPageState extends State<PredictionsPage>
             ),
             const SizedBox(height: 8),
             Text(
-              'Mes anterior: ${r.lastMonthTotal.toStringAsFixed(2)} €  ·  ${r.monthsOfData} meses de historial',
+              '${s.aiPreviousMonthLabel(r.lastMonthTotal.toStringAsFixed(2))} ·  ${s.aiAnalyzedMonths(r.monthsOfData)}',
               style: AppTypography.bodySmall(
                 color: AppColors.textSecondaryLight,
               ),
@@ -482,7 +584,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     );
   }
 
-  Widget _buildModelInfoCard() {
+  Widget _buildModelInfoCard(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final r = _predictionsResult!;
     final models = r.predictions.map((p) => p.modelo).toSet().toList();
     return Card(
@@ -504,7 +607,7 @@ class _PredictionsPageState extends State<PredictionsPage>
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Modelos: ${models.join(', ')}  ·  ${r.monthsOfData} meses analizados',
+                '${s.aiModelsLabel(models.join(', '))} . ${s.aiAnalyzedMonths(r.monthsOfData)}',
                 style: AppTypography.bodySmall(color: AppColors.primary),
               ),
             ),
@@ -526,9 +629,12 @@ class _PredictionsPageState extends State<PredictionsPage>
         ? Icons.arrow_downward_rounded
         : Icons.remove_rounded;
 
+    final s = AppLocalizations.of(context);
     return Semantics(
-      label:
-          'Predicción ${p.categoria}: ${p.prediccion.toStringAsFixed(2)} euros',
+      label: s.aiPredictionSemantics(
+        _getTranslatedCategory(context, p.categoria),
+        p.prediccion.toStringAsFixed(2),
+      ),
       child: Card(
         elevation: 1,
         margin: const EdgeInsets.only(bottom: 8),
@@ -542,14 +648,14 @@ class _PredictionsPageState extends State<PredictionsPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      p.categoria,
+                      _getTranslatedCategory(context, p.categoria),
                       style: AppTypography.bodyMedium(
                         color: AppColors.textPrimaryLight,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${p.predMin.toStringAsFixed(0)} – ${p.predMax.toStringAsFixed(0)} €',
+                      '${_fmtC(p.predMin, decimals: 0)} – ${_fmtC(p.predMax, decimals: 0)}',
                       style: AppTypography.bodySmall(
                         color: AppColors.textSecondaryLight,
                       ),
@@ -573,7 +679,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${p.prediccion.toStringAsFixed(2)} €',
+                    _fmtC(p.prediccion),
                     style: AppTypography.titleMedium(
                       color: AppColors.textPrimaryLight,
                     ),
@@ -603,9 +709,10 @@ class _PredictionsPageState extends State<PredictionsPage>
 
   // ── Tab 2: Recomendaciones de ahorro ───────────────────────────────────────
 
-  Widget _buildSavingsTab() {
+  Widget _buildSavingsTab(BuildContext context) {
+    final s = AppLocalizations.of(context);
     if (_loadingSavings) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildTabSkeleton();
     }
     if (_savingsError != null) {
       return _buildError(_savingsError!, _loadSavings);
@@ -613,8 +720,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     if (_savingsResult == null) {
       return _buildEmpty(
         icon: Icons.savings_rounded,
-        title: 'Sin datos',
-        subtitle: 'No se pudieron calcular las recomendaciones.',
+        title: s.aiEmptyDataTitle,
+        subtitle: s.aiSavingsNoData,
       );
     }
     return RefreshIndicator(
@@ -622,18 +729,23 @@ class _PredictionsPageState extends State<PredictionsPage>
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildSavingsScoreCard(),
+          _buildIntroCard(
+            s.savingsIntroTitle,
+            s.savingsIntroDesc,
+            Icons.savings_rounded,
+            AppColors.success,
+          ),
+          _buildSavingsScoreCard(context),
           const SizedBox(height: 16),
           if (_savingsResult!.recommendations.isEmpty)
             _buildEmpty(
               icon: Icons.check_circle_rounded,
-              title: '¡Excelente!',
-              subtitle:
-                  'Tu distribución de gastos es saludable. No hay áreas de mejora identificadas.',
+              title: s.aiSavingsExcellentTitle,
+              subtitle: s.aiSavingsExcellentSubtitle,
             )
           else ...[
             Text(
-              'Áreas de mejora',
+              s.aiImprovementAreas,
               style: AppTypography.titleSmall(
                 color: AppColors.textPrimaryLight,
               ),
@@ -648,7 +760,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     );
   }
 
-  Widget _buildSavingsScoreCard() {
+  Widget _buildSavingsScoreCard(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final r = _savingsResult!;
     final scoreColor = r.score >= 70
         ? AppColors.success
@@ -673,7 +786,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Salud financiera',
+                  s.aiFinancialHealth,
                   style: AppTypography.labelMedium(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -689,26 +802,26 @@ class _PredictionsPageState extends State<PredictionsPage>
                     children: [
                       if (r.ingresoPromedio != null)
                         _buildSummaryRow(
-                          'Ingreso prom.',
-                          '${r.ingresoPromedio!.toStringAsFixed(2)} €',
+                          s.aiAvgIncome,
+                          _fmtC(r.ingresoPromedio!),
                         ),
                       if (r.gastoPromedio != null)
                         _buildSummaryRow(
-                          'Gasto prom.',
-                          '${r.gastoPromedio!.toStringAsFixed(2)} €',
+                          s.aiAvgExpense,
+                          _fmtC(r.gastoPromedio!),
                         ),
                       if (r.savingsCapacity != null)
                         _buildSummaryRow(
-                          'Capacidad ahorro',
-                          '${r.savingsCapacity!.disponible.toStringAsFixed(2)} €/mes',
+                          s.aiSavingsCapacity,
+                          '${_fmtC(r.savingsCapacity!.disponible)}/${s.monthPeriod}',
                           color: r.savingsCapacity!.disponible > 0
                               ? AppColors.success
                               : AppColors.error,
                         ),
                       if (r.savingsPotential > 0)
                         _buildSummaryRow(
-                          'Ahorro potencial',
-                          '${r.savingsPotential.toStringAsFixed(2)} €',
+                          s.aiSavingsPotential,
+                          _fmtC(r.savingsPotential),
                           color: AppColors.success,
                         ),
                     ],
@@ -729,7 +842,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                       ),
                       Text(
                         '${r.score}',
-                        style: AppTypography.headlineMedium(color: scoreColor),
+                        style: AppTypography.titleMedium(color: scoreColor),
                       ),
                     ],
                   ),
@@ -764,11 +877,14 @@ class _PredictionsPageState extends State<PredictionsPage>
   }
 
   Widget _buildSavingsRecommendationCard(SavingsRecommendation rec) {
+    final s = AppLocalizations.of(context);
     final isHigh = rec.priority == 'high';
     final priorityColor = isHigh ? AppColors.error : AppColors.warning;
 
+    final translatedCategory = _getTranslatedCategory(context, rec.category);
+
     return Semantics(
-      label: 'Recomendación de ahorro en ${rec.category}: ${rec.message}',
+      label: s.aiRecommendationSemantics(translatedCategory, rec.message),
       child: Card(
         elevation: 1,
         margin: const EdgeInsets.only(bottom: 10),
@@ -793,7 +909,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      rec.category,
+                      translatedCategory,
                       style: AppTypography.labelSmall(color: priorityColor),
                     ),
                   ),
@@ -817,20 +933,20 @@ class _PredictionsPageState extends State<PredictionsPage>
               Row(
                 children: [
                   _buildMiniStat(
-                    'Actual',
-                    '${rec.currentSpend.toStringAsFixed(0)} €',
+                    s.aiCurrentLabel,
+                    _fmtC(rec.currentSpend, decimals: 0),
                     AppColors.error,
                   ),
                   const SizedBox(width: 12),
                   _buildMiniStat(
-                    'Sugerido',
-                    '${rec.suggestedBudget.toStringAsFixed(0)} €',
+                    s.aiSuggestedLabel,
+                    _fmtC(rec.suggestedBudget, decimals: 0),
                     AppColors.primary,
                   ),
                   const SizedBox(width: 12),
                   _buildMiniStat(
-                    'Ahorro',
-                    '${rec.potentialSaving.toStringAsFixed(0)} €',
+                    s.saving,
+                    _fmtC(rec.potentialSaving, decimals: 0),
                     AppColors.success,
                   ),
                 ],
@@ -862,9 +978,10 @@ class _PredictionsPageState extends State<PredictionsPage>
 
   // ── Tab 3: Anomalías (RF-23 / HU-10) ─────────────────────────────────────
 
-  Widget _buildAnomaliesTab() {
+  Widget _buildAnomaliesTab(BuildContext context) {
+    final s = AppLocalizations.of(context);
     if (_loadingAnomalies) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildTabSkeleton();
     }
     if (_anomaliesError != null) {
       return _buildError(_anomaliesError!, _loadAnomalies);
@@ -873,9 +990,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     if (result == null || result.anomalies.isEmpty) {
       return _buildEmpty(
         icon: Icons.check_circle_outline_rounded,
-        title: 'Sin anomalías detectadas',
-        subtitle:
-            'Tus gastos están dentro de los rangos habituales. ¡Excelente control!',
+        title: s.aiNoAnomaliesTitle,
+        subtitle: s.aiNoAnomaliesSubtitle,
       );
     }
     return RefreshIndicator(
@@ -883,20 +999,27 @@ class _PredictionsPageState extends State<PredictionsPage>
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildAnomaliesSummaryCard(result),
+          _buildIntroCard(
+            s.anomaliesIntroTitle,
+            s.anomaliesIntroDesc,
+            Icons.warning_amber_rounded,
+            AppColors.warning,
+          ),
+          _buildAnomaliesSummaryCard(result, context),
           const SizedBox(height: 16),
           Text(
-            'Gastos inusuales detectados',
+            s.aiUnusualExpensesDetected,
             style: AppTypography.titleSmall(color: AppColors.textPrimaryLight),
           ),
           const SizedBox(height: 8),
-          ...result.anomalies.map(_buildAnomalyCard),
+          ...result.anomalies.map((a) => _buildAnomalyCard(a, context)),
         ],
       ),
     );
   }
 
-  Widget _buildAnomaliesSummaryCard(AnomaliesResult r) {
+  Widget _buildAnomaliesSummaryCard(AnomaliesResult r, BuildContext context) {
+    final s = AppLocalizations.of(context);
     final highCount = r.anomalies.where((a) => a.severity == 'high').length;
     return Card(
       elevation: 2,
@@ -915,7 +1038,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Resumen de anomalías',
+                  s.aiAnomaliesSummary,
                   style: AppTypography.labelMedium(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -928,21 +1051,21 @@ class _PredictionsPageState extends State<PredictionsPage>
                 Expanded(
                   child: _buildAnomalyStat(
                     '${r.totalAnomalies}',
-                    'Gastos inusuales',
+                    s.aiUnusualExpensesDetected,
                     AppColors.warning,
                   ),
                 ),
                 Expanded(
                   child: _buildAnomalyStat(
                     '$highCount',
-                    'Alta severidad',
+                    s.aiHighSeverity,
                     AppColors.error,
                   ),
                 ),
                 Expanded(
                   child: _buildAnomalyStat(
                     '${r.categoriesAnalyzed}',
-                    'Categorías analizadas',
+                    s.aiAnalyzedCategories,
                     AppColors.primary,
                   ),
                 ),
@@ -956,8 +1079,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                'Los gastos inusuales superan 2 desviaciones estándar respecto '
-                'a tu media histórica en esa categoría.',
+                s.aiAnomalyExplanation,
                 style: AppTypography.bodySmall(color: AppColors.warningDark),
               ),
             ),
@@ -980,7 +1102,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     );
   }
 
-  Widget _buildAnomalyCard(AnomalyItem a) {
+  Widget _buildAnomalyCard(AnomalyItem a, BuildContext context) {
+    final s = AppLocalizations.of(context);
     final isHigh = a.severity == 'high';
     final color = isHigh ? AppColors.error : AppColors.warning;
     return Card(
@@ -1007,7 +1130,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    a.category,
+                    _getTranslatedCategory(context, a.category),
                     style: AppTypography.labelSmall(color: color),
                   ),
                 ),
@@ -1044,7 +1167,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      'Media habitual: ${a.meanAmount.toStringAsFixed(2)} €',
+                      s.aiNormalAverage(a.meanAmount.toStringAsFixed(2)),
                       style: AppTypography.bodySmall(
                         color: AppColors.textSecondaryLight,
                       ),
@@ -1052,7 +1175,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                   ],
                 ),
                 Text(
-                  '${a.amount.toStringAsFixed(2)} €',
+                  _fmtC(a.amount),
                   style: AppTypography.titleMedium(color: color),
                 ),
               ],
@@ -1091,9 +1214,10 @@ class _PredictionsPageState extends State<PredictionsPage>
 
   // ── Tab 4: Suscripciones (RF-24 / HU-11) ─────────────────────────────────
 
-  Widget _buildSubscriptionsTab() {
+  Widget _buildSubscriptionsTab(BuildContext context) {
+    final s = AppLocalizations.of(context);
     if (_loadingSubscriptions) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildTabSkeleton();
     }
     if (_subscriptionsError != null) {
       return _buildError(_subscriptionsError!, _loadSubscriptions);
@@ -1102,9 +1226,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     if (result == null || result.subscriptions.isEmpty) {
       return _buildEmpty(
         icon: Icons.repeat_rounded,
-        title: 'Sin suscripciones detectadas',
-        subtitle:
-            'No se encontraron pagos recurrentes con periodicidad regular en los últimos 6 meses.',
+        title: s.aiNoSubscriptionsTitle,
+        subtitle: s.aiNoSubscriptionsSubtitle,
       );
     }
     return RefreshIndicator(
@@ -1112,27 +1235,40 @@ class _PredictionsPageState extends State<PredictionsPage>
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildSubscriptionsSummaryCard(result),
+          _buildIntroCard(
+            s.subscriptionsIntroTitle,
+            s.subscriptionsIntroDesc,
+            Icons.repeat_rounded,
+            AppColors.secondary,
+          ),
+          _buildSubscriptionsSummaryCard(result, context),
           const SizedBox(height: 16),
           // Próximos cargos (si los hay)
           if (result.subscriptions.any((s) => s.isUpcoming)) ...[
             _buildUpcomingBanner(
               result.subscriptions.where((s) => s.isUpcoming).toList(),
+              context,
             ),
             const SizedBox(height: 16),
           ],
           Text(
-            'Suscripciones activas detectadas',
+            s.aiActiveSubscriptions,
             style: AppTypography.titleSmall(color: AppColors.textPrimaryLight),
           ),
           const SizedBox(height: 8),
-          ...result.subscriptions.map(_buildSubscriptionCard),
+          ...result.subscriptions.map(
+            (a) => (_buildSubscriptionCard(a, context)),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSubscriptionsSummaryCard(SubscriptionsResult r) {
+  Widget _buildSubscriptionsSummaryCard(
+    SubscriptionsResult r,
+    BuildContext context,
+  ) {
+    final s = AppLocalizations.of(context);
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1150,7 +1286,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Gastos recurrentes detectados',
+                  s.aiRecurringExpensesDetected,
                   style: AppTypography.labelMedium(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -1166,13 +1302,13 @@ class _PredictionsPageState extends State<PredictionsPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${r.totalMonthlyCost.toStringAsFixed(2)} €/mes',
+                        '${_fmtC(r.totalMonthlyCost)}/${s.monthPeriod}',
                         style: AppTypography.headlineLarge(
                           color: AppColors.textPrimaryLight,
                         ),
                       ),
                       Text(
-                        '${r.totalAnnualCost.toStringAsFixed(0)} € al año',
+                        s.aiAnnualCost(r.totalAnnualCost.toStringAsFixed(0)),
                         style: AppTypography.bodySmall(
                           color: AppColors.textSecondaryLight,
                         ),
@@ -1190,7 +1326,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '${r.totalSubscriptions} detectadas',
+                    s.aiDetectedCount(r.totalSubscriptions),
                     style: AppTypography.labelMedium(color: AppColors.primary),
                   ),
                 ),
@@ -1202,7 +1338,11 @@ class _PredictionsPageState extends State<PredictionsPage>
     );
   }
 
-  Widget _buildUpcomingBanner(List<SubscriptionItem> upcoming) {
+  Widget _buildUpcomingBanner(
+    List<SubscriptionItem> upcoming,
+    BuildContext context,
+  ) {
+    final ss = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1222,7 +1362,7 @@ class _PredictionsPageState extends State<PredictionsPage>
               ),
               const SizedBox(width: 8),
               Text(
-                'Próximos cargos (7 días)',
+                ss.aiUpcomingCharges,
                 style: AppTypography.labelMedium(color: AppColors.warningDark),
               ),
             ],
@@ -1235,10 +1375,10 @@ class _PredictionsPageState extends State<PredictionsPage>
                 children: [
                   Text(
                     s.daysUntilNext == 0
-                        ? 'Hoy'
+                        ? ss.today
                         : s.daysUntilNext == 1
-                        ? 'Mañana'
-                        : 'En ${s.daysUntilNext} días',
+                        ? ss.tomorrow
+                        : '${ss.inDays} ${s.daysUntilNext} ${ss.days}',
                     style: AppTypography.labelSmall(
                       color: AppColors.warningDark,
                     ),
@@ -1255,7 +1395,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                     ),
                   ),
                   Text(
-                    '${s.amount.toStringAsFixed(2)} €',
+                    _fmtC(s.amount),
                     style: AppTypography.labelSmall(
                       color: AppColors.warningDark,
                     ),
@@ -1269,7 +1409,8 @@ class _PredictionsPageState extends State<PredictionsPage>
     );
   }
 
-  Widget _buildSubscriptionCard(SubscriptionItem s) {
+  Widget _buildSubscriptionCard(SubscriptionItem s, BuildContext context) {
+    final ss = AppLocalizations.of(context);
     final periodColor = s.periodicity == 'annual'
         ? AppColors.accent
         : s.periodicity == 'quarterly'
@@ -1312,13 +1453,13 @@ class _PredictionsPageState extends State<PredictionsPage>
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    '${s.category} · ${s.periodicityLabel} · ${s.occurrences}x detectado',
+                    '${_getTranslatedCategory(context, s.category)} · ${_getPeriodicityLabel(context, s.periodicityLabel)} · ${ss.aiOccurrences(s.occurrences)}',
                     style: AppTypography.bodySmall(
                       color: AppColors.textSecondaryLight,
                     ),
                   ),
                   Text(
-                    'Próximo cargo: ${s.nextCharge}',
+                    '${ss.aiNextCharge}: ${s.nextCharge}',
                     style: AppTypography.badge(
                       color: s.isUpcoming
                           ? AppColors.warning
@@ -1333,7 +1474,7 @@ class _PredictionsPageState extends State<PredictionsPage>
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${s.amount.toStringAsFixed(2)} €',
+                  _fmtC(s.amount),
                   style: AppTypography.titleMedium(
                     color: AppColors.textPrimaryLight,
                   ),
@@ -1348,7 +1489,7 @@ class _PredictionsPageState extends State<PredictionsPage>
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    '${s.monthlyCost.toStringAsFixed(0)} €/mes',
+                    '${_fmtC(s.monthlyCost, decimals: 0)}/${ss.monthPeriod}',
                     style: AppTypography.badge(color: periodColor),
                   ),
                 ),
@@ -1377,7 +1518,67 @@ class _PredictionsPageState extends State<PredictionsPage>
 
   // ── Widgets auxiliares ─────────────────────────────────────────────────────
 
+  /// Builds an introductory card explaining what a tab's analysis does.
+  Widget _buildIntroCard(
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.08),
+            color.withValues(alpha: 0.03),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.labelMedium(
+                    color: AppColors.textPrimaryLight,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildError(String error, VoidCallback onRetry) {
+    final s = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1391,14 +1592,14 @@ class _PredictionsPageState extends State<PredictionsPage>
             ),
             const SizedBox(height: 16),
             Text(
-              'Error al cargar datos',
+              s.aiErrorLoading,
               style: AppTypography.titleSmall(
                 color: AppColors.textPrimaryLight,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'El servicio de IA no está disponible temporalmente.',
+              s.aiServiceUnavailable,
               style: AppTypography.bodySmall(
                 color: AppColors.textSecondaryLight,
               ),
@@ -1408,7 +1609,7 @@ class _PredictionsPageState extends State<PredictionsPage>
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Reintentar'),
+              label: Text(s.retry),
             ),
           ],
         ),
@@ -1448,4 +1649,73 @@ class _PredictionsPageState extends State<PredictionsPage>
       ),
     );
   }
+
+  Widget _skeletonCard(double height) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.gray200,
+        borderRadius: BorderRadius.circular(14),
+      ),
+    );
+  }
+
+  /// Skeleton loading — muestra tarjetas grises animadas mientras se cargan datos (RF-08)
+  Widget _buildTabSkeleton() {
+    return _SkeletonPulse(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _skeletonCard(72.0),
+          const SizedBox(height: 12),
+          _skeletonCard(110),
+          const SizedBox(height: 12),
+          _skeletonCard(160),
+          const SizedBox(height: 12),
+          _skeletonCard(110),
+          const SizedBox(height: 12),
+          _skeletonCard(110),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget que aplica una animación de opacidad pulsante a su hijo (shimmer simplificado)
+class _SkeletonPulse extends StatefulWidget {
+  final Widget child;
+  const _SkeletonPulse({required this.child});
+
+  @override
+  State<_SkeletonPulse> createState() => _SkeletonPulseState();
+}
+
+class _SkeletonPulseState extends State<_SkeletonPulse>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _opacity = Tween<double>(
+      begin: 0.4,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      FadeTransition(opacity: _opacity, child: widget.child);
 }

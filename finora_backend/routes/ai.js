@@ -374,4 +374,197 @@ router.post('/check-anomaly', authenticateToken, async (req, res) => {
   }
 });
 
+// ── POST /api/v1/ai/chat ──────────────────────────────────────────────────────
+/**
+ * RF-25 / HU-12 / CU-04: Asistente conversacional IA financiero.
+ *
+ * Recibe el mensaje del usuario y el historial de conversación, adjunta el
+ * contexto financiero (últimas transacciones) y lo reenvía al microservicio AI.
+ *
+ * Body: { "message": string, "history": [{ "role": "user"|"assistant", "content": string }] }
+ *
+ * Returns: { "response": string, "intent": string, "context": object }
+ */
+router.post('/chat', authenticateToken, async (req, res) => {
+  try {
+    const { message, history = [], language } = req.body;
+    if (!message) {
+      return res.status(400).json({ error: 'El campo message es requerido.' });
+    }
+
+    // Adjuntar contexto financiero del usuario (últimos 3 meses)
+    const transactions = await getUserTransactions(req.user.userId, 3);
+    const monthlyIncome = await getMonthlyIncomeAverage(req.user.userId, 3);
+
+    const aiResult = await callAiService('/chat', {
+      message,
+      history,
+      transactions,
+      monthly_income: monthlyIncome,
+      language: language || 'es',
+    }, 30000);
+
+    return res.json(aiResult);
+  } catch (err) {
+    console.error('[RF-25] chat error:', err.message);
+    return res.status(503).json({
+      error: 'Servicio de chat no disponible temporalmente.',
+      detail: err.message,
+    });
+  }
+});
+
+
+// ── GET /api/v1/ai/context ────────────────────────────────────────────────────
+/**
+ * Devuelve un snapshot financiero resumido del usuario para que el cliente
+ * pueda inyectarlo como contexto en llamadas directas a Gemini.
+ * Respuesta ligera: una sola query SQL agregada.
+ *
+ * Returns: {
+ *   balance_total: float,
+ *   income_30d: float,
+ *   expenses_30d: float,
+ *   top_categories: [{ category, total }],   // top 3 gastos este mes
+ *   currency: 'EUR'
+ * }
+ */
+router.get('/context', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const now = new Date();
+    const startOf30d = new Date(now);
+    startOf30d.setDate(startOf30d.getDate() - 30);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [balanceRes, flowRes, catRes] = await Promise.all([
+      // Total balance
+      db.query(
+        `SELECT COALESCE(SUM(balance_cents), 0)::float / 100 AS total
+         FROM bank_accounts
+         WHERE user_id = $1`,
+        [userId],
+      ),
+      // Income & expenses last 30 days
+      db.query(
+        `SELECT
+           COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0)::float AS income,
+           COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)::float AS expenses
+         FROM transactions
+         WHERE user_id = $1 AND date >= $2`,
+        [userId, startOf30d.toISOString().split('T')[0]],
+      ),
+      // Top 3 expense categories this calendar month
+      db.query(
+        `SELECT COALESCE(category, 'Otros') AS category,
+                SUM(amount)::float AS total
+         FROM transactions
+         WHERE user_id = $1 AND type = 'expense' AND date >= $2
+         GROUP BY 1
+         ORDER BY total DESC
+         LIMIT 3`,
+        [userId, startOfMonth.toISOString().split('T')[0]],
+      ),
+    ]);
+
+    return res.json({
+      balance_total: balanceRes.rows[0]?.total ?? 0,
+      income_30d:    flowRes.rows[0]?.income   ?? 0,
+      expenses_30d:  flowRes.rows[0]?.expenses ?? 0,
+      top_categories: catRes.rows,
+      currency: 'EUR',
+    });
+  } catch (err) {
+    console.error('[ai/context] error:', err.message);
+    return res.status(500).json({ error: 'Context unavailable' });
+  }
+});
+
+
+// ── POST /api/v1/ai/affordability ─────────────────────────────────────────────
+/**
+ * RF-26 / HU-13: Análisis "¿Puedo permitírmelo?".
+ *
+ * Body: { "query": string, "amount"?: float }
+ *
+ * Returns: { "can_afford": bool, "verdict": string, "recommendation": string,
+ *             "available_balance": float, "monthly_surplus": float }
+ */
+router.post('/affordability', authenticateToken, async (req, res) => {
+  try {
+    const { query, amount } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'El campo query es requerido.' });
+    }
+
+    const transactions = await getUserTransactions(req.user.userId, 3);
+    const monthlyIncome = await getMonthlyIncomeAverage(req.user.userId, 3);
+
+    const aiResult = await callAiService('/affordability', {
+      query,
+      amount: amount || null,
+      transactions,
+      monthly_income: monthlyIncome,
+    });
+
+    return res.json(aiResult);
+  } catch (err) {
+    console.error('[RF-26] affordability error:', err.message);
+    return res.status(503).json({
+      error: 'Servicio de análisis de affordability no disponible.',
+      detail: err.message,
+    });
+  }
+});
+
+
+// ── GET /api/v1/ai/recommendations ───────────────────────────────────────────
+/**
+ * RF-27 / HU-14: Recomendaciones proactivas de optimización financiera.
+ *
+ * Analiza el historial de transacciones y devuelve sugerencias de ahorro
+ * priorizadas por impacto económico potencial.
+ *
+ * Query params:
+ *   ?months=3  (meses de histórico, máx 12)
+ *
+ * Returns: {
+ *   recommendations: [{ category, message, saving_potential, priority }],
+ *   total_saving_potential: float,
+ *   score: int
+ * }
+ */
+router.get('/recommendations', authenticateToken, async (req, res) => {
+  try {
+    const months = Math.min(parseInt(req.query.months || '3', 10), 12);
+    const [transactions, monthlyIncome] = await Promise.all([
+      getUserTransactions(req.user.userId, months),
+      getMonthlyIncomeAverage(req.user.userId, months),
+    ]);
+
+    if (transactions.length === 0) {
+      return res.json({
+        recommendations: [],
+        total_saving_potential: 0,
+        score: 0,
+        message: 'No hay transacciones suficientes para generar recomendaciones.',
+      });
+    }
+
+    const aiResult = await callAiService('/recommendations', {
+      transactions,
+      monthly_income: monthlyIncome,
+    });
+
+    return res.json(aiResult);
+  } catch (err) {
+    console.error('[RF-27] recommendations error:', err.message);
+    return res.status(503).json({
+      error: 'Servicio de recomendaciones no disponible.',
+      detail: err.message,
+    });
+  }
+});
+
+
 module.exports = router;

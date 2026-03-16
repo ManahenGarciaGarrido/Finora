@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,6 +22,11 @@ import '../../../banks/presentation/pages/bank_connecting_page.dart';
 import '../../../banks/presentation/pages/bank_account_setup_page.dart';
 import '../../../banks/presentation/pages/bank_account_selection_page.dart';
 import '../../../banks/presentation/widgets/notification_bell.dart';
+import '../../../authentication/presentation/bloc/auth_bloc.dart';
+import '../../../authentication/presentation/bloc/auth_state.dart';
+import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 
 /// Página de Cuentas (RF-10)
 ///
@@ -97,13 +103,20 @@ class _AccountsPageState extends State<AccountsPage> {
         );
   }
 
+  String _getUserId() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is Authenticated) return authState.user.id;
+    return 'default';
+  }
+
   Future<void> _loadCashPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    final done = prefs.getBool('cash_setup_done') ?? false;
+    final userId = _getUserId();
+    final done = prefs.getBool('cash_setup_done_$userId') ?? false;
     setState(() {
       _cashSetupDone = done;
-      _cashInitialCents = prefs.getInt('cash_initial_cents') ?? 0;
+      _cashInitialCents = prefs.getInt('cash_initial_cents_$userId') ?? 0;
     });
     if (!done && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -114,8 +127,9 @@ class _AccountsPageState extends State<AccountsPage> {
 
   Future<void> _saveCashPrefs(int cents) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('cash_initial_cents', cents);
-    await prefs.setBool('cash_setup_done', true);
+    final userId = _getUserId();
+    await prefs.setInt('cash_initial_cents_$userId', cents);
+    await prefs.setBool('cash_setup_done_$userId', true);
     if (!mounted) return;
     setState(() {
       _cashInitialCents = cents;
@@ -137,6 +151,85 @@ class _AccountsPageState extends State<AccountsPage> {
     return balance;
   }
 
+  String _translatePaymentMethod(BuildContext context, String method) {
+    final s = AppLocalizations.of(context);
+
+    // Normalizamos: pasamos a minúsculas y quitamos espacios extra para asegurar el match
+    final m = method.toLowerCase().trim();
+
+    switch (m) {
+      // --- Efectivo ---
+      case 'efectivo':
+      case 'cash':
+        return s.paymentCash;
+
+      // --- Tarjetas ---
+      case 'tarjeta de débito':
+      case 'débito':
+      case 'debit card':
+        return s.pmDebitCard;
+      case 'tarjeta de crédito':
+      case 'crédito':
+      case 'credit card':
+        return s.pmCreditCard;
+      case 'tarjeta prepago':
+      case 'prepago':
+      case 'prepaid card':
+        return s.pmPrepaidCard;
+      case 'tarjeta':
+      case 'card':
+        return s.pmCard;
+
+      // --- Transferencias ---
+      case 'transferencia bancaria':
+      case 'transferencia':
+      case 'bank transfer':
+      case 'transfer.': // Por si viene con el punto del label corto
+        return s.pmBankTransfer;
+      case 'transferencia sepa':
+      case 'sepa':
+        return s.pmSepa;
+      case 'transferencia internacional':
+      case 'wire':
+        return s.pmWire;
+
+      // --- Bancarios / Recibos ---
+      case 'domiciliación/recibo':
+      case 'recibo':
+      case 'direct debit':
+        return s.pmDirectDebit;
+      case 'cheque':
+      case 'check':
+        return s.paymentCheque;
+      case 'cupón/vale':
+      case 'vale':
+      case 'voucher':
+        return s.pmVoucher;
+
+      // --- Digitales (Nombres propios, se quedan igual) ---
+      case 'bizum':
+        return 'Bizum';
+      case 'paypal':
+        return 'PayPal';
+      case 'apple pay':
+        return 'Apple Pay';
+      case 'google pay':
+        return 'Google Pay';
+
+      // --- Cripto ---
+      case 'criptomonedas':
+      case 'cripto':
+      case 'crypto':
+        return s.pmCrypto;
+
+      // --- Fallback ---
+      default:
+        // Si no hay match, devolvemos el texto original capitalizado
+        if (method.isEmpty) return '';
+        return method[0].toUpperCase() + method.substring(1);
+    }
+  }
+
   Future<void> _showCashSetupDialog(BuildContext context) async {
     final controller = TextEditingController(
       text: _cashSetupDone
@@ -147,18 +240,18 @@ class _AccountsPageState extends State<AccountsPage> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Dinero en efectivo'),
+        title: Text(AppLocalizations.of(context).cashMoney),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '¿Cuánto efectivo tienes ahora mismo?',
+              AppLocalizations.of(context).howMuchCash,
               style: AppTypography.bodyMedium(),
             ),
             const SizedBox(height: 4),
             Text(
-              'A partir de aquí, Finora irá sumando tus ingresos y restando tus gastos en efectivo.',
+              AppLocalizations.of(context).cashSetupInfo,
               style: AppTypography.bodySmall(
                 color: AppColors.textSecondaryLight,
               ),
@@ -172,10 +265,10 @@ class _AccountsPageState extends State<AccountsPage> {
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
               ],
-              decoration: const InputDecoration(
-                prefixText: '€ ',
+              decoration: InputDecoration(
+                prefixText: '${AppSettingsService().currentCurrency.symbol} ',
                 hintText: '0,00',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
               autofocus: true,
             ),
@@ -204,19 +297,7 @@ class _AccountsPageState extends State<AccountsPage> {
     }
   }
 
-  String _formatCurrency(double amount) {
-    final isNegative = amount < 0;
-    final absAmount = amount.abs();
-    final parts = absAmount.toStringAsFixed(2).split('.');
-    final intPart = parts[0];
-    final decPart = parts[1];
-    final buffer = StringBuffer();
-    for (int i = 0; i < intPart.length; i++) {
-      if (i > 0 && (intPart.length - i) % 3 == 0) buffer.write('.');
-      buffer.write(intPart[i]);
-    }
-    return '${isNegative ? '-' : ''}${buffer.toString()},$decPart €';
-  }
+  String _formatCurrency(double amount) => CurrencyService().format(amount);
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +324,10 @@ class _AccountsPageState extends State<AccountsPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Cuentas', style: AppTypography.headlineSmall()),
+                    Text(
+                      AppLocalizations.of(context).accounts,
+                      style: AppTypography.headlineSmall(),
+                    ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -367,7 +451,7 @@ class _AccountsPageState extends State<AccountsPage> {
               Row(
                 children: [
                   Text(
-                    'Balance de transacciones',
+                    AppLocalizations.of(context).transactionBalance,
                     style: AppTypography.labelMedium(
                       color: AppColors.white.withValues(alpha: 0.75),
                     ),
@@ -383,7 +467,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Datos reales',
+                      AppLocalizations.of(context).realData,
                       style: AppTypography.badge(color: AppColors.white),
                     ),
                   ),
@@ -427,7 +511,7 @@ class _AccountsPageState extends State<AccountsPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Ingresos',
+                                  AppLocalizations.of(context).incomes,
                                   style: AppTypography.labelSmall(
                                     color: AppColors.white.withValues(
                                       alpha: 0.6,
@@ -476,7 +560,7 @@ class _AccountsPageState extends State<AccountsPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Gastos',
+                                  AppLocalizations.of(context).expenses,
                                   style: AppTypography.labelSmall(
                                     color: AppColors.white.withValues(
                                       alpha: 0.6,
@@ -552,7 +636,7 @@ class _AccountsPageState extends State<AccountsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Efectivo',
+                        AppLocalizations.of(context).cashMoney,
                         style: AppTypography.bodySmall(
                           color: AppColors.white.withValues(alpha: 0.8),
                         ),
@@ -652,7 +736,9 @@ class _AccountsPageState extends State<AccountsPage> {
         } else if (state is BankConnectFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error al conectar: ${state.message}'),
+              content: Text(
+                '${AppLocalizations.of(context).connectionError}: ${state.message}',
+              ),
               backgroundColor: AppColors.error,
             ),
           );
@@ -671,8 +757,10 @@ class _AccountsPageState extends State<AccountsPage> {
                   Expanded(
                     child: Text(
                       state.accountName.isNotEmpty
-                          ? '${state.accountName} desconectada. Acceso revocado.'
-                          : 'Cuenta desconectada. Acceso revocado.',
+                          ? '${state.accountName} ${AppLocalizations.of(context).disconnectedAccessRevoked}'
+                          : AppLocalizations.of(
+                              context,
+                            ).accountDisconnectedAccessRevoked,
                     ),
                   ),
                 ],
@@ -685,7 +773,9 @@ class _AccountsPageState extends State<AccountsPage> {
         } else if (state is BankAccountsError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error cuentas: ${state.message}'),
+              content: Text(
+                '${AppLocalizations.of(context).accountsErrorPrefix} ${state.message}',
+              ),
               backgroundColor: AppColors.error,
             ),
           );
@@ -712,7 +802,9 @@ class _AccountsPageState extends State<AccountsPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'El consentimiento PSD2 expira en ${state.consentDaysRemaining} días. Renuévalo en Ajustes.',
+                        AppLocalizations.of(
+                          context,
+                        ).psd2ExpiryMsg(state.consentDaysRemaining!),
                       ),
                     ),
                   ],
@@ -723,8 +815,8 @@ class _AccountsPageState extends State<AccountsPage> {
             );
           }
           final msg = state.imported > 0
-              ? '${state.imported} nueva${state.imported == 1 ? '' : 's'} transacci${state.imported == 1 ? 'ón' : 'ones'} importada${state.imported == 1 ? '' : 's'}'
-              : 'Sincronización completada — sin novedades';
+              ? '${state.imported} ${AppLocalizations.of(context).newLabel(state.imported)} ${AppLocalizations.of(context).transactionCountLabel(state.imported)} ${AppLocalizations.of(context).connectedLabel(state.imported)}'
+              : AppLocalizations.of(context).syncCompleteNoNews;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -749,22 +841,22 @@ class _AccountsPageState extends State<AccountsPage> {
           showDialog<void>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Sesión bancaria expirada'),
-              content: const Text(
-                'Tu sesión con el banco ha caducado. '
-                'Reconecta la cuenta para seguir importando transacciones automáticamente.',
+              title: Text(AppLocalizations.of(context).bankSessionExpired),
+              content: Text(
+                '${AppLocalizations.of(context).bankSessionExpiredMsg}'
+                '${AppLocalizations.of(context).bankReconnectInfo}',
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Ahora no'),
+                  child: Text(AppLocalizations.of(context).notNow),
                 ),
                 FilledButton(
                   onPressed: () {
                     Navigator.pop(ctx);
                     _connectBank(context);
                   },
-                  child: const Text('Reconectar'),
+                  child: Text(AppLocalizations.of(context).reconnect),
                 ),
               ],
             ),
@@ -791,7 +883,10 @@ class _AccountsPageState extends State<AccountsPage> {
             // Section header
             Row(
               children: [
-                Text('Cuentas bancarias', style: AppTypography.titleMedium()),
+                Text(
+                  AppLocalizations.of(context).bankAccounts,
+                  style: AppTypography.titleMedium(),
+                ),
                 const Spacer(),
                 // HU-06: Badge de nuevas transacciones (visible tras la última sync)
                 if (_lastImportedCount > 0) ...[
@@ -814,7 +909,7 @@ class _AccountsPageState extends State<AccountsPage> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '+$_lastImportedCount nueva${_lastImportedCount == 1 ? '' : 's'}',
+                          '+$_lastImportedCount ${AppLocalizations.of(context).newLabel(_lastImportedCount)}',
                           style: AppTypography.badge(color: AppColors.primary),
                         ),
                       ],
@@ -842,7 +937,7 @@ class _AccountsPageState extends State<AccountsPage> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${accounts.length} conectada${accounts.length == 1 ? '' : 's'}',
+                          '${accounts.length} ${AppLocalizations.of(context).connectedLabel(accounts.length)}',
                           style: AppTypography.badge(color: AppColors.success),
                         ),
                       ],
@@ -868,14 +963,9 @@ class _AccountsPageState extends State<AccountsPage> {
             if (state is BankImportInProgress)
               const _SyncProgressCard()
             else if (isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                    strokeWidth: 2,
-                  ),
-                ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                child: SkeletonListLoader(count: 3, cardHeight: 88),
               )
             else if (accounts.isEmpty)
               _buildEmptyBanksCard(context)
@@ -936,10 +1026,13 @@ class _AccountsPageState extends State<AccountsPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              Text('Conecta tu banco', style: AppTypography.titleMedium()),
+              Text(
+                AppLocalizations.of(context).connectBank,
+                style: AppTypography.titleMedium(),
+              ),
               const SizedBox(height: 6),
               Text(
-                'Sincroniza automáticamente tus cuentas bancarias mediante Open Banking PSD2.',
+                AppLocalizations.of(context).syncPsd2Info,
                 textAlign: TextAlign.center,
                 style: AppTypography.bodySmall(
                   color: AppColors.textSecondaryLight,
@@ -967,7 +1060,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Conectar cuenta',
+                        AppLocalizations.of(context).connectAccount,
                         style: AppTypography.labelLarge(color: AppColors.white),
                       ),
                     ],
@@ -998,14 +1091,14 @@ class _AccountsPageState extends State<AccountsPage> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Sin cuentas conectadas',
+            AppLocalizations.of(context).noConnectedAccounts,
             style: AppTypography.titleSmall(
               color: AppColors.textSecondaryLight,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Conecta tu banco para sincronizar automáticamente tus movimientos',
+            AppLocalizations.of(context).connectBankForSync,
             textAlign: TextAlign.center,
             style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
           ),
@@ -1056,7 +1149,7 @@ class _AccountsPageState extends State<AccountsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Balance bancario total',
+                  AppLocalizations.of(context).totalBankBalance,
                   style: AppTypography.labelSmall(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -1078,7 +1171,7 @@ class _AccountsPageState extends State<AccountsPage> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              '${accounts.length} cuentas',
+              '${accounts.length} ${AppLocalizations.of(context).accounts}',
               style: AppTypography.badge(color: AppColors.primary),
             ),
           ),
@@ -1129,7 +1222,7 @@ class _AccountsPageState extends State<AccountsPage> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Desconectar banco',
+                AppLocalizations.of(context).disconnectBank,
                 style: AppTypography.titleMedium(),
               ),
             ),
@@ -1140,7 +1233,7 @@ class _AccountsPageState extends State<AccountsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '¿Desconectar "$bankName"?',
+              '¿${AppLocalizations.of(context).disconnect} "$bankName"?',
               style: AppTypography.bodyMedium(),
             ),
             const SizedBox(height: 12),
@@ -1163,7 +1256,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '¿Qué ocurre al desconectar?',
+                        AppLocalizations.of(context).disconnectWarningTitle,
                         style: AppTypography.labelSmall(
                           color: AppColors.primary,
                         ),
@@ -1174,17 +1267,17 @@ class _AccountsPageState extends State<AccountsPage> {
                   _buildDisconnectInfoRow(
                     Icons.check_circle_outline_rounded,
                     AppColors.success,
-                    'El historial de transacciones se conserva',
+                    AppLocalizations.of(context).disconnectHistoryKept,
                   ),
                   _buildDisconnectInfoRow(
                     Icons.sync_disabled_rounded,
                     AppColors.warning,
-                    'La sincronización automática se detendrá',
+                    AppLocalizations.of(context).disconnectSyncStop,
                   ),
                   _buildDisconnectInfoRow(
                     Icons.delete_outline_rounded,
                     AppColors.error,
-                    'Se revocan los permisos de acceso al banco',
+                    AppLocalizations.of(context).disconnectRevokeAccess,
                   ),
                 ],
               ),
@@ -1195,7 +1288,7 @@ class _AccountsPageState extends State<AccountsPage> {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
-              'Cancelar',
+              AppLocalizations.of(context).cancel,
               style: TextStyle(color: AppColors.textSecondaryLight),
             ),
           ),
@@ -1211,7 +1304,7 @@ class _AccountsPageState extends State<AccountsPage> {
               );
             },
             icon: const Icon(Icons.link_off_rounded, size: 16),
-            label: const Text('Desconectar'),
+            label: Text(AppLocalizations.of(context).disconnect),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
               foregroundColor: AppColors.white,
@@ -1275,7 +1368,7 @@ class _AccountsPageState extends State<AccountsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Uso por método de pago',
+                AppLocalizations.of(context).usageByPaymentMethod,
                 style: AppTypography.titleMedium(),
               ),
               const SizedBox(height: 16),
@@ -1303,9 +1396,12 @@ class _AccountsPageState extends State<AccountsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(method, style: AppTypography.titleSmall()),
                             Text(
-                              '$count transacciones',
+                              _translatePaymentMethod(context, method),
+                              style: AppTypography.titleSmall(),
+                            ),
+                            Text(
+                              '$count ${AppLocalizations.of(context).transactions}',
                               style: AppTypography.bodySmall(
                                 color: AppColors.textTertiaryLight,
                               ),
@@ -1467,7 +1563,7 @@ class _SyncProgressCardState extends State<_SyncProgressCard>
               ),
               const SizedBox(width: 8),
               Text(
-                'Importando transacciones...',
+                '${AppLocalizations.of(context).importingTransactions}...',
                 style: AppTypography.labelMedium(color: AppColors.primary),
               ),
               const Spacer(),
@@ -1489,7 +1585,7 @@ class _SyncProgressCardState extends State<_SyncProgressCard>
           ),
           const SizedBox(height: 8),
           Text(
-            'Sincronizando con tu banco mediante Open Banking PSD2...',
+            '${AppLocalizations.of(context).syncingPsd2}...',
             style: AppTypography.labelSmall(
               color: AppColors.textSecondaryLight,
             ),
@@ -1519,13 +1615,19 @@ class _GlobalSyncBar extends StatelessWidget {
     this.durationMs,
   });
 
-  String _formatRelative(DateTime dt) {
+  String _formatRelative(DateTime dt, BuildContext context) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return 'hace un momento';
-    if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'hace ${diff.inHours} h';
-    if (diff.inDays == 1) return 'ayer';
-    if (diff.inDays < 7) return 'hace ${diff.inDays} días';
+    if (diff.inSeconds < 60) return AppLocalizations.of(context).justNow;
+    if (diff.inMinutes < 60) {
+      return AppLocalizations.of(context).agoMins(diff.inDays);
+    }
+    if (diff.inHours < 24) {
+      return AppLocalizations.of(context).agoHours(diff.inDays);
+    }
+    if (diff.inDays == 1) return AppLocalizations.of(context).yesterday;
+    if (diff.inDays < 7) {
+      return AppLocalizations.of(context).agoDays(diff.inDays);
+    }
     final d = dt.day.toString().padLeft(2, '0');
     final m = dt.month.toString().padLeft(2, '0');
     return '$d/$m/${dt.year}';
@@ -1542,7 +1644,7 @@ class _GlobalSyncBar extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          'Última sync: ${_formatRelative(lastSyncAt)}',
+          '${AppLocalizations.of(context).lastSync}: ${_formatRelative(lastSyncAt, context)}',
           style: AppTypography.labelSmall(color: AppColors.textTertiaryLight),
         ),
         // RNF-07: Mostrar duración real de la última sync
@@ -1576,7 +1678,7 @@ class _GlobalSyncBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 2),
                 Text(
-                  'Sincronizar',
+                  AppLocalizations.of(context).synchronize,
                   style: AppTypography.labelSmall(color: AppColors.primary),
                 ),
               ],
@@ -1607,20 +1709,20 @@ class _BankAccountCard extends StatelessWidget {
   });
 
   /// Returns a human-readable relative time string for the last sync.
-  String _formatSyncTime(DateTime lastSyncAt) {
+  String _formatSyncTime(DateTime lastSyncAt, BuildContext context) {
     final diff = DateTime.now().difference(lastSyncAt);
-    if (diff.inSeconds < 60) return 'hace un momento';
+    if (diff.inSeconds < 60) return AppLocalizations.of(context).justNow;
     if (diff.inMinutes < 60) {
       final m = diff.inMinutes;
-      return 'hace $m min';
+      return AppLocalizations.of(context).agoMins(m);
     }
     if (diff.inHours < 24) {
       final h = diff.inHours;
-      return 'hace $h h';
+      return AppLocalizations.of(context).agoHours(h);
     }
-    if (diff.inDays == 1) return 'ayer';
+    if (diff.inDays == 1) return AppLocalizations.of(context).yesterday;
     if (diff.inDays < 7) {
-      return 'hace ${diff.inDays} días';
+      return AppLocalizations.of(context).agoDays(diff.inDays);
     }
     // Fallback to dd/MM/yyyy
     final d = lastSyncAt.day.toString().padLeft(2, '0');
@@ -1717,7 +1819,7 @@ class _BankAccountCard extends StatelessWidget {
                 itemBuilder: (_) => [
                   // RF-12: Ver transacciones de esta cuenta
                   if (onViewTransactions != null)
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'transactions',
                       child: Row(
                         children: [
@@ -1727,12 +1829,12 @@ class _BankAccountCard extends StatelessWidget {
                             color: AppColors.primary,
                           ),
                           SizedBox(width: 8),
-                          Text('Ver transacciones'),
+                          Text(AppLocalizations.of(context).viewTransactions),
                         ],
                       ),
                     ),
                   if (onViewTransactions != null) const PopupMenuDivider(),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
@@ -1742,12 +1844,12 @@ class _BankAccountCard extends StatelessWidget {
                           color: AppColors.primary,
                         ),
                         SizedBox(width: 8),
-                        Text('Editar tarjetas'),
+                        Text(AppLocalizations.of(context).editCards),
                       ],
                     ),
                   ),
                   const PopupMenuDivider(),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'disconnect',
                     child: Row(
                       children: [
@@ -1758,7 +1860,7 @@ class _BankAccountCard extends StatelessWidget {
                         ),
                         SizedBox(width: 8),
                         Text(
-                          'Desconectar',
+                          AppLocalizations.of(context).disconnect,
                           style: TextStyle(color: AppColors.error),
                         ),
                       ],
@@ -1782,7 +1884,7 @@ class _BankAccountCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Saldo disponible',
+                    AppLocalizations.of(context).availableBalance,
                     style: AppTypography.labelSmall(
                       color: AppColors.textTertiaryLight,
                     ),
@@ -1832,7 +1934,7 @@ class _BankAccountCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Sincronizado ${_formatSyncTime(account.lastSyncAt!)}',
+                        '${AppLocalizations.of(context).synchronized} ${_formatSyncTime(account.lastSyncAt!, context)}',
                         style: AppTypography.badge(color: AppColors.success),
                       ),
                     ],
@@ -1912,7 +2014,10 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Tarjetas', style: AppTypography.titleLarge()),
+                        Text(
+                          AppLocalizations.of(context).cardsLabel,
+                          style: AppTypography.titleLarge(),
+                        ),
                         Text(
                           widget.account.accountName,
                           style: AppTypography.bodySmall(
@@ -1930,7 +2035,7 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
                       color: AppColors.primary,
                     ),
                     label: Text(
-                      'Añadir',
+                      AppLocalizations.of(context).add,
                       style: AppTypography.labelMedium(
                         color: AppColors.primary,
                       ),
@@ -1940,14 +2045,9 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
               ),
               const SizedBox(height: 16),
               if (_loading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                      strokeWidth: 2,
-                    ),
-                  ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                  child: SkeletonListLoader(count: 2, cardHeight: 72),
                 )
               else if (_cards.isEmpty)
                 Container(
@@ -1966,7 +2066,7 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        'Sin tarjetas — pulsa Añadir',
+                        AppLocalizations.of(context).noCardsAdd,
                         style: AppTypography.bodyMedium(
                           color: AppColors.textSecondaryLight,
                         ),
@@ -2117,10 +2217,13 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Añadir tarjeta', style: AppTypography.titleLarge()),
+          Text(
+            AppLocalizations.of(context).addCardTitle,
+            style: AppTypography.titleLarge(),
+          ),
           const SizedBox(height: 20),
           Text(
-            'Tipo',
+            AppLocalizations.of(context).type,
             style: AppTypography.labelMedium(
               color: AppColors.textSecondaryLight,
             ),
@@ -2160,7 +2263,7 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Nombre',
+            AppLocalizations.of(context).name,
             style: AppTypography.labelMedium(
               color: AppColors.textSecondaryLight,
             ),
@@ -2170,7 +2273,7 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
             controller: _nameCtrl,
             style: AppTypography.bodyMedium(),
             decoration: InputDecoration(
-              hintText: 'Ej. Visa BBVA',
+              hintText: AppLocalizations.of(context).exampleCardName,
               hintStyle: AppTypography.bodyMedium(
                 color: AppColors.textTertiaryLight,
               ),
@@ -2199,7 +2302,7 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Últimos 4 dígitos (opcional)',
+            AppLocalizations.of(context).lastFourDigitsOptional,
             style: AppTypography.labelMedium(
               color: AppColors.textSecondaryLight,
             ),
@@ -2245,7 +2348,11 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
               final name = _nameCtrl.text.trim();
               if (name.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Introduce un nombre')),
+                  SnackBar(
+                    content: Text(
+                      AppLocalizations.of(context).enterAccountNameError,
+                    ),
+                  ),
                 );
                 return;
               }
@@ -2269,7 +2376,7 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
               ),
               child: Center(
                 child: Text(
-                  'Añadir tarjeta',
+                  AppLocalizations.of(context).addCardTitle,
                   style: AppTypography.labelLarge(color: AppColors.white),
                 ),
               ),

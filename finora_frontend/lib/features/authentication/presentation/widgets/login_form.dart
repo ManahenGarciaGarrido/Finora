@@ -1,3 +1,4 @@
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
@@ -28,16 +29,17 @@ class _LoginFormState extends State<LoginForm> {
   void _handleLogin() {
     if (_formKey.currentState?.validate() ?? false) {
       context.read<AuthBloc>().add(
-            LoginRequested(
-              email: _emailController.text.trim(),
-              password: _passwordController.text,
-            ),
-          );
+        LoginRequested(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -53,10 +55,7 @@ class _LoginFormState extends State<LoginForm> {
               // Logo or App Title
               const Text(
                 'Finora',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
@@ -72,10 +71,10 @@ class _LoginFormState extends State<LoginForm> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return s.invalidEmail;
                   }
                   if (!value.contains('@')) {
-                    return 'Please enter a valid email';
+                    return s.invalidEmail;
                   }
                   return null;
                 },
@@ -91,7 +90,9 @@ class _LoginFormState extends State<LoginForm> {
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                     ),
                     onPressed: () {
                       setState(() {
@@ -103,10 +104,10 @@ class _LoginFormState extends State<LoginForm> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
+                    return s.enterPassword;
                   }
                   if (value.length < 8) {
-                    return 'Password must be at least 8 characters';
+                    return s.passwordMinLength;
                   }
                   return null;
                 },
@@ -119,10 +120,7 @@ class _LoginFormState extends State<LoginForm> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text(
-                  'Login',
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: const Text('Login', style: TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 16),
 
@@ -131,7 +129,7 @@ class _LoginFormState extends State<LoginForm> {
                 onPressed: () {
                   // Navigate to register page
                 },
-                child: const Text('Don\'t have an account? Register'),
+                child: Text('${s.noAccountYet} ${s.register}'),
               ),
 
               // Forgot password link
@@ -139,7 +137,7 @@ class _LoginFormState extends State<LoginForm> {
                 onPressed: () {
                   // Navigate to forgot password page
                 },
-                child: const Text('Forgot password?'),
+                child: Text(s.forgotPassword),
               ),
 
               // Add spacing at bottom for better scrolling

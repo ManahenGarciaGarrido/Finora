@@ -34,6 +34,10 @@ const { sendPushToUser } = require('../services/fcm'); // RF-31
 // RF-14: URL del servicio Python de IA (configurable via env)
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
 
+// Previene importaciones concurrentes para la misma conexión bancaria,
+// evitando que un retry borre cuentas que aún están siendo procesadas.
+const _importInProgress = new Set();
+
 /**
  * RF-14: Categoriza con el servicio Python si está disponible.
  * Fallback automático al motor de reglas (autoCategorySimple).
@@ -70,7 +74,7 @@ async function batchCategorize(items) {
   if (items.length === 0) return [];
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 45000);
     const resp = await fetch(`${AI_SERVICE_URL}/categorize/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -159,131 +163,396 @@ async function toEurCents(amountCents, currency) {
   return Math.round(amountCents * rate);
 }
 
-// Generador de transacciones demo para cuentas recién importadas.
-// cat: categoría tal como aparece en la BD (nombre en español, seeded en seed_categories_for_user)
-// pm:  payment_method — valores aceptados por el CHECK constraint de la tabla transactions
-const _TX_EXPENSES = [
-  { desc: 'Mercadona',         cat: 'Alimentación', pm: 'debit_card'   },
-  { desc: 'Carrefour',         cat: 'Alimentación', pm: 'debit_card'   },
-  { desc: 'Cafetería',         cat: 'Alimentación', pm: 'debit_card'   },
-  { desc: 'Restaurante',       cat: 'Alimentación', pm: 'debit_card'   },
-  { desc: 'Repsol',            cat: 'Transporte',   pm: 'debit_card'   },
-  { desc: 'Gasolinera BP',     cat: 'Transporte',   pm: 'debit_card'   },
-  { desc: 'Renfe',             cat: 'Transporte',   pm: 'debit_card'   },
-  { desc: 'Zara',              cat: 'Ropa',         pm: 'debit_card'   },
-  { desc: 'H&M',               cat: 'Ropa',         pm: 'credit_card'  },
-  { desc: 'Amazon',            cat: 'Otros',        pm: 'credit_card'  },
-  { desc: 'El Corte Inglés',   cat: 'Otros',        pm: 'credit_card'  },
-  { desc: 'Netflix',           cat: 'Ocio',         pm: 'direct_debit' },
-  { desc: 'Spotify',           cat: 'Ocio',         pm: 'direct_debit' },
-  { desc: 'Farmacia',          cat: 'Salud',        pm: 'debit_card'   },
-  { desc: 'Gimnasio',          cat: 'Salud',        pm: 'direct_debit' },
-  { desc: 'Vodafone',          cat: 'Servicios',    pm: 'direct_debit' },
-  { desc: 'Iberdrola',         cat: 'Servicios',    pm: 'direct_debit' },
-  { desc: 'Alquiler mensual',  cat: 'Vivienda',     pm: 'bank_transfer'},
-  { desc: 'Seguro coche',      cat: 'Servicios',    pm: 'direct_debit' },
-];
-const _TX_INCOMES = [
-  { desc: 'Nómina',                 cat: 'Salario',        pm: 'bank_transfer' },
-  { desc: 'Bonus trimestral',       cat: 'Salario',        pm: 'bank_transfer' },
-  { desc: 'Freelance cliente',      cat: 'Freelance',      pm: 'bank_transfer' },
-  { desc: 'Transferencia recibida', cat: 'Otros ingresos', pm: 'bizum'         },
-  { desc: 'Devolución Hacienda',    cat: 'Otros ingresos', pm: 'bank_transfer' },
-  { desc: 'Dividendos',             cat: 'Otros ingresos', pm: 'bank_transfer' },
+// ─── RF-01: Generador de transacciones demo realistas para España ─────────────
+//
+// Genera un historial verosímil de 18-24 meses con:
+//  - Perfil de usuario consistente (sueldo fijo, alquiler proporcional)
+//  - Pagos fijos mensuales (alquiler, suscripciones, suministros) en día fijo ±2%
+//  - Nómina siempre entre los días 25-29 de cada mes
+//  - Comercios variables con rangos de importe por categoría
+//  - Patrones estacionales (gastos navideños en diciembre, verano en julio-agosto)
+//  - Pagas extra en junio y diciembre
+//  - Categorización final mediante el servicio de IA
+
+// Comercios variables — freq: 'weekly'=3-5×/mes, 'biweekly'=1-3×/mes,
+//                             'monthly'=~1×/mes, 'rare'=~30%/mes
+// range: [min, max] céntimos de euro
+const _VARIABLE_MERCHANTS = [
+  // Alimentación
+  { desc: 'Mercadona',       cat: 'Alimentación', pm: 'debit_card',  freq: 'weekly',   range: [1500, 10500] },
+  { desc: 'Carrefour',       cat: 'Alimentación', pm: 'debit_card',  freq: 'biweekly', range: [2000, 13500] },
+  { desc: 'Lidl',            cat: 'Alimentación', pm: 'debit_card',  freq: 'biweekly', range: [900,  7500]  },
+  { desc: 'Dia',             cat: 'Alimentación', pm: 'debit_card',  freq: 'biweekly', range: [600,  4500]  },
+  { desc: 'Cafetería',       cat: 'Alimentación', pm: 'debit_card',  freq: 'weekly',   range: [150,  650]   },
+  { desc: 'Restaurante',     cat: 'Alimentación', pm: 'debit_card',  freq: 'biweekly', range: [1200, 4500]  },
+  { desc: 'Just Eat',        cat: 'Alimentación', pm: 'credit_card', freq: 'biweekly', range: [1400, 3800]  },
+  { desc: 'Telepizza',       cat: 'Alimentación', pm: 'debit_card',  freq: 'monthly',  range: [1500, 3200]  },
+  // Transporte
+  { desc: 'Repsol',          cat: 'Transporte',   pm: 'debit_card',  freq: 'biweekly', range: [4000, 8800]  },
+  { desc: 'BP',              cat: 'Transporte',   pm: 'debit_card',  freq: 'biweekly', range: [3800, 8200]  },
+  { desc: 'Cepsa',           cat: 'Transporte',   pm: 'debit_card',  freq: 'monthly',  range: [4200, 8600]  },
+  { desc: 'Renfe Cercanías', cat: 'Transporte',   pm: 'debit_card',  freq: 'monthly',  range: [1500, 5500]  },
+  { desc: 'Cabify',          cat: 'Transporte',   pm: 'credit_card', freq: 'biweekly', range: [700,  2800]  },
+  { desc: 'Aparcamiento',    cat: 'Transporte',   pm: 'debit_card',  freq: 'biweekly', range: [300,  2200]  },
+  // Ropa
+  { desc: 'Zara',            cat: 'Ropa',         pm: 'debit_card',  freq: 'monthly',  range: [2500, 13000] },
+  { desc: 'H&M',             cat: 'Ropa',         pm: 'credit_card', freq: 'monthly',  range: [1500, 7500]  },
+  { desc: 'Mango',           cat: 'Ropa',         pm: 'credit_card', freq: 'monthly',  range: [2000, 12000] },
+  { desc: 'Primark',         cat: 'Ropa',         pm: 'debit_card',  freq: 'monthly',  range: [1000, 5000]  },
+  { desc: 'Decathlon',       cat: 'Ropa',         pm: 'debit_card',  freq: 'rare',     range: [2000, 15000] },
+  // Ocio
+  { desc: 'Cines Yelmo',     cat: 'Ocio',         pm: 'debit_card',  freq: 'monthly',  range: [700,  1600]  },
+  { desc: 'Amazon',          cat: 'Otros',        pm: 'credit_card', freq: 'weekly',   range: [800,  15000] },
+  { desc: 'Steam',           cat: 'Ocio',         pm: 'credit_card', freq: 'monthly',  range: [500,  7000]  },
+  { desc: 'El Corte Inglés', cat: 'Otros',        pm: 'credit_card', freq: 'monthly',  range: [2000, 20000] },
+  { desc: 'MediaMarkt',      cat: 'Otros',        pm: 'credit_card', freq: 'rare',     range: [5000, 60000] },
+  // Salud
+  { desc: 'Farmacia',        cat: 'Salud',        pm: 'debit_card',  freq: 'monthly',  range: [400,  5500]  },
+  { desc: 'Dentista',        cat: 'Salud',        pm: 'debit_card',  freq: 'rare',     range: [5000, 25000] },
+  // Hogar
+  { desc: 'Leroy Merlin',    cat: 'Vivienda',     pm: 'debit_card',  freq: 'rare',     range: [2000, 35000] },
+  { desc: 'IKEA',            cat: 'Vivienda',     pm: 'credit_card', freq: 'rare',     range: [3000, 45000] },
+  { desc: 'Correos',         cat: 'Otros',        pm: 'debit_card',  freq: 'monthly',  range: [300,  2200]  },
 ];
 
-// targetBalanceCents: saldo EUR ya convertido y mostrado al usuario en la pantalla de selección.
-// Las transacciones se generan para sumar exactamente ese importe, así ambas vistas
-// (selección y detalle de cuenta) muestran siempre el mismo número.
+// Pagos fijos mensuales: importe base ± variance cada mes, en día fijo
+// base: céntimos de euro base; variance: fracción máxima de variación (ej. 0.05 = ±5%)
+const _FIXED_EXPENSE_TEMPLATES = [
+  { desc: 'Netflix',             cat: 'Ocio',      pm: 'direct_debit',  day: 5,  base: 1599,  variance: 0    },
+  { desc: 'Spotify',             cat: 'Ocio',      pm: 'direct_debit',  day: 8,  base: 999,   variance: 0    },
+  { desc: 'Vodafone',            cat: 'Servicios', pm: 'direct_debit',  day: 10, base: 3900,  variance: 0.04 },
+  { desc: 'Iberdrola',           cat: 'Servicios', pm: 'direct_debit',  day: 15, base: 6500,  variance: 0.30 },
+  { desc: 'Comunidad vecinos',   cat: 'Vivienda',  pm: 'bank_transfer', day: 3,  base: 8500,  variance: 0    },
+  { desc: 'Seguro coche',        cat: 'Servicios', pm: 'direct_debit',  day: 20, base: 6200,  variance: 0.05 },
+];
+
+// Ingresos fijos: nómina + extras opcionales
+// probability: chance per month (1.0 = every month)
+const _INCOME_TEMPLATES = [
+  { desc: 'Freelance cliente',      cat: 'Freelance',      pm: 'bank_transfer', dayRange: [1, 15],  range: [30000, 150000], probability: 0.35 },
+  { desc: 'Transferencia recibida', cat: 'Otros ingresos', pm: 'bizum',         dayRange: [1, 28],  range: [2000,  30000],  probability: 0.20 },
+];
+
+/**
+ * RF-01: Genera transacciones demo realistas para una cuenta bancaria recién importada.
+ *
+ * @param {string} bankAccountId  UUID de la cuenta
+ * @param {string} userId         UUID del usuario
+ * @param {number} targetBalanceCents  Saldo objetivo en céntimos de EUR
+ */
+/**
+ * RF-01: Genera un historial de transacciones demo realista usando el servicio
+ * de IA (Gemini 1.5 Flash) como primera opción, con doble fallback:
+ *   1.º  Python AI /generate-sample-transactions (Gemini)
+ *   2.º  Python AI /generate-sample-transactions (reglas estadísticas)
+ *   3.º  Generador local de reglas (sin red, siempre disponible)
+ *
+ * En todos los casos el saldo cuadra exactamente con targetBalanceCents y
+ * las descripciones son enriquecidas por el modelo de categorización ML.
+ */
 async function generateRandomTransactions(bankAccountId, userId, targetBalanceCents) {
-  const today = new Date();
-  // Historial de 18 a 24 meses para que haya suficiente contexto histórico
-  const monthsBack = 18 + Math.floor(Math.random() * 7);
+  const today      = new Date();
+  const monthsBack = 18 + Math.floor(Math.random() * 7);  // 18-24 meses aleatorio
 
-  const txList = [];
-  let totalIncomeCents  = 0;
-  let totalExpenseCents = 0;
+  // ── 1. Intentar con el servicio Python de IA ─────────────────────────────
+  let aiTxs    = null;
+  let aiSource = 'local';
+  try {
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 60000); // 60 s para Gemini
+    const aiResp = await fetch(`${AI_SERVICE_URL}/generate-sample-transactions`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        balance_eur: targetBalanceCents / 100,
+        months:      monthsBack,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (aiResp.ok) {
+      const aiBody = await aiResp.json();
+      if (Array.isArray(aiBody.transactions) && aiBody.transactions.length >= monthsBack * 8) {
+        aiTxs    = aiBody.transactions;
+        aiSource = aiBody.source || 'ai';
+      }
+    }
+  } catch (err) {
+    console.warn('[generateTx] Servicio AI no disponible, usando generador local:', err.message);
+  }
 
-  // ── 1. Generar mes a mes ──────────────────────────────────────────────────
-  for (let m = monthsBack; m >= 0; m--) {
-    const monthBase = new Date(today.getFullYear(), today.getMonth() - m, 1);
+  // ── 2. Si el servicio AI devolvió transacciones, usar esas ───────────────
+  if (aiTxs) {
+    console.log(`[generateTx] Usando ${aiTxs.length} txs del servicio AI (source=${aiSource})`);
 
-    // Ingresos del mes: 1-2 (nómina + eventual extra)
-    const incomeCount = m === monthsBack ? 1 : 1 + Math.floor(Math.random() * 2);
-    for (let i = 0; i < incomeCount; i++) {
-      const day = 1 + Math.floor(Math.random() * 5);
-      const txDate = new Date(monthBase.getFullYear(), monthBase.getMonth(), day);
-      if (txDate > today) continue;
-      const amountCents = Math.floor((900 + Math.random() * 1600) * 100); // 900–2500 €
-      const { desc, cat, pm } = _TX_INCOMES[Math.floor(Math.random() * _TX_INCOMES.length)];
-      totalIncomeCents += amountCents;
-      txList.push({ amountCents, isExpense: false, desc, cat, pm,
-        dateStr: txDate.toISOString().split('T')[0] });
+    // Normalizar al formato interno {amountCents, isExpense, desc, cat, pm, dateStr}
+    let txList = aiTxs.map(t => ({
+      amountCents: Math.max(1, Number(t.cents) || Math.round(parseFloat(t.amount || 0) * 100)),
+      isExpense:   t.type === 'expense',
+      desc:        String(t.desc || t.description || '').trim() || 'Transacción',
+      cat:         String(t.cat || '').trim(),
+      pm:          String(t.pm || t.payment_method || 'debit_card').trim(),
+      dateStr:     String(t.date || '').trim(),
+    })).filter(t => t.amountCents > 0 && t.dateStr.match(/^\d{4}-\d{2}-\d{2}$/));
+
+    // Cuadrar saldo distribuyendo la diferencia en los ingresos existentes
+    // (sin añadir transacciones de ajuste artificiales que inflarían categorías)
+    {
+      const incomes    = txList.filter(t => !t.isExpense);
+      const totalInc   = incomes.reduce((s, t) => s + t.amountCents, 0);
+      const totalExp   = txList.filter(t => t.isExpense).reduce((s, t) => s + t.amountCents, 0);
+      const diffCents  = targetBalanceCents - (totalInc - totalExp);
+
+      if (diffCents !== 0 && incomes.length > 0 && totalInc > 0) {
+        // Escalar todos los ingresos proporcionalmente para cuadrar el saldo exacto
+        const factor = Math.max(0.5, Math.min(3.0, (totalInc + diffCents) / totalInc));
+        let applied = 0;
+        for (const t of incomes) {
+          const newAmt   = Math.max(1, Math.round(t.amountCents * factor));
+          applied       += newAmt - t.amountCents;
+          t.amountCents  = newAmt;
+        }
+        // Ajuste residual de céntimos en el primer ingreso
+        const residual = diffCents - applied;
+        if (residual !== 0) {
+          incomes[0].amountCents = Math.max(1, incomes[0].amountCents + residual);
+        }
+      }
     }
 
-    // Gastos del mes: 6-14 (más realista)
-    const expenseCount = 6 + Math.floor(Math.random() * 9);
-    for (let i = 0; i < expenseCount; i++) {
-      const day = 1 + Math.floor(Math.random() * 28);
-      const txDate = new Date(monthBase.getFullYear(), monthBase.getMonth(), day);
+    // Categorizar en lote con el modelo ML
+    const batchItems = txList.map(tx => ({
+      description: tx.desc, type: tx.isExpense ? 'expense' : 'income',
+    }));
+    let aiCategories;
+    try {
+      aiCategories = await batchCategorize(batchItems);
+    } catch {
+      aiCategories = txList.map(tx => tx.cat);
+    }
+
+    // Categorías genéricas de fallback que el modelo ML devuelve cuando no
+    // tiene suficiente confianza. Si el AI generó una categoría específica
+    // en tx.cat, preferimos esa sobre el fallback genérico del ML.
+    const ML_FALLBACK_CATS = new Set([
+      'Otros', 'Otros gastos', 'Otros ingresos', 'other', 'Other',
+    ]);
+
+    for (let i = 0; i < txList.length; i++) {
+      const tx       = txList[i];
+      const amount   = (tx.amountCents / 100).toFixed(2);
+      const mlCat    = aiCategories[i] && aiCategories[i].trim();
+      // Si el ML devolvió una categoría específica (no genérica), usarla.
+      // Si el ML devolvió "Otros*", preferir la categoría pre-asignada por el
+      // generador de IA (tx.cat), que ya es semánticamente correcta.
+      const category = (mlCat && !ML_FALLBACK_CATS.has(mlCat))
+        ? mlCat
+        : (tx.cat && tx.cat.trim()) || mlCat || (tx.isExpense ? 'Otros gastos' : 'Otros ingresos');
+      await db.query(
+        `INSERT INTO transactions
+           (user_id, bank_account_id, amount, type, description, category, date, payment_method)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [userId, bankAccountId, amount, tx.isExpense ? 'expense' : 'income',
+         tx.desc, category, tx.dateStr, tx.pm]
+      );
+    }
+    return;
+  }
+
+  // ── 3. Fallback local: generador budget-first (sin transacciones de ajuste) ─
+  console.log('[generateTx] Usando generador de reglas estadísticas local (budget-first)');
+
+  const salaryDay = 25 + Math.floor(Math.random() * 5);
+  const hasGym    = Math.random() > 0.45;
+  const hasHBO    = Math.random() > 0.60;
+
+  // ─── PASO 1: Pre-calcular todos los periodos mensuales ───────────────────
+  const monthPeriods = [];
+  for (let mBack = monthsBack; mBack >= 0; mBack--) {
+    const yr       = today.getFullYear();
+    const mo       = today.getMonth() - mBack;
+    const midx     = new Date(yr, mo, 1).getMonth(); // 0-11
+    const seasonal = midx === 11 ? 1.20 : (midx === 6 || midx === 7) ? 1.15 : 1.0;
+    const salaryDate = new Date(yr, mo, salaryDay);
+    const hasSalary  = salaryDate <= today;
+    const extraDay   = 15 + Math.floor(Math.random() * 5);
+    const extraDate  = new Date(yr, mo, extraDay);
+    const hasExtra   = (midx === 5 || midx === 11) && extraDate <= today;
+    monthPeriods.push({ yr, mo, midx, seasonal, hasSalary, hasExtra, salaryDate, extraDate });
+  }
+
+  // ─── PASO 2: Derivar salario desde el saldo objetivo ────────────────────
+  // Queremos: ingresos_totales × tasa_ahorro = targetBalance
+  // ingresos_totales ≈ salaryCents × (nóminas + pagas_extra × ratio_paga)
+  const salaryCount  = monthPeriods.filter(p => p.hasSalary).length;
+  const extraCount   = monthPeriods.filter(p => p.hasExtra).length;
+  const extraRatio   = 0.85 + Math.random() * 0.30;   // paga extra: 85-115% del salario
+  const savingsRate  = 0.10 + Math.random() * 0.15;   // tasa ahorro objetivo: 10-25%
+  const incomeMultiplier = Math.max(1, salaryCount + extraCount * extraRatio);
+  const rawSalary    = Math.round(targetBalanceCents / (savingsRate * incomeMultiplier));
+  const salaryCents  = Math.max(120000, Math.min(350000, rawSalary));
+
+  const rentCents = Math.floor(salaryCents * (0.28 + Math.random() * 0.18));
+  const gymBase   = hasGym ? (3500 + Math.floor(Math.random() * 3000)) : 0;
+
+  const fixedExpConfig = [
+    { desc: 'Alquiler mensual', cat: 'Vivienda',  pm: 'bank_transfer', day: 1,  base: rentCents, variance: 0    },
+    ..._FIXED_EXPENSE_TEMPLATES,
+    ...(hasHBO ? [{ desc: 'HBO Max',  cat: 'Ocio',  pm: 'direct_debit', day: 12, base: 899,     variance: 0 }] : []),
+    ...(hasGym ? [{ desc: 'Gimnasio', cat: 'Salud', pm: 'direct_debit', day: 2,  base: gymBase, variance: 0 }] : []),
+  ];
+
+  // ─── PASO 3: Generar ingresos y gastos fijos ─────────────────────────────
+  const incomeTxs    = [];
+  const fixedExpTxs  = [];
+  let totalIncomeCents   = 0;
+  let totalFixedExpCents = 0;
+
+  for (let idx = 0; idx < monthPeriods.length; idx++) {
+    const { yr, mo, midx, hasSalary, hasExtra, salaryDate, extraDate } = monthPeriods[idx];
+
+    // Nómina con ligera subida salarial (más antigua = más baja)
+    if (hasSalary) {
+      const drift  = 1 + idx * 0.0005;
+      const amount = Math.round(salaryCents * drift);
+      totalIncomeCents += amount;
+      incomeTxs.push({ amountCents: amount, isExpense: false,
+        desc: 'Nómina', cat: 'Salario', pm: 'bank_transfer',
+        dateStr: salaryDate.toISOString().split('T')[0] });
+    }
+
+    // Pagas extra (junio y diciembre)
+    if (hasExtra) {
+      const amount = Math.round(salaryCents * extraRatio);
+      totalIncomeCents += amount;
+      incomeTxs.push({ amountCents: amount, isExpense: false,
+        desc: 'Paga extra', cat: 'Salario', pm: 'bank_transfer',
+        dateStr: extraDate.toISOString().split('T')[0] });
+    }
+
+    // Ingresos variables (freelance, transferencias recibidas)
+    for (const tmpl of _INCOME_TEMPLATES) {
+      if (Math.random() < (tmpl.probability || 0)) {
+        const [dMin, dMax] = tmpl.dayRange;
+        const day    = dMin + Math.floor(Math.random() * (dMax - dMin + 1));
+        const txDate = new Date(yr, mo, day);
+        if (txDate > today) continue;
+        const amount = tmpl.range[0] + Math.floor(Math.random() * (tmpl.range[1] - tmpl.range[0]));
+        totalIncomeCents += amount;
+        incomeTxs.push({ amountCents: amount, isExpense: false,
+          desc: tmpl.desc, cat: tmpl.cat, pm: tmpl.pm,
+          dateStr: txDate.toISOString().split('T')[0] });
+      }
+    }
+
+    // Gastos fijos
+    for (const fe of fixedExpConfig) {
+      const txDate = new Date(yr, mo, fe.day);
       if (txDate > today) continue;
-      const amountCents = Math.floor((5 + Math.random() * 595) * 100); // 5–600 €
-      const { desc, cat, pm } = _TX_EXPENSES[Math.floor(Math.random() * _TX_EXPENSES.length)];
-      totalExpenseCents += amountCents;
-      txList.push({ amountCents, isExpense: true, desc, cat, pm,
+      const variation = 1 + (Math.random() * 2 - 1) * fe.variance;
+      const amount    = Math.round(fe.base * variation);
+      totalFixedExpCents += amount;
+      fixedExpTxs.push({ amountCents: amount, isExpense: true,
+        desc: fe.desc, cat: fe.cat, pm: fe.pm,
         dateStr: txDate.toISOString().split('T')[0] });
     }
   }
 
-  // ── 2. Cuadrar exactamente con el saldo objetivo ─────────────────────────
-  //    Se añade UNA transacción de ajuste en la fecha de apertura para que
-  //    ingresos – gastos = targetBalanceCents sin excepción.
-  const netCents  = totalIncomeCents - totalExpenseCents;
-  const diffCents = targetBalanceCents - netCents;
+  // ─── PASO 4: Calcular presupuesto de gastos variables ────────────────────
+  // variableBudget = ingreso_total - saldo_objetivo - gastos_fijos
+  let variableBudget = totalIncomeCents - targetBalanceCents - totalFixedExpCents;
 
-  // Fecha de apertura: primer día del primer mes del historial
-  const openingDate = new Date(today.getFullYear(), today.getMonth() - monthsBack, 1);
-  const openingDateStr = openingDate.toISOString().split('T')[0];
-
-  if (diffCents > 0) {
-    // Faltan ingresos → depósito inicial de apertura
-    txList.push({
-      amountCents: diffCents,
-      isExpense:   false,
-      desc:        'Apertura de cuenta',
-      cat:         'Otros ingresos',
-      pm:          'bank_transfer',
-      dateStr:     openingDateStr,
-    });
-  } else if (diffCents < 0) {
-    // Exceso de ingresos → cargo de ajuste (ej. cuota mantenimiento inicial)
-    txList.push({
-      amountCents: -diffCents,
-      isExpense:   true,
-      desc:        'Cargo apertura de cuenta',
-      cat:         'Servicios',
-      pm:          'bank_transfer',
-      dateStr:     openingDateStr,
-    });
+  // Si los gastos fijos ya superan el presupuesto, reducir el alquiler
+  if (variableBudget < 0) {
+    const overage  = -variableBudget;
+    const rentTxs  = fixedExpTxs.filter(t => t.desc === 'Alquiler mensual');
+    if (rentTxs.length > 0) {
+      const cutPerMonth = Math.ceil(overage / rentTxs.length);
+      for (const t of rentTxs) {
+        const cut     = Math.min(cutPerMonth, Math.max(0, t.amountCents - 30000));
+        totalFixedExpCents -= cut;
+        t.amountCents      -= cut;
+      }
+      variableBudget = totalIncomeCents - targetBalanceCents - totalFixedExpCents;
+    }
+    variableBudget = Math.max(0, variableBudget);
   }
-  // diffCents === 0 → perfecto, no hace falta ajuste
 
-  // ── 3. Categorizar con IA en lote y luego insertar ───────────────────────
-  //    Las transacciones de ajuste (apertura / cargo) usan categoría fija.
-  //    Solo las transacciones generadas aleatoriamente pasan por el modelo.
+  // ─── PASO 5: Generar gastos variables en bruto ───────────────────────────
+  const rawVarTxs = [];
+  let rawVarTotal = 0;
+
+  for (const { yr, mo, seasonal } of monthPeriods) {
+    for (const merchant of _VARIABLE_MERCHANTS) {
+      let occurrences;
+      switch (merchant.freq) {
+        case 'weekly':   occurrences = 3 + Math.floor(Math.random() * 3); break;
+        case 'biweekly': occurrences = 1 + Math.floor(Math.random() * 3); break;
+        case 'monthly':  occurrences = Math.random() > 0.25 ? 1 : 0; break;
+        case 'rare':     occurrences = Math.random() < 0.30 ? 1 : 0; break;
+        default:         occurrences = 1;
+      }
+      for (let k = 0; k < occurrences; k++) {
+        const day    = 1 + Math.floor(Math.random() * 28);
+        const txDate = new Date(yr, mo, day);
+        if (txDate > today) continue;
+        const [rMin, rMax] = merchant.range;
+        const amount = Math.round((rMin + Math.floor(Math.random() * (rMax - rMin))) * seasonal);
+        rawVarTotal += amount;
+        rawVarTxs.push({ amountCents: amount, isExpense: true,
+          desc: merchant.desc, cat: merchant.cat, pm: merchant.pm,
+          dateStr: txDate.toISOString().split('T')[0] });
+      }
+    }
+  }
+
+  // ─── PASO 6: Escalar gastos variables al presupuesto exacto ──────────────
+  // El factor de escala garantiza que suma(gastos_variables) = variableBudget
+  const scale  = rawVarTotal > 0 ? variableBudget / rawVarTotal : 1.0;
+  const varTxs = rawVarTxs.map(tx => ({
+    ...tx,
+    amountCents: Math.max(1, Math.round(tx.amountCents * scale)),
+  }));
+
+  // Ajuste de céntimos residuales por redondeos (distribuir en las más grandes)
+  let residual = variableBudget - varTxs.reduce((s, t) => s + t.amountCents, 0);
+  if (residual !== 0 && varTxs.length > 0) {
+    const bySize = varTxs.slice().sort((a, b) => b.amountCents - a.amountCents);
+    for (const tx of bySize) {
+      if (residual === 0) break;
+      const maxAdj = Math.max(1, Math.round(tx.amountCents * 0.02));
+      const adj    = residual > 0 ? Math.min(residual, maxAdj) : Math.max(residual, -maxAdj);
+      tx.amountCents += adj;
+      residual       -= adj;
+    }
+  }
+
+  // ─── PASO 7: Combinar todas las transacciones (sin ajuste de saldo) ───────
+  // Por construcción: totalIncomeCents - totalFixedExpCents - sum(varTxs) = targetBalanceCents
+  const txList = [...incomeTxs, ...fixedExpTxs, ...varTxs];
+
+  // Categorizar en lote y luego insertar
   const batchItems = txList.map(tx => ({ description: tx.desc, type: tx.isExpense ? 'expense' : 'income' }));
   let aiCategories;
   try {
     aiCategories = await batchCategorize(batchItems);
   } catch {
-    aiCategories = txList.map(tx => tx.cat); // fallback a categorías hardcoded
+    aiCategories = txList.map(tx => tx.cat);
   }
 
+  // Misma lógica que en el path AI: preferir categoría específica del ML,
+  // pero si devuelve un fallback genérico usar la categoría predefinida del generador.
+  const _ML_FALLBACK_CATS = new Set([
+    'Otros', 'Otros gastos', 'Otros ingresos', 'other', 'Other',
+  ]);
+
   for (let i = 0; i < txList.length; i++) {
-    const tx = txList[i];
-    const amount = (tx.amountCents / 100).toFixed(2);
-    // Usar categoría de IA si está disponible y no está vacía; sino, la hardcoded
-    const category = (aiCategories[i] && aiCategories[i].trim()) ? aiCategories[i] : tx.cat;
+    const tx       = txList[i];
+    const amount   = (tx.amountCents / 100).toFixed(2);
+    const mlCat    = aiCategories[i] && aiCategories[i].trim();
+    const category = (mlCat && !_ML_FALLBACK_CATS.has(mlCat))
+      ? mlCat
+      : (tx.cat && tx.cat.trim()) || mlCat || (tx.isExpense ? 'Otros gastos' : 'Otros ingresos');
     await db.query(
       `INSERT INTO transactions
          (user_id, bank_account_id, amount, type, description, category, date, payment_method)
@@ -1505,6 +1774,14 @@ router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'Bad Request', message: 'selected_account_ids requerido' });
   }
 
+  // Prevenir importaciones concurrentes para la misma conexión.
+  // Si el usuario reintenta mientras la primera importación sigue en curso,
+  // la segunda petición devuelve 202 (aceptada, procesando).
+  if (_importInProgress.has(connectionId)) {
+    return res.status(202).json({ ok: false, importing: true, message: 'Importación ya en curso para esta conexión' });
+  }
+  _importInProgress.add(connectionId);
+
   try {
     const connResult = await db.query(
       'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
@@ -1574,6 +1851,8 @@ router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('[import-accounts] error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  } finally {
+    _importInProgress.delete(connectionId);
   }
 });
 

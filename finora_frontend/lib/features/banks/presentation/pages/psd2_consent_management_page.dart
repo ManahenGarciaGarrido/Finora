@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 
 /// Pantalla de gestión de consentimientos PSD2 (RNF-05).
 ///
@@ -24,7 +26,8 @@ class Psd2ConsentManagementPage extends StatefulWidget {
       _Psd2ConsentManagementPageState();
 }
 
-class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
+class _Psd2ConsentManagementPageState
+    extends State<Psd2ConsentManagementPage> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _consents = [];
@@ -49,31 +52,29 @@ class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error =
-            'No se pudieron cargar los consentimientos. Inténtalo de nuevo.';
+        _error = AppLocalizations.of(context).bankConsentsLoadError;
         _loading = false;
       });
     }
   }
 
   Future<void> _renewConsent(String connectionId, String bankName) async {
+    final s = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Renovar consentimiento'),
-        content: Text(
-          'Se renovará el acceso de Finora a $bankName por 90 días más (PSD2).\n\n'
-          'No se modificarán tus datos ni transacciones.',
-        ),
+        title: Text(s.renewConsent),
+        content: Text(s.renewConsentContent(bankName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(s.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Renovar'),
+            child: Text(s.renew),
           ),
         ],
       ),
@@ -86,7 +87,7 @@ class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Consentimiento de $bankName renovado por 90 días'),
+          content: Text(AppLocalizations.of(context).consentRenewedMsg(bankName)),
           backgroundColor: AppColors.success,
         ),
       );
@@ -95,7 +96,9 @@ class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al renovar: ${e.toString()}'),
+          content: Text(
+            '${AppLocalizations.of(context).errorRenewing}: ${e.toString()}',
+          ),
           backgroundColor: AppColors.error,
         ),
       );
@@ -103,24 +106,21 @@ class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
   }
 
   Future<void> _revokeConsent(String connectionId, String bankName) async {
+    final s = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Revocar consentimiento'),
-        content: Text(
-          '¿Seguro que quieres revocar el acceso de Finora a $bankName?\n\n'
-          'Esto desconectará el banco y dejará de sincronizarse. '
-          'Tus transacciones existentes se conservarán.',
-        ),
+        title: Text(s.revokeConsentTitle),
+        content: Text(s.revokeConsentContent(bankName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(s.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Revocar acceso'),
+            child: Text(s.revokeAccess),
           ),
         ],
       ),
@@ -135,7 +135,9 @@ class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Acceso a $bankName revocado. Banco desconectado.'),
+          content: Text(
+            AppLocalizations.of(context).consentRevokedMsg(bankName),
+          ),
           backgroundColor: AppColors.success,
         ),
       );
@@ -144,7 +146,9 @@ class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al revocar: ${e.toString()}'),
+          content: Text(
+            '${AppLocalizations.of(context).errorRevoking}: ${e.toString()}',
+          ),
           backgroundColor: AppColors.error,
         ),
       );
@@ -153,6 +157,7 @@ class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
@@ -165,17 +170,17 @@ class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Consentimientos bancarios',
-          style: AppTypography.titleMedium(),
-        ),
+        title: Text(s.bankConsentsTitle, style: AppTypography.titleMedium()),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: SkeletonListLoader(count: 4, cardHeight: 88),
+            )
           : _error != null
           ? _ErrorView(error: _error!, onRetry: _loadConsents)
           : _consents.isEmpty
-          ? _EmptyView()
+          ? const _EmptyView()
           : _ConsentList(
               consents: _consents,
               onRenew: _renewConsent,
@@ -215,7 +220,10 @@ class _ErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
+            FilledButton(
+              onPressed: onRetry,
+              child: Text(AppLocalizations.of(context).retry),
+            ),
           ],
         ),
       ),
@@ -224,8 +232,11 @@ class _ErrorView extends StatelessWidget {
 }
 
 class _EmptyView extends StatelessWidget {
+  const _EmptyView();
+
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -238,14 +249,10 @@ class _EmptyView extends StatelessWidget {
               color: AppColors.gray400,
             ),
             const SizedBox(height: 16),
-            Text(
-              'Sin consentimientos activos',
-              style: AppTypography.titleSmall(),
-            ),
+            Text(s.noActiveConsents, style: AppTypography.titleSmall()),
             const SizedBox(height: 8),
             Text(
-              'Cuando conectes un banco, aquí aparecerá el consentimiento PSD2 '
-              'con su estado y fecha de expiración.',
+              s.noActiveConsentsDesc,
               textAlign: TextAlign.center,
               style: AppTypography.bodyMedium(
                 color: AppColors.textSecondaryLight,
@@ -294,9 +301,7 @@ class _ConsentList extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'PSD2 (Directiva de Servicios de Pago) exige renovar el '
-                    'consentimiento bancario cada 90 días. Finora te avisará '
-                    'con 14 días de antelación.',
+                    AppLocalizations.of(context).psd2RenewalInfoMsg,
                     style: AppTypography.bodySmall(color: AppColors.primary),
                   ),
                 ),
@@ -327,8 +332,10 @@ class _ConsentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final status = consent['status'] as String? ?? 'active';
-    final bankName = consent['institutionName'] as String? ?? 'Banco';
+    final bankName =
+        consent['institutionName'] as String? ?? s.bankFallbackName;
     final connectionId = consent['connectionId'] as String? ?? '';
     final daysRemaining = (consent['daysRemaining'] as num?)?.toInt() ?? 0;
     final renewalReq = consent['renewalRequired'] as bool? ?? false;
@@ -341,20 +348,20 @@ class _ConsentCard extends StatelessWidget {
     switch (status) {
       case 'expired':
         statusColor = AppColors.error;
-        statusLabel = 'Expirado';
+        statusLabel = s.statusExpired;
         statusIcon = Icons.warning_amber_rounded;
       case 'revoked':
         statusColor = AppColors.gray400;
-        statusLabel = 'Revocado';
+        statusLabel = s.statusRevoked;
         statusIcon = Icons.block_rounded;
       default:
         if (renewalReq) {
           statusColor = AppColors.warning;
-          statusLabel = 'Renovación requerida';
+          statusLabel = s.renewalRequired;
           statusIcon = Icons.update_rounded;
         } else {
           statusColor = AppColors.success;
-          statusLabel = 'Activo';
+          statusLabel = s.statusActive;
           statusIcon = Icons.check_circle_outline_rounded;
         }
     }
@@ -403,7 +410,9 @@ class _ConsentCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             statusLabel,
-                            style: AppTypography.labelSmall(color: statusColor),
+                            style: AppTypography.labelSmall(
+                              color: statusColor,
+                            ),
                           ),
                         ],
                       ),
@@ -421,8 +430,8 @@ class _ConsentCard extends StatelessWidget {
             if (status == 'active') ...[
               _DetailRow(
                 icon: Icons.timer_outlined,
-                label: 'Expira en',
-                value: '$daysRemaining días',
+                label: s.expiresInLabel,
+                value: s.daysCount(daysRemaining),
                 valueColor: renewalReq
                     ? AppColors.warning
                     : AppColors.textPrimaryLight,
@@ -432,15 +441,15 @@ class _ConsentCard extends StatelessWidget {
             if (expiresAt != null) ...[
               _DetailRow(
                 icon: Icons.calendar_today_outlined,
-                label: 'Fecha de expiración',
+                label: s.expiresAtLabel,
                 value: _formatDate(expiresAt),
               ),
               const SizedBox(height: 6),
             ],
             _DetailRow(
               icon: Icons.lock_outline_rounded,
-              label: 'Permisos concedidos',
-              value: 'Solo lectura (cuentas + transacciones)',
+              label: s.grantedPermissionsLabel,
+              value: s.readOnlyAccountsLabel,
             ),
 
             // Aviso de renovación
@@ -462,8 +471,7 @@ class _ConsentCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'El consentimiento expira en $daysRemaining días. '
-                        'Renuévalo para seguir sincronizando.',
+                        s.consentExpiresWarning(daysRemaining),
                         style: AppTypography.bodySmall(
                           color: AppColors.warning,
                         ),
@@ -492,7 +500,7 @@ class _ConsentCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'El consentimiento ha expirado. Renuévalo para reactivar la sincronización.',
+                        s.consentExpiredWarning,
                         style: AppTypography.bodySmall(color: AppColors.error),
                       ),
                     ),
@@ -512,7 +520,7 @@ class _ConsentCard extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: () => onRenew(connectionId, bankName),
                         icon: const Icon(Icons.refresh_rounded, size: 18),
-                        label: const Text('Renovar 90 días'),
+                        label: Text(s.renew90Days),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -530,9 +538,9 @@ class _ConsentCard extends StatelessWidget {
                       size: 18,
                       color: AppColors.error,
                     ),
-                    label: const Text(
-                      'Revocar',
-                      style: TextStyle(color: AppColors.error),
+                    label: Text(
+                      s.revokeLabel,
+                      style: const TextStyle(color: AppColors.error),
                     ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.error),

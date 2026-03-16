@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/services/app_settings_service.dart';
 import '../bloc/goal_bloc.dart';
 import '../bloc/goal_event.dart';
 import '../bloc/goal_state.dart';
@@ -40,18 +42,6 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
     '#0EA5E9',
   ];
 
-  static const _categories = [
-    'Vivienda',
-    'Transporte',
-    'Vacaciones',
-    'Educación',
-    'Emergencia',
-    'Salud',
-    'Tecnología',
-    'Negocio',
-    'Otro',
-  ];
-
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -62,6 +52,9 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    final categories = s.goalCategoriesList;
+
     return BlocListener<GoalBloc, GoalState>(
       listener: (context, state) {
         if (state is GoalCreated) {
@@ -83,7 +76,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
         appBar: AppBar(
           backgroundColor: AppColors.white,
           elevation: 0,
-          title: Text('Nuevo objetivo', style: AppTypography.titleMedium()),
+          title: Text(s.createGoal, style: AppTypography.titleMedium()),
         ),
         body: Form(
           key: _formKey,
@@ -95,14 +88,14 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Label('Nombre del objetivo *'),
+                    _Label(s.goalName),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _nameCtrl,
-                      decoration: _inputDec('Ej: Fondo de emergencia'),
+                      decoration: _inputDec(s.goalNameHint),
                       textCapitalization: TextCapitalization.sentences,
                       validator: (v) => v == null || v.trim().isEmpty
-                          ? 'El nombre es obligatorio'
+                          ? s.goalNameRequired
                           : null,
                     ),
                   ],
@@ -115,11 +108,11 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Label('Cantidad objetivo *'),
+                    _Label(s.goalTargetAmountLabel),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _amountCtrl,
-                      decoration: _inputDec('0,00').copyWith(suffixText: '€'),
+                      decoration: _inputDec('0,00').copyWith(suffixText: AppSettingsService().currentCurrency.symbol),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
@@ -127,13 +120,9 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                         FilteringTextInputFormatter.allow(RegExp(r'[\d,\.]')),
                       ],
                       validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'La cantidad es obligatoria';
-                        }
+                        if (v == null || v.isEmpty) return s.goalAmountRequired;
                         final n = double.tryParse(v.replaceAll(',', '.'));
-                        if (n == null || n <= 0) {
-                          return 'Introduce una cantidad positiva';
-                        }
+                        if (n == null || n <= 0) return s.goalAmountPositive;
                         return null;
                       },
                     ),
@@ -147,7 +136,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Label('Icono'),
+                    _Label(s.goalIconLabel),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -240,7 +229,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Label('Fecha límite (opcional)'),
+                    _Label(s.goalDeadlineOptional),
                     const SizedBox(height: 8),
                     GestureDetector(
                       onTap: _pickDate,
@@ -263,7 +252,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                             const SizedBox(width: 10),
                             Text(
                               _deadline == null
-                                  ? 'Sin fecha límite'
+                                  ? s.goalNoDeadline
                                   : '${_deadline!.day}/${_deadline!.month}/${_deadline!.year}',
                               style: AppTypography.bodyMedium(
                                 color: _deadline == null
@@ -295,12 +284,12 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Label('Categoría (opcional)'),
+                    _Label(s.goalCategoryOptional),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       initialValue: _category,
-                      decoration: _inputDec('Seleccionar categoría'),
-                      items: _categories
+                      decoration: _inputDec(s.goalSelectCategory),
+                      items: categories
                           .map(
                             (c) => DropdownMenuItem(value: c, child: Text(c)),
                           )
@@ -317,13 +306,11 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Label('Nota (opcional)'),
+                    _Label(s.goalNoteOptional),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _notesCtrl,
-                      decoration: _inputDec(
-                        '¿Por qué es importante este objetivo?',
-                      ),
+                      decoration: _inputDec(s.goalNoteHint),
                       maxLines: 2,
                       textCapitalization: TextCapitalization.sentences,
                     ),
@@ -352,8 +339,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'La IA analizará tus ingresos y gastos para evaluar '
-                        'la viabilidad del objetivo y sugerir una aportación mensual.',
+                        s.goalAiHint,
                         style: AppTypography.bodySmall(
                           color: AppColors.textSecondaryLight,
                         ),
@@ -387,7 +373,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                           ),
                         )
                       : Text(
-                          'Analizar y crear objetivo',
+                          s.goalAnalyzeAndCreate,
                           style: AppTypography.labelMedium(color: Colors.white),
                         ),
                 ),
@@ -429,6 +415,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
 
   /// CU-03 paso 10: Mostrar resultado del análisis IA tras crear el objetivo
   void _showAiResult(BuildContext context, GoalCreated state) {
+    final s = AppLocalizations.of(context);
     final goal = state.goal;
     final feasibility = goal.aiFeasibility;
     final explanation = goal.aiExplanation;
@@ -440,17 +427,17 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
     switch (feasibility) {
       case 'viable':
         fColor = AppColors.success;
-        fLabel = '¡Objetivo viable!';
+        fLabel = s.goalFeasibleLabel;
         fIcon = Icons.check_circle_rounded;
         break;
       case 'difficult':
         fColor = AppColors.warning;
-        fLabel = 'Objetivo difícil';
+        fLabel = s.goalDifficultLabel;
         fIcon = Icons.warning_amber_rounded;
         break;
       case 'not_viable':
         fColor = AppColors.error;
-        fLabel = 'Objetivo muy ambicioso';
+        fLabel = s.goalNotViableLabel;
         fIcon = Icons.error_rounded;
         break;
       default:
@@ -491,7 +478,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Aportación mensual sugerida: ${monthly.toStringAsFixed(2)} €',
+                        s.goalMonthlySuggested(monthly.toStringAsFixed(2)),
                         style: AppTypography.labelMedium(color: fColor),
                       ),
                     ),
@@ -506,7 +493,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
               Navigator.pop(context); // dialog
               Navigator.pop(context); // create page
             },
-            child: Text('Entendido', style: AppTypography.labelMedium()),
+            child: Text(s.understood, style: AppTypography.labelMedium()),
           ),
         ],
       ),

@@ -586,10 +586,11 @@ extension AiServiceSprint9 on AiService {
   Future<ChatMessage> chatWithAssistant(
     String message, {
     List<Map<String, String>> history = const [],
+    String language = 'es',
   }) async {
     final response = await _apiClient.post(
       ApiEndpoints.aiChat,
-      data: {'message': message, 'history': history},
+      data: {'message': message, 'history': history, 'language': language},
     );
     return ChatMessage.assistant(response.data as Map<String, dynamic>);
   }
@@ -613,10 +614,13 @@ extension AiServiceSprint9 on AiService {
   ///
   /// El backend analiza el historial de gastos, ingresos y suscripciones del
   /// usuario y devuelve hasta 10 recomendaciones priorizadas por ahorro potencial.
-  Future<RecommendationsResult> getRecommendations({int months = 3}) async {
+  Future<RecommendationsResult> getRecommendations({
+    int months = 3,
+    String language = 'es',
+  }) async {
     final response = await _apiClient.get(
       ApiEndpoints.aiRecommendations,
-      queryParameters: {'months': months.toString()},
+      queryParameters: {'months': months.toString(), 'language': language},
     );
     return RecommendationsResult.fromJson(
       response.data as Map<String, dynamic>,

@@ -256,8 +256,12 @@ async function fetchAccounts(accessToken) {
  * @returns {Array<{ id, amount, description, date }>}
  */
 async function fetchTransactions(accessToken, fromDate) {
-  if (isMockMode() || !accessToken || accessToken.startsWith('mock_')) {
-    return MOCK_TRANSACTIONS;
+  if (isMockMode() || !accessToken || accessToken.startsWith('mock_') || PLAID_ENV !== 'production') {
+    // El historial de transacciones ya fue generado por generateRandomTransactions()
+    // en el flujo de import-accounts. En sandbox/mock devolvemos [] para evitar
+    // que el cron y import-transactions inserten transacciones Plaid falsas que
+    // rompen el balance y duplican datos sobre las transacciones generadas por IA.
+    return [];
   }
 
   const endDate = new Date().toISOString().split('T')[0];

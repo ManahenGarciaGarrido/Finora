@@ -6,6 +6,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/responsive/responsive_builder.dart';
 import '../../../../core/utils/app_startup_tracker.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../banks/presentation/bloc/bank_bloc.dart';
@@ -157,31 +158,31 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-      destinations: const [
+      destinations: [
         NavigationRailDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home_rounded),
-          label: Text('Inicio'),
+          icon: const Icon(Icons.home_outlined),
+          selectedIcon: const Icon(Icons.home_rounded),
+          label: Text(AppLocalizations.of(context).home),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.analytics_outlined),
-          selectedIcon: Icon(Icons.analytics_rounded),
-          label: Text('Estadísticas'),
+          icon: const Icon(Icons.analytics_outlined),
+          selectedIcon: const Icon(Icons.analytics_rounded),
+          label: Text(AppLocalizations.of(context).statistics),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          selectedIcon: Icon(Icons.receipt_long_rounded),
-          label: Text('Transacciones'),
+          icon: const Icon(Icons.receipt_long_outlined),
+          selectedIcon: const Icon(Icons.receipt_long_rounded),
+          label: Text(AppLocalizations.of(context).transactions),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.account_balance_wallet_outlined),
-          selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-          label: Text('Cuentas'),
+          icon: const Icon(Icons.account_balance_wallet_outlined),
+          selectedIcon: const Icon(Icons.account_balance_wallet_rounded),
+          label: Text(AppLocalizations.of(context).accounts),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings_rounded),
-          label: Text('Ajustes'),
+          icon: const Icon(Icons.settings_outlined),
+          selectedIcon: const Icon(Icons.settings_rounded),
+          label: Text(AppLocalizations.of(context).settings),
         ),
       ],
     );
@@ -195,31 +196,41 @@ class _HomePageState extends State<HomePage> {
       elevation: 8,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavItem(Icons.home_outlined, Icons.home_rounded, 'Inicio', 0),
-            _buildNavItem(
-              Icons.analytics_outlined,
-              Icons.analytics_rounded,
-              'Análisis',
-              1,
-            ),
-            // Espacio central para el FAB
-            const SizedBox(width: 64),
-            _buildNavItem(
-              Icons.account_balance_wallet_outlined,
-              Icons.account_balance_wallet_rounded,
-              'Cuentas',
-              3,
-            ),
-            _buildNavItem(
-              Icons.settings_outlined,
-              Icons.settings_rounded,
-              'Ajustes',
-              4,
-            ),
-          ],
+        child: Builder(
+          builder: (context) {
+            final s = AppLocalizations.of(context);
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  Icons.home_outlined,
+                  Icons.home_rounded,
+                  s.home,
+                  0,
+                ),
+                _buildNavItem(
+                  Icons.analytics_outlined,
+                  Icons.analytics_rounded,
+                  s.analysis,
+                  1,
+                ),
+                // Espacio central para el FAB
+                const SizedBox(width: 64),
+                _buildNavItem(
+                  Icons.account_balance_wallet_outlined,
+                  Icons.account_balance_wallet_rounded,
+                  s.accounts,
+                  3,
+                ),
+                _buildNavItem(
+                  Icons.settings_outlined,
+                  Icons.settings_rounded,
+                  s.settings,
+                  4,
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

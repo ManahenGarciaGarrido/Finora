@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -21,8 +22,15 @@ import '../../../goals/presentation/pages/goals_page.dart';
 import '../../../goals/presentation/pages/goal_detail_page.dart';
 import '../../../goals/domain/entities/savings_goal_entity.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/network/api_client.dart';
+import '../../../../core/constants/api_endpoints.dart';
 import 'predictions_page.dart'; // RF-22/HU-09 + RF-21/HU-08
 import 'assistant_page.dart'; // RF-25/HU-12/CU-04 + RF-26/HU-13 + RF-27/HU-14
+import 'stats_page.dart';
+import 'transactions_page.dart';
+import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../banks/presentation/widgets/notification_bell.dart';
 
 /// Contenido del Dashboard principal
 class DashboardContent extends StatefulWidget {
@@ -43,9 +51,48 @@ class _DashboardContentState extends State<DashboardContent>
   late AnimationController _shimmerCtrl;
   late Animation<double> _shimmerAnim;
 
+  // ─── RF-28: Resumen mensual server-side (evita problema de paginación) ────
+  List<({int monthNumber, double income, double expense})>? _monthlySummary;
+
+  Future<void> _fetchMonthlySummary() async {
+    try {
+      final client = di.sl<ApiClient>();
+      final resp = await client.get(
+        ApiEndpoints.monthlySummary,
+        queryParameters: {'months': 6},
+      );
+      final rows = (resp.data['summary'] as List?) ?? [];
+      // Asegurar que existen los últimos 6 meses aunque no haya datos
+      final now = DateTime.now();
+      final result = List.generate(6, (i) {
+        int m = now.month - 5 + i;
+        int y = now.year;
+        while (m <= 0) {
+          m += 12;
+          y--;
+        }
+        final key = '$y-${m.toString().padLeft(2, '0')}';
+        final row = rows.firstWhere(
+          (r) => r['month'] == key,
+          orElse: () => {'month': key, 'income': 0.0, 'expenses': 0.0},
+        );
+        return (
+          monthNumber: m,
+          income: (row['income'] as num?)?.toDouble() ?? 0.0,
+          expense: (row['expenses'] as num?)?.toDouble() ?? 0.0,
+        );
+      });
+      if (mounted) setState(() => _monthlySummary = result);
+    } catch (_) {
+      // Silencioso — el chart usará datos locales como fallback
+    }
+  }
+
   String _formatCurrency(double amount) {
-    final isNegative = amount < 0;
-    final absAmount = amount.abs();
+    final currency = AppSettingsService().currentCurrency;
+    final converted = CurrencyService().convert(amount);
+    final isNegative = converted < 0;
+    final absAmount = converted.abs();
     final parts = absAmount.toStringAsFixed(2).split('.');
     final intPart = parts[0];
     final decPart = parts[1];
@@ -54,16 +101,46 @@ class _DashboardContentState extends State<DashboardContent>
       if (i > 0 && (intPart.length - i) % 3 == 0) buffer.write('.');
       buffer.write(intPart[i]);
     }
-    return '${isNegative ? '-' : ''}${buffer.toString()},$decPart €';
+    return '${isNegative ? '-' : ''}${buffer.toString()},$decPart ${currency.symbol}';
+  }
+
+  String _getTranslatedCategory(BuildContext context, String categoryKey) {
+    final s = AppLocalizations.of(context);
+
+    switch (categoryKey.toLowerCase()) {
+      case 'alimentación':
+        return s.nutrition;
+      case 'transporte':
+        return s.transport;
+      case 'ocio':
+        return s.leisure;
+      case 'salud':
+        return s.health;
+      case 'vivienda':
+        return s.housing;
+      case 'servicios':
+        return s.services;
+      case 'educación':
+        return s.education;
+      case 'ropa':
+        return s.clothing;
+      case 'otros':
+        return s.other;
+      case 'ahorro':
+        return s.saving;
+      default:
+        return categoryKey;
+    }
   }
 
   String _getUserFirstName(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
+    final s = AppLocalizations.of(context);
     if (authState is Authenticated) {
       final name = authState.user.name;
       return name.split(' ').first;
     }
-    return 'Usuario';
+    return s.user;
   }
 
   String _getUserInitials(BuildContext context) {
@@ -89,10 +166,17 @@ class _DashboardContentState extends State<DashboardContent>
       begin: 0.35,
       end: 0.85,
     ).animate(CurvedAnimation(parent: _shimmerCtrl, curve: Curves.easeInOut));
+    _fetchMonthlySummary();
+    AppSettingsService().currencyNotifier.addListener(_onCurrencyChanged);
+  }
+
+  void _onCurrencyChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    AppSettingsService().currencyNotifier.removeListener(_onCurrencyChanged);
     _shimmerCtrl.dispose();
     super.dispose();
   }
@@ -108,139 +192,153 @@ class _DashboardContentState extends State<DashboardContent>
   Widget _buildMobileLayout(BuildContext context) {
     final responsive = ResponsiveUtils(context);
     final hp = responsive.horizontalPadding;
+    final s = AppLocalizations.of(context);
 
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: () async {
-          context.read<TransactionBloc>().add(LoadTransactions());
-          await Future.delayed(const Duration(milliseconds: 500));
-        },
-        color: AppColors.primary,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context)),
-            // Balance total (destacado)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: hp),
-                child: _buildBalanceCard(context),
-              ),
+    return BlocListener<TransactionBloc, TransactionState>(
+      listenWhen: (_, s) =>
+          s is TransactionAdded ||
+          s is TransactionUpdated ||
+          s is TransactionDeleted,
+      listener: (_, __) {
+        setState(() => _monthlySummary = null);
+        _fetchMonthlySummary();
+      },
+      child: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            context.read<TransactionBloc>().add(LoadTransactions());
+            setState(() => _monthlySummary = null);
+            await _fetchMonthlySummary();
+          },
+          color: AppColors.primary,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
             ),
-            // Acciones rápidas
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
-                child: _buildQuickActions(context),
-              ),
-            ),
-            // Secciones principales: skeleton mientras carga, real cuando listo (Nota Técnica)
-            SliverToBoxAdapter(
-              child: BlocBuilder<TransactionBloc, TransactionState>(
-                builder: (ctx, state) {
-                  final isLoading =
-                      state is TransactionInitial ||
-                      state is TransactionLoading;
-                  return AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
-                    switchInCurve: Curves.easeOut,
-                    switchOutCurve: Curves.easeIn,
-                    transitionBuilder: (child, anim) =>
-                        FadeTransition(opacity: anim, child: child),
-                    child: isLoading
-                        ? Column(
-                            key: const ValueKey('dashboard_skeleton'),
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
-                                child: _buildSkeletonSectionCard(height: 160),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildSkeletonSectionCard(height: 230),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildSkeletonSectionCard(height: 220),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildSkeletonSectionCard(height: 180),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildSkeletonSectionCard(height: 100),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            key: const ValueKey('dashboard_loaded'),
-                            children: [
-                              // Resumen del mes actual con comparativa (RF-28)
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
-                                child: _buildMonthlyOverview(context),
-                              ),
-                              // Gráfico barras ingresos vs gastos últimos 6 meses (RF-28)
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildIncomeExpenseChart(context),
-                              ),
-                              // Top 5 categorías del mes actual (RF-28)
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildSpendingChart(context),
-                              ),
-                              // Progreso de objetivos (RF-28)
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildGoalsSection(context),
-                              ),
-                              // Próximos gastos recurrentes (RF-28)
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildRecurringExpenses(context),
-                              ),
-                              // RF-22/HU-09 + RF-21/HU-08: Tarjeta de Predicciones IA
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
-                                child: _buildAiPredictionsCard(context),
-                              ),
-                              // RF-25/HU-12/CU-04 + RF-26/HU-13 + RF-27/HU-14: Asistente IA
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(hp, 12, hp, 0),
-                                child: _buildAssistantCard(context),
-                              ),
-                            ],
-                          ),
-                  );
-                },
-              ),
-            ),
-            // Últimas transacciones
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(hp, 24, hp, 12),
-                child: _buildSectionHeader(
-                  'Últimas transacciones',
-                  onTap: widget.onNavigateToTransactions,
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader(context)),
+              // Balance total (destacado)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hp),
+                  child: _buildBalanceCard(context),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: hp),
-              sliver: _buildTransactionsList(context),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
+              // Acciones rápidas
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
+                  child: _buildQuickActions(context),
+                ),
+              ),
+              // Secciones principales: skeleton mientras carga, real cuando listo (Nota Técnica)
+              SliverToBoxAdapter(
+                child: BlocBuilder<TransactionBloc, TransactionState>(
+                  builder: (ctx, state) {
+                    final isLoading =
+                        state is TransactionInitial ||
+                        state is TransactionLoading;
+                    return AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, anim) =>
+                          FadeTransition(opacity: anim, child: child),
+                      child: isLoading
+                          ? Column(
+                              key: const ValueKey('dashboard_skeleton'),
+                              children: [
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
+                                  child: _buildSkeletonSectionCard(height: 160),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildSkeletonSectionCard(height: 230),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildSkeletonSectionCard(height: 220),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildSkeletonSectionCard(height: 180),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildSkeletonSectionCard(height: 100),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              key: const ValueKey('dashboard_loaded'),
+                              children: [
+                                // Resumen del mes actual con comparativa (RF-28)
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 24, hp, 0),
+                                  child: _buildMonthlyOverview(context),
+                                ),
+                                // Gráfico barras ingresos vs gastos últimos 6 meses (RF-28)
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildIncomeExpenseChart(context),
+                                ),
+                                // Top 5 categorías del mes actual (RF-28)
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildSpendingChart(context),
+                                ),
+                                // Progreso de objetivos (RF-28)
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildGoalsSection(context),
+                                ),
+                                // Próximos gastos recurrentes (RF-28)
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildRecurringExpenses(context),
+                                ),
+                                // RF-22/HU-09 + RF-21/HU-08: Tarjeta de Predicciones IA
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                                  child: _buildAiPredictionsCard(context),
+                                ),
+                                // RF-25/HU-12/CU-04 + RF-26/HU-13 + RF-27/HU-14: Asistente IA
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(hp, 12, hp, 0),
+                                  child: _buildAssistantCard(context),
+                                ),
+                              ],
+                            ),
+                    );
+                  },
+                ),
+              ),
+              // Últimas transacciones
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(hp, 24, hp, 12),
+                  child: _buildSectionHeader(
+                    s.lastTransactions,
+                    onTap: widget.onNavigateToTransactions,
+                    s,
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: hp),
+                sliver: _buildTransactionsList(context),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildTabletLayout(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
     final hp = responsive.horizontalPadding;
 
@@ -287,8 +385,9 @@ class _DashboardContentState extends State<DashboardContent>
                         _buildAssistantCard(context),
                         const SizedBox(height: 16),
                         _buildSectionHeader(
-                          'Últimas transacciones',
+                          s.lastTransactions,
                           onTap: widget.onNavigateToTransactions,
+                          s,
                         ),
                         const SizedBox(height: 12),
                         _buildTransactionsColumn(context),
@@ -308,6 +407,7 @@ class _DashboardContentState extends State<DashboardContent>
   // HEADER
   // ============================================
   Widget _buildHeader(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
 
     return Padding(
@@ -324,12 +424,12 @@ class _DashboardContentState extends State<DashboardContent>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '¡Hola, ${_getUserFirstName(context)}!',
+                  '¡${s.hi}, ${_getUserFirstName(context)}!',
                   style: AppTypography.headlineSmall(),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _getGreetingMessage(),
+                  _getGreetingMessage(s),
                   style: AppTypography.bodyMedium(
                     color: AppColors.textSecondaryLight,
                   ),
@@ -337,23 +437,7 @@ class _DashboardContentState extends State<DashboardContent>
               ],
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.gray50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.gray200),
-            ),
-            child: IconButton(
-              icon: const Badge(
-                smallSize: 8,
-                backgroundColor: AppColors.error,
-                child: Icon(Icons.notifications_none_rounded, size: 22),
-              ),
-              onPressed: () {},
-              color: AppColors.textPrimaryLight,
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-            ),
-          ),
+          const NotificationBell(),
           const SizedBox(width: 10),
           Container(
             width: 44,
@@ -378,11 +462,11 @@ class _DashboardContentState extends State<DashboardContent>
     );
   }
 
-  String _getGreetingMessage() {
+  String _getGreetingMessage(AppLocalizations s) {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Buenos días';
-    if (hour < 20) return 'Buenas tardes';
-    return 'Buenas noches';
+    if (hour < 12) return s.goodMorning;
+    if (hour < 20) return s.goodAfternoon;
+    return s.goodNight;
   }
 
   // ============================================
@@ -543,24 +627,10 @@ class _DashboardContentState extends State<DashboardContent>
     return all.where((t) => t.date.year == y && t.date.month == m).toList();
   }
 
-  /// Últimos 6 meses: label, ingresos y gastos de cada mes
-  List<({String label, double income, double expense})> _last6MonthsData(
+  /// Últimos 6 meses: monthNumber, ingresos y gastos de cada mes
+  List<({int monthNumber, double income, double expense})> _last6MonthsData(
     List<TransactionEntity> all,
   ) {
-    const labels = [
-      'Ene',
-      'Feb',
-      'Mar',
-      'Abr',
-      'May',
-      'Jun',
-      'Jul',
-      'Ago',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dic',
-    ];
     final now = DateTime.now();
     return List.generate(6, (i) {
       int m = now.month - 5 + i;
@@ -573,13 +643,32 @@ class _DashboardContentState extends State<DashboardContent>
           .where((t) => t.date.year == y && t.date.month == m)
           .toList();
       return (
-        label: labels[m - 1],
+        monthNumber: m,
         income: txs.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount),
         expense: txs
             .where((t) => t.isExpense)
             .fold(0.0, (s, t) => s + t.amount),
       );
     });
+  }
+
+  /// Returns the localized month abbreviation for the given month number (1-12)
+  String _getMonthAbbr(AppLocalizations s, int month) {
+    switch (month) {
+      case 1: return s.jan;
+      case 2: return s.feb;
+      case 3: return s.mar;
+      case 4: return s.apr;
+      case 5: return s.mayy;
+      case 6: return s.jun;
+      case 7: return s.jul;
+      case 8: return s.aug;
+      case 9: return s.sep;
+      case 10: return s.oct;
+      case 11: return s.nov;
+      case 12: return s.dec;
+      default: return '';
+    }
   }
 
   /// Detecta gastos recurrentes (≥ 2 meses distintos) y filtra los
@@ -634,6 +723,7 @@ class _DashboardContentState extends State<DashboardContent>
   // BALANCE CARD
   // ============================================
   Widget _buildBalanceCard(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
         // Skeleton loading: muestra placeholder animado mientras carga (Nota Técnica)
@@ -677,7 +767,7 @@ class _DashboardContentState extends State<DashboardContent>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Balance total',
+                      s.totalBalance,
                       style: AppTypography.labelMedium(
                         color: AppColors.white.withValues(alpha: 0.75),
                       ),
@@ -727,7 +817,7 @@ class _DashboardContentState extends State<DashboardContent>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Registra tu primera transacción para ver tu balance',
+                      s.firstTransaction,
                       style: AppTypography.labelSmall(color: AppColors.white),
                     ),
                   ),
@@ -743,7 +833,7 @@ class _DashboardContentState extends State<DashboardContent>
                     children: [
                       _buildBalanceIndicator(
                         icon: Icons.south_west_rounded,
-                        label: 'Ingresos',
+                        label: s.income,
                         amount: _balanceVisible
                             ? _formatCurrency(income)
                             : '••••',
@@ -756,7 +846,7 @@ class _DashboardContentState extends State<DashboardContent>
                       ),
                       _buildBalanceIndicator(
                         icon: Icons.north_east_rounded,
-                        label: 'Gastos',
+                        label: s.expenses,
                         amount: _balanceVisible
                             ? _formatCurrency(expenses)
                             : '••••',
@@ -819,24 +909,37 @@ class _DashboardContentState extends State<DashboardContent>
   // QUICK ACTIONS
   // ============================================
   Widget _buildQuickActions(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _buildActionButton(
           icon: Icons.add_rounded,
-          label: 'Añadir',
+          label: s.add,
           color: AppColors.primary,
           onTap: () => Navigator.pushNamed(context, '/add-transaction'),
         ),
         _buildActionButton(
-          icon: Icons.swap_horiz_rounded,
-          label: 'Transferir',
+          icon: Icons.list_alt_rounded,
+          label: s.history,
           color: AppColors.secondary,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const Scaffold(body: TransactionsPage()),
+            ),
+          ),
         ),
         _buildActionButton(
-          icon: Icons.qr_code_scanner_rounded,
-          label: 'Escanear',
+          icon: Icons.bar_chart_rounded,
+          label: s.statistics,
           color: AppColors.accent,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const Scaffold(body: StatsPage()),
+            ),
+          ),
         ),
         // RF-22/HU-09: Acceso rápido a Predicciones IA desde acciones rápidas
         _buildActionButton(
@@ -943,7 +1046,11 @@ class _DashboardContentState extends State<DashboardContent>
   // ============================================
   // SECTION HEADER
   // ============================================
-  Widget _buildSectionHeader(String title, {VoidCallback? onTap}) {
+  Widget _buildSectionHeader(
+    String title,
+    AppLocalizations s, {
+    VoidCallback? onTap,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -952,7 +1059,7 @@ class _DashboardContentState extends State<DashboardContent>
           GestureDetector(
             onTap: onTap,
             child: Text(
-              'Ver todo',
+              s.seeAll,
               style: AppTypography.labelMedium(color: AppColors.primary),
             ),
           ),
@@ -995,7 +1102,7 @@ class _DashboardContentState extends State<DashboardContent>
             ),
           );
         }
-        return SliverToBoxAdapter(child: _buildEmptyTransactions());
+        return SliverToBoxAdapter(child: _buildEmptyTransactions(context));
       },
     );
   }
@@ -1009,7 +1116,7 @@ class _DashboardContentState extends State<DashboardContent>
             children: items.map((t) => _buildTransactionTile(t)).toList(),
           );
         }
-        return _buildEmptyTransactions();
+        return _buildEmptyTransactions(context);
       },
     );
   }
@@ -1107,7 +1214,7 @@ class _DashboardContentState extends State<DashboardContent>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _formatRelativeDate(t.date),
+                  _formatRelativeDate(t.date, context),
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -1120,7 +1227,8 @@ class _DashboardContentState extends State<DashboardContent>
     );
   }
 
-  Widget _buildEmptyTransactions() {
+  Widget _buildEmptyTransactions(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
@@ -1144,10 +1252,10 @@ class _DashboardContentState extends State<DashboardContent>
             ),
           ),
           const SizedBox(height: 16),
-          Text('Sin transacciones', style: AppTypography.titleSmall()),
+          Text(s.noTransactions, style: AppTypography.titleSmall()),
           const SizedBox(height: 4),
           Text(
-            'Pulsa + para registrar tu primera transacción',
+            s.registerFirst,
             style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
             textAlign: TextAlign.center,
           ),
@@ -1160,6 +1268,7 @@ class _DashboardContentState extends State<DashboardContent>
   // SPENDING CHART (RF-28: top 5 categorías del mes actual)
   // ============================================
   Widget _buildSpendingChart(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
         final all = state is TransactionsLoaded
@@ -1194,7 +1303,7 @@ class _DashboardContentState extends State<DashboardContent>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Top gastos del mes',
+                    s.topMonthlyExpenses,
                     style: AppTypography.titleMedium(),
                   ),
                   Container(
@@ -1215,7 +1324,7 @@ class _DashboardContentState extends State<DashboardContent>
               ),
               const SizedBox(height: 20),
               if (top5.isEmpty)
-                _buildEmptyChart()
+                _buildEmptyChart(s)
               else ...[
                 Center(
                   child: SizedBox(
@@ -1245,7 +1354,7 @@ class _DashboardContentState extends State<DashboardContent>
                               style: AppTypography.titleMedium(),
                             ),
                             Text(
-                              'este mes',
+                              s.thisMonth,
                               style: AppTypography.bodySmall(
                                 color: AppColors.textTertiaryLight,
                               ),
@@ -1276,7 +1385,7 @@ class _DashboardContentState extends State<DashboardContent>
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            cat.key,
+                            _getTranslatedCategory(context, cat.key),
                             style: AppTypography.bodySmall(),
                           ),
                         ),
@@ -1303,7 +1412,7 @@ class _DashboardContentState extends State<DashboardContent>
     );
   }
 
-  Widget _buildEmptyChart() {
+  Widget _buildEmptyChart(AppLocalizations s) {
     return Container(
       height: 120,
       decoration: BoxDecoration(
@@ -1317,7 +1426,7 @@ class _DashboardContentState extends State<DashboardContent>
             Icon(Icons.donut_large_rounded, size: 32, color: AppColors.gray300),
             const SizedBox(height: 8),
             Text(
-              'Registra gastos para ver el desglose',
+              s.emptyTopExpenses,
               style: AppTypography.bodySmall(
                 color: AppColors.textTertiaryLight,
               ),
@@ -1332,12 +1441,22 @@ class _DashboardContentState extends State<DashboardContent>
   // GRÁFICO INGRESOS VS GASTOS — últimos 6 meses (RF-28)
   // ============================================
   Widget _buildIncomeExpenseChart(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
-        final all = state is TransactionsLoaded
-            ? state.transactions
-            : <TransactionEntity>[];
-        final data = _last6MonthsData(all);
+        // Usar datos del servidor (todos los meses) si están disponibles;
+        // si no, fallback a los 100 txs cargados (podrían estar incompletos).
+        final data =
+            _monthlySummary ??
+            _last6MonthsData(
+              state is TransactionsLoaded ? state.transactions : [],
+            );
+        // Refrescar datos del servidor cuando cambia el estado de transacciones
+        if (state is TransactionsLoaded && _monthlySummary == null) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _fetchMonthlySummary(),
+          );
+        }
         final maxVal = data.fold(
           0.0,
           (m, d) => math.max(m, math.max(d.income, d.expense)),
@@ -1357,7 +1476,7 @@ class _DashboardContentState extends State<DashboardContent>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Ingresos vs Gastos',
+                    '${s.incomes} vs ${s.expense}',
                     style: AppTypography.titleMedium(),
                   ),
                   Row(
@@ -1365,7 +1484,7 @@ class _DashboardContentState extends State<DashboardContent>
                       _buildLegendDot(AppColors.success),
                       const SizedBox(width: 4),
                       Text(
-                        'Ingresos',
+                        s.incomes,
                         style: AppTypography.badge(
                           color: AppColors.textTertiaryLight,
                         ),
@@ -1374,7 +1493,7 @@ class _DashboardContentState extends State<DashboardContent>
                       _buildLegendDot(AppColors.error),
                       const SizedBox(width: 4),
                       Text(
-                        'Gastos',
+                        s.expenses,
                         style: AppTypography.badge(
                           color: AppColors.textTertiaryLight,
                         ),
@@ -1402,7 +1521,7 @@ class _DashboardContentState extends State<DashboardContent>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Registra transacciones para ver el gráfico',
+                        s.registerTransactions,
                         style: AppTypography.bodySmall(
                           color: AppColors.textTertiaryLight,
                         ),
@@ -1467,7 +1586,7 @@ class _DashboardContentState extends State<DashboardContent>
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  d.label,
+                                  _getMonthAbbr(s, d.monthNumber),
                                   style: AppTypography.badge(
                                     color: AppColors.textTertiaryLight,
                                   ),
@@ -1516,6 +1635,7 @@ class _DashboardContentState extends State<DashboardContent>
   // GASTOS RECURRENTES — próximos 7 días (RF-28)
   // ============================================
   Widget _buildRecurringExpenses(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
         final all = state is TransactionsLoaded
@@ -1535,7 +1655,7 @@ class _DashboardContentState extends State<DashboardContent>
             children: [
               Row(
                 children: [
-                  Text('Próximos gastos', style: AppTypography.titleMedium()),
+                  Text(s.nextExpenses, style: AppTypography.titleMedium()),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -1547,7 +1667,7 @@ class _DashboardContentState extends State<DashboardContent>
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '7 días',
+                      '7 ${s.days}',
                       style: AppTypography.badge(color: AppColors.warningDark),
                     ),
                   ),
@@ -1571,14 +1691,14 @@ class _DashboardContentState extends State<DashboardContent>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Sin gastos recurrentes próximos',
+                        s.withoutRecurringExpenses,
                         style: AppTypography.bodySmall(
                           color: AppColors.textTertiaryLight,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Los pagos recurrentes aparecerán aquí\ncuando se aproxime su vencimiento',
+                        s.recurringTimeLeft,
                         textAlign: TextAlign.center,
                         style: AppTypography.badge(
                           color: AppColors.textTertiaryLight,
@@ -1588,7 +1708,7 @@ class _DashboardContentState extends State<DashboardContent>
                   ),
                 )
               else
-                ...recurring.map((r) => _buildRecurringTile(r)),
+                ...recurring.map((r) => _buildRecurringTile(r, context)),
             ],
           ),
         );
@@ -1596,13 +1716,14 @@ class _DashboardContentState extends State<DashboardContent>
     );
   }
 
-  Widget _buildRecurringTile(Map<String, dynamic> r) {
+  Widget _buildRecurringTile(Map<String, dynamic> r, BuildContext context) {
+    final s = AppLocalizations.of(context);
     final daysUntil = r['daysUntil'] as int;
     final label = daysUntil == 0
-        ? 'Hoy'
+        ? s.today
         : daysUntil == 1
-        ? 'Mañana'
-        : 'En $daysUntil días';
+        ? s.tomorrow
+        : '${s.inDays} $daysUntil ${s.days}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1659,6 +1780,7 @@ class _DashboardContentState extends State<DashboardContent>
   // ============================================
 
   Widget _buildAiPredictionsCard(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -1702,12 +1824,12 @@ class _DashboardContentState extends State<DashboardContent>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Predicciones IA',
+                    s.predictionsAI,
                     style: AppTypography.titleSmall(color: Colors.white),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Gastos del próximo mes y\nrecomendaciones de ahorro',
+                    s.subtitleAI,
                     style: AppTypography.bodySmall(
                       color: Colors.white.withValues(alpha: 0.85),
                     ),
@@ -1732,6 +1854,7 @@ class _DashboardContentState extends State<DashboardContent>
   // ============================================
 
   Widget _buildAssistantCard(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -1775,12 +1898,12 @@ class _DashboardContentState extends State<DashboardContent>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Asistente Finn',
+                    s.finnAsisstant,
                     style: AppTypography.titleSmall(color: Colors.white),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '¿En qué puedo ayudarte hoy?\nPregúntame lo que quieras',
+                    s.subtitleFinn,
                     style: AppTypography.bodySmall(
                       color: Colors.white.withValues(alpha: 0.85),
                     ),
@@ -1803,6 +1926,7 @@ class _DashboardContentState extends State<DashboardContent>
   // MONTHLY OVERVIEW (RF-28: mes actual + comparativa)
   // ============================================
   Widget _buildMonthlyOverview(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return BlocBuilder<TransactionBloc, TransactionState>(
       builder: (context, state) {
         final all = state is TransactionsLoaded
@@ -1839,7 +1963,7 @@ class _DashboardContentState extends State<DashboardContent>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Resumen del mes', style: AppTypography.titleMedium()),
+                  Text(s.monthlySummary, style: AppTypography.titleMedium()),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -1850,7 +1974,7 @@ class _DashboardContentState extends State<DashboardContent>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      _currentMonthLabel(),
+                      _currentMonthLabel(s),
                       style: AppTypography.labelSmall(color: AppColors.primary),
                     ),
                   ),
@@ -1862,7 +1986,7 @@ class _DashboardContentState extends State<DashboardContent>
                   Expanded(
                     child: _buildSummaryTile(
                       icon: Icons.south_west_rounded,
-                      label: 'Ingresos',
+                      label: s.incomes,
                       value: _formatCurrency(income),
                       color: AppColors.success,
                       badgeWidget: _buildComparisonBadge(
@@ -1876,7 +2000,7 @@ class _DashboardContentState extends State<DashboardContent>
                   Expanded(
                     child: _buildSummaryTile(
                       icon: Icons.north_east_rounded,
-                      label: 'Gastos',
+                      label: s.expenses,
                       value: _formatCurrency(expenses),
                       color: AppColors.error,
                       badgeWidget: _buildComparisonBadge(
@@ -1890,7 +2014,7 @@ class _DashboardContentState extends State<DashboardContent>
                   Expanded(
                     child: _buildSummaryTile(
                       icon: Icons.savings_outlined,
-                      label: 'Ahorro',
+                      label: s.saving,
                       value: _formatCurrency(savings),
                       color: savings >= 0
                           ? AppColors.accent
@@ -1904,9 +2028,9 @@ class _DashboardContentState extends State<DashboardContent>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Progreso de gasto', style: AppTypography.bodySmall()),
+                    Text(s.expenseProgress, style: AppTypography.bodySmall()),
                     Text(
-                      '${(expenses / income * 100).clamp(0, 999).toStringAsFixed(0)}% de ingresos',
+                      '${(expenses / income * 100).clamp(0, 999).toStringAsFixed(0)}% ${s.ofIncome}',
                       style: AppTypography.badge(
                         color: (expenses / income) > 0.9
                             ? AppColors.error
@@ -2003,20 +2127,20 @@ class _DashboardContentState extends State<DashboardContent>
     );
   }
 
-  String _currentMonthLabel() {
-    const months = [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
+  String _currentMonthLabel(AppLocalizations s) {
+    final months = [
+      s.january,
+      s.february,
+      s.march,
+      s.april,
+      s.may,
+      s.june,
+      s.july,
+      s.august,
+      s.september,
+      s.october,
+      s.november,
+      s.december,
     ];
     final now = DateTime.now();
     return '${months[now.month - 1]} ${now.year}';
@@ -2025,13 +2149,14 @@ class _DashboardContentState extends State<DashboardContent>
   // ============================================
   // UTILS
   // ============================================
-  String _formatRelativeDate(DateTime date) {
+  String _formatRelativeDate(DateTime date, BuildContext context) {
+    final s = AppLocalizations.of(context);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final d = DateTime(date.year, date.month, date.day);
-    if (d == today) return 'Hoy';
-    if (d == yesterday) return 'Ayer';
+    if (d == today) return s.today;
+    if (d == yesterday) return s.yesterday;
     const m = [
       'Ene',
       'Feb',
@@ -2115,13 +2240,7 @@ class _GoalsSectionContent extends StatelessWidget {
   const _GoalsSectionContent();
 
   String _formatCurrency(double amount) {
-    final abs = amount.abs();
-    if (abs >= 1000000) {
-      return '${(abs / 1000000).toStringAsFixed(1)}M€';
-    } else if (abs >= 1000) {
-      return '${(abs / 1000).toStringAsFixed(1)}k€';
-    }
-    return '${abs.toStringAsFixed(2)}€';
+    return CurrencyService().formatCompact(amount);
   }
 
   Color _progressColor(String hexColor) {
@@ -2148,6 +2267,7 @@ class _GoalsSectionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return BlocBuilder<GoalBloc, GoalState>(
       builder: (context, state) {
         if (state is GoalLoading || state is GoalInitial) {
@@ -2169,7 +2289,7 @@ class _GoalsSectionContent extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  'No se pudieron cargar los objetivos',
+                  s.objectiveLoadFailure,
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -2199,6 +2319,7 @@ class _GoalsSectionContent extends StatelessWidget {
   }
 
   Widget _buildCard(BuildContext context, {required Widget child}) {
+    final s = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -2212,7 +2333,7 @@ class _GoalsSectionContent extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Objetivos de ahorro', style: AppTypography.titleMedium()),
+              Text(s.savingsGoals, style: AppTypography.titleMedium()),
               TextButton(
                 onPressed: () => Navigator.push(
                   context,
@@ -2226,7 +2347,7 @@ class _GoalsSectionContent extends StatelessWidget {
                   minimumSize: Size.zero,
                 ),
                 child: Text(
-                  'Ver todos',
+                  s.seeAll,
                   style: AppTypography.labelSmall(color: AppColors.primary),
                 ),
               ),
@@ -2240,6 +2361,7 @@ class _GoalsSectionContent extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -2258,16 +2380,8 @@ class _GoalsSectionContent extends StatelessWidget {
             Icon(Icons.savings_outlined, size: 36, color: AppColors.primary),
             const SizedBox(height: 8),
             Text(
-              'Crea tu primer objetivo',
+              s.createFirstGoal,
               style: AppTypography.labelMedium(color: AppColors.primary),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Define metas de ahorro y haz seguimiento\ncon análisis de IA',
-              textAlign: TextAlign.center,
-              style: AppTypography.bodySmall(
-                color: AppColors.textTertiaryLight,
-              ),
             ),
           ],
         ),
@@ -2276,13 +2390,16 @@ class _GoalsSectionContent extends StatelessWidget {
   }
 
   Widget _buildGoalRow(BuildContext context, SavingsGoalEntity goal) {
+    final s = AppLocalizations.of(context);
     final barColor = _barColor(goal.progressColor);
     final iconColor = _progressColor(goal.color);
     final progress = goal.percentageDecimal.clamp(0.0, 1.0);
 
     return GestureDetector(
       onTap: () {
-        final bloc = di.sl<GoalBloc>();
+        // Reutilizar el mismo GoalBloc del dashboard para que ContributionAdded
+        // y LoadGoals actualicen también el dashboard en tiempo real.
+        final bloc = context.read<GoalBloc>();
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -2291,7 +2408,10 @@ class _GoalsSectionContent extends StatelessWidget {
               child: GoalDetailPage(goal: goal),
             ),
           ),
-        );
+        ).then((_) {
+          // Al volver del detalle, recargar objetivos para reflejar el progreso.
+          if (!bloc.isClosed) bloc.add(const LoadGoals());
+        });
       },
       child: Padding(
         padding: const EdgeInsets.only(bottom: 14),
@@ -2330,7 +2450,7 @@ class _GoalsSectionContent extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        '${_formatCurrency(goal.currentAmount)} de ${_formatCurrency(goal.targetAmount)}',
+                        '${_formatCurrency(goal.currentAmount)} ${s.ofText} ${_formatCurrency(goal.targetAmount)}',
                         style: AppTypography.bodySmall(
                           color: AppColors.textTertiaryLight,
                         ),

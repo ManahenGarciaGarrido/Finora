@@ -50,6 +50,8 @@ class ApiEndpoints {
   static const String transactions = '/transactions';
   static String transactionById(String id) => '/transactions/$id';
   static const String searchTransactions = '/transactions/search';
+  static const String monthlySummary = '/transactions/monthly-summary';
+  static const String transactionAnalytics = '/transactions/analytics';
   static const String filterTransactions = '/transactions/filter';
   static const String syncOfflineTransactions = '/transactions/sync';
 
@@ -99,6 +101,8 @@ class ApiEndpoints {
   static String addContribution(String goalId) =>
       '/goals/$goalId/contributions';
   static String goalProgress(String goalId) => '/goals/$goalId/progress';
+  static String goalContributionAdvice(String goalId) =>
+      '/goals/$goalId/advice';
   static const String goalRecommendations = '/goals/recommendations';
 
   // RF-22 / HU-09: Predicción de gastos ML (backend → finora-ai)
@@ -113,6 +117,8 @@ class ApiEndpoints {
   static const String detectSubscriptions = '/ai/subscriptions';
   // RF-25 / HU-12 / CU-04: Asistente conversacional IA
   static const String aiChat = '/ai/chat';
+  // Snapshot financiero para contexto Gemini
+  static const String aiContext = '/ai/context';
   // RF-26 / HU-13: Análisis de affordability "¿Puedo permitírmelo?"
   static const String aiAffordability = '/ai/affordability';
   // RF-27 / HU-14: Recomendaciones de optimización financiera
@@ -141,6 +147,9 @@ class ApiEndpoints {
   static const String exportCsv = '/export/csv';
   static const String exportPdf = '/export/pdf';
   static const String shareExport = '/export/share';
+
+  // Currency exchange rates
+  static const String currencyRates = '/currency/rates';
 
   // Settings endpoints
   static const String settings = '/settings';

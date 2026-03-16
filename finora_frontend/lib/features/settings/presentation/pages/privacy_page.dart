@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
@@ -62,7 +63,10 @@ class _PrivacyPageState extends State<PrivacyPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Privacidad y Datos'), elevation: 0),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).privacyAndData),
+        elevation: 0,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -94,24 +98,25 @@ class _PrivacyPageState extends State<PrivacyPage> {
               children: [
                 Icon(Icons.shield, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 8),
-                const Text(
-                  'Cumplimiento GDPR',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  AppLocalizations.of(context).gdprCompliance,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Finora cumple con el Reglamento General de Protección de Datos (GDPR) '
-              'de la Unión Europea. Tus datos están protegidos y tienes control total '
-              'sobre ellos.',
-              style: TextStyle(fontSize: 14),
+            Text(
+              AppLocalizations.of(context).gdprComplianceDesc,
+              style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _showPrivacyPolicy,
               icon: const Icon(Icons.description),
-              label: const Text('Ver Política de Privacidad'),
+              label: Text(AppLocalizations.of(context).viewPrivacyPolicy),
             ),
           ],
         ),
@@ -126,20 +131,23 @@ class _PrivacyPageState extends State<PrivacyPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.check_circle_outline),
-                SizedBox(width: 8),
+                const Icon(Icons.check_circle_outline),
+                const SizedBox(width: 8),
                 Text(
-                  'Gestión de Consentimientos',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  AppLocalizations.of(context).consentManagement,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Controla qué datos recopilamos y cómo los usamos.',
-              style: TextStyle(color: Colors.grey),
+            Text(
+              AppLocalizations.of(context).consentManagementSubtitle,
+              style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
             ...ConsentType.values.map((type) => _buildConsentTile(type)),
@@ -148,7 +156,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _saveConsents,
-                child: const Text('Guardar Preferencias'),
+                child: Text(AppLocalizations.of(context).savePreferences),
               ),
             ),
           ],
@@ -186,10 +194,13 @@ class _PrivacyPageState extends State<PrivacyPage> {
                   });
                 },
           secondary: type.isRequired
-              ? const Chip(
-                  label: Text('Requerido', style: TextStyle(fontSize: 10)),
+              ? Chip(
+                  label: Text(
+                    AppLocalizations.of(context).required,
+                    style: const TextStyle(fontSize: 10),
+                  ),
                   backgroundColor: Colors.orange,
-                  labelStyle: TextStyle(color: Colors.white),
+                  labelStyle: const TextStyle(color: Colors.white),
                 )
               : null,
         ),
@@ -205,40 +216,43 @@ class _PrivacyPageState extends State<PrivacyPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.gavel),
-                SizedBox(width: 8),
+                const Icon(Icons.gavel),
+                const SizedBox(width: 8),
                 Text(
-                  'Tus Derechos GDPR',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  AppLocalizations.of(context).gdprRights,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             _buildRightTile(
               icon: Icons.download,
-              title: 'Derecho de Acceso',
-              subtitle: 'Obtén una copia de todos tus datos',
+              title: AppLocalizations.of(context).rightOfAccess,
+              subtitle: AppLocalizations.of(context).rightOfAccessDesc,
               onTap: _exportUserData,
             ),
             _buildRightTile(
               icon: Icons.edit,
-              title: 'Derecho de Rectificación',
               // TODO: Implementar navegación a editar perfil
-              subtitle: 'Corrige datos inexactos (próximamente)',
+              title: AppLocalizations.of(context).rightOfRectification,
+              subtitle: AppLocalizations.of(context).rightOfRectificationDesc,
               onTap: _navigateToProfile,
             ),
             _buildRightTile(
               icon: Icons.history,
-              title: 'Historial de Consentimientos',
-              subtitle: 'Consulta los cambios en tus preferencias',
+              title: AppLocalizations.of(context).consentHistoryTitle,
+              subtitle: AppLocalizations.of(context).consentHistoryDesc,
               onTap: _showConsentHistory,
             ),
             _buildRightTile(
               icon: Icons.info_outline,
-              title: 'Información de Tratamiento',
-              subtitle: 'Conoce cómo procesamos tus datos',
+              title: AppLocalizations.of(context).dataProcessingInfoTitle,
+              subtitle: AppLocalizations.of(context).dataProcessingInfoDesc,
               onTap: _showDataProcessingInfo,
             ),
           ],
@@ -275,7 +289,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 Icon(Icons.warning, color: Colors.red.shade700),
                 const SizedBox(width: 8),
                 Text(
-                  'Zona de Peligro',
+                  AppLocalizations.of(context).dangerZone,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -285,9 +299,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
               ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Estas acciones son irreversibles. Procede con precaución.',
-              style: TextStyle(color: Colors.red),
+            Text(
+              AppLocalizations.of(context).dangerZoneDesc,
+              style: const TextStyle(color: Colors.red),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -295,9 +309,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
               child: OutlinedButton.icon(
                 onPressed: _confirmDeleteAccount,
                 icon: const Icon(Icons.delete_forever, color: Colors.red),
-                label: const Text(
-                  'Eliminar mi cuenta',
-                  style: TextStyle(color: Colors.red),
+                label: Text(
+                  AppLocalizations.of(context).deleteMyAccount,
+                  style: const TextStyle(color: Colors.red),
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.red),
@@ -326,9 +340,12 @@ class _PrivacyPageState extends State<PrivacyPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Política de Privacidad',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Text(
+                    AppLocalizations.of(context).privacyPolicyTitle,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -365,8 +382,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
 
       if (response.statusCode == 200 && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Preferencias guardadas correctamente'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).preferencesSavedSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -375,7 +392,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al guardar preferencias: $e'),
+            content: Text('${AppLocalizations.of(context).error}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -387,38 +404,35 @@ class _PrivacyPageState extends State<PrivacyPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Exportar mis datos'),
-        content: const Column(
+        title: Text(AppLocalizations.of(context).exportMyData),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(AppLocalizations.of(context).exportDataDesc),
+            const SizedBox(height: 16),
             Text(
-              'Se generará un archivo con todos tus datos personales '
-              'según el Artículo 20 del GDPR (Derecho de Portabilidad).',
+              AppLocalizations.of(context).exportDataIncludesLabel,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
-            Text(
-              'El archivo incluirá:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text('- Información personal'),
-            Text('- Historial de consentimientos'),
-            Text('- Transacciones financieras'),
-            Text('- Categorías personalizadas'),
+            const SizedBox(height: 8),
+            Text(AppLocalizations.of(context).exportDataItem1),
+            Text(AppLocalizations.of(context).exportDataItem2),
+            Text(AppLocalizations.of(context).exportDataItem3),
+            Text(AppLocalizations.of(context).exportDataItem4),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
               await _performExport();
             },
-            child: const Text('Exportar'),
+            child: Text(AppLocalizations.of(context).exportData),
           ),
         ],
       ),
@@ -441,7 +455,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al exportar datos: $e'),
+            content: Text('${AppLocalizations.of(context).errorExportingData}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -457,11 +471,11 @@ class _PrivacyPageState extends State<PrivacyPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 8),
-            Text('Datos Exportados'),
+            const Icon(Icons.check_circle, color: Colors.green),
+            const SizedBox(width: 8),
+            Text(AppLocalizations.of(context).dataExportedTitle),
           ],
         ),
         content: SingleChildScrollView(
@@ -469,19 +483,21 @@ class _PrivacyPageState extends State<PrivacyPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Resumen de tus datos:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                AppLocalizations.of(context).dataSummary,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              Text('Nombre: ${personalData?['name'] ?? 'N/A'}'),
+              Text('${AppLocalizations.of(context).nameLabel}: ${personalData?['name'] ?? 'N/A'}'),
               Text('Email: ${personalData?['email'] ?? 'N/A'}'),
-              Text('Transacciones: $totalTransactions'),
-              Text('Registro: ${_formatDate(personalData?['registrationDate'])}'),
+              Text('${AppLocalizations.of(context).transactionsLabel}: $totalTransactions'),
+              Text(
+                '${AppLocalizations.of(context).registrationDateLabel}: ${_formatDate(personalData?['registrationDate'])}',
+              ),
               const SizedBox(height: 16),
-              const Text(
-                'Los datos completos en formato JSON han sido generados correctamente.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Text(
+                AppLocalizations.of(context).exportResultNote,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
           ),
@@ -489,7 +505,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cerrar'),
+            child: Text(AppLocalizations.of(context).close),
           ),
         ],
       ),
@@ -509,8 +525,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
   // TODO: Implementar navegación a editar perfil cuando esté disponible
   void _navigateToProfile() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Edición de perfil: próximamente'),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).editProfileComingSoon),
         backgroundColor: Colors.orange,
       ),
     );
@@ -540,9 +556,12 @@ class _PrivacyPageState extends State<PrivacyPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Información de Tratamiento',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Text(
+                    AppLocalizations.of(context).dataProcessingInfoTitle,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -573,40 +592,33 @@ class _PrivacyPageState extends State<PrivacyPage> {
           children: [
             Icon(Icons.warning, color: Colors.red.shade700),
             const SizedBox(width: 8),
-            const Text('Eliminar Cuenta'),
+            Text(AppLocalizations.of(context).deleteAccountConfirmTitle),
           ],
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '¿Estás seguro de que deseas eliminar tu cuenta?',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              AppLocalizations.of(context).deleteAccountWarningTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
-              'Esta acción es IRREVERSIBLE y eliminará PERMANENTEMENTE:',
-              style: TextStyle(color: Colors.red),
+              AppLocalizations.of(context).deleteAccountWarningItems,
+              style: const TextStyle(color: Colors.red),
             ),
-            SizedBox(height: 8),
-            Text('- Toda tu información personal'),
-            Text('- Historial de transacciones'),
-            Text('- Categorías personalizadas'),
-            Text('- Registros de consentimiento'),
-            Text('- Historial de consentimientos'),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
-              'Según el Artículo 17 del GDPR (Derecho al Olvido), '
-              'todos tus datos serán eliminados de nuestros servidores.',
-              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+              AppLocalizations.of(context).deleteAccountGdprNote,
+              style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -617,7 +629,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Continuar'),
+            child: Text(AppLocalizations.of(context).next),
           ),
         ],
       ),
@@ -631,27 +643,25 @@ class _PrivacyPageState extends State<PrivacyPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirmar Eliminación'),
+        title: Text(AppLocalizations.of(context).confirmDeletionTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Para confirmar, escribe "ELIMINAR" en el campo de abajo:',
-            ),
+            Text(AppLocalizations.of(context).deleteConfirmInstruction),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
-              decoration: const InputDecoration(
-                hintText: 'Escribe ELIMINAR',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: AppLocalizations.of(context).deleteConfirmHint,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'Razón para eliminar (opcional)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: AppLocalizations.of(context).deleteReasonHint,
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
@@ -660,7 +670,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -669,8 +679,10 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 await _performDeleteAccount(reasonController.text);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Escribe "ELIMINAR" para confirmar'),
+                  SnackBar(
+                    content: Text(
+                      AppLocalizations.of(context).typeDeleteToConfirmError,
+                    ),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -680,7 +692,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Eliminar Definitivamente'),
+            child: Text(AppLocalizations.of(context).deleteDefinitely),
           ),
         ],
       ),
@@ -693,14 +705,16 @@ class _PrivacyPageState extends State<PrivacyPage> {
         ApiEndpoints.gdprDeleteAccount,
         data: {
           'confirmDeletion': 'DELETE_MY_ACCOUNT',
-          'reason': reason.isNotEmpty ? reason : 'No especificada',
+          'reason': reason.isNotEmpty ? reason : AppLocalizations.of(context).reasonOptionalHint,
         },
       );
 
       if (response.statusCode == 200 && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cuenta eliminada permanentemente. Gracias por usar Finora.'),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).accountPermanentlyDeleted,
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -717,7 +731,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al eliminar la cuenta: $e'),
+            content: Text('${AppLocalizations.of(context).errorDeletingAccount}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -748,7 +762,9 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
 
   Future<void> _loadHistory() async {
     try {
-      final response = await widget.apiClient.get(ApiEndpoints.gdprConsentHistory);
+      final response = await widget.apiClient.get(
+        ApiEndpoints.gdprConsentHistory,
+      );
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
         setState(() {
@@ -763,33 +779,35 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
     setState(() => _loading = false);
   }
 
-  String _consentTypeName(String type) {
+  String _consentTypeName(BuildContext ctx, String type) {
+    final s = AppLocalizations.of(ctx);
     switch (type) {
       case 'essential':
-        return 'Datos esenciales';
+        return s.consentTypeEssential;
       case 'analytics':
-        return 'Análisis';
+        return s.consentTypeAnalytics;
       case 'marketing':
-        return 'Marketing';
+        return s.consentTypeMarketing;
       case 'third_party':
-        return 'Terceros';
+        return s.consentTypeThirdParty;
       case 'personalization':
-        return 'Personalización';
+        return s.consentTypePersonalization;
       case 'data_processing':
-        return 'Procesamiento datos';
+        return s.consentTypeDataProcessing;
       default:
         return type;
     }
   }
 
-  String _actionName(String action) {
+  String _actionName(BuildContext ctx, String action) {
+    final s = AppLocalizations.of(ctx);
     switch (action) {
       case 'INITIAL_REGISTRATION':
-        return 'Registro inicial';
+        return s.actionInitialRegistration;
       case 'CONSENT_UPDATED':
-        return 'Actualizado';
+        return s.actionConsentUpdated;
       case 'CONSENT_WITHDRAWN':
-        return 'Retirado';
+        return s.actionConsentWithdrawn;
       default:
         return action;
     }
@@ -819,9 +837,12 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Historial de Consentimientos',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                Text(
+                  AppLocalizations.of(context).consentHistoryTitle,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -834,11 +855,11 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
           if (_loading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (_history.isEmpty)
-            const Expanded(
+            Expanded(
               child: Center(
                 child: Text(
-                  'No hay cambios registrados en tus preferencias.',
-                  style: TextStyle(color: Colors.grey),
+                  AppLocalizations.of(context).noConsentChanges,
+                  style: const TextStyle(color: Colors.grey),
                 ),
               ),
             )
@@ -857,12 +878,14 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
                       granted ? Icons.check_circle : Icons.cancel,
                       color: granted ? Colors.green : Colors.red,
                     ),
-                    title: Text(_consentTypeName(entry['consentType'] ?? '')),
+                    title: Text(_consentTypeName(context, entry['consentType'] ?? '')),
                     subtitle: Text(
-                      '${_actionName(entry['action'] ?? '')} - ${_formatTimestamp(entry['timestamp'])}',
+                      '${_actionName(context, entry['action'] ?? '')} - ${_formatTimestamp(entry['timestamp'])}',
                     ),
                     trailing: Text(
-                      granted ? 'Aceptado' : 'Rechazado',
+                      granted
+                          ? AppLocalizations.of(context).acceptedStatus
+                          : AppLocalizations.of(context).rejectedStatus,
                       style: TextStyle(
                         color: granted ? Colors.green : Colors.red,
                         fontWeight: FontWeight.w600,

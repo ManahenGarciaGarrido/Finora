@@ -57,6 +57,11 @@ services:
     environment:
       FLASK_ENV: production
       PORT: 5001
+      # RF-25 / HU-12: Asistente conversacional con Gemini
+      # Para activar Gemini, descomenta la línea siguiente y pega tu clave de API.
+      # Obtener clave gratis en: https://aistudio.google.com/app/apikey
+      # Sin clave → el chat usa el motor de respuestas basado en reglas (sin LLM).
+      # GEMINI_API_KEY: "pega_aquí_tu_clave_de_gemini"
     ports:
       - "5001:5001"
     volumes:
@@ -123,7 +128,7 @@ services:
       EMAIL_FROM: noreply@finora.com
 
       # ── URLs ─────────────────────────────────────────────────────────────
-      APP_URL: http://192.168.100.88:3000
+      APP_URL: http://192.168.1.21:3000
       FRONTEND_URL: http://localhost:8080
       ALLOWED_ORIGINS: "*"
 

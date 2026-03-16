@@ -1,33 +1,23 @@
-/// Página de Onboarding — RNF-10
-///
-/// RNF-10: Curva de aprendizaje
-///  - Onboarding intuitivo y breve (< 1 minuto)
-///  - 4 pantallas que explican las funciones clave de Finora
-///  - Primera transacción accesible en < 2 minutos desde instalación
-///  - Opción de saltar onboarding
-///  - Diseño auto-explicativo con ilustraciones y textos claros
 library;
 
+import 'package:finora_frontend/features/authentication/presentation/pages/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/l10n/app_localizations.dart';
 
-/// RNF-10: Flujo de bienvenida para nuevos usuarios.
 class OnboardingPage extends StatefulWidget {
-  /// Callback llamado cuando el usuario completa o salta el onboarding.
   final VoidCallback onComplete;
 
   const OnboardingPage({super.key, required this.onComplete});
 
-  /// Comprueba si el onboarding ya fue completado.
   static Future<bool> isCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('onboarding_completed') ?? false;
   }
 
-  /// Marca el onboarding como completado.
   static Future<void> markCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
@@ -41,50 +31,43 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final _pageController = PageController();
   int _currentPage = 0;
 
-  // ── Definición de pantallas ────────────────────────────────────────────────
-
-  static const _pages = [
-    _OnboardingData(
-      icon: Icons.account_balance_wallet_rounded,
-      iconColor: AppColors.primary,
-      bgColor: AppColors.primarySoft,
-      title: 'Bienvenido a Finora',
-      subtitle: 'Tu gestor financiero personal inteligente',
-      description:
-          'Controla tus ingresos, gastos y objetivos de ahorro en un solo lugar. '
-          'Finora te ayuda a tomar mejores decisiones financieras con la ayuda de IA.',
-    ),
-    _OnboardingData(
-      icon: Icons.add_circle_rounded,
-      iconColor: AppColors.success,
-      bgColor: AppColors.successSoft,
-      title: 'Registra transacciones fácilmente',
-      subtitle: 'Manual o conectando tu banco',
-      description:
-          'Añade gastos e ingresos en segundos. Conecta tu cuenta bancaria para '
-          'sincronización automática. La IA categoriza cada transacción por ti.',
-    ),
-    _OnboardingData(
-      icon: Icons.insights_rounded,
-      iconColor: AppColors.info,
-      bgColor: AppColors.infoSoft,
-      title: 'Visualiza tus finanzas',
-      subtitle: 'Gráficos interactivos y predicciones',
-      description:
-          'Analiza tus gastos por categoría, visualiza tendencias temporales y '
-          'recibe predicciones de tus gastos del próximo mes con machine learning.',
-    ),
-    _OnboardingData(
-      icon: Icons.savings_rounded,
-      iconColor: AppColors.savings,
-      bgColor: Color(0xFFEDE9FE),
-      title: 'Alcanza tus metas',
-      subtitle: 'Objetivos de ahorro con recomendaciones IA',
-      description:
-          'Crea objetivos de ahorro con fechas límite y visualiza tu progreso. '
-          'El asistente de IA te da recomendaciones personalizadas para ahorrar más.',
-    ),
-  ];
+  // Generamos la lista de páginas dinámicamente para usar las traducciones
+  List<_OnboardingData> _getPages(AppLocalizations s) {
+    return [
+      _OnboardingData(
+        icon: Icons.account_balance_wallet_rounded,
+        iconColor: AppColors.primary,
+        bgColor: AppColors.primarySoft,
+        title: s.onboardingStep1Title,
+        subtitle: s.onboardingStep1Subtitle,
+        description: s.onboardingStep1Description,
+      ),
+      _OnboardingData(
+        icon: Icons.add_circle_rounded,
+        iconColor: AppColors.success,
+        bgColor: AppColors.successSoft,
+        title: s.onboardingStep2Title,
+        subtitle: s.onboardingStep2Subtitle,
+        description: s.onboardingStep2Description,
+      ),
+      _OnboardingData(
+        icon: Icons.insights_rounded,
+        iconColor: AppColors.info,
+        bgColor: AppColors.infoSoft,
+        title: s.onboardingStep3Title,
+        subtitle: s.onboardingStep3Subtitle,
+        description: s.onboardingStep3Description,
+      ),
+      _OnboardingData(
+        icon: Icons.savings_rounded,
+        iconColor: const Color(0xFF7C3AED),
+        bgColor: const Color(0xFFEDE9FE),
+        title: s.onboardingStep4Title,
+        subtitle: s.onboardingStep4Subtitle,
+        description: s.onboardingStep4Description,
+      ),
+    ];
+  }
 
   @override
   void dispose() {
@@ -92,8 +75,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.dispose();
   }
 
-  void _next() {
-    if (_currentPage < _pages.length - 1) {
+  void _next(int totalPages) {
+    if (_currentPage < totalPages - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
@@ -105,71 +88,72 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _complete() async {
     await OnboardingPage.markCompleted();
+    if (!mounted) return;
+
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
+
     widget.onComplete();
   }
 
-  // ── UI ─────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    final pages = _getPages(s);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Botón saltar
             Align(
               alignment: Alignment.topRight,
               child: Padding(
                 padding: const EdgeInsets.only(top: 8, right: 16),
                 child: Semantics(
                   button: true,
-                  label: 'Saltar introducción',
+                  label: s.skipIntroductionSemantics,
                   child: TextButton(
                     onPressed: _complete,
                     child: Text(
-                      'Saltar',
+                      s.skipButton,
                       style: AppTypography.bodyMedium(color: AppColors.gray400),
                     ),
                   ),
                 ),
               ),
             ),
-
-            // Páginas
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
                 onPageChanged: (i) => setState(() => _currentPage = i),
-                itemCount: _pages.length,
-                itemBuilder: (_, i) => _buildPage(_pages[i]),
+                itemCount: pages.length,
+                itemBuilder: (_, i) => _buildPage(pages[i]),
               ),
             ),
-
-            // Indicadores de punto
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_pages.length, (i) => _buildDot(i)),
+              children: List.generate(pages.length, (i) => _buildDot(i)),
             ),
             const SizedBox(height: 24),
-
-            // Botón siguiente / empezar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: FilledButton(
-                  onPressed: _next,
+                  onPressed: () => _next(pages.length),
                   style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   child: Text(
-                    _currentPage < _pages.length - 1
-                        ? 'Siguiente'
-                        : '¡Empezar ahora!',
+                    _currentPage < pages.length - 1
+                        ? s.nextButton
+                        : s.startNowButton,
                     style: AppTypography.button(color: Colors.white),
                   ),
                 ),
@@ -188,7 +172,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Ilustración / ícono
           Container(
             width: 140,
             height: 140,
@@ -199,24 +182,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
             child: Icon(page.icon, color: page.iconColor, size: 72),
           ),
           const SizedBox(height: 40),
-
-          // Título
           Text(
             page.title,
             style: AppTypography.headlineMedium(),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-
-          // Subtítulo
           Text(
             page.subtitle,
             style: AppTypography.titleSmall(color: page.iconColor),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
-
-          // Descripción
           Text(
             page.description,
             style: AppTypography.bodyMedium(color: AppColors.gray600),
@@ -242,8 +219,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 }
-
-// ── Modelo de datos de página ──────────────────────────────────────────────────
 
 class _OnboardingData {
   final IconData icon;

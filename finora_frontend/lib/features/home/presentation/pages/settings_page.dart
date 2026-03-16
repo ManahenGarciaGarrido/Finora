@@ -7,6 +7,8 @@
 library;
 
 import 'dart:math' as math;
+import 'package:finora_frontend/features/home/presentation/pages/change_password_page.dart';
+import 'package:finora_frontend/features/home/presentation/pages/edit_profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -16,6 +18,7 @@ import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/security/biometric_service.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
@@ -41,13 +44,25 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _biometricLoading = false;
   String _biometricLabel = 'Huella dactilar';
 
-  // RNF-13: Idioma seleccionado
-  String _selectedLocale = 'es'; // 'es' | 'en'
-
   @override
   void initState() {
     super.initState();
     _loadBiometricStatus();
+  }
+
+  String _translateLabel(BuildContext context, String label) {
+    final s = AppLocalizations.of(context);
+
+    switch (label.toLowerCase()) {
+      case 'huella dactilar':
+        return s.biometricFingerprint;
+      case 'face id':
+        return s.biometricFaceId;
+      case 'biometría':
+        return s.biometricGeneric;
+      default:
+        return label;
+    }
   }
 
   /// RF-03: Load biometric availability and user preference
@@ -64,13 +79,14 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         _biometricDeviceSupported = true;
         _biometricEnabled = isEnabled;
-        _biometricLabel = label;
+        _biometricLabel = _translateLabel(context, label);
       });
     }
   }
 
   /// RF-03: Toggle biometric — activa con autenticación, desactiva directamente
   Future<void> _toggleBiometric(bool value) async {
+    final s = AppLocalizations.of(context);
     final service = di.sl<BiometricService>();
     setState(() => _biometricLoading = true);
 
@@ -85,22 +101,22 @@ class _SettingsPageState extends State<SettingsPage> {
             _biometricLoading = false;
           });
           _showSnackBar(
-            '$_biometricLabel activado. Próximo inicio de sesión más rápido.',
+            s.biometricActivatedMsg(_biometricLabel),
             AppColors.success,
           );
         case BiometricResult.canceled:
           setState(() => _biometricLoading = false);
-          _showSnackBar('Activación cancelada', AppColors.gray700);
+          _showSnackBar(s.biometricCancelledMsg, AppColors.gray700);
         case BiometricResult.notAvailable:
         case BiometricResult.notEnrolled:
           setState(() => _biometricLoading = false);
           _showSnackBar(
-            'Configura $_biometricLabel en los ajustes del dispositivo primero.',
+            s.biometricSetupDeviceMsg(_biometricLabel),
             AppColors.warning,
           );
         case BiometricResult.error:
           setState(() => _biometricLoading = false);
-          _showSnackBar('Error al activar la biometría', AppColors.error);
+          _showSnackBar(s.biometricErrorMsg, AppColors.error);
         case BiometricResult.disabled:
           setState(() => _biometricLoading = false);
       }
@@ -112,75 +128,26 @@ class _SettingsPageState extends State<SettingsPage> {
         _biometricLoading = false;
       });
       _showSnackBar(
-        'Inicio de sesión biométrico desactivado',
+        s.biometricDeactivatedMsg,
         AppColors.gray700,
       );
     }
   }
 
-  // RNF-13: Idioma helpers
-  String _getLanguageLabel() {
-    return _selectedLocale == 'es' ? 'Español' : 'English';
+  // ── Fix-9: Edit Profile Dialog ──────────────────────────────────────────────
+  void _navigateToEditProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const EditProfilePage()),
+    );
   }
 
-  Future<void> _showLanguageDialog() async {
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (_) => SimpleDialog(
-        title: const Text('Idioma'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, 'es'),
-            child: Row(
-              children: [
-                const Text('🇪🇸  '),
-                Text(
-                  'Español',
-                  style: _selectedLocale == 'es'
-                      ? const TextStyle(fontWeight: FontWeight.bold)
-                      : null,
-                ),
-                if (_selectedLocale == 'es')
-                  const Spacer()
-                else
-                  const SizedBox(),
-                if (_selectedLocale == 'es')
-                  const Icon(Icons.check_rounded, size: 16),
-              ],
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, 'en'),
-            child: Row(
-              children: [
-                const Text('🇬🇧  '),
-                Text(
-                  'English',
-                  style: _selectedLocale == 'en'
-                      ? const TextStyle(fontWeight: FontWeight.bold)
-                      : null,
-                ),
-                if (_selectedLocale == 'en')
-                  const Spacer()
-                else
-                  const SizedBox(),
-                if (_selectedLocale == 'en')
-                  const Icon(Icons.check_rounded, size: 16),
-              ],
-            ),
-          ),
-        ],
-      ),
+  // ── Fix-11: Change Password Dialog ──────────────────────────────────────────
+  void _navigateToChangePassword() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
     );
-    if (selected != null && selected != _selectedLocale) {
-      setState(() => _selectedLocale = selected);
-      _showSnackBar(
-        selected == 'en'
-            ? 'Language set to English'
-            : 'Idioma cambiado a Español',
-        AppColors.success,
-      );
-    }
   }
 
   void _showSnackBar(String message, Color color) {
@@ -196,19 +163,19 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String _getUserName() {
-    final authState = context.watch<AuthBloc>().state;
+    final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) return authState.user.name;
     return 'Usuario';
   }
 
   String _getUserEmail() {
-    final authState = context.watch<AuthBloc>().state;
+    final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) return authState.user.email;
     return '';
   }
 
   String _getUserInitials() {
-    final authState = context.watch<AuthBloc>().state;
+    final authState = context.read<AuthBloc>().state;
     if (authState is Authenticated) {
       final parts = authState.user.name.split(' ');
       if (parts.length >= 2) {
@@ -221,7 +188,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<AuthBloc>();
     final responsive = ResponsiveUtils(context);
+    final s = AppLocalizations.of(context);
 
     return SafeArea(
       child: CustomScrollView(
@@ -235,7 +204,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 responsive.horizontalPadding,
                 0,
               ),
-              child: Text('Ajustes', style: AppTypography.headlineSmall()),
+              child: Text(s.settings, style: AppTypography.headlineSmall()),
             ),
           ),
 
@@ -261,12 +230,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 0,
               ),
               child: _buildSettingsSection(
-                title: 'General',
+                title: s.sectionGeneral,
                 children: [
                   _buildSettingsRow(
                     icon: Icons.category_outlined,
-                    title: 'Categorías',
-                    subtitle: 'Gestionar categorías de gastos e ingresos',
+                    title: s.settingsCategories,
+                    subtitle: s.settingsCategoriesSubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CategoriesPage()),
@@ -275,9 +244,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.notifications_outlined,
-                    title: 'Notificaciones',
-                    subtitle:
-                        'Alertas de transacciones, presupuesto y objetivos',
+                    title: s.settingsNotifications,
+                    subtitle: s.settingsNotificationsSubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -288,26 +256,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.account_balance_wallet_rounded,
-                    title: 'Presupuestos',
-                    subtitle: 'Límites de gasto por categoría y alertas',
+                    title: s.settingsBudgets,
+                    subtitle: s.settingsBudgetsSubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const BudgetPage()),
                     ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.language_rounded,
-                    title: 'Idioma',
-                    subtitle: _getLanguageLabel(),
-                    onTap: _showLanguageDialog,
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.currency_exchange_rounded,
-                    title: 'Moneda y formato',
-                    subtitle: 'EUR - Euros',
-                    isDeveloping: true,
                   ),
                 ],
               ),
@@ -324,13 +278,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 0,
               ),
               child: _buildSettingsSection(
-                title: 'Seguridad',
+                title: s.sectionSecurity,
                 children: [
                   _buildSettingsRow(
                     icon: Icons.lock_outline_rounded,
-                    title: 'Cambiar contraseña',
-                    subtitle: 'Actualizar contraseña de acceso',
-                    isDeveloping: true,
+                    title: s.settingsChangePassword,
+                    subtitle: s.settingsChangePasswordSubtitle,
+                    onTap: _navigateToChangePassword,
                   ),
                   _divider(),
                   // RF-03: Biometric toggle — funcional
@@ -338,8 +292,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.security_rounded,
-                    title: 'Autenticación 2FA',
-                    subtitle: 'Verificación en dos pasos con app autenticadora',
+                    title: s.settingsBiometric2fa,
+                    subtitle: s.twoFactorAuth,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const TwoFaSetupPage()),
@@ -360,12 +314,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 0,
               ),
               child: _buildSettingsSection(
-                title: 'Datos y privacidad',
+                title: s.sectionData,
                 children: [
                   _buildSettingsRow(
                     icon: Icons.download_rounded,
-                    title: 'Exportar datos',
-                    subtitle: 'Descargar transacciones en CSV o PDF',
+                    title: s.settingsExportData,
+                    subtitle: s.settingsExportDataSubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const ExportPage()),
@@ -374,8 +328,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.account_balance_outlined,
-                    title: 'Consentimientos PSD2',
-                    subtitle: 'Gestionar accesos bancarios autorizados',
+                    title: s.settingsPsd2,
+                    subtitle: s.settingsPsd2Subtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -388,8 +342,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.privacy_tip_outlined,
-                    title: 'Política de privacidad',
-                    subtitle: 'Consultar política GDPR',
+                    title: s.settingsPrivacy,
+                    subtitle: s.settingsPrivacySubtitle,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const PrivacyPage()),
@@ -398,8 +352,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _divider(),
                   _buildSettingsRow(
                     icon: Icons.delete_outline_rounded,
-                    title: 'Eliminar cuenta',
-                    subtitle: 'Borrar todos los datos',
+                    title: s.deleteAccount,
+                    subtitle: s.deleteAllData,
                     isDeveloping: true,
                     isDanger: true,
                   ),
@@ -495,12 +449,9 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             child: IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
-              onPressed: () => _showSnackBar(
-                'Edición de perfil en desarrollo',
-                AppColors.gray700,
-              ),
+              onPressed: _navigateToEditProfile,
               color: AppColors.textSecondaryLight,
-              tooltip: 'Editar perfil',
+              tooltip: AppLocalizations.of(context).editProfileTitle,
             ),
           ),
         ],
@@ -544,6 +495,7 @@ class _SettingsPageState extends State<SettingsPage> {
     bool isDanger = false,
     VoidCallback? onTap,
   }) {
+    final s = AppLocalizations.of(context);
     final content = Semantics(
       label: title,
       hint: subtitle,
@@ -598,7 +550,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'Próximamente',
+                  s.comingSoon,
                   style: AppTypography.badge(color: AppColors.warningDark),
                 ),
               )
@@ -625,13 +577,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
   // RF-03: Biometric settings row with functional Switch
   Widget _buildBiometricRow() {
+    final s = AppLocalizations.of(context);
     final isFaceId = _biometricLabel == 'Face ID';
     final icon = isFaceId ? Icons.face_rounded : Icons.fingerprint_rounded;
-    final subtitle = _biometricDeviceSupported
-        ? (_biometricEnabled
-              ? '$_biometricLabel activado — toca para desactivar'
-              : 'Activa el acceso rápido con $_biometricLabel')
-        : 'No disponible en este dispositivo';
+    final String subtitle;
+    if (_biometricDeviceSupported) {
+      subtitle = _biometricEnabled
+          ? s.biometricEnabledStatus(_biometricLabel)
+          : s.biometricDisabledStatus(_biometricLabel);
+    } else {
+      subtitle = s.biometricNotAvailable;
+    }
 
     return Semantics(
       label: 'Autenticación biométrica',
@@ -663,7 +619,10 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_biometricLabel, style: AppTypography.titleSmall()),
+                  Text(
+                    _translateLabel(context, _biometricLabel),
+                    style: AppTypography.titleSmall(),
+                  ),
                   const SizedBox(height: 1),
                   Text(
                     subtitle,
@@ -682,7 +641,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'No disponible',
+                  s.notAvailable,
                   style: AppTypography.badge(
                     color: AppColors.textTertiaryLight,
                   ),
@@ -710,56 +669,68 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildLogoutButton() {
+    final s = AppLocalizations.of(context);
     return Semantics(
-      label: 'Cerrar sesión',
+      label: s.settingsLogout,
       button: true,
       child: GestureDetector(
         onTap: () {
           showDialog(
             context: context,
-            builder: (dialogContext) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Row(
-                children: [
-                  Icon(Icons.logout_rounded, color: AppColors.error, size: 24),
-                  SizedBox(width: 12),
-                  Text('Cerrar sesión'),
-                ],
-              ),
-              content: const Text(
-                '¿Estás seguro de que quieres cerrar tu sesión?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(
-                    'Cancelar',
-                    style: TextStyle(color: AppColors.textSecondaryLight),
-                  ),
+            builder: (dialogContext) {
+              final ds = AppLocalizations.of(dialogContext);
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    context.read<AuthBloc>().add(LogoutRequested());
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/login',
-                      (route) => false,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error,
-                    foregroundColor: AppColors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                title: Row(
+                  children: [
+                    const Icon(
+                      Icons.logout_rounded,
+                      color: AppColors.error,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(ds.settingsLogout),
+                  ],
+                ),
+                content: Text(
+                  ds.locale.startsWith('en')
+                      ? 'Are you sure you want to sign out?'
+                      : '¿Estás seguro de que quieres cerrar tu sesión?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(
+                      ds.cancel,
+                      style: const TextStyle(
+                        color: AppColors.textSecondaryLight,
+                      ),
                     ),
                   ),
-                  child: const Text('Cerrar sesión'),
-                ),
-              ],
-            ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      context.read<AuthBloc>().add(LogoutRequested());
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/login',
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.error,
+                      foregroundColor: AppColors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(ds.settingsLogout),
+                  ),
+                ],
+              );
+            },
           );
         },
         child: Container(
@@ -779,7 +750,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Cerrar sesión',
+                s.settingsLogout,
                 style: AppTypography.labelLarge(color: AppColors.error),
               ),
             ],
