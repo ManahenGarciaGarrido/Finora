@@ -229,4 +229,81 @@ router.delete(
   }
 );
 
+// ─── GET /budget/suggest ──────────────────────────────────────────────────────
+// AI budget suggestion based on average spending of last 3 months.
+
+router.get('/suggest', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 3);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    const result = await db.query(
+      `SELECT
+         COALESCE(category, 'Sin categoría') AS category,
+         AVG(monthly_spent)::float AS avg_monthly
+       FROM (
+         SELECT
+           COALESCE(category, 'Sin categoría') AS category,
+           TO_CHAR(date, 'YYYY-MM') AS month,
+           SUM(amount)::float AS monthly_spent
+         FROM transactions
+         WHERE user_id = $1 AND type = 'expense' AND date >= $2
+         GROUP BY category, month
+       ) sub
+       GROUP BY category
+       ORDER BY avg_monthly DESC`,
+      [userId, cutoffStr]
+    );
+
+    const suggestions = result.rows.map(r => ({
+      category: r.category,
+      suggested_limit: Math.ceil(r.avg_monthly * 1.1 / 10) * 10, // round up to nearest 10, add 10% buffer
+      avg_monthly: Math.round(r.avg_monthly * 100) / 100,
+    }));
+
+    res.json({ suggestions, based_on_months: 3 });
+  } catch (err) {
+    console.error('budget/suggest error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── PATCH /budget/:category/rollover ─────────────────────────────────────────
+// Toggle rollover for a budget category.
+
+router.patch(
+  '/:category/rollover',
+  authenticateToken,
+  [body('rollover_enabled').isBoolean().withMessage('rollover_enabled must be boolean')],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(422).json({ error: 'Validation Error', details: errors.array() });
+    }
+    try {
+      const userId = req.user.userId;
+      const category = decodeURIComponent(req.params.category);
+      const { rollover_enabled } = req.body;
+
+      const result = await db.query(
+        `UPDATE budgets SET rollover_enabled = $1, updated_at = NOW()
+         WHERE user_id = $2 AND category = $3
+         RETURNING id, category, monthly_limit::float, rollover_enabled, updated_at`,
+        [rollover_enabled, userId, category]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Not Found', message: 'Budget not found' });
+      }
+
+      res.json({ budget: result.rows[0] });
+    } catch (err) {
+      console.error('budget/rollover error:', err);
+      res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    }
+  }
+);
+
 module.exports = router;
