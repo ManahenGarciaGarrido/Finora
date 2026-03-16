@@ -921,8 +921,6 @@ class AppLocalizations extends AppStringsBase {
   String get emailSentTitle => _strings.emailSentTitle;
   @override
   String get emailSentInstructions => _strings.emailSentInstructions;
-  @override
-  String get enterPassword => _strings.enterPassword;
 
   @override
   String get appVersion => _strings.appVersion;
@@ -2427,6 +2425,636 @@ class AppLocalizations extends AppStringsBase {
 
   @override
   String get exportExcelSubtitle => _strings.exportExcelSubtitle;
+
+  @override
+  String get addDebt => _strings.addDebt;
+
+  @override
+  String get addSharedExpense => _strings.addSharedExpense;
+
+  @override
+  String get aiSuggestBudgetsBtn => _strings.aiSuggestBudgetsBtn;
+
+  @override
+  String get aiSuggestBudgetsInfo => _strings.aiSuggestBudgetsInfo;
+
+  @override
+  String get aiSuggestBudgetsTitle => _strings.aiSuggestBudgetsTitle;
+
+  @override
+  String get allocation => _strings.allocation;
+
+  @override
+  String get annualIncomeLabel => _strings.annualIncomeLabel;
+
+  @override
+  String get annualRate => _strings.annualRate;
+
+  @override
+  String get applyAllSuggestions => _strings.applyAllSuggestions;
+
+  @override
+  String get attachReceipt => _strings.attachReceipt;
+
+  @override
+  String get avalancheDesc => _strings.avalancheDesc;
+
+  @override
+  String get avalancheStrategy => _strings.avalancheStrategy;
+
+  @override
+  String get badgesEarned => _strings.badgesEarned;
+
+  @override
+  String get badgesLocked => _strings.badgesLocked;
+
+  @override
+  String get badgesTitle => _strings.badgesTitle;
+
+  @override
+  String get balanceSettled => _strings.balanceSettled;
+
+  @override
+  String get balancesTab => _strings.balancesTab;
+
+  @override
+  String get benchmarkDesc => _strings.benchmarkDesc;
+
+  @override
+  String get benchmarkTitle => _strings.benchmarkTitle;
+
+  @override
+  String get budgetComparativeTab => _strings.budgetComparativeTab;
+
+  @override
+  String get budgetComplianceComponent => _strings.budgetComplianceComponent;
+
+  @override
+  String get budgetTrendDown => _strings.budgetTrendDown;
+
+  @override
+  String get budgetTrendUp => _strings.budgetTrendUp;
+
+  @override
+  String get calculate => _strings.calculate;
+
+  @override
+  String get challengeComplete => _strings.challengeComplete;
+
+  @override
+  String get challengesTitle => _strings.challengesTitle;
+
+  @override
+  String get confirmTransaction => _strings.confirmTransaction;
+
+  @override
+  String get createHousehold => _strings.createHousehold;
+
+  @override
+  String get creditorName => _strings.creditorName;
+
+  @override
+  String get debtDeleted => _strings.debtDeleted;
+
+  @override
+  String get debtName => _strings.debtName;
+
+  @override
+  String get debtSaved => _strings.debtSaved;
+
+  @override
+  String get debtTypeOwed => _strings.debtTypeOwed;
+
+  @override
+  String get debtTypeOwn => _strings.debtTypeOwn;
+
+  @override
+  String get debtsNav => _strings.debtsNav;
+
+  @override
+  String get debtsTitle => _strings.debtsTitle;
+
+  @override
+  String get deductibleExpensesTab => _strings.deductibleExpensesTab;
+
+  @override
+  String get deductionsLabel => _strings.deductionsLabel;
+
+  @override
+  String get deleteDebt => _strings.deleteDebt;
+
+  @override
+  String get deleteDebtConfirm => _strings.deleteDebtConfirm;
+
+  @override
+  String get deselectAll => _strings.deselectAll;
+
+  @override
+  String get dueDate => _strings.dueDate;
+
+  @override
+  String get duplicateWarning => _strings.duplicateWarning;
+
+  @override
+  String get duplicatesFound => _strings.duplicatesFound;
+
+  @override
+  String get editDebt => _strings.editDebt;
+
+  @override
+  String get effectiveRate => _strings.effectiveRate;
+
+  @override
+  String get estimatedTax => _strings.estimatedTax;
+
+  @override
+  String get etfName => _strings.etfName;
+
+  @override
+  String get expectedReturn => _strings.expectedReturn;
+
+  @override
+  String get exportFiscalBtn => _strings.exportFiscalBtn;
+
+  @override
+  String get exportFiscalDesc => _strings.exportFiscalDesc;
+
+  @override
+  String get exportFiscalTab => _strings.exportFiscalTab;
+
+  @override
+  String get extraPaymentLabel => _strings.extraPaymentLabel;
+
+  @override
+  String get extractedAmount => _strings.extractedAmount;
+
+  @override
+  String get extractedData => _strings.extractedData;
+
+  @override
+  String get extractedDate => _strings.extractedDate;
+
+  @override
+  String get extractedMerchant => _strings.extractedMerchant;
+
+  @override
+  String get finalAmount => _strings.finalAmount;
+
+  @override
+  String get fiscalCategoryCapitalGain => _strings.fiscalCategoryCapitalGain;
+
+  @override
+  String get fiscalCategoryDonation => _strings.fiscalCategoryDonation;
+
+  @override
+  String get fiscalCategoryFreelance => _strings.fiscalCategoryFreelance;
+
+  @override
+  String get fiscalCategoryLabel => _strings.fiscalCategoryLabel;
+
+  @override
+  String get fiscalCategoryOther => _strings.fiscalCategoryOther;
+
+  @override
+  String get fiscalDataExported => _strings.fiscalDataExported;
+
+  @override
+  String get fiscalNav => _strings.fiscalNav;
+
+  @override
+  String get fiscalTitle => _strings.fiscalTitle;
+
+  @override
+  String get fiscalYear => _strings.fiscalYear;
+
+  @override
+  String get fromCamera => _strings.fromCamera;
+
+  @override
+  String get fromGallery => _strings.fromGallery;
+
+  @override
+  String get gamificationNav => _strings.gamificationNav;
+
+  @override
+  String get gamificationTitle => _strings.gamificationTitle;
+
+  @override
+  String get glossaryTitle => _strings.glossaryTitle;
+
+  @override
+  String get goalsProgressComponent => _strings.goalsProgressComponent;
+
+  @override
+  String get healthScore => _strings.healthScore;
+
+  @override
+  String get healthScoreBreakdown => _strings.healthScoreBreakdown;
+
+  @override
+  String get householdCreated => _strings.householdCreated;
+
+  @override
+  String get householdName => _strings.householdName;
+
+  @override
+  String get householdNav => _strings.householdNav;
+
+  @override
+  String get householdOverview => _strings.householdOverview;
+
+  @override
+  String get householdRole => _strings.householdRole;
+
+  @override
+  String get householdTitle => _strings.householdTitle;
+
+  @override
+  String get importConfirmed => _strings.importConfirmed;
+
+  @override
+  String get importSelected => _strings.importSelected;
+
+  @override
+  String get importStatement => _strings.importStatement;
+
+  @override
+  String get importStatementDesc => _strings.importStatementDesc;
+
+  @override
+  String get importedTransactions => _strings.importedTransactions;
+
+  @override
+  String get interestRate => _strings.interestRate;
+
+  @override
+  String get interestSavings => _strings.interestSavings;
+
+  @override
+  String get investmentHorizon => _strings.investmentHorizon;
+
+  @override
+  String get investmentYears => _strings.investmentYears;
+
+  @override
+  String get investmentsNav => _strings.investmentsNav;
+
+  @override
+  String get investmentsTitle => _strings.investmentsTitle;
+
+  @override
+  String get investorProfileTab => _strings.investorProfileTab;
+
+  @override
+  String get inviteByEmail => _strings.inviteByEmail;
+
+  @override
+  String get inviteCode => _strings.inviteCode;
+
+  @override
+  String get inviteMember => _strings.inviteMember;
+
+  @override
+  String get irpfTab => _strings.irpfTab;
+
+  @override
+  String get joinWithCode => _strings.joinWithCode;
+
+  @override
+  String get last3Months => _strings.last3Months;
+
+  @override
+  String get leaveHousehold => _strings.leaveHousehold;
+
+  @override
+  String get loanCalculator => _strings.loanCalculator;
+
+  @override
+  String get longTerm => _strings.longTerm;
+
+  @override
+  String get longestStreak => _strings.longestStreak;
+
+  @override
+  String get marketIndices => _strings.marketIndices;
+
+  @override
+  String get marketsTab => _strings.marketsTab;
+
+  @override
+  String get mediumTerm => _strings.mediumTerm;
+
+  @override
+  String get memberInvited => _strings.memberInvited;
+
+  @override
+  String get memberRole => _strings.memberRole;
+
+  @override
+  String get membersTab => _strings.membersTab;
+
+  @override
+  String get monthlyCapacity => _strings.monthlyCapacity;
+
+  @override
+  String get monthlyChallenge => _strings.monthlyChallenge;
+
+  @override
+  String get monthlyInvestment => _strings.monthlyInvestment;
+
+  @override
+  String get monthlyPayment => _strings.monthlyPayment;
+
+  @override
+  String get monthlyPaymentResult => _strings.monthlyPaymentResult;
+
+  @override
+  String get monthsToPayoff => _strings.monthsToPayoff;
+
+  @override
+  String get mortgageCalculator => _strings.mortgageCalculator;
+
+  @override
+  String get netIncome => _strings.netIncome;
+
+  @override
+  String get noDebts => _strings.noDebts;
+
+  @override
+  String get noFiscalData => _strings.noFiscalData;
+
+  @override
+  String get noHistoryData => _strings.noHistoryData;
+
+  @override
+  String get noHousehold => _strings.noHousehold;
+
+  @override
+  String get noProfile => _strings.noProfile;
+
+  @override
+  String get noStreakYet => _strings.noStreakYet;
+
+  @override
+  String get noTextDetected => _strings.noTextDetected;
+
+  @override
+  String get ocrNav => _strings.ocrNav;
+
+  @override
+  String get ocrTitle => _strings.ocrTitle;
+
+  @override
+  String get originalAmount => _strings.originalAmount;
+
+  @override
+  String get overviewTab => _strings.overviewTab;
+
+  @override
+  String get owedToMeTab => _strings.owedToMeTab;
+
+  @override
+  String get owesYou => _strings.owesYou;
+
+  @override
+  String get ownDebtsTab => _strings.ownDebtsTab;
+
+  @override
+  String get ownerRole => _strings.ownerRole;
+
+  @override
+  String get paymentOrder => _strings.paymentOrder;
+
+  @override
+  String get portfolioRationale => _strings.portfolioRationale;
+
+  @override
+  String get portfolioTab => _strings.portfolioTab;
+
+  @override
+  String get principal => _strings.principal;
+
+  @override
+  String get profileAggressive => _strings.profileAggressive;
+
+  @override
+  String get profileAggressiveDesc => _strings.profileAggressiveDesc;
+
+  @override
+  String get profileConservative => _strings.profileConservative;
+
+  @override
+  String get profileConservativeDesc => _strings.profileConservativeDesc;
+
+  @override
+  String get profileModerate => _strings.profileModerate;
+
+  @override
+  String get profileModerateDesc => _strings.profileModerateDesc;
+
+  @override
+  String get profileRequired => _strings.profileRequired;
+
+  @override
+  String get profileSaved => _strings.profileSaved;
+
+  @override
+  String get quizTitle => _strings.quizTitle;
+
+  @override
+  String get receiptAttached => _strings.receiptAttached;
+
+  @override
+  String get receiptImported => _strings.receiptImported;
+
+  @override
+  String get recommendedStrategy => _strings.recommendedStrategy;
+
+  @override
+  String get remainingAmount => _strings.remainingAmount;
+
+  @override
+  String get removeMember => _strings.removeMember;
+
+  @override
+  String get reviewImport => _strings.reviewImport;
+
+  @override
+  String get rolloverDisabled => _strings.rolloverDisabled;
+
+  @override
+  String get rolloverEnabled => _strings.rolloverEnabled;
+
+  @override
+  String get rolloverLabel => _strings.rolloverLabel;
+
+  @override
+  String get saveProfile => _strings.saveProfile;
+
+  @override
+  String get savingsRateComponent => _strings.savingsRateComponent;
+
+  @override
+  String get savingsWithExtra => _strings.savingsWithExtra;
+
+  @override
+  String get scanReceipt => _strings.scanReceipt;
+
+  @override
+  String get scanReceiptDesc => _strings.scanReceiptDesc;
+
+  @override
+  String get scanningReceipt => _strings.scanningReceipt;
+
+  @override
+  String get scoreExcellent => _strings.scoreExcellent;
+
+  @override
+  String get scoreFair => _strings.scoreFair;
+
+  @override
+  String get scoreGood => _strings.scoreGood;
+
+  @override
+  String get scorePoor => _strings.scorePoor;
+
+  @override
+  String get selectAll => _strings.selectAll;
+
+  @override
+  String get selectFile => _strings.selectFile;
+
+  @override
+  String get settleBalance => _strings.settleBalance;
+
+  @override
+  String get sharedTab => _strings.sharedTab;
+
+  @override
+  String get shortTerm => _strings.shortTerm;
+
+  @override
+  String get simulate => _strings.simulate;
+
+  @override
+  String get simulatorTab => _strings.simulatorTab;
+
+  @override
+  String get simulatorTitle => _strings.simulatorTitle;
+
+  @override
+  String get skipDuplicates => _strings.skipDuplicates;
+
+  @override
+  String get snowballDesc => _strings.snowballDesc;
+
+  @override
+  String get snowballStrategy => _strings.snowballStrategy;
+
+  @override
+  String get splitPercentage => _strings.splitPercentage;
+
+  @override
+  String get startQuizBtn => _strings.startQuizBtn;
+
+  @override
+  String get strategiesTab => _strings.strategiesTab;
+
+  @override
+  String get streakLabel => _strings.streakLabel;
+
+  @override
+  String get streakWeeks => _strings.streakWeeks;
+
+  @override
+  String get suggestedPortfolio => _strings.suggestedPortfolio;
+
+  @override
+  String get tagAsFiscal => _strings.tagAsFiscal;
+
+  @override
+  String get taxBrackets => _strings.taxBrackets;
+
+  @override
+  String get taxCalendarTab => _strings.taxCalendarTab;
+
+  @override
+  String get taxCalendarTitle => _strings.taxCalendarTitle;
+
+  @override
+  String get termMonths => _strings.termMonths;
+
+  @override
+  String get totalDeductible => _strings.totalDeductible;
+
+  @override
+  String get totalInterest => _strings.totalInterest;
+
+  @override
+  String get totalInvested => _strings.totalInvested;
+
+  @override
+  String get totalPayment => _strings.totalPayment;
+
+  @override
+  String get totalReturns => _strings.totalReturns;
+
+  @override
+  String get wearableConnected => _strings.wearableConnected;
+
+  @override
+  String get wearableInstructions => _strings.wearableInstructions;
+
+  @override
+  String get wearableNotConnected => _strings.wearableNotConnected;
+
+  @override
+  String get weeklyChallenge => _strings.weeklyChallenge;
+
+  @override
+  String get widgetAddInstructions => _strings.widgetAddInstructions;
+
+  @override
+  String get widgetAppleWatch => _strings.widgetAppleWatch;
+
+  @override
+  String get widgetBalance => _strings.widgetBalance;
+
+  @override
+  String get widgetBudgetPct => _strings.widgetBudgetPct;
+
+  @override
+  String get widgetDarkModeAuto => _strings.widgetDarkModeAuto;
+
+  @override
+  String get widgetLastUpdated => _strings.widgetLastUpdated;
+
+  @override
+  String get widgetMetricsLabel => _strings.widgetMetricsLabel;
+
+  @override
+  String get widgetNav => _strings.widgetNav;
+
+  @override
+  String get widgetSettingsTitle => _strings.widgetSettingsTitle;
+
+  @override
+  String get widgetTitle => _strings.widgetTitle;
+
+  @override
+  String get widgetTodaySpent => _strings.widgetTodaySpent;
+
+  @override
+  String get widgetWearOS => _strings.widgetWearOS;
+
+  @override
+  String get widgetWearableTitle => _strings.widgetWearableTitle;
+
+  @override
+  String get youOwe => _strings.youOwe;
+
+  @override
+  String get enterPassword => _strings.enterPassword;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────
