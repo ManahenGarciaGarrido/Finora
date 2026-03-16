@@ -20,6 +20,7 @@ const goalsRoutes = require('./routes/goals'); // RF-18 / RF-19 / RF-20 / RF-21 
 const exportRoutes = require('./routes/export'); // RF-34 / RF-35
 const budgetRoutes = require('./routes/budget'); // RF-32
 const currencyRoutes = require('./routes/currency'); // Exchange rates
+const debtRoutes = require('./routes/debts');
 
 // Import services
 const emailService = require('./services/email');
@@ -130,6 +131,7 @@ app.use('/api/v1/goals', goalsRoutes);              // RF-18 / RF-19 / RF-20 / H
 app.use('/api/v1/export', exportRoutes);            // RF-34 / RF-35
 app.use('/api/v1/budget', budgetRoutes);            // RF-32
 app.use('/api/v1/currency', currencyRoutes);        // Exchange rates
+app.use('/api/v1/debts', debtRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -348,6 +350,30 @@ const startServer = async () => {
       `);
       console.log('[auto-migrate] ✓ budgets table (RF-32)');
     } catch (e) { console.warn('[auto-migrate] budgets warning:', e.message); }
+
+    // Debts table
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS debts (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          type VARCHAR(10) NOT NULL DEFAULT 'own' CHECK (type IN ('own', 'owed')),
+          creditor_name VARCHAR(255),
+          amount DECIMAL(12,2) NOT NULL,
+          remaining_amount DECIMAL(12,2) NOT NULL,
+          interest_rate DECIMAL(5,2) DEFAULT 0,
+          due_date DATE,
+          monthly_payment DECIMAL(12,2),
+          notes TEXT,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_debts_user_id ON debts(user_id)`);
+      console.log('[auto-migrate] ✓ debts table');
+    } catch (e) { console.warn('[auto-migrate] debts warning:', e.message); }
 
     // Budget rollover_enabled column
     try {

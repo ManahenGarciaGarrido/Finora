@@ -48,6 +48,18 @@ import '../../features/banks/domain/usecases/exchange_public_token_usecase.dart'
 import '../../features/banks/domain/usecases/import_selected_accounts_usecase.dart';
 import '../../features/banks/presentation/bloc/bank_bloc.dart';
 
+// Features - Debts
+import '../../features/debts/data/datasources/debts_remote_datasource.dart';
+import '../../features/debts/data/repositories/debts_repository_impl.dart';
+import '../../features/debts/domain/repositories/debts_repository.dart';
+import '../../features/debts/domain/usecases/get_debts_usecase.dart';
+import '../../features/debts/domain/usecases/create_debt_usecase.dart';
+import '../../features/debts/domain/usecases/update_debt_usecase.dart';
+import '../../features/debts/domain/usecases/delete_debt_usecase.dart';
+import '../../features/debts/domain/usecases/get_strategies_usecase.dart';
+import '../../features/debts/domain/usecases/calculate_loan_usecase.dart';
+import '../../features/debts/presentation/bloc/debt_bloc.dart';
+
 // Features - Goals (RF-18 / RF-19 / RF-20 / RF-21 / HU-07)
 import '../../features/goals/data/datasources/goals_remote_datasource.dart';
 import '../../features/goals/data/repositories/goals_repository_impl.dart';
@@ -85,6 +97,9 @@ Future<void> init() async {
 
   //! Features - Transactions & Categories
   await _initTransactions();
+
+  //! Features - Debts
+  await _initDebts();
 
   //! Features - Goals (RF-18 / RF-19 / RF-20 / RF-21 / HU-07)
   await _initGoals();
@@ -232,6 +247,30 @@ Future<void> _initBanks() async {
   // Data sources
   sl.registerLazySingleton<BankRemoteDataSource>(
     () => BankRemoteDataSourceImpl(apiClient: sl()),
+  );
+}
+
+/// Debts feature dependencies
+Future<void> _initDebts() async {
+  sl.registerFactory(
+    () => DebtBloc(
+      getDebts: sl(),
+      createDebt: sl(),
+      updateDebt: sl(),
+      deleteDebt: sl(),
+      getStrategies: sl(),
+      calculateLoan: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetDebtsUseCase(sl()));
+  sl.registerLazySingleton(() => CreateDebtUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateDebtUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteDebtUseCase(sl()));
+  sl.registerLazySingleton(() => GetStrategiesUseCase(sl()));
+  sl.registerLazySingleton(() => CalculateLoanUseCase(sl()));
+  sl.registerLazySingleton<DebtsRepository>(() => DebtsRepositoryImpl(sl()));
+  sl.registerLazySingleton<DebtsRemoteDataSource>(
+    () => DebtsRemoteDataSourceImpl(sl()),
   );
 }
 

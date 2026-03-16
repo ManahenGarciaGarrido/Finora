@@ -29,6 +29,7 @@ import 'export_page.dart'; // RF-34 / RF-35
 import 'budget_page.dart'; // RF-32
 import 'two_fa_setup_page.dart'; // RNF-03
 import 'notification_settings_page.dart'; // RF-31 / RF-32 / RF-33
+import '../../../debts/presentation/pages/debts_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -127,10 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _biometricEnabled = false;
         _biometricLoading = false;
       });
-      _showSnackBar(
-        s.biometricDeactivatedMsg,
-        AppColors.gray700,
-      );
+      _showSnackBar(s.biometricDeactivatedMsg, AppColors.gray700);
     }
   }
 
@@ -356,6 +354,32 @@ class _SettingsPageState extends State<SettingsPage> {
                     subtitle: s.deleteAllData,
                     isDeveloping: true,
                     isDanger: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Finanzas avanzadas
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                responsive.horizontalPadding,
+                16,
+                responsive.horizontalPadding,
+                0,
+              ),
+              child: _buildSettingsSection(
+                title: s.sectionAdvancedFinances,
+                children: [
+                  _buildSettingsRow(
+                    icon: Icons.credit_card_outlined,
+                    title: s.settingsDebts,
+                    subtitle: s.settingsDebtsSubtitle,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DebtsPage()),
+                    ),
                   ),
                 ],
               ),
