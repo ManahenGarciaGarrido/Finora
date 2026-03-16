@@ -400,6 +400,8 @@ abstract class AppStringsBase {
   String get settingsDebtsSubtitle;
   String get settingsInvestments;
   String get settingsInvestmentsSubtitle;
+  String get settingsHousehold;
+  String get settingsHouseholdSubtitle;
 
   // ── Categorías ─────────────────────────────────────────────────────────────
   String get noCategories;
@@ -2192,6 +2194,11 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get settingsInvestmentsSubtitle =>
       'Perfil inversor, cartera ETF y simulador';
+  @override
+  String get settingsHousehold => 'Hogar compartido';
+  @override
+  String get settingsHouseholdSubtitle =>
+      'Finanzas compartidas con tu familia o pareja';
   @override
   String get sectionAdvancedFinances => 'Finanzas avanzadas';
   @override
@@ -5066,6 +5073,11 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get settingsInvestmentsSubtitle =>
       'Investor profile, ETF portfolio and simulator';
+  @override
+  String get settingsHousehold => 'Shared household';
+  @override
+  String get settingsHouseholdSubtitle =>
+      'Shared finances with family or partner';
   @override
   String get sectionAdvancedFinances => 'Advanced finances';
   @override

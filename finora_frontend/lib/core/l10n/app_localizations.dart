@@ -3073,6 +3073,12 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get settingsInvestmentsSubtitle =>
       _strings.settingsInvestmentsSubtitle;
+
+  @override
+  String get settingsHousehold => _strings.settingsHousehold;
+
+  @override
+  String get settingsHouseholdSubtitle => _strings.settingsHouseholdSubtitle;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────
