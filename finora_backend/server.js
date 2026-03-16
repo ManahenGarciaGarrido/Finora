@@ -22,6 +22,7 @@ const budgetRoutes = require('./routes/budget'); // RF-32
 const currencyRoutes = require('./routes/currency'); // Exchange rates
 const debtRoutes = require('./routes/debts');
 const investmentRoutes = require('./routes/investments');
+const householdRoutes = require('./routes/household');
 
 // Import services
 const emailService = require('./services/email');
@@ -134,6 +135,7 @@ app.use('/api/v1/budget', budgetRoutes);            // RF-32
 app.use('/api/v1/currency', currencyRoutes);        // Exchange rates
 app.use('/api/v1/debts', debtRoutes);
 app.use('/api/v1/investments', investmentRoutes);
+app.use('/api/v1/household', householdRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -352,6 +354,51 @@ const startServer = async () => {
       `);
       console.log('[auto-migrate] ✓ budgets table (RF-32)');
     } catch (e) { console.warn('[auto-migrate] budgets warning:', e.message); }
+
+    // Household tables
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS households (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          name VARCHAR(255) NOT NULL,
+          owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          invite_code VARCHAR(20) UNIQUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS household_members (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'member')),
+          joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(household_id, user_id)
+        )
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shared_transactions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+          transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+          created_by UUID NOT NULL REFERENCES users(id),
+          amount DECIMAL(12,2) NOT NULL,
+          description VARCHAR(255),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS transaction_splits (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          shared_transaction_id UUID NOT NULL REFERENCES shared_transactions(id) ON DELETE CASCADE,
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          percentage DECIMAL(5,2) NOT NULL,
+          amount DECIMAL(12,2) NOT NULL,
+          is_settled BOOLEAN DEFAULT FALSE
+        )
+      `);
+      console.log('[auto-migrate] ✓ household tables');
+    } catch (e) { console.warn('[auto-migrate] household warning:', e.message); }
 
     // Investor profiles table
     try {
