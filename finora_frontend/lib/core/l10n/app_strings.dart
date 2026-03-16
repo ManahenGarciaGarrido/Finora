@@ -572,6 +572,7 @@ abstract class AppStringsBase {
   String get backToLogin;
   String get emailSentTitle;
   String get emailSentInstructions;
+  String get enterPassword;
 
   // ── Privacidad — UI strings ────────────────────────────────────────────────
   String get privacyAndData;
@@ -2089,16 +2090,16 @@ class _AppStringsEs extends AppStringsBase {
       'Aportación mensual sugerida: $amount €';
   @override
   List<String> get goalCategoriesList => [
-        'Vivienda',
-        'Transporte',
-        'Vacaciones',
-        'Educación',
-        'Emergencia',
-        'Salud',
-        'Tecnología',
-        'Negocio',
-        'Otro',
-      ];
+    'Vivienda',
+    'Transporte',
+    'Vacaciones',
+    'Educación',
+    'Emergencia',
+    'Salud',
+    'Tecnología',
+    'Negocio',
+    'Otro',
+  ];
   @override
   String get cancelGoal => 'Cancelar objetivo';
   @override
@@ -2296,6 +2297,8 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get emailSentInstructions =>
       'Revisa tu bandeja de entrada y haz clic en el enlace para restablecer tu contraseña.';
+  @override
+  String get enterPassword => 'Por favor introduce tu contraseña ';
 
   @override
   String get privacyAndData => 'Privacidad y Datos';
@@ -3360,83 +3363,84 @@ class _AppStringsEs extends AppStringsBase {
   String get bankTimeoutTitle => 'Tiempo de espera agotado';
   @override
   List<String> get bankTimeoutSteps => [
-        'La autorización del banco tarda un máximo de 3 minutos.',
-        'Asegúrate de tener buena conexión a Internet o usa WiFi.',
-        'Completa el proceso en el navegador lo antes posible.',
-        'Si el banco pide un código SMS, tenlo preparado antes de empezar.',
-      ];
+    'La autorización del banco tarda un máximo de 3 minutos.',
+    'Asegúrate de tener buena conexión a Internet o usa WiFi.',
+    'Completa el proceso en el navegador lo antes posible.',
+    'Si el banco pide un código SMS, tenlo preparado antes de empezar.',
+  ];
   @override
   String get bankPermissionDeniedTitle => 'Permisos no concedidos';
   @override
   List<String> get bankPermissionDeniedSteps => [
-        'Parece que no autorizaste el acceso desde la web de tu banco.',
-        'Finora solo necesita permisos de lectura — nunca realizará pagos.',
-        'Pulsa "Reintentar" y acepta todos los permisos cuando te los pida tu banco.',
-        'Si tienes dudas, consulta la sección PSD2 en la web de tu banco.',
-      ];
+    'Parece que no autorizaste el acceso desde la web de tu banco.',
+    'Finora solo necesita permisos de lectura — nunca realizará pagos.',
+    'Pulsa "Reintentar" y acepta todos los permisos cuando te los pida tu banco.',
+    'Si tienes dudas, consulta la sección PSD2 en la web de tu banco.',
+  ];
   @override
   String get bankNoInternetTitle => 'Sin conexión a Internet';
   @override
   List<String> get bankNoInternetSteps => [
-        'Comprueba que tu dispositivo tiene conexión a Internet.',
-        'Prueba a desactivar y volver a activar el WiFi o los datos móviles.',
-        'Desactiva la VPN si tienes una activa.',
-        'Si el problema persiste, inténtalo de nuevo más tarde.',
-      ];
+    'Comprueba que tu dispositivo tiene conexión a Internet.',
+    'Prueba a desactivar y volver a activar el WiFi o los datos móviles.',
+    'Desactiva la VPN si tienes una activa.',
+    'Si el problema persiste, inténtalo de nuevo más tarde.',
+  ];
   @override
   String get bankSessionExpiredTitle => 'Sesión expirada';
   @override
   List<String> get bankSessionExpiredSteps => [
-        'Tu sesión en Finora ha expirado por inactividad.',
-        'Cierra esta pantalla y vuelve a iniciar sesión en Finora.',
-        'Luego podrás conectar tu banco de nuevo.',
-      ];
+    'Tu sesión en Finora ha expirado por inactividad.',
+    'Cierra esta pantalla y vuelve a iniciar sesión en Finora.',
+    'Luego podrás conectar tu banco de nuevo.',
+  ];
   @override
   String get bankServiceUnavailTitle => 'Servicio no disponible';
   @override
   List<String> get bankServiceUnavailSteps => [
-        'El servicio de conexión bancaria está temporalmente no disponible.',
-        'Espera unos minutos e inténtalo de nuevo.',
-        'Puede ser una interrupción temporal del banco o de Open Banking.',
-        'Si el problema persiste más de 1 hora, contacta con soporte.',
-      ];
+    'El servicio de conexión bancaria está temporalmente no disponible.',
+    'Espera unos minutos e inténtalo de nuevo.',
+    'Puede ser una interrupción temporal del banco o de Open Banking.',
+    'Si el problema persiste más de 1 hora, contacta con soporte.',
+  ];
   @override
   String get bankSyncFailedTitle => 'Error al importar cuentas';
   @override
   List<String> get bankSyncFailedSteps => [
-        'La autorización fue exitosa pero no se pudieron importar las cuentas.',
-        'Tus datos se sincronizarán automáticamente en unos minutos.',
-        'También puedes forzar la sincronización desde la pantalla de cuentas.',
-        'Si ves las cuentas en tu banco pero no aquí, espera unos minutos.',
-      ];
+    'La autorización fue exitosa pero no se pudieron importar las cuentas.',
+    'Tus datos se sincronizarán automáticamente en unos minutos.',
+    'También puedes forzar la sincronización desde la pantalla de cuentas.',
+    'Si ves las cuentas en tu banco pero no aquí, espera unos minutos.',
+  ];
   @override
   String get bankCancelledTitle => 'Conexión cancelada';
   @override
   List<String> get bankCancelledSteps => [
-        'Has cancelado el proceso antes de completar la autorización.',
-        'Puedes volver a intentarlo cuando quieras.',
-        'Si tienes dudas sobre la seguridad, revisa la sección PSD2 antes de continuar.',
-      ];
+    'Has cancelado el proceso antes de completar la autorización.',
+    'Puedes volver a intentarlo cuando quieras.',
+    'Si tienes dudas sobre la seguridad, revisa la sección PSD2 antes de continuar.',
+  ];
   @override
   String get bankMaxAttemptsTitle => 'Demasiados intentos fallidos';
   @override
   List<String> get bankMaxAttemptsSteps => [
-        'Has alcanzado el límite de 3 intentos fallidos para este banco.',
-        'Por seguridad, debes esperar 1 hora antes de volver a intentarlo.',
-        'Si crees que es un error, contacta con soporte.',
-        'Prueba a conectar un banco diferente mientras esperas.',
-      ];
+    'Has alcanzado el límite de 3 intentos fallidos para este banco.',
+    'Por seguridad, debes esperar 1 hora antes de volver a intentarlo.',
+    'Si crees que es un error, contacta con soporte.',
+    'Prueba a conectar un banco diferente mientras esperas.',
+  ];
   @override
   String get bankUnknownErrorTitle => 'Error al conectar banco';
   @override
   List<String> get bankUnknownErrorSteps => [
-        'Se produjo un error inesperado durante la conexión.',
-        'Comprueba tu conexión a Internet e inténtalo de nuevo.',
-        'Si el error persiste, prueba a reiniciar la app.',
-        'Puedes contactar con soporte si el problema continúa.',
-      ];
+    'Se produjo un error inesperado durante la conexión.',
+    'Comprueba tu conexión a Internet e inténtalo de nuevo.',
+    'Si el error persiste, prueba a reiniciar la app.',
+    'Puedes contactar con soporte si el problema continúa.',
+  ];
   @override
-  String get bankSupportContactMsg => 'Si el problema persiste, puedes contactarnos:';
+  String get bankSupportContactMsg =>
+      'Si el problema persiste, puedes contactarnos:';
   @override
   String get aiAnalysisLabel => 'Análisis IA';
   @override
@@ -3510,7 +3514,8 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get color => 'Color';
   @override
-  String deleteCategoryConfirm(String name) => '¿Eliminar la categoría "$name"?';
+  String deleteCategoryConfirm(String name) =>
+      '¿Eliminar la categoría "$name"?';
   @override
   String get deleteCategoryWarning =>
       'Las transacciones con esta categoría no se eliminarán, pero quedarán sin categoría asignada.';
@@ -3526,7 +3531,8 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get categoryDeleted => 'Categoría eliminada';
   @override
-  String get amountInvalidPositive => 'Introduce una cantidad válida mayor que 0';
+  String get amountInvalidPositive =>
+      'Introduce una cantidad válida mayor que 0';
   @override
   String get amountExceedsMax => 'La cantidad no puede exceder €999.999,99';
   @override
@@ -3546,7 +3552,8 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get confirmChanges => 'Confirmar cambios';
   @override
-  String get confirmSaveChangesQuestion => '¿Deseas guardar los siguientes cambios?';
+  String get confirmSaveChangesQuestion =>
+      '¿Deseas guardar los siguientes cambios?';
   @override
   String get modified => 'Modificada';
   @override
@@ -3600,7 +3607,8 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get biometricCancelledMsg => 'Activación cancelada';
   @override
-  String get biometricDeactivatedMsg => 'Inicio de sesión biométrico desactivado';
+  String get biometricDeactivatedMsg =>
+      'Inicio de sesión biométrico desactivado';
   @override
   String biometricSetupDeviceMsg(String label) =>
       'Configura $label en los ajustes del dispositivo primero.';
@@ -4498,16 +4506,16 @@ class _AppStringsEn extends AppStringsBase {
       'Suggested monthly contribution: $amount';
   @override
   List<String> get goalCategoriesList => [
-        'Housing',
-        'Transport',
-        'Vacation',
-        'Education',
-        'Emergency',
-        'Health',
-        'Technology',
-        'Business',
-        'Other',
-      ];
+    'Housing',
+    'Transport',
+    'Vacation',
+    'Education',
+    'Emergency',
+    'Health',
+    'Technology',
+    'Business',
+    'Other',
+  ];
   @override
   String get cancelGoal => 'Cancel goal';
   @override
@@ -4703,6 +4711,8 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get emailSentInstructions =>
       'Check your inbox and click the link to reset your password.';
+  @override
+  String get enterPassword => 'Please enter your password';
 
   @override
   String get privacyAndData => 'Privacy & Data';
@@ -5759,83 +5769,84 @@ class _AppStringsEn extends AppStringsBase {
   String get bankTimeoutTitle => 'Connection timed out';
   @override
   List<String> get bankTimeoutSteps => [
-        'Bank authorization takes a maximum of 3 minutes.',
-        'Make sure you have a good internet connection or use WiFi.',
-        'Complete the process in the browser as soon as possible.',
-        'If your bank asks for an SMS code, have it ready before starting.',
-      ];
+    'Bank authorization takes a maximum of 3 minutes.',
+    'Make sure you have a good internet connection or use WiFi.',
+    'Complete the process in the browser as soon as possible.',
+    'If your bank asks for an SMS code, have it ready before starting.',
+  ];
   @override
   String get bankPermissionDeniedTitle => 'Permissions not granted';
   @override
   List<String> get bankPermissionDeniedSteps => [
-        'It seems you did not authorize access from your bank\'s website.',
-        'Finora only needs read permissions — it will never make payments.',
-        'Tap "Retry" and accept all permissions when your bank requests them.',
-        'If in doubt, check the PSD2 section on your bank\'s website.',
-      ];
+    'It seems you did not authorize access from your bank\'s website.',
+    'Finora only needs read permissions — it will never make payments.',
+    'Tap "Retry" and accept all permissions when your bank requests them.',
+    'If in doubt, check the PSD2 section on your bank\'s website.',
+  ];
   @override
   String get bankNoInternetTitle => 'No internet connection';
   @override
   List<String> get bankNoInternetSteps => [
-        'Check that your device has an internet connection.',
-        'Try turning WiFi or mobile data off and on again.',
-        'Disable VPN if you have one active.',
-        'If the problem persists, try again later.',
-      ];
+    'Check that your device has an internet connection.',
+    'Try turning WiFi or mobile data off and on again.',
+    'Disable VPN if you have one active.',
+    'If the problem persists, try again later.',
+  ];
   @override
   String get bankSessionExpiredTitle => 'Session expired';
   @override
   List<String> get bankSessionExpiredSteps => [
-        'Your Finora session has expired due to inactivity.',
-        'Close this screen and sign in to Finora again.',
-        'Then you can connect your bank again.',
-      ];
+    'Your Finora session has expired due to inactivity.',
+    'Close this screen and sign in to Finora again.',
+    'Then you can connect your bank again.',
+  ];
   @override
   String get bankServiceUnavailTitle => 'Service unavailable';
   @override
   List<String> get bankServiceUnavailSteps => [
-        'The bank connection service is temporarily unavailable.',
-        'Wait a few minutes and try again.',
-        'It may be a temporary interruption from the bank or Open Banking.',
-        'If the problem persists for more than 1 hour, contact support.',
-      ];
+    'The bank connection service is temporarily unavailable.',
+    'Wait a few minutes and try again.',
+    'It may be a temporary interruption from the bank or Open Banking.',
+    'If the problem persists for more than 1 hour, contact support.',
+  ];
   @override
   String get bankSyncFailedTitle => 'Error importing accounts';
   @override
   List<String> get bankSyncFailedSteps => [
-        'Authorization was successful but accounts could not be imported.',
-        'Your data will sync automatically in a few minutes.',
-        'You can also force sync from the accounts screen.',
-        'If you see accounts in your bank but not here, wait a few minutes.',
-      ];
+    'Authorization was successful but accounts could not be imported.',
+    'Your data will sync automatically in a few minutes.',
+    'You can also force sync from the accounts screen.',
+    'If you see accounts in your bank but not here, wait a few minutes.',
+  ];
   @override
   String get bankCancelledTitle => 'Connection cancelled';
   @override
   List<String> get bankCancelledSteps => [
-        'You cancelled the process before completing authorization.',
-        'You can try again whenever you want.',
-        'If you have security concerns, review the PSD2 section before continuing.',
-      ];
+    'You cancelled the process before completing authorization.',
+    'You can try again whenever you want.',
+    'If you have security concerns, review the PSD2 section before continuing.',
+  ];
   @override
   String get bankMaxAttemptsTitle => 'Too many failed attempts';
   @override
   List<String> get bankMaxAttemptsSteps => [
-        'You have reached the limit of 3 failed attempts for this bank.',
-        'For security, you must wait 1 hour before trying again.',
-        'If you think this is an error, contact support.',
-        'Try connecting a different bank while you wait.',
-      ];
+    'You have reached the limit of 3 failed attempts for this bank.',
+    'For security, you must wait 1 hour before trying again.',
+    'If you think this is an error, contact support.',
+    'Try connecting a different bank while you wait.',
+  ];
   @override
   String get bankUnknownErrorTitle => 'Error connecting bank';
   @override
   List<String> get bankUnknownErrorSteps => [
-        'An unexpected error occurred during the connection.',
-        'Check your internet connection and try again.',
-        'If the error persists, try restarting the app.',
-        'You can contact support if the problem continues.',
-      ];
+    'An unexpected error occurred during the connection.',
+    'Check your internet connection and try again.',
+    'If the error persists, try restarting the app.',
+    'You can contact support if the problem continues.',
+  ];
   @override
-  String get bankSupportContactMsg => 'If the problem persists, you can contact us:';
+  String get bankSupportContactMsg =>
+      'If the problem persists, you can contact us:';
   @override
   String get aiAnalysisLabel => 'AI Analysis';
   @override
@@ -5945,7 +5956,8 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get confirmChanges => 'Confirm changes';
   @override
-  String get confirmSaveChangesQuestion => 'Do you want to save the following changes?';
+  String get confirmSaveChangesQuestion =>
+      'Do you want to save the following changes?';
   @override
   String get modified => 'Modified';
   @override
