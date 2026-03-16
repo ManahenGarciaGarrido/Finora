@@ -398,6 +398,8 @@ abstract class AppStringsBase {
   String get sectionAdvancedFinances;
   String get settingsDebts;
   String get settingsDebtsSubtitle;
+  String get settingsInvestments;
+  String get settingsInvestmentsSubtitle;
 
   // ── Categorías ─────────────────────────────────────────────────────────────
   String get noCategories;
@@ -2185,6 +2187,11 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get settingsDebtsSubtitle =>
       'Gestiona deudas, estrategias y calculadoras';
+  @override
+  String get settingsInvestments => 'Inversiones';
+  @override
+  String get settingsInvestmentsSubtitle =>
+      'Perfil inversor, cartera ETF y simulador';
   @override
   String get sectionAdvancedFinances => 'Finanzas avanzadas';
   @override
@@ -5054,6 +5061,11 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get settingsDebtsSubtitle =>
       'Manage debts, strategies and calculators';
+  @override
+  String get settingsInvestments => 'Investments';
+  @override
+  String get settingsInvestmentsSubtitle =>
+      'Investor profile, ETF portfolio and simulator';
   @override
   String get sectionAdvancedFinances => 'Advanced finances';
   @override
