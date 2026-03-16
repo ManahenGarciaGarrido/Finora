@@ -852,6 +852,7 @@ abstract class AppStringsBase {
 
   // ── Plurales y Conteo (Dinámicos) ──────────────────────────────────────────
   String newLabel(int count);
+  String newLabelO(int count);
   String transactionCountLabel(int count);
   String connectedLabel(int count);
 
@@ -3090,6 +3091,8 @@ class _AppStringsEs extends AppStringsBase {
 
   @override
   String newLabel(int count) => count == 1 ? 'nueva' : 'nuevas';
+  @override
+  String newLabelO(int count) => count == 1 ? 'Nuevo' : 'Nuevos';
   @override
   String transactionCountLabel(int count) =>
       count == 1 ? 'transacción' : 'transacciones';
@@ -5945,6 +5948,8 @@ class _AppStringsEn extends AppStringsBase {
 
   @override
   String newLabel(int count) => 'new'; // En inglés 'new' no varía
+  @override
+  String newLabelO(int count) => 'News';
   @override
   String transactionCountLabel(int count) =>
       count == 1 ? 'transaction' : 'transactions';
