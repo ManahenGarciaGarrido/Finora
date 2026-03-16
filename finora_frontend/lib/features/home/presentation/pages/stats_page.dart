@@ -22,6 +22,7 @@
 library;
 
 import 'dart:math' as math;
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -29,11 +30,15 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/di/injection_container.dart' as di;
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../categories/domain/entities/category_entity.dart';
+import '../../../../core/services/currency_service.dart';
 
 // ─── Período de filtro ────────────────────────────────────────────────────────
 
@@ -44,43 +49,27 @@ enum StatsPeriod {
   year,
   all;
 
-  String get label {
+  String getLabel(AppLocalizations s) {
     switch (this) {
       case StatsPeriod.currentMonth:
-        return 'Este mes';
+        return s.thisMonth;
       case StatsPeriod.threeMonths:
-        return '3 meses';
+        return s.threeMonths;
       case StatsPeriod.sixMonths:
-        return '6 meses';
+        return s.sixMonths;
       case StatsPeriod.year:
-        return '1 año';
+        return s.yearPeriod;
       case StatsPeriod.all:
-        return 'Todo';
+        return s.all;
     }
   }
 }
 
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 
-String _fmtCurrency(double amount) {
-  final isNeg = amount < 0;
-  final abs = amount.abs();
-  final parts = abs.toStringAsFixed(2).split('.');
-  final buf = StringBuffer();
-  final intPart = parts[0];
-  for (int i = 0; i < intPart.length; i++) {
-    if (i > 0 && (intPart.length - i) % 3 == 0) buf.write('.');
-    buf.write(intPart[i]);
-  }
-  return '${isNeg ? '-' : ''}${buf.toString()},${parts[1]} €';
-}
+String _fmtCurrency(double amount) => CurrencyService().format(amount);
 
-String _fmtCompact(double amount) {
-  if (amount.abs() >= 1000) {
-    return '${(amount / 1000).toStringAsFixed(1)}k€';
-  }
-  return '${amount.toStringAsFixed(0)}€';
-}
+String _fmtCompact(double amount) => CurrencyService().formatCompact(amount);
 
 const _months = [
   'Ene',
@@ -119,6 +108,35 @@ List<TransactionEntity> _filterByPeriod(
       return txs.where((t) => !t.date.isBefore(cut)).toList();
     case StatsPeriod.all:
       return txs;
+  }
+}
+
+String _getTranslatedCategory(BuildContext context, String categoryKey) {
+  final s = AppLocalizations.of(context);
+
+  switch (categoryKey.toLowerCase()) {
+    case 'alimentación':
+      return s.nutrition;
+    case 'transporte':
+      return s.transport;
+    case 'ocio':
+      return s.leisure;
+    case 'salud':
+      return s.health;
+    case 'vivienda':
+      return s.housing;
+    case 'servicios':
+      return s.services;
+    case 'educación':
+      return s.education;
+    case 'ropa':
+      return s.clothing;
+    case 'otros':
+      return s.other;
+    case 'ahorro':
+      return s.saving;
+    default:
+      return categoryKey;
   }
 }
 
@@ -195,6 +213,65 @@ class _StatsPageState extends State<StatsPage>
       TransformationController();
   bool _lineZoomed = false;
 
+  // ─── Datos de analytics del servidor (evita el límite de 100 txs paginadas) ─
+  List<_MonthData>? _serverMonthly;
+  Map<String, double>? _serverCategories;
+
+  /// Devuelve los meses a pedir según el período seleccionado.
+  /// 0 = sin límite (todo el historial).
+  int _monthsForPeriod(StatsPeriod p) {
+    switch (p) {
+      case StatsPeriod.currentMonth:
+        return 1;
+      case StatsPeriod.threeMonths:
+        return 3;
+      case StatsPeriod.sixMonths:
+        return 6;
+      case StatsPeriod.year:
+        return 12;
+      case StatsPeriod.all:
+        return 0;
+    }
+  }
+
+  Future<void> _fetchAnalytics() async {
+    final months = _monthsForPeriod(_period);
+    try {
+      final resp = await di.sl<ApiClient>().get(
+        ApiEndpoints.transactionAnalytics,
+        queryParameters: {'months': months},
+      );
+      final data = resp.data as Map<String, dynamic>;
+
+      // Construir _MonthData desde la respuesta
+      final rawMonthly = (data['monthly'] as List?) ?? [];
+      final monthly = rawMonthly.map((r) {
+        final parts = (r['month'] as String).split('-');
+        return _MonthData(
+          month: DateTime(int.parse(parts[0]), int.parse(parts[1])),
+          income: (r['income'] as num?)?.toDouble() ?? 0.0,
+          expenses: (r['expenses'] as num?)?.toDouble() ?? 0.0,
+        );
+      }).toList();
+
+      // Construir mapa de categorías
+      final rawCats = (data['categories'] as List?) ?? [];
+      final cats = <String, double>{};
+      for (final r in rawCats) {
+        cats[r['category'] as String] = (r['total'] as num?)?.toDouble() ?? 0.0;
+      }
+
+      if (mounted) {
+        setState(() {
+          _serverMonthly = monthly;
+          _serverCategories = cats;
+        });
+      }
+    } catch (_) {
+      // Silencioso — fallback a datos locales
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -211,6 +288,7 @@ class _StatsPageState extends State<StatsPage>
       final zoomed = _lineZoomController.value != Matrix4.identity();
       if (zoomed != _lineZoomed) setState(() => _lineZoomed = zoomed);
     });
+    _fetchAnalytics();
   }
 
   @override
@@ -229,20 +307,28 @@ class _StatsPageState extends State<StatsPage>
     setState(() {
       _period = p;
       _touchedPieIndex = null;
+      _serverMonthly = null;
+      _serverCategories = null;
     });
     _animController.reset();
     _animController.forward();
+    _fetchAnalytics();
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
 
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: () async {
           context.read<TransactionBloc>().add(LoadTransactions());
-          await Future.delayed(const Duration(milliseconds: 500));
+          setState(() {
+            _serverMonthly = null;
+            _serverCategories = null;
+          });
+          await _fetchAnalytics();
         },
         color: AppColors.primary,
         child: CustomScrollView(
@@ -258,10 +344,7 @@ class _StatsPageState extends State<StatsPage>
                   responsive.horizontalPadding,
                   0,
                 ),
-                child: Text(
-                  'Estadísticas',
-                  style: AppTypography.headlineSmall(),
-                ),
+                child: Text(s.statistics, style: AppTypography.headlineSmall()),
               ),
             ),
             SliverToBoxAdapter(
@@ -272,25 +355,37 @@ class _StatsPageState extends State<StatsPage>
                   responsive.horizontalPadding,
                   0,
                 ),
-                child: _buildPeriodFilter(),
+                child: _buildPeriodFilter(s),
               ),
             ),
             SliverToBoxAdapter(
               child: BlocBuilder<TransactionBloc, TransactionState>(
                 builder: (context, state) {
+                  // Para el período actual (este mes) usamos txs locales;
+                  // para el resto usamos datos del servidor que tienen el historial completo.
                   final allTxs = state is TransactionsLoaded
                       ? state.transactions
                       : context.read<TransactionBloc>().transactions;
                   final txs = _filterByPeriod(allTxs, _period);
-                  final catExpenses = _expensesByCategory(txs);
-                  final monthlyData = _buildMonthlyData(txs);
 
-                  final totalIncome = txs
-                      .where((t) => t.isIncome)
-                      .fold(0.0, (s, t) => s + t.amount);
-                  final totalExpenses = txs
-                      .where((t) => t.isExpense)
-                      .fold(0.0, (s, t) => s + t.amount);
+                  // Datos mensuales: servidor si disponibles, local como fallback
+                  final monthlyData = _serverMonthly ?? _buildMonthlyData(txs);
+
+                  // Categorías: servidor si disponibles, local como fallback
+                  final catExpenses =
+                      _serverCategories ?? _expensesByCategory(txs);
+
+                  // Totales: sumar desde datos del servidor cuando están disponibles
+                  final totalIncome = _serverMonthly != null
+                      ? _serverMonthly!.fold(0.0, (s, d) => s + d.income)
+                      : txs
+                            .where((t) => t.isIncome)
+                            .fold(0.0, (s, t) => s + t.amount);
+                  final totalExpenses = _serverCategories != null
+                      ? _serverCategories!.values.fold(0.0, (s, v) => s + v)
+                      : txs
+                            .where((t) => t.isExpense)
+                            .fold(0.0, (s, t) => s + t.amount);
 
                   return Column(
                     children: [
@@ -305,6 +400,7 @@ class _StatsPageState extends State<StatsPage>
                           totalIncome,
                           totalExpenses,
                           txs.length,
+                          s,
                         ),
                       ),
                       Padding(
@@ -314,7 +410,11 @@ class _StatsPageState extends State<StatsPage>
                           responsive.horizontalPadding,
                           0,
                         ),
-                        child: _buildNetBalanceCard(totalIncome, totalExpenses),
+                        child: _buildNetBalanceCard(
+                          totalIncome,
+                          totalExpenses,
+                          s,
+                        ),
                       ),
                       if (catExpenses.isNotEmpty)
                         Padding(
@@ -324,7 +424,11 @@ class _StatsPageState extends State<StatsPage>
                             responsive.horizontalPadding,
                             0,
                           ),
-                          child: _buildPieChartCard(catExpenses, totalExpenses),
+                          child: _buildPieChartCard(
+                            catExpenses,
+                            totalExpenses,
+                            context,
+                          ),
                         ),
                       if (monthlyData.isNotEmpty)
                         Padding(
@@ -334,7 +438,7 @@ class _StatsPageState extends State<StatsPage>
                             responsive.horizontalPadding,
                             0,
                           ),
-                          child: _buildBarChartCard(monthlyData),
+                          child: _buildBarChartCard(monthlyData, context),
                         ),
                       if (monthlyData.isNotEmpty)
                         Padding(
@@ -344,7 +448,7 @@ class _StatsPageState extends State<StatsPage>
                             responsive.horizontalPadding,
                             0,
                           ),
-                          child: _buildLineChartCard(monthlyData),
+                          child: _buildLineChartCard(monthlyData, context),
                         ),
                       if (txs.isEmpty)
                         Padding(
@@ -370,7 +474,7 @@ class _StatsPageState extends State<StatsPage>
 
   // ── Filtro de período ───────────────────────────────────────────────────────
 
-  Widget _buildPeriodFilter() {
+  Widget _buildPeriodFilter(AppLocalizations s) {
     return Semantics(
       label: 'Filtro de período para estadísticas',
       child: SingleChildScrollView(
@@ -381,7 +485,7 @@ class _StatsPageState extends State<StatsPage>
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Semantics(
-                label: 'Período ${p.label}',
+                label: '${s.period} ${p.getLabel(s)}',
                 selected: isSel,
                 button: true,
                 child: GestureDetector(
@@ -400,7 +504,7 @@ class _StatsPageState extends State<StatsPage>
                       ),
                     ),
                     child: Text(
-                      p.label,
+                      p.getLabel(s),
                       style: AppTypography.labelSmall(
                         color: isSel
                             ? AppColors.white
@@ -419,12 +523,17 @@ class _StatsPageState extends State<StatsPage>
 
   // ── Resumen ─────────────────────────────────────────────────────────────────
 
-  Widget _buildSummaryCards(double income, double expenses, int count) {
+  Widget _buildSummaryCards(
+    double income,
+    double expenses,
+    int count,
+    AppLocalizations s,
+  ) {
     return Row(
       children: [
         Expanded(
           child: _SummaryCard(
-            title: 'Ingresos',
+            title: s.income,
             amount: income,
             icon: Icons.south_west_rounded,
             color: AppColors.success,
@@ -434,7 +543,7 @@ class _StatsPageState extends State<StatsPage>
         const SizedBox(width: 12),
         Expanded(
           child: _SummaryCard(
-            title: 'Gastos',
+            title: s.expenses,
             amount: expenses,
             icon: Icons.north_east_rounded,
             color: AppColors.error,
@@ -445,11 +554,15 @@ class _StatsPageState extends State<StatsPage>
     );
   }
 
-  Widget _buildNetBalanceCard(double income, double expenses) {
+  Widget _buildNetBalanceCard(
+    double income,
+    double expenses,
+    AppLocalizations s,
+  ) {
     final balance = income - expenses;
     final isPos = balance >= 0;
     return Semantics(
-      label: 'Balance neto ${_fmtCurrency(balance)}',
+      label: '${s.netBalance} ${_fmtCurrency(balance)}',
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -477,7 +590,7 @@ class _StatsPageState extends State<StatsPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Balance neto',
+                    s.netBalance,
                     style: AppTypography.labelMedium(
                       color: AppColors.white.withValues(alpha: 0.75),
                     ),
@@ -501,7 +614,7 @@ class _StatsPageState extends State<StatsPage>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Ahorras ${(((income - expenses) / income) * 100).clamp(0.0, 100.0).toStringAsFixed(0)}%',
+                  '${s.saving} ${(((income - expenses) / income) * 100).clamp(0.0, 100.0).toStringAsFixed(0)}%',
                   style: AppTypography.labelSmall(color: AppColors.white),
                 ),
               ),
@@ -513,7 +626,12 @@ class _StatsPageState extends State<StatsPage>
 
   // ── RF-29: Pie chart ────────────────────────────────────────────────────────
 
-  Widget _buildPieChartCard(Map<String, double> catExpenses, double total) {
+  Widget _buildPieChartCard(
+    Map<String, double> catExpenses,
+    double total,
+    BuildContext context,
+  ) {
+    final s = AppLocalizations.of(context);
     final entries = catExpenses.entries.toList();
     final colors = entries
         .map((e) => CategoryEntity.getColorForName(e.key))
@@ -523,23 +641,42 @@ class _StatsPageState extends State<StatsPage>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.gray100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Gastos por categoría', style: AppTypography.titleMedium()),
-              Text(
-                _fmtCurrency(total),
-                style: AppTypography.titleSmall(color: AppColors.error),
+              Text(s.spendingByCategory, style: AppTypography.titleMedium()),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _fmtCurrency(total),
+                  style: AppTypography.titleSmall(color: AppColors.error),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 20),
+          // Donut chart — centered, fixed height, no side legend
           Semantics(
             label:
                 'Gráfico circular de distribución de gastos por categoría. '
@@ -547,64 +684,94 @@ class _StatsPageState extends State<StatsPage>
             child: AnimatedBuilder(
               animation: _animValue,
               builder: (_, __) => SizedBox(
-                height: 220,
-                child: Row(
+                height: 200,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Expanded(
-                      flex: 5,
-                      child: PieChart(
-                        PieChartData(
-                          pieTouchData: PieTouchData(
-                            touchCallback: (event, resp) {
-                              setState(() {
-                                if (!event.isInterestedForInteractions ||
-                                    resp?.touchedSection == null) {
-                                  _touchedPieIndex = null;
-                                } else {
-                                  _touchedPieIndex =
-                                      resp!.touchedSection!.touchedSectionIndex;
-                                }
-                              });
-                            },
-                          ),
-                          startDegreeOffset: -90,
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 42,
-                          sections: entries.asMap().entries.map((e) {
-                            final idx = e.key;
-                            final cat = e.value;
-                            final isTouched = _touchedPieIndex == idx;
-                            final pct = total > 0
-                                ? (cat.value / total * 100)
-                                : 0.0;
-                            return PieChartSectionData(
-                              value: cat.value * _animValue.value,
-                              color: colors[idx],
-                              radius: isTouched ? 72 : 58,
-                              title: pct >= 8
-                                  ? '${pct.toStringAsFixed(0)}%'
-                                  : '',
-                              titleStyle: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            );
-                          }).toList(),
+                    PieChart(
+                      PieChartData(
+                        pieTouchData: PieTouchData(
+                          touchCallback: (event, resp) {
+                            setState(() {
+                              if (!event.isInterestedForInteractions ||
+                                  resp?.touchedSection == null) {
+                                _touchedPieIndex = null;
+                              } else {
+                                _touchedPieIndex =
+                                    resp!.touchedSection!.touchedSectionIndex;
+                              }
+                            });
+                          },
                         ),
+                        startDegreeOffset: -90,
+                        sectionsSpace: 2,
+                        centerSpaceRadius: 52,
+                        sections: entries.asMap().entries.map((e) {
+                          final idx = e.key;
+                          final cat = e.value;
+                          final isTouched = _touchedPieIndex == idx;
+                          return PieChartSectionData(
+                            value: cat.value * _animValue.value,
+                            color: isTouched
+                                ? colors[idx]
+                                : colors[idx].withValues(alpha: 0.82),
+                            radius: isTouched ? 70 : 58,
+                            title: '',
+                          );
+                        }).toList(),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 5,
-                      child: _buildPieLegend(entries, colors, total),
-                    ),
+                    // Center label
+                    if (_touchedPieIndex != null &&
+                        _touchedPieIndex! >= 0 &&
+                        _touchedPieIndex! < entries.length)
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${(entries[_touchedPieIndex!].value / total * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: colors[_touchedPieIndex!],
+                            ),
+                          ),
+                          Text(
+                            _fmtCurrency(entries[_touchedPieIndex!].value),
+                            style: AppTypography.labelSmall(
+                              color: AppColors.textSecondaryLight,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${entries.length}',
+                            style: AppTypography.titleLarge(
+                              color: AppColors.textPrimaryLight,
+                            ),
+                          ),
+                          Text(
+                            s.category,
+                            style: AppTypography.labelSmall(
+                              color: AppColors.textSecondaryLight,
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          // Legend as Wrap — never overflows
+          _buildPieLegend(entries, colors, total),
           if (_touchedPieIndex != null &&
+              _touchedPieIndex! >= 0 &&
               _touchedPieIndex! < entries.length) ...[
             const SizedBox(height: 12),
             _buildDetailBadge(
@@ -623,10 +790,10 @@ class _StatsPageState extends State<StatsPage>
     List<Color> colors,
     double total,
   ) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: entries.take(7).toList().asMap().entries.map((e) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: entries.asMap().entries.map((e) {
         final idx = e.key;
         final cat = e.value;
         final pct = total > 0 ? (cat.value / total * 100) : 0.0;
@@ -638,40 +805,44 @@ class _StatsPageState extends State<StatsPage>
           }),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            margin: const EdgeInsets.only(bottom: 7),
-            padding: EdgeInsets.symmetric(
-              horizontal: isSel ? 6 : 0,
-              vertical: isSel ? 3 : 0,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: isSel
-                  ? colors[idx].withValues(alpha: 0.1)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
+                  ? colors[idx].withValues(alpha: 0.14)
+                  : colors[idx].withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSel
+                    ? colors[idx].withValues(alpha: 0.5)
+                    : Colors.transparent,
+              ),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 10,
-                  height: 10,
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
                     color: colors[idx],
-                    borderRadius: BorderRadius.circular(3),
+                    shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    cat.key,
-                    style: AppTypography.bodySmall(
-                      color: AppColors.textSecondaryLight,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(width: 5),
+                Text(
+                  _getTranslatedCategory(context, cat.key),
+                  style: AppTypography.bodySmall(
+                    color: isSel
+                        ? AppColors.textPrimaryLight
+                        : AppColors.textSecondaryLight,
                   ),
                 ),
+                const SizedBox(width: 4),
                 Text(
                   '${pct.toStringAsFixed(0)}%',
-                  style: AppTypography.labelSmall(color: colors[idx]),
+                  style: AppTypography.labelSmall(
+                    color: isSel ? colors[idx] : AppColors.textTertiaryLight,
+                  ),
                 ),
               ],
             ),
@@ -737,7 +908,8 @@ class _StatsPageState extends State<StatsPage>
 
   // ── RF-29: Bar chart comparativo mensual ────────────────────────────────────
 
-  Widget _buildBarChartCard(List<_MonthData> months) {
+  Widget _buildBarChartCard(List<_MonthData> months, BuildContext context) {
+    final s = AppLocalizations.of(context);
     final maxVal = months.fold(
       0.0,
       (m, d) => math.max(m, math.max(d.income, d.expenses)),
@@ -756,13 +928,13 @@ class _StatsPageState extends State<StatsPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Comparativa mensual', style: AppTypography.titleMedium()),
+              Text(s.monthlyComparative, style: AppTypography.titleMedium()),
               Row(
                 children: [
                   _dot(AppColors.success),
                   const SizedBox(width: 4),
                   Text(
-                    'Ing.',
+                    s.inc,
                     style: AppTypography.badge(
                       color: AppColors.textTertiaryLight,
                     ),
@@ -771,7 +943,7 @@ class _StatsPageState extends State<StatsPage>
                   _dot(AppColors.error),
                   const SizedBox(width: 4),
                   Text(
-                    'Gas.',
+                    s.exp,
                     style: AppTypography.badge(
                       color: AppColors.textTertiaryLight,
                     ),
@@ -783,107 +955,119 @@ class _StatsPageState extends State<StatsPage>
           const SizedBox(height: 20),
           Semantics(
             label: 'Gráfico de barras comparativo de ingresos y gastos por mes',
-            child: SizedBox(
-              height: 180,
-              child: AnimatedBuilder(
-                animation: _animValue,
-                builder: (_, __) => BarChart(
-                  BarChartData(
-                    maxY: maxVal > 0 ? maxVal * 1.25 : 100,
-                    minY: 0,
-                    gridData: FlGridData(
-                      show: true,
-                      horizontalInterval: maxVal > 0 ? maxVal / 4 : 25,
-                      getDrawingHorizontalLine: (_) =>
-                          FlLine(color: AppColors.gray100, strokeWidth: 1),
-                      drawVerticalLine: false,
-                    ),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 48,
-                          getTitlesWidget: (val, _) => Text(
-                            _fmtCompact(val),
-                            style: AppTypography.badge(
-                              color: AppColors.textTertiaryLight,
-                            ),
-                          ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final chartH = (constraints.maxWidth * 0.45).clamp(
+                  140.0,
+                  220.0,
+                );
+                final labelSize = constraints.maxWidth < 340 ? 38.0 : 48.0;
+                final barW = constraints.maxWidth < 340 ? 7.0 : 9.0;
+                return SizedBox(
+                  height: chartH,
+                  child: AnimatedBuilder(
+                    animation: _animValue,
+                    builder: (_, __) => BarChart(
+                      BarChartData(
+                        maxY: maxVal > 0 ? maxVal * 1.25 : 100,
+                        minY: 0,
+                        gridData: FlGridData(
+                          show: true,
+                          horizontalInterval: maxVal > 0 ? maxVal / 4 : 25,
+                          getDrawingHorizontalLine: (_) =>
+                              FlLine(color: AppColors.gray100, strokeWidth: 1),
+                          drawVerticalLine: false,
                         ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (val, _) {
-                            final idx = val.toInt();
-                            if (idx < 0 || idx >= months.length) {
-                              return const SizedBox.shrink();
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                _months[months[idx].month.month - 1],
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: labelSize,
+                              getTitlesWidget: (val, _) => Text(
+                                _fmtCompact(val),
                                 style: AppTypography.badge(
                                   color: AppColors.textTertiaryLight,
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (val, _) {
+                                final idx = val.toInt();
+                                if (idx < 0 || idx >= months.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    _months[months[idx].month.month - 1],
+                                    style: AppTypography.badge(
+                                      color: AppColors.textTertiaryLight,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                         ),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                    ),
-                    barTouchData: BarTouchData(
-                      touchTooltipData: BarTouchTooltipData(
-                        getTooltipColor: (_) =>
-                            AppColors.textPrimaryLight.withValues(alpha: 0.9),
-                        tooltipRoundedRadius: 8,
-                        getTooltipItem: (group, _, rod, rodIdx) {
-                          final d = months[group.x.toInt()];
-                          final label = rodIdx == 0 ? 'Ingresos' : 'Gastos';
-                          return BarTooltipItem(
-                            '${_months[d.month.month - 1]} ${d.month.year}\n'
-                            '$label: ${_fmtCurrency(rod.toY)}',
-                            AppTypography.badge(color: Colors.white),
+                        barTouchData: BarTouchData(
+                          touchTooltipData: BarTouchTooltipData(
+                            getTooltipColor: (_) => AppColors.textPrimaryLight
+                                .withValues(alpha: 0.9),
+                            tooltipRoundedRadius: 8,
+                            getTooltipItem: (group, _, rod, rodIdx) {
+                              final d = months[group.x.toInt()];
+                              final label = rodIdx == 0
+                                  ? s.incomes
+                                  : s.expenses;
+                              return BarTooltipItem(
+                                '${_months[d.month.month - 1]} ${d.month.year}\n'
+                                '$label: ${_fmtCurrency(rod.toY)}',
+                                AppTypography.badge(color: Colors.white),
+                              );
+                            },
+                          ),
+                        ),
+                        barGroups: months.asMap().entries.map((e) {
+                          final idx = e.key;
+                          final d = e.value;
+                          return BarChartGroupData(
+                            x: idx,
+                            barsSpace: 4,
+                            barRods: [
+                              BarChartRodData(
+                                toY: d.income * _animValue.value,
+                                color: AppColors.success,
+                                width: barW,
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(4),
+                                ),
+                              ),
+                              BarChartRodData(
+                                toY: d.expenses * _animValue.value,
+                                color: AppColors.error,
+                                width: barW,
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(4),
+                                ),
+                              ),
+                            ],
                           );
-                        },
+                        }).toList(),
                       ),
                     ),
-                    barGroups: months.asMap().entries.map((e) {
-                      final idx = e.key;
-                      final d = e.value;
-                      return BarChartGroupData(
-                        x: idx,
-                        barsSpace: 4,
-                        barRods: [
-                          BarChartRodData(
-                            toY: d.income * _animValue.value,
-                            color: AppColors.success,
-                            width: 9,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(4),
-                            ),
-                          ),
-                          BarChartRodData(
-                            toY: d.expenses * _animValue.value,
-                            color: AppColors.error,
-                            width: 9,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(4),
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -893,7 +1077,8 @@ class _StatsPageState extends State<StatsPage>
 
   // ── RF-30: Gráfico de líneas de evolución temporal ───────────────────────────
 
-  Widget _buildLineChartCard(List<_MonthData> months) {
+  Widget _buildLineChartCard(List<_MonthData> months, BuildContext context) {
+    final s = AppLocalizations.of(context);
     double minY = 0;
     double maxY = 0;
     for (final d in months) {
@@ -920,17 +1105,17 @@ class _StatsPageState extends State<StatsPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Evolución temporal', style: AppTypography.titleMedium()),
+          Text(s.temporalEvolution, style: AppTypography.titleMedium()),
           const SizedBox(height: 8),
           Wrap(
             spacing: 14,
             runSpacing: 6,
             children: [
-              _legendLine(AppColors.success, 'Ingresos'),
-              _legendLine(AppColors.error, 'Gastos'),
-              _legendLine(AppColors.primary, 'Balance'),
+              _legendLine(AppColors.success, s.incomes),
+              _legendLine(AppColors.error, s.expenses),
+              _legendLine(AppColors.primary, s.balance),
               if (months.length >= 2)
-                _legendDash(AppColors.warning, 'Tendencia gastos'),
+                _legendDash(AppColors.warning, s.spendingTrend),
             ],
           ),
           const SizedBox(height: 16),
@@ -943,7 +1128,7 @@ class _StatsPageState extends State<StatsPage>
                   Icon(Icons.pinch_rounded, color: AppColors.gray400, size: 16),
                   const SizedBox(width: 4),
                   Text(
-                    'Pellizca para ampliar',
+                    s.pinchToZoom,
                     style: AppTypography.labelSmall(color: AppColors.gray400),
                   ),
                 ],
@@ -955,7 +1140,7 @@ class _StatsPageState extends State<StatsPage>
                   child: TextButton.icon(
                     onPressed: _resetLineZoom,
                     icon: const Icon(Icons.zoom_out_map_rounded, size: 16),
-                    label: const Text('Restablecer'),
+                    label: Text(s.reset),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(
@@ -974,170 +1159,182 @@ class _StatsPageState extends State<StatsPage>
                 'Gráfico de líneas de evolución temporal. '
                 'Usa pellizco para ampliar. '
                 'Toca un punto para ver los valores exactos.',
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                height: 220,
-                child: InteractiveViewer(
-                  transformationController: _lineZoomController,
-                  minScale: 1.0,
-                  maxScale: 4.0,
-                  scaleEnabled: true,
-                  panEnabled: true,
-                  boundaryMargin: const EdgeInsets.all(20),
-                  child: AnimatedBuilder(
-                    animation: _animValue,
-                    builder: (_, __) => LineChart(
-                      LineChartData(
-                        minY: minY,
-                        maxY: maxY > 0 ? maxY : 100,
-                        clipData: const FlClipData.all(),
-                        gridData: FlGridData(
-                          show: true,
-                          getDrawingHorizontalLine: (_) =>
-                              FlLine(color: AppColors.gray100, strokeWidth: 1),
-                          drawVerticalLine: false,
-                        ),
-                        borderData: FlBorderData(show: false),
-                        titlesData: FlTitlesData(
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 50,
-                              interval: maxY > 0 ? (maxY - minY) / 4 : 25,
-                              getTitlesWidget: (val, _) => Text(
-                                _fmtCompact(val),
-                                style: AppTypography.badge(
-                                  color: AppColors.textTertiaryLight,
-                                ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final chartH = (constraints.maxWidth * 0.55).clamp(
+                  160.0,
+                  260.0,
+                );
+                final labelSize = constraints.maxWidth < 340 ? 40.0 : 50.0;
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    height: chartH,
+                    child: InteractiveViewer(
+                      transformationController: _lineZoomController,
+                      minScale: 1.0,
+                      maxScale: 4.0,
+                      scaleEnabled: true,
+                      panEnabled: true,
+                      boundaryMargin: const EdgeInsets.all(20),
+                      child: AnimatedBuilder(
+                        animation: _animValue,
+                        builder: (_, __) => LineChart(
+                          LineChartData(
+                            minY: minY,
+                            maxY: maxY > 0 ? maxY : 100,
+                            clipData: const FlClipData.all(),
+                            gridData: FlGridData(
+                              show: true,
+                              getDrawingHorizontalLine: (_) => FlLine(
+                                color: AppColors.gray100,
+                                strokeWidth: 1,
                               ),
+                              drawVerticalLine: false,
                             ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              interval: math
-                                  .max(1, months.length / 6)
-                                  .floor()
-                                  .toDouble(),
-                              getTitlesWidget: (val, _) {
-                                final idx = val.toInt();
-                                if (idx < 0 || idx >= months.length) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    _months[months[idx].month.month - 1],
+                            borderData: FlBorderData(show: false),
+                            titlesData: FlTitlesData(
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: labelSize,
+                                  interval: maxY > 0 ? (maxY - minY) / 4 : 25,
+                                  getTitlesWidget: (val, _) => Text(
+                                    _fmtCompact(val),
                                     style: AppTypography.badge(
                                       color: AppColors.textTertiaryLight,
                                     ),
                                   ),
-                                );
-                              },
+                                ),
+                              ),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  interval: math
+                                      .max(1, months.length / 6)
+                                      .floor()
+                                      .toDouble(),
+                                  getTitlesWidget: (val, _) {
+                                    final idx = val.toInt();
+                                    if (idx < 0 || idx >= months.length) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        _months[months[idx].month.month - 1],
+                                        style: AppTypography.badge(
+                                          color: AppColors.textTertiaryLight,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
                             ),
-                          ),
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
+                            lineTouchData: LineTouchData(
+                              handleBuiltInTouches: true,
+                              touchTooltipData: LineTouchTooltipData(
+                                getTooltipColor: (_) => AppColors
+                                    .textPrimaryLight
+                                    .withValues(alpha: 0.92),
+                                tooltipRoundedRadius: 8,
+                                getTooltipItems: (spots) {
+                                  final labels = [
+                                    'Ingresos',
+                                    'Gastos',
+                                    'Balance',
+                                    'Tendencia',
+                                  ];
+                                  return spots.map((spot) {
+                                    final lbl = spot.barIndex < labels.length
+                                        ? labels[spot.barIndex]
+                                        : '';
+                                    return LineTooltipItem(
+                                      '$lbl\n${_fmtCurrency(spot.y)}',
+                                      AppTypography.badge(color: Colors.white),
+                                    );
+                                  }).toList();
+                                },
+                              ),
+                            ),
+                            lineBarsData: [
+                              _lineSeries(
+                                months
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (e) => FlSpot(
+                                        e.key.toDouble(),
+                                        e.value.income * _animValue.value,
+                                      ),
+                                    )
+                                    .toList(),
+                                AppColors.success,
+                                isCurved: true,
+                                showArea: true,
+                              ),
+                              _lineSeries(
+                                months
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (e) => FlSpot(
+                                        e.key.toDouble(),
+                                        e.value.expenses * _animValue.value,
+                                      ),
+                                    )
+                                    .toList(),
+                                AppColors.error,
+                                isCurved: true,
+                                showArea: true,
+                              ),
+                              _lineSeries(
+                                months
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (e) => FlSpot(
+                                        e.key.toDouble(),
+                                        e.value.balance * _animValue.value,
+                                      ),
+                                    )
+                                    .toList(),
+                                AppColors.primary,
+                                isCurved: false,
+                                showDots: true,
+                              ),
+                              if (months.length >= 2)
+                                _lineSeries(
+                                  months
+                                      .asMap()
+                                      .entries
+                                      .map(
+                                        (e) => FlSpot(
+                                          e.key.toDouble(),
+                                          movingAvg(e.key) * _animValue.value,
+                                        ),
+                                      )
+                                      .toList(),
+                                  AppColors.warning,
+                                  isCurved: true,
+                                  isDashed: true,
+                                ),
+                            ],
                           ),
                         ),
-                        lineTouchData: LineTouchData(
-                          handleBuiltInTouches: true,
-                          touchTooltipData: LineTouchTooltipData(
-                            getTooltipColor: (_) => AppColors.textPrimaryLight
-                                .withValues(alpha: 0.92),
-                            tooltipRoundedRadius: 8,
-                            getTooltipItems: (spots) {
-                              final labels = [
-                                'Ingresos',
-                                'Gastos',
-                                'Balance',
-                                'Tendencia',
-                              ];
-                              return spots.map((spot) {
-                                final lbl = spot.barIndex < labels.length
-                                    ? labels[spot.barIndex]
-                                    : '';
-                                return LineTooltipItem(
-                                  '$lbl\n${_fmtCurrency(spot.y)}',
-                                  AppTypography.badge(color: Colors.white),
-                                );
-                              }).toList();
-                            },
-                          ),
-                        ),
-                        lineBarsData: [
-                          _lineSeries(
-                            months
-                                .asMap()
-                                .entries
-                                .map(
-                                  (e) => FlSpot(
-                                    e.key.toDouble(),
-                                    e.value.income * _animValue.value,
-                                  ),
-                                )
-                                .toList(),
-                            AppColors.success,
-                            isCurved: true,
-                            showArea: true,
-                          ),
-                          _lineSeries(
-                            months
-                                .asMap()
-                                .entries
-                                .map(
-                                  (e) => FlSpot(
-                                    e.key.toDouble(),
-                                    e.value.expenses * _animValue.value,
-                                  ),
-                                )
-                                .toList(),
-                            AppColors.error,
-                            isCurved: true,
-                            showArea: true,
-                          ),
-                          _lineSeries(
-                            months
-                                .asMap()
-                                .entries
-                                .map(
-                                  (e) => FlSpot(
-                                    e.key.toDouble(),
-                                    e.value.balance * _animValue.value,
-                                  ),
-                                )
-                                .toList(),
-                            AppColors.primary,
-                            isCurved: false,
-                            showDots: true,
-                          ),
-                          if (months.length >= 2)
-                            _lineSeries(
-                              months
-                                  .asMap()
-                                  .entries
-                                  .map(
-                                    (e) => FlSpot(
-                                      e.key.toDouble(),
-                                      movingAvg(e.key) * _animValue.value,
-                                    ),
-                                  )
-                                  .toList(),
-                              AppColors.warning,
-                              isCurved: true,
-                              isDashed: true,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ), // closes AnimatedBuilder
-                ), // closes InteractiveViewer
-              ), // closes SizedBox(height:220)
-            ), // closes ClipRRect
+                      ), // closes AnimatedBuilder
+                    ), // closes InteractiveViewer
+                  ), // closes SizedBox(height:chartH)
+                ); // closes ClipRRect — ends return statement
+              },
+            ), // closes LayoutBuilder
           ), // closes Semantics
         ],
       ),

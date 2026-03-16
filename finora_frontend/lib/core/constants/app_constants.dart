@@ -11,6 +11,8 @@ class AppConstants {
   // Timeouts
   static const int connectionTimeout = 30000; // 30 seconds
   static const int receiveTimeout = 30000; // 30 seconds
+  // Timeout extendido para operaciones largas (import de cuentas bancarias con IA)
+  static const int bankImportReceiveTimeout = 180000; // 3 minutos
 
   // Pagination
   static const int defaultPageSize = 20;
@@ -36,5 +38,6 @@ class AppConstants {
   static const int maxUsernameLength = 50;
 
   // Biometric
-  static const String biometricLocalizedReason = 'Authenticate to access your financial data';
+  static const String biometricLocalizedReason =
+      'Authenticate to access your financial data';
 }

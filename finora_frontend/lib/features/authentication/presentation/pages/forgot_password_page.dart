@@ -3,14 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/responsive/responsive_builder.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../shared/widgets/animated_gradient_background.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
-/// Forgot Password Page
-/// Allows users to request password reset via email
+/// Página de recuperación de contraseña (RF-01)
+/// Permite a los usuarios solicitar el restablecimiento mediante correo electrónico.
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -34,18 +35,19 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   String? _validateEmail(String value) {
+    final s = AppLocalizations.of(context);
     if (value.isEmpty) {
-      return 'El correo electrónico es requerido';
+      return s.emailRequired;
     }
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(value)) {
-      return 'Ingresa un correo electrónico válido';
+      return s.invalidEmail;
     }
     return null;
   }
 
   Future<void> _handleForgotPassword() async {
-    // Validar campo
+    // Validar campo localmente
     setState(() {
       _emailError = _validateEmail(_emailController.text);
     });
@@ -59,12 +61,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   void _handleAuthState(BuildContext context, AuthState state) {
+    final s = AppLocalizations.of(context);
+
     if (state is AuthLoading) {
       setState(() => _isLoading = true);
     } else if (state is PasswordResetEmailSent) {
       setState(() => _isLoading = false);
 
-      // Mostrar diálogo de éxito
+      // Mostrar diálogo de éxito localizado
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -72,14 +76,21 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.mail_outline, color: AppColors.success, size: 28),
-              SizedBox(width: 12),
+              const Icon(
+                Icons.mail_outline,
+                color: AppColors.success,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Email Enviado',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  s.emailSentTitle,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -89,21 +100,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                state.message,
+                state.message, // Mensaje dinámico del servidor
                 style: const TextStyle(fontSize: 14, height: 1.5),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Revisa tu bandeja de entrada y haz clic en el enlace para restablecer tu contraseña.',
-                style: TextStyle(fontSize: 14, height: 1.5, color: Colors.grey),
+              Text(
+                s.emailSentInstructions,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: Colors.grey,
+                ),
               ),
             ],
           ),
           actions: [
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pop(); // Volver a login
+                Navigator.of(context).pop(); // Cerrar diálogo
+                Navigator.of(context).pop(); // Volver a la pantalla de Login
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
@@ -112,7 +127,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Volver al Login'),
+              child: Text(s.backToLogin),
             ),
           ],
         ),
@@ -149,6 +164,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   Widget _buildMobileLayout(BuildContext context) {
     final responsive = ResponsiveUtils(context);
+    final s = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(responsive.wp(6)),
@@ -157,7 +173,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         children: [
           SizedBox(height: responsive.hp(4)),
 
-          // Back button
+          // Botón de regreso
           Align(
             alignment: Alignment.centerLeft,
             child: IconButton(
@@ -171,9 +187,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
           SizedBox(height: responsive.hp(2)),
 
-          // Title
+          // Título localizado
           Text(
-            '¿Olvidaste tu contraseña?',
+            s.forgotPasswordTitle,
             style: TextStyle(
               fontSize: responsive.sp(28),
               fontWeight: FontWeight.bold,
@@ -183,9 +199,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
           SizedBox(height: responsive.hp(2)),
 
-          // Subtitle
+          // Subtítulo localizado
           Text(
-            'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.',
+            s.forgotPasswordSubtitle,
             style: TextStyle(
               fontSize: responsive.sp(14),
               color: AppColors.textSecondaryLight,
@@ -195,14 +211,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
           SizedBox(height: responsive.hp(4)),
 
-          // Form
+          // Formulario
           Form(
             key: _formKey,
             child: CustomTextField(
               controller: _emailController,
               focusNode: _emailFocus,
-              label: 'Correo Electrónico',
-              hint: 'correo@ejemplo.com',
+              label: s.emailLabel,
+              hint: s.emailHint,
               prefixIcon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.done,
@@ -220,7 +236,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
           SizedBox(height: responsive.hp(4)),
 
-          // Submit button
+          // Botón de envío
           SizedBox(
             height: 56,
             child: ElevatedButton(
@@ -246,7 +262,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                     )
                   : Text(
-                      'Enviar Enlace',
+                      s.sendLink,
                       style: TextStyle(
                         fontSize: responsive.sp(16),
                         fontWeight: FontWeight.w600,
@@ -257,12 +273,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
           SizedBox(height: responsive.hp(3)),
 
-          // Back to login
+          // Enlace para volver
           Center(
             child: TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                'Volver al inicio de sesión',
+                s.backToLogin,
                 style: TextStyle(
                   color: AppColors.textSecondaryLight,
                   fontSize: responsive.sp(14),

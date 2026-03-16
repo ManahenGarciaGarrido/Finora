@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -102,7 +104,7 @@ dependencies:
   qr_flutter: ^4.1.0
 
   # RNF-13: Internacionalización y formateo de números/fechas por locale
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # RNF-08: Splash screen nativo optimizado
   # Muestra el splash antes de que el motor de Flutter arranque,

@@ -27,6 +27,7 @@ abstract class GoalsRepository {
     required double amount,
     DateTime? date,
     String? note,
+    String? bankAccountId,
   });
   Future<List<GoalContributionEntity>> getContributions(String goalId);
   Future<GoalContributionEntity> updateContribution(

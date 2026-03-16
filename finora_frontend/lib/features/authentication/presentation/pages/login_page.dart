@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
@@ -97,19 +98,16 @@ class _LoginPageState extends State<LoginPage>
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'El correo electrónico es requerido';
-    }
+    final s = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return s.emailRequired;
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value)) {
-      return 'Ingresa un correo electrónico válido';
-    }
+    if (!emailRegex.hasMatch(value)) return s.emailInvalid;
     return null;
   }
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'La contraseña es requerida';
+      return AppLocalizations.of(context).passwordRequired;
     }
     return null;
   }
@@ -227,6 +225,7 @@ class _LoginPageState extends State<LoginPage>
   }
 
   void _showEmailVerificationDialog(BuildContext context) {
+    final s = AppLocalizations.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -236,10 +235,13 @@ class _LoginPageState extends State<LoginPage>
           children: [
             const Icon(Icons.mail_outline, color: AppColors.warning, size: 28),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Verificación Pendiente',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                s.emailVerificationPending,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -247,15 +249,15 @@ class _LoginPageState extends State<LoginPage>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
-              'Tu correo electrónico aún no ha sido verificado.',
-              style: TextStyle(fontSize: 14, height: 1.5),
+              s.emailNotVerifiedMsg,
+              style: const TextStyle(fontSize: 14, height: 1.5),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
-              'Por favor, revisa tu bandeja de entrada y haz clic en el enlace de verificación que te enviamos.',
-              style: TextStyle(fontSize: 14, height: 1.5),
+              s.checkInboxMsg,
+              style: const TextStyle(fontSize: 14, height: 1.5),
             ),
           ],
         ),
@@ -269,9 +271,9 @@ class _LoginPageState extends State<LoginPage>
                 ),
               );
             },
-            child: const Text(
-              'Reenviar Email',
-              style: TextStyle(color: AppColors.primary),
+            child: Text(
+              s.resendEmail,
+              style: const TextStyle(color: AppColors.primary),
             ),
           ),
           ElevatedButton(
@@ -283,7 +285,7 @@ class _LoginPageState extends State<LoginPage>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Entendido'),
+            child: Text(s.understood),
           ),
         ],
       ),
@@ -404,6 +406,7 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Widget _buildHeader(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -432,12 +435,12 @@ class _LoginPageState extends State<LoginPage>
         ),
         const SizedBox(height: 24),
         Text(
-          'Bienvenido de nuevo',
+          s.welcomeBack,
           style: AppTypography.displayLarge(color: AppColors.textPrimaryLight),
         ),
         const SizedBox(height: 8),
         Text(
-          'Inicia sesión para continuar',
+          s.signInToContinue,
           style: AppTypography.bodyLarge(color: AppColors.textSecondaryLight),
         ),
       ],
@@ -445,17 +448,18 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Widget _buildForm(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Form(
       key: _formKey,
       child: Column(
         children: [
           Semantics(
-            label: 'Campo de correo electrónico',
+            label: s.email,
             child: CustomTextField(
               controller: _emailController,
               focusNode: _emailFocus,
-              label: 'Correo Electrónico',
-              hint: 'correo@ejemplo.com',
+              label: s.email,
+              hint: s.emailHint,
               prefixIcon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
@@ -471,11 +475,11 @@ class _LoginPageState extends State<LoginPage>
           ),
           const SizedBox(height: 20),
           Semantics(
-            label: 'Campo de contraseña',
+            label: s.password,
             child: CustomTextField(
               controller: _passwordController,
               focusNode: _passwordFocus,
-              label: 'Contraseña',
+              label: s.password,
               hint: '••••••••',
               prefixIcon: Icons.lock_outlined,
               obscureText: true,
@@ -504,7 +508,7 @@ class _LoginPageState extends State<LoginPage>
       child: TextButton(
         onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
         child: Text(
-          '¿Olvidaste tu contraseña?',
+          AppLocalizations.of(context).forgotPassword,
           style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
         ),
       ),
@@ -512,13 +516,14 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Widget _buildLoginButton() {
+    final s = AppLocalizations.of(context);
     return Semantics(
-      label: 'Botón iniciar sesión con correo y contraseña',
+      label: s.login,
       button: true,
       child: AnimatedButton(
         onPressed: _isLoading ? null : _handleLogin,
         isLoading: _isLoading,
-        text: 'Iniciar Sesión',
+        text: s.login,
         icon: Icons.login,
       ),
     );
@@ -543,13 +548,14 @@ class _LoginPageState extends State<LoginPage>
 
   // RF-03: Botón de autenticación biométrica
   Widget _buildBiometricButton() {
+    final s = AppLocalizations.of(context);
     final isFaceId = _biometricLabel == 'Face ID';
     final icon = isFaceId ? Icons.face_rounded : Icons.fingerprint_rounded;
 
     return Semantics(
-      label: 'Iniciar sesión con $_biometricLabel',
+      label: '${s.accessWith} $_biometricLabel',
       button: true,
-      hint: 'Activa la autenticación biométrica para acceder sin contraseña',
+      hint: s.biometricDescription,
       child: SizedBox(
         width: double.infinity,
         height: 52,
@@ -567,8 +573,8 @@ class _LoginPageState extends State<LoginPage>
               : Icon(icon, size: 22, color: AppColors.primary),
           label: Text(
             _biometricAuthenticating
-                ? 'Autenticando...'
-                : 'Acceder con $_biometricLabel',
+                ? s.authenticating
+                : '${s.accessWith} $_biometricLabel',
             style: AppTypography.labelLarge(color: AppColors.primary),
           ),
           style: OutlinedButton.styleFrom(
@@ -584,14 +590,15 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Widget _buildRegisterLink(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Center(
       child: RichText(
         text: TextSpan(
-          text: '¿No tienes una cuenta? ',
+          text: '${s.noAccountYet} ',
           style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
           children: [
             TextSpan(
-              text: 'Regístrate',
+              text: s.register,
               style: AppTypography.link(color: AppColors.primary),
               recognizer: TapGestureRecognizer()
                 ..onTap = () => Navigator.pushNamed(context, '/register'),

@@ -52,10 +52,12 @@ class GoalsRepositoryImpl implements GoalsRepository {
     required double amount,
     DateTime? date,
     String? note,
+    String? bankAccountId,
   }) => _remote.addContribution(goalId, {
     'amount': amount,
     if (date != null) 'date': date.toIso8601String().split('T').first,
     if (note != null) 'note': note,
+    if (bankAccountId != null) 'bank_account_id': bankAccountId,
   });
 
   @override

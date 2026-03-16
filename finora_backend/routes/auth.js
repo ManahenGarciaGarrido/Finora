@@ -1048,7 +1048,30 @@ router.get('/password-requirements', (req, res) => {
 // RNF-03: Autenticación de dos factores (2FA) — TOTP (RFC 6238)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const crypto = require('crypto');
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Formato "Bearer TOKEN"
+
+  if (!token) {
+    return res.status(401).json({
+      error: 'No Autorizado',
+      message: 'Token de acceso no proporcionado'
+    });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({
+        error: 'Prohibido',
+        message: 'Token inválido o expirado'
+      });
+    }
+    
+    // Guardamos los datos del usuario decodificados en el objeto request
+    req.user = user;
+    next();
+  });
+};
 
 /** Genera secreto TOTP de 20 bytes en base32 (compatible con Google Authenticator). */
 function _generateTotpSecret() {

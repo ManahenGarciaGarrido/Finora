@@ -468,7 +468,7 @@ router.get('/:id/progress', authenticateToken, async (req, res) => {
 // ─── POST /:id/contributions — Añadir aportación (RF-20) ─────────────────────
 
 router.post('/:id/contributions', authenticateToken, async (req, res) => {
-  const { amount, date, note } = req.body;
+  const { amount, date, note, bank_account_id } = req.body;
 
   if (!amount || parseFloat(amount) <= 0) {
     return res.status(400).json({
@@ -490,11 +490,13 @@ router.post('/:id/contributions', authenticateToken, async (req, res) => {
     }
     const goal = goalResult.rows[0];
 
+    const contribDate = date || new Date().toISOString().split('T')[0];
+
     // Insertar aportación
     const contribResult = await db.query(
       `INSERT INTO goal_contributions (goal_id, user_id, amount, date, note)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [goal.id, req.user.userId, parseFloat(amount), date || new Date().toISOString().split('T')[0], note || null]
+      [goal.id, req.user.userId, parseFloat(amount), contribDate, note || null]
     );
     const contribution = contribResult.rows[0];
 
@@ -510,6 +512,29 @@ router.post('/:id/contributions', authenticateToken, async (req, res) => {
        WHERE id = $3`,
       [newAmount, isCompleted, goal.id]
     );
+
+    // Registrar la aportación como transacción de gasto en categoría Ahorro (RF-20)
+    const paymentMethod = bank_account_id ? 'bank_transfer' : 'cash';
+    await db.query(
+      `INSERT INTO transactions (user_id, amount, type, category, description, date, payment_method, bank_account_id)
+       VALUES ($1, $2, 'expense', 'Ahorro', $3, $4, $5, $6)`,
+      [
+        req.user.userId,
+        parseFloat(amount),
+        `Aportación para ${goal.name}`,
+        contribDate,
+        paymentMethod,
+        bank_account_id || null,
+      ]
+    ).catch(err => console.error('[goals] Warning: could not create savings transaction:', err.message));
+
+    // Si hay cuenta bancaria, actualizar su saldo
+    if (bank_account_id) {
+      await db.query(
+        'UPDATE bank_accounts SET balance_cents = balance_cents - $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
+        [Math.round(parseFloat(amount) * 100), bank_account_id, req.user.userId]
+      ).catch(() => {});
+    }
 
     // Notificación in-app al completar el objetivo (HU-07)
     if (isCompleted) {
@@ -646,6 +671,122 @@ router.delete('/:id/contributions/:cid', authenticateToken, async (req, res) => 
     res.json({ message: 'Aportación eliminada correctamente' });
   } catch (err) {
     console.error('[goals] DELETE /:id/contributions/:cid error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /:id/advice — Consejo IA sobre aportación propuesta (RF-21) ────────
+//
+// Evalúa si el importe propuesto es adecuado dado el flujo mensual del usuario.
+// Body: { proposed_amount: float }
+// Returns: { suggestion, advice, ahorro_necesario, ahorro_recomendado, capacidad }
+
+router.post('/:id/advice', authenticateToken, async (req, res) => {
+  const { proposed_amount } = req.body;
+  if (!proposed_amount || parseFloat(proposed_amount) <= 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'proposed_amount debe ser mayor que 0' });
+  }
+
+  try {
+    const goalResult = await db.query(
+      'SELECT * FROM savings_goals WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.userId]
+    );
+    if (goalResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Objetivo no encontrado' });
+    }
+    const goal = goalResult.rows[0];
+
+    // Transacciones últimos 3 meses para análisis
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const txResult = await db.query(
+      `SELECT amount, type, category, date::text AS date
+       FROM transactions
+       WHERE user_id = $1 AND date >= $2
+       ORDER BY date DESC`,
+      [req.user.userId, threeMonthsAgo.toISOString().split('T')[0]]
+    );
+
+    const transactions = txResult.rows.map(r => ({
+      amount: parseFloat(r.amount),
+      type: r.type,
+      category: r.category,
+      date: r.date,
+    }));
+
+    // Meses hasta el deadline
+    let plazoMeses = 12;
+    if (goal.deadline) {
+      const now = new Date();
+      const dl = new Date(goal.deadline);
+      plazoMeses = Math.max(1, Math.ceil((dl - now) / (1000 * 60 * 60 * 24 * 30)));
+    }
+
+    const remaining = Math.max(0, parseFloat(goal.target_amount) - parseFloat(goal.current_amount));
+
+    // Llamar al servicio IA
+    let aiData = null;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const aiResp = await fetch(`${AI_SERVICE_URL}/evaluate-savings-goal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactions,
+          goal: { monto_total: remaining, plazo_meses: plazoMeses },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (aiResp.ok) aiData = await aiResp.json();
+    } catch (e) {
+      console.warn('[goals] advice: AI service unavailable:', e.message);
+    }
+
+    // Interpretar respuesta IA
+    const proposed = parseFloat(proposed_amount);
+    let suggestion = 'correct';
+    let advice = null;
+
+    if (aiData) {
+      const needed = aiData.ahorro_necesario ?? (remaining / plazoMeses);
+      const capacity = aiData.capacidad?.disponible ?? proposed;
+
+      if (proposed < needed * 0.7) {
+        suggestion = 'increase';
+        advice = `Con ${proposed.toFixed(2)} € al mes no alcanzarás el objetivo a tiempo. Se necesitan al menos ${needed.toFixed(2)} €/mes. ${aiData.alerta || ''}`.trim();
+      } else if (proposed > capacity * 0.9 && capacity > 0) {
+        suggestion = 'decrease';
+        advice = `Esta cantidad representa más del 90 % de tu capacidad de ahorro disponible (${capacity.toFixed(2)} €/mes). Considera reducirla para mantener margen de maniobra.`;
+      } else {
+        advice = `Aportación adecuada. Con ${proposed.toFixed(2)} € al mes puedes alcanzar el objetivo en el plazo previsto. ${aiData.alerta || ''}`.trim();
+      }
+
+      return res.json({
+        suggestion,
+        advice,
+        ahorro_necesario: aiData.ahorro_necesario,
+        ahorro_recomendado: aiData.ahorro_recomendado,
+        capacidad: aiData.capacidad,
+        plazo_meses: plazoMeses,
+      });
+    }
+
+    // Fallback sin IA
+    const fallbackNeeded = remaining / plazoMeses;
+    if (proposed < fallbackNeeded * 0.7) {
+      suggestion = 'increase';
+      advice = `Para alcanzar el objetivo en plazo necesitas aportar al menos ${fallbackNeeded.toFixed(2)} €/mes.`;
+    } else {
+      advice = `La cantidad parece adecuada para alcanzar el objetivo en ${plazoMeses} meses.`;
+    }
+
+    res.json({ suggestion, advice, ahorro_necesario: fallbackNeeded, plazo_meses: plazoMeses });
+  } catch (err) {
+    console.error('[goals] POST /:id/advice error:', err);
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
   }
 });

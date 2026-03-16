@@ -9,12 +9,14 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 
 /// RF-32: Gestión visual de presupuestos mensuales por categoría.
 class BudgetPage extends StatefulWidget {
@@ -28,11 +30,6 @@ class _BudgetPageState extends State<BudgetPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
   final _apiClient = di.sl<ApiClient>();
-  final _fmtMoney = NumberFormat.currency(
-    locale: 'es_ES',
-    symbol: '€',
-    decimalDigits: 2,
-  );
 
   // Estado
   bool _loading = true;
@@ -54,6 +51,44 @@ class _BudgetPageState extends State<BudgetPage>
     _tabs.dispose();
     super.dispose();
   }
+
+  // ── Helpers de Localización ────────────────────────────────────────────────
+
+  String _formatCurrency(double amount) => CurrencyService().format(amount);
+
+  String _getTranslatedCategory(String categoryKey) {
+    final s = AppLocalizations.of(context);
+    final key = categoryKey.toLowerCase().trim();
+
+    switch (key) {
+      case 'alimentación':
+      case 'food':
+        return s.nutrition;
+      case 'transporte':
+      case 'transport':
+        return s.transport;
+      case 'ocio':
+      case 'leisure':
+        return s.leisure;
+      case 'salud':
+      case 'health':
+        return s.health;
+      case 'vivienda':
+      case 'housing':
+        return s.housing;
+      case 'servicios':
+      case 'services':
+        return s.services;
+      case 'suscripciones':
+      case 'subscriptions':
+        return s.tabSubscriptions;
+      default:
+        if (categoryKey.isEmpty) return '';
+        return categoryKey[0].toUpperCase() + categoryKey.substring(1);
+    }
+  }
+
+  // ── Lógica de Datos ────────────────────────────────────────────────────────
 
   Future<void> _loadData() async {
     setState(() {
@@ -88,12 +123,13 @@ class _BudgetPageState extends State<BudgetPage>
     }
   }
 
-  // ── Crear / editar presupuesto ─────────────────────────────────────────────
+  // ── Diálogos y Acciones ────────────────────────────────────────────────────
 
   Future<void> _showBudgetDialog({
     String? category,
     double? currentLimit,
   }) async {
+    final s = AppLocalizations.of(context);
     final catController = TextEditingController(text: category ?? '');
     final limitController = TextEditingController(
       text: currentLimit != null ? currentLimit.toStringAsFixed(2) : '',
@@ -103,9 +139,7 @@ class _BudgetPageState extends State<BudgetPage>
     await showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(
-          category != null ? 'Editar presupuesto' : 'Nuevo presupuesto',
-        ),
+        title: Text(category != null ? s.editBudgetTitle : s.newBudgetTitle),
         content: Form(
           key: formKey,
           child: Column(
@@ -114,18 +148,22 @@ class _BudgetPageState extends State<BudgetPage>
               if (category == null)
                 TextFormField(
                   controller: catController,
-                  decoration: const InputDecoration(labelText: 'Categoría'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                  decoration: InputDecoration(labelText: s.name),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? s.enterAccountNameError
+                      : null,
                 ),
               if (category != null) ...[
-                Text(category, style: AppTypography.titleSmall()),
+                Text(
+                  _getTranslatedCategory(category),
+                  style: AppTypography.titleSmall(),
+                ),
                 const SizedBox(height: 8),
               ],
               TextFormField(
                 controller: limitController,
-                decoration: const InputDecoration(
-                  labelText: 'Límite mensual (€)',
+                decoration: InputDecoration(
+                  labelText: s.monthlyLimitLabel,
                   prefixText: '€ ',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -133,9 +171,7 @@ class _BudgetPageState extends State<BudgetPage>
                 ),
                 validator: (v) {
                   final n = double.tryParse(v?.replaceAll(',', '.') ?? '');
-                  return (n == null || n <= 0)
-                      ? 'Introduce un importe válido'
-                      : null;
+                  return (n == null || n <= 0) ? s.invalidAmountError : null;
                 },
               ),
             ],
@@ -144,7 +180,7 @@ class _BudgetPageState extends State<BudgetPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text(s.cancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -163,8 +199,8 @@ class _BudgetPageState extends State<BudgetPage>
                 await _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Presupuesto guardado'),
+                    SnackBar(
+                      content: Text(s.budgetSavedMsg),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -173,14 +209,14 @@ class _BudgetPageState extends State<BudgetPage>
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Error: $e'),
+                      content: Text('${s.error}: $e'),
                       backgroundColor: AppColors.error,
                     ),
                   );
                 }
               }
             },
-            child: const Text('Guardar'),
+            child: Text(s.save),
           ),
         ],
       ),
@@ -188,20 +224,21 @@ class _BudgetPageState extends State<BudgetPage>
   }
 
   Future<void> _deleteBudget(String category) async {
+    final s = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Eliminar presupuesto'),
-        content: Text('¿Eliminar el presupuesto de "$category"?'),
+        title: Text(s.deleteBudgetTitle),
+        content: Text(s.deleteBudgetConfirm(_getTranslatedCategory(category))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: Text(s.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Eliminar'),
+            child: Text(s.delete),
           ),
         ],
       ),
@@ -215,7 +252,7 @@ class _BudgetPageState extends State<BudgetPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al eliminar: $e'),
+            content: Text('${s.error}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -223,24 +260,25 @@ class _BudgetPageState extends State<BudgetPage>
     }
   }
 
-  // ── UI ─────────────────────────────────────────────────────────────────────
+  // ── UI Principal ───────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         backgroundColor: AppColors.surfaceLight,
         elevation: 0,
-        title: Text('Presupuestos', style: AppTypography.titleMedium()),
+        title: Text(s.budgetsTitle, style: AppTypography.titleMedium()),
         leading: const BackButton(),
         bottom: TabBar(
           controller: _tabs,
           labelColor: AppColors.primary,
           indicatorColor: AppColors.primary,
-          tabs: const [
-            Tab(text: 'Estado actual'),
-            Tab(text: 'Mis presupuestos'),
+          tabs: [
+            Tab(text: s.budgetStatusTab),
+            Tab(text: s.myBudgetsTab),
           ],
         ),
         actions: [
@@ -253,12 +291,15 @@ class _BudgetPageState extends State<BudgetPage>
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showBudgetDialog(),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Nuevo'),
+        label: Text(s.newLabel(1)),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: SkeletonListLoader(count: 5, cardHeight: 80),
+            )
           : _error != null
           ? _buildError()
           : TabBarView(
@@ -268,21 +309,25 @@ class _BudgetPageState extends State<BudgetPage>
     );
   }
 
-  Widget _buildError() => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.error_outline_rounded, color: AppColors.error, size: 48),
-        const SizedBox(height: 12),
-        Text('Error al cargar datos', style: AppTypography.bodyMedium()),
-        TextButton(onPressed: _loadData, child: const Text('Reintentar')),
-      ],
-    ),
-  );
+  Widget _buildError() {
+    final s = AppLocalizations.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.error_outline_rounded, color: AppColors.error, size: 48),
+          const SizedBox(height: 12),
+          Text(s.error, style: AppTypography.bodyMedium()),
+          TextButton(onPressed: _loadData, child: Text(s.reconnect)),
+        ],
+      ),
+    );
+  }
 
   // ── Tab: Estado actual ─────────────────────────────────────────────────────
 
   Widget _buildStatusTab() {
+    final s = AppLocalizations.of(context);
     if (_statuses.isEmpty && _alerts.isEmpty) {
       return Center(
         child: Column(
@@ -295,12 +340,12 @@ class _BudgetPageState extends State<BudgetPage>
             ),
             const SizedBox(height: 16),
             Text(
-              'Sin presupuestos configurados',
+              s.noBudgetsConfigured,
               style: AppTypography.bodyMedium(color: AppColors.gray500),
             ),
             const SizedBox(height: 8),
             Text(
-              'Crea tu primer presupuesto para hacer seguimiento',
+              s.createFirstBudgetInfo,
               style: AppTypography.bodySmall(color: AppColors.gray400),
             ),
           ],
@@ -321,7 +366,7 @@ class _BudgetPageState extends State<BudgetPage>
           if (_unbudgeted.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
-              'Sin presupuesto',
+              s.unbudgetedTitle,
               style: AppTypography.labelSmall(color: AppColors.gray500),
             ),
             const SizedBox(height: 8),
@@ -333,6 +378,7 @@ class _BudgetPageState extends State<BudgetPage>
   }
 
   Widget _buildAlertsBanner() {
+    final s = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -346,7 +392,7 @@ class _BudgetPageState extends State<BudgetPage>
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${_alerts.length} presupuesto${_alerts.length > 1 ? 's' : ''} con alerta activa',
+              s.activeAlertsMsg(_alerts.length),
               style: AppTypography.bodySmall(color: AppColors.warningDark),
             ),
           ),
@@ -355,18 +401,23 @@ class _BudgetPageState extends State<BudgetPage>
     );
   }
 
-  Widget _buildStatusCard(Map<String, dynamic> s) {
-    final pct = (s['percentage'] as num).toDouble();
-    final alertLevel = s['alert_level'] as String;
+  Widget _buildStatusCard(Map<String, dynamic> statusData) {
+    final s = AppLocalizations.of(context);
+    final pct = (statusData['percentage'] as num).toDouble();
+    final alertLevel = statusData['alert_level'] as String;
+
     Color barColor;
+    String? badgeText;
+
     if (alertLevel == 'critical') {
       barColor = AppColors.error;
+      badgeText = s.budgetExceededLabel;
     } else if (alertLevel == 'warning') {
       barColor = AppColors.warning;
+      badgeText = s.budget80ReachedLabel;
     } else {
-      barColor = pct > 60 ? AppColors.success : AppColors.success;
+      barColor = pct > 60 ? AppColors.warning : AppColors.success;
     }
-    if (pct > 60 && alertLevel == 'ok') barColor = AppColors.warning;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -389,38 +440,23 @@ class _BudgetPageState extends State<BudgetPage>
             children: [
               Expanded(
                 child: Text(
-                  s['category'] as String,
+                  _getTranslatedCategory(statusData['category'] as String),
                   style: AppTypography.titleSmall(),
                 ),
               ),
-              if (alertLevel == 'critical')
+              if (badgeText != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.errorSoft,
+                    color: barColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Superado',
-                    style: AppTypography.labelSmall(color: AppColors.error),
-                  ),
-                )
-              else if (alertLevel == 'warning')
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.warningSoft,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '80% alcanzado',
-                    style: AppTypography.labelSmall(color: AppColors.warning),
+                    badgeText,
+                    style: AppTypography.labelSmall(color: barColor),
                   ),
                 ),
             ],
@@ -440,7 +476,7 @@ class _BudgetPageState extends State<BudgetPage>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${_fmtMoney.format(s['spent'])} de ${_fmtMoney.format(s['monthly_limit'])}',
+                '${_formatCurrency((statusData['spent'] as num).toDouble())} ${s.spentOfLabel} ${_formatCurrency((statusData['monthly_limit'] as num).toDouble())}',
                 style: AppTypography.bodySmall(color: AppColors.gray600),
               ),
               Text(
@@ -449,9 +485,9 @@ class _BudgetPageState extends State<BudgetPage>
               ),
             ],
           ),
-          if (s['remaining'] > 0)
+          if (statusData['remaining'] > 0)
             Text(
-              'Restante: ${_fmtMoney.format(s['remaining'])}',
+              '${s.remainingLabel}: ${_formatCurrency((statusData['remaining'] as num).toDouble())}',
               style: AppTypography.bodySmall(color: AppColors.gray400),
             ),
         ],
@@ -460,6 +496,7 @@ class _BudgetPageState extends State<BudgetPage>
   }
 
   Widget _buildUnbudgetedItem(Map<String, dynamic> u) {
+    final s = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -472,19 +509,19 @@ class _BudgetPageState extends State<BudgetPage>
         children: [
           Expanded(
             child: Text(
-              u['category'] as String,
+              _getTranslatedCategory(u['category'] as String),
               style: AppTypography.bodyMedium(),
             ),
           ),
           Text(
-            _fmtMoney.format(u['spent']),
+            _formatCurrency((u['spent'] as num).toDouble()),
             style: AppTypography.bodySmall(color: AppColors.gray500),
           ),
           const SizedBox(width: 8),
           TextButton(
             onPressed: () =>
                 _showBudgetDialog(category: u['category'] as String),
-            child: const Text('Añadir límite'),
+            child: Text(s.addLimitLabel),
           ),
         ],
       ),
@@ -494,6 +531,7 @@ class _BudgetPageState extends State<BudgetPage>
   // ── Tab: Mis presupuestos ──────────────────────────────────────────────────
 
   Widget _buildBudgetsTab() {
+    final s = AppLocalizations.of(context);
     if (_budgets.isEmpty) {
       return Center(
         child: Column(
@@ -502,14 +540,14 @@ class _BudgetPageState extends State<BudgetPage>
             Icon(Icons.wallet_outlined, color: AppColors.gray400, size: 56),
             const SizedBox(height: 16),
             Text(
-              'No tienes presupuestos aún',
+              s.noBudgetsConfigured,
               style: AppTypography.bodyMedium(color: AppColors.gray500),
             ),
             const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: () => _showBudgetDialog(),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Crear presupuesto'),
+              label: Text(s.newBudgetTitle),
             ),
           ],
         ),
@@ -549,11 +587,11 @@ class _BudgetPageState extends State<BudgetPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      b['category'] as String,
+                      _getTranslatedCategory(b['category'] as String),
                       style: AppTypography.titleSmall(),
                     ),
                     Text(
-                      _fmtMoney.format(b['monthly_limit']),
+                      _formatCurrency((b['monthly_limit'] as num).toDouble()),
                       style: AppTypography.bodySmall(color: AppColors.gray500),
                     ),
                   ],

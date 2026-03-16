@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../bloc/bank_bloc.dart';
@@ -104,7 +105,10 @@ class _BankConnectingPageState extends State<BankConnectingPage>
               Navigator.pop(context);
             },
           ),
-          title: Text('Conectando banco', style: AppTypography.titleMedium()),
+          title: Text(
+            AppLocalizations.of(context).connectingBankTitle,
+            style: AppTypography.titleMedium(),
+          ),
         ),
         body: BlocConsumer<BankBloc, BankState>(
           listener: (context, state) {
@@ -139,13 +143,13 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                     const SizedBox(height: 32),
 
                     Text(
-                      _titleFor(state),
+                      _titleFor(context, state),
                       style: AppTypography.titleLarge(),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _subtitleFor(state, widget.institutionName),
+                      _subtitleFor(context, state, widget.institutionName),
                       style: AppTypography.bodyMedium(
                         color: AppColors.textSecondaryLight,
                       ),
@@ -168,7 +172,7 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Esperando autorización... ($attempt/60)',
+                        '${AppLocalizations.of(context).bankWaitingAuthTitle}... ($attempt/60)',
                         style: AppTypography.labelSmall(
                           color: AppColors.textTertiaryLight,
                         ),
@@ -182,7 +186,7 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Abriendo el navegador...',
+                        AppLocalizations.of(context).openingBrowserMsg,
                         style: AppTypography.labelSmall(
                           color: AppColors.textTertiaryLight,
                         ),
@@ -198,17 +202,21 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                       children: [
                         _InfoChip(
                           icon: Icons.lock_outline_rounded,
-                          label: 'Conexión cifrada',
+                          label: AppLocalizations.of(
+                            context,
+                          ).encryptedConnectionLabel,
                           color: AppColors.success,
                         ),
                         _InfoChip(
                           icon: Icons.visibility_off_outlined,
-                          label: 'Solo lectura',
+                          label: AppLocalizations.of(context).readOnlyLabel,
                           color: AppColors.info,
                         ),
                         _InfoChip(
                           icon: Icons.verified_user_outlined,
-                          label: 'PSD2 certificado',
+                          label: AppLocalizations.of(
+                            context,
+                          ).psd2CertifiedLabel,
                           color: AppColors.accent,
                         ),
                       ],
@@ -222,7 +230,7 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                         Navigator.pop(context);
                       },
                       child: Text(
-                        'Cancelar',
+                        AppLocalizations.of(context).cancel,
                         style: AppTypography.labelLarge(
                           color: AppColors.textSecondaryLight,
                         ),
@@ -238,20 +246,21 @@ class _BankConnectingPageState extends State<BankConnectingPage>
     );
   }
 
-  String _titleFor(BankState state) {
-    if (state is BankConnectAuthUrlReady) return 'Abriendo tu banco';
-    if (state is BankConnectPolling) return 'Esperando autorización';
-    return 'Conectando banco';
+  String _titleFor(BuildContext ctx, BankState state) {
+    final s = AppLocalizations.of(ctx);
+    if (state is BankConnectAuthUrlReady) return s.bankOpeningTitle;
+    if (state is BankConnectPolling) return s.bankWaitingAuthTitle;
+    return s.connectingBankTitle;
   }
 
-  String _subtitleFor(BankState state, String name) {
+  String _subtitleFor(BuildContext ctx, BankState state, String name) {
     if (state is BankConnectAuthUrlReady) {
-      return 'Completa la autorización en el navegador para continuar.';
+      return AppLocalizations.of(ctx).bankAuthCompleteInBrowserMsg;
     }
     if (state is BankConnectPolling) {
-      return 'Una vez que autorices en el navegador, volverás automáticamente a Finora.';
+      return AppLocalizations.of(ctx).bankAuthReturnMsg;
     }
-    return 'Iniciando la conexión segura con $name...';
+    return '${AppLocalizations.of(ctx).bankInitiatingConnectionMsg} $name...';
   }
 }
 
@@ -274,7 +283,7 @@ class _TroubleshootingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final config = _configFor(errorType);
+    final config = _configFor(context, errorType);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -334,7 +343,7 @@ class _TroubleshootingView extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Qué puedes hacer',
+                      AppLocalizations.of(context).bankWhatYouCanDo,
                       style: AppTypography.labelMedium(color: AppColors.accent),
                     ),
                   ],
@@ -358,7 +367,7 @@ class _TroubleshootingView extends StatelessWidget {
                   context.read<BankBloc>().add(PollSyncStatus(connectionId, 0));
                 },
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar conexión'),
+                label: Text(AppLocalizations.of(context).bankRetryConnection),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.white,
@@ -381,7 +390,11 @@ class _TroubleshootingView extends StatelessWidget {
                 Navigator.pop(context);
               },
               icon: const Icon(Icons.arrow_back_rounded, size: 18),
-              label: Text(config.showRetry ? 'Elegir otro banco' : 'Volver'),
+              label: Text(
+                config.showRetry
+                    ? AppLocalizations.of(context).bankChooseOtherBank
+                    : AppLocalizations.of(context).back,
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textSecondaryLight,
                 side: const BorderSide(color: AppColors.gray200),
@@ -399,7 +412,7 @@ class _TroubleshootingView extends StatelessWidget {
           GestureDetector(
             onTap: () => _showSupportInfo(context),
             child: Text(
-              '¿Necesitas ayuda? Contacta con soporte',
+              AppLocalizations.of(context).bankContactSupport,
               style: AppTypography.labelSmall(color: AppColors.primary),
               textAlign: TextAlign.center,
             ),
@@ -439,23 +452,26 @@ class _TroubleshootingView extends StatelessWidget {
               color: AppColors.primary,
             ),
             const SizedBox(height: 12),
-            Text('Soporte técnico', style: AppTypography.titleMedium()),
+            Text(
+              AppLocalizations.of(context).technicalSupport,
+              style: AppTypography.titleMedium(),
+            ),
             const SizedBox(height: 8),
             Text(
-              'Si el problema persiste, puedes contactarnos:',
+              AppLocalizations.of(context).bankSupportContactMsg,
               style: AppTypography.bodyMedium(
                 color: AppColors.textSecondaryLight,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            _SupportRow(
+            const _SupportRow(
               icon: Icons.email_outlined,
               label: 'soporte@finora.app',
             ),
             _SupportRow(
               icon: Icons.chat_bubble_outline_rounded,
-              label: 'Chat en la web de Finora',
+              label: AppLocalizations.of(context).chatOnFinoraLabel,
             ),
             const SizedBox(height: 24),
           ],
@@ -464,83 +480,58 @@ class _TroubleshootingView extends StatelessWidget {
     );
   }
 
-  _TroubleshootingConfig _configFor(BankConnectErrorType type) {
+  _TroubleshootingConfig _configFor(
+    BuildContext context,
+    BankConnectErrorType type,
+  ) {
+    final s = AppLocalizations.of(context);
     switch (type) {
       case BankConnectErrorType.timeout:
         return _TroubleshootingConfig(
           icon: Icons.timer_off_outlined,
           iconColor: AppColors.warning,
-          title: 'Tiempo de espera agotado',
-          steps: [
-            'La autorización del banco tarda un máximo de 3 minutos.',
-            'Asegúrate de tener buena conexión a Internet o usa WiFi.',
-            'Completa el proceso en el navegador lo antes posible.',
-            'Si el banco pide un código SMS, tenlo preparado antes de empezar.',
-          ],
+          title: s.bankTimeoutTitle,
+          steps: s.bankTimeoutSteps,
           showRetry: true,
         );
       case BankConnectErrorType.permissionDenied:
         return _TroubleshootingConfig(
           icon: Icons.block_rounded,
           iconColor: AppColors.error,
-          title: 'Permisos no concedidos',
-          steps: [
-            'Parece que no autorizaste el acceso desde la web de tu banco.',
-            'Finora solo necesita permisos de lectura — nunca realizará pagos.',
-            'Pulsa "Reintentar" y acepta todos los permisos cuando te los pida tu banco.',
-            'Si tienes dudas, consulta la sección PSD2 en la web de tu banco.',
-          ],
+          title: s.bankPermissionDeniedTitle,
+          steps: s.bankPermissionDeniedSteps,
           showRetry: true,
         );
       case BankConnectErrorType.connectionError:
         return _TroubleshootingConfig(
           icon: Icons.wifi_off_rounded,
           iconColor: AppColors.error,
-          title: 'Sin conexión a Internet',
-          steps: [
-            'Comprueba que tu dispositivo tiene conexión a Internet.',
-            'Prueba a desactivar y volver a activar el WiFi o los datos móviles.',
-            'Desactiva la VPN si tienes una activa.',
-            'Si el problema persiste, inténtalo de nuevo más tarde.',
-          ],
+          title: s.bankNoInternetTitle,
+          steps: s.bankNoInternetSteps,
           showRetry: true,
         );
       case BankConnectErrorType.sessionExpired:
         return _TroubleshootingConfig(
           icon: Icons.lock_clock_outlined,
           iconColor: AppColors.warning,
-          title: 'Sesión expirada',
-          steps: [
-            'Tu sesión en Finora ha expirado por inactividad.',
-            'Cierra esta pantalla y vuelve a iniciar sesión en Finora.',
-            'Luego podrás conectar tu banco de nuevo.',
-          ],
+          title: s.bankSessionExpiredTitle,
+          steps: s.bankSessionExpiredSteps,
           showRetry: false,
         );
       case BankConnectErrorType.serviceUnavailable:
         return _TroubleshootingConfig(
           icon: Icons.cloud_off_rounded,
           iconColor: AppColors.warning,
-          title: 'Servicio no disponible',
-          steps: [
-            'El servicio de conexión bancaria está temporalmente no disponible.',
-            'Espera unos minutos e inténtalo de nuevo.',
-            'Puede ser una interrupción temporal del banco o de Open Banking.',
-            'Si el problema persiste más de 1 hora, contacta con soporte.',
-          ],
+          title: s.bankServiceUnavailTitle,
+          steps: s.bankServiceUnavailSteps,
           showRetry: true,
         );
       case BankConnectErrorType.syncFailed:
         return _TroubleshootingConfig(
           icon: Icons.sync_problem_rounded,
           iconColor: AppColors.info,
-          title: 'Error al importar cuentas',
-          steps: [
-            'La autorización fue exitosa pero no se pudieron importar las cuentas.',
-            'Tus datos se sincronizarán automáticamente en unos minutos.',
-            'También puedes forzar la sincronización desde la pantalla de cuentas.',
-            'Si ves las cuentas en tu banco pero no aquí, espera unos minutos.',
-          ],
+          title: s.bankSyncFailedTitle,
+          steps: s.bankSyncFailedSteps,
           showRetry: false,
         );
       // CU-02 FA2: Cancelación explícita del usuario
@@ -548,12 +539,8 @@ class _TroubleshootingView extends StatelessWidget {
         return _TroubleshootingConfig(
           icon: Icons.cancel_outlined,
           iconColor: AppColors.gray500,
-          title: 'Conexión cancelada',
-          steps: [
-            'Has cancelado el proceso antes de completar la autorización.',
-            'Puedes volver a intentarlo cuando quieras.',
-            'Si tienes dudas sobre la seguridad, revisa la sección PSD2 antes de continuar.',
-          ],
+          title: s.bankCancelledTitle,
+          steps: s.bankCancelledSteps,
           showRetry: true,
         );
       // CU-02 FA1: Límite de 3 intentos fallidos alcanzado
@@ -561,26 +548,16 @@ class _TroubleshootingView extends StatelessWidget {
         return _TroubleshootingConfig(
           icon: Icons.lock_clock_outlined,
           iconColor: AppColors.error,
-          title: 'Demasiados intentos fallidos',
-          steps: [
-            'Has alcanzado el límite de 3 intentos fallidos para este banco.',
-            'Por seguridad, debes esperar 1 hora antes de volver a intentarlo.',
-            'Si crees que es un error, contacta con soporte.',
-            'Prueba a conectar un banco diferente mientras esperas.',
-          ],
+          title: s.bankMaxAttemptsTitle,
+          steps: s.bankMaxAttemptsSteps,
           showRetry: false,
         );
       case BankConnectErrorType.unknown:
         return _TroubleshootingConfig(
           icon: Icons.error_outline_rounded,
           iconColor: AppColors.error,
-          title: 'Error al conectar banco',
-          steps: [
-            'Se produjo un error inesperado durante la conexión.',
-            'Comprueba tu conexión a Internet e inténtalo de nuevo.',
-            'Si el error persiste, prueba a reiniciar la app.',
-            'Puedes contactar con soporte si el problema continúa.',
-          ],
+          title: s.bankUnknownErrorTitle,
+          steps: s.bankUnknownErrorSteps,
           showRetry: true,
         );
     }

@@ -28,12 +28,24 @@ class SavingsGoalModel extends SavingsGoalEntity {
     super.contributionsCount,
   });
 
+  static double _toDouble(dynamic v, [double fallback = 0.0]) {
+    if (v == null) return fallback;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? fallback;
+  }
+
+  static int _toInt(dynamic v, [int fallback = 0]) {
+    if (v == null) return fallback;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString().split('.').first) ?? fallback;
+  }
+
   factory SavingsGoalModel.fromJson(Map<String, dynamic> json) {
-    final pct = (json['percentage'] as num?)?.toInt() ?? 0;
+    final pct = _toInt(json['percentage']);
     final pctDecimal =
-        (json['percentage_decimal'] as num?)?.toDouble() ??
-        (json['percentageDecimal'] as num?)?.toDouble() ??
-        (pct / 100.0);
+        _toDouble(json['percentage_decimal'],
+            _toDouble(json['percentageDecimal'], pct / 100.0));
 
     return SavingsGoalModel(
       id: json['id'] as String,
@@ -41,20 +53,18 @@ class SavingsGoalModel extends SavingsGoalEntity {
       name: json['name'] as String,
       icon: json['icon'] as String? ?? 'other',
       color: json['color'] as String? ?? '#6C63FF',
-      targetAmount: (json['target_amount'] as num).toDouble(),
-      currentAmount: (json['current_amount'] as num?)?.toDouble() ?? 0.0,
+      targetAmount: _toDouble(json['target_amount']),
+      currentAmount: _toDouble(json['current_amount']),
       deadline: json['deadline'] != null
-          ? DateTime.tryParse(json['deadline'] as String)
+          ? DateTime.tryParse(json['deadline'].toString())
           : null,
       category: json['category'] as String?,
       notes: json['notes'] as String?,
       status: json['status'] as String? ?? 'active',
       percentage: pct,
       percentageDecimal: pctDecimal,
-      remainingAmount:
-          (json['remaining_amount'] as num?)?.toDouble() ??
-          (json['remainingAmount'] as num?)?.toDouble() ??
-          0.0,
+      remainingAmount: _toDouble(
+          json['remaining_amount'] ?? json['remainingAmount']),
       progressColor:
           json['progress_color'] as String? ??
           json['progressColor'] as String? ??
@@ -66,15 +76,19 @@ class SavingsGoalModel extends SavingsGoalEntity {
       projectedCompletionDate:
           json['projected_completion_date'] as String? ??
           json['projectedCompletionDate'] as String?,
-      monthlyTarget: (json['monthly_target'] as num?)?.toDouble(),
+      monthlyTarget: json['monthly_target'] != null
+          ? _toDouble(json['monthly_target'])
+          : null,
       aiFeasibility: json['ai_feasibility'] as String?,
       aiExplanation: json['ai_explanation'] as String?,
       completedAt: json['completed_at'] != null
-          ? DateTime.tryParse(json['completed_at'] as String)
+          ? DateTime.tryParse(json['completed_at'].toString())
           : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
-      contributionsCount: (json['contributions_count'] as num?)?.toInt(),
+      contributionsCount: json['contributions_count'] != null
+          ? _toInt(json['contributions_count'])
+          : null,
     );
   }
 

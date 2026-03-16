@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/di/injection_container.dart' as di;
 import '../../domain/entities/savings_goal_entity.dart';
 import '../../domain/entities/goal_contribution_entity.dart';
 import '../bloc/goal_bloc.dart';
@@ -65,9 +71,11 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
             }
           });
           context.read<GoalBloc>().add(LoadContributions(_goal.id));
+          // Refrescar lista de objetivos para actualizar dashboard en tiempo real
+          context.read<GoalBloc>().add(const LoadGoals());
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Aportación añadida correctamente'),
+              content: Text(AppLocalizations.of(context).contributionAdded),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
             ),
@@ -190,13 +198,13 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  '${_fmt(_goal.currentAmount)} €',
+                                  CurrencyService().format(_goal.currentAmount),
                                   style: AppTypography.labelMedium(
                                     color: Colors.white,
                                   ),
                                 ),
                                 Text(
-                                  'Meta: ${_fmt(_goal.targetAmount)} €',
+                                  'Meta: ${CurrencyService().format(_goal.targetAmount)}',
                                   style: AppTypography.bodySmall(
                                     color: Colors.white.withValues(alpha: 0.80),
                                   ),
@@ -214,18 +222,18 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                     onSelected: (action) {
                       if (action == 'delete') _confirmDelete(context);
                     },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.delete_outline_rounded,
                               color: Colors.red,
                               size: 20,
                             ),
-                            SizedBox(width: 8),
-                            Text('Cancelar objetivo'),
+                            const SizedBox(width: 8),
+                            Text(AppLocalizations.of(ctx).cancelGoal),
                           ],
                         ),
                       ),
@@ -265,7 +273,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                           ),
                           icon: const Icon(Icons.add_rounded),
                           label: Text(
-                            'Añadir aportación',
+                            AppLocalizations.of(context).addContribution,
                             style: AppTypography.labelMedium(
                               color: Colors.white,
                             ),
@@ -299,7 +307,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => BlocProvider.value(
         value: context.read<GoalBloc>(),
-        child: _AddContributionSheet(goalId: _goal.id),
+        child: _AddContributionSheet(goalId: _goal.id, goalName: _goal.name),
       ),
     );
   }
@@ -307,29 +315,27 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
   void _confirmDelete(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('¿Cancelar objetivo?'),
-        content: Text(
-          'Se cancelará el objetivo "${_goal.name}". El historial de aportaciones se conservará.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<GoalBloc>().add(DeleteGoal(_goal.id));
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Sí, cancelar',
-              style: TextStyle(color: Colors.red),
+      builder: (ctx) {
+        final s = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(s.cancelGoalTitle),
+          content: Text(s.cancelGoalContent(_goal.name)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(s.no)),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.read<GoalBloc>().add(DeleteGoal(_goal.id));
+                Navigator.pop(context);
+              },
+              child: Text(
+                s.cancelGoalConfirm,
+                style: const TextStyle(color: Colors.red),
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -352,7 +358,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              '${_goal.name}: ${_fmt(_goal.targetAmount)} €',
+              '${_goal.name}: ${CurrencyService().format(_goal.targetAmount)}',
               textAlign: TextAlign.center,
               style: AppTypography.titleSmall(color: AppColors.success),
             ),
@@ -378,17 +384,27 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
     );
   }
 
+  static double _pd(dynamic v, double fallback) {
+    if (v == null) return fallback;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? fallback;
+  }
+
+  static int _pi(dynamic v, int fallback) {
+    if (v == null) return fallback;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString().split('.').first) ?? fallback;
+  }
+
   SavingsGoalEntity _rebuildGoalFromProgress(
     SavingsGoalEntity goal,
     Map<String, dynamic> p,
   ) {
-    final pct = (p['percentage'] as num?)?.toInt() ?? goal.percentage;
-    final pctD =
-        (p['percentage_decimal'] as num?)?.toDouble() ?? goal.percentageDecimal;
-    final current =
-        (p['current_amount'] as num?)?.toDouble() ?? goal.currentAmount;
-    final remaining =
-        (p['remaining_amount'] as num?)?.toDouble() ?? goal.remainingAmount;
+    final pct = _pi(p['percentage'], goal.percentage);
+    final pctD = _pd(p['percentage_decimal'], goal.percentageDecimal);
+    final current = _pd(p['current_amount'], goal.currentAmount);
+    final remaining = _pd(p['remaining_amount'], goal.remainingAmount);
     final color = p['progress_color'] as String? ?? goal.progressColor;
     final completed = p['is_completed'] as bool? ?? goal.isCompleted;
 
@@ -421,10 +437,6 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
       updatedAt: goal.updatedAt,
     );
   }
-
-  static String _fmt(double v) => v
-      .toStringAsFixed(2)
-      .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
 }
 
 // ─── Métricas de progreso (RF-19) ─────────────────────────────────────────────
@@ -449,18 +461,18 @@ class _ProgressMetrics extends StatelessWidget {
           Row(
             children: [
               _Metric(
-                label: 'Ahorrado',
-                value: '${_fmt(goal.currentAmount)} €',
+                label: AppLocalizations.of(context).labelSaved,
+                value: CurrencyService().format(goal.currentAmount),
                 color: progressColor,
               ),
               _Metric(
-                label: 'Restante',
-                value: '${_fmt(goal.remainingAmount)} €',
+                label: AppLocalizations.of(context).remaining,
+                value: CurrencyService().format(goal.remainingAmount),
                 color: AppColors.textSecondaryLight,
               ),
               _Metric(
-                label: 'Objetivo',
-                value: '${_fmt(goal.targetAmount)} €',
+                label: AppLocalizations.of(context).targetAmount,
+                value: CurrencyService().format(goal.targetAmount),
                 color: AppColors.textPrimaryLight,
               ),
             ],
@@ -474,7 +486,7 @@ class _ProgressMetrics extends StatelessWidget {
                     Expanded(
                       child: _InfoRow(
                         icon: Icons.flag_rounded,
-                        label: 'Fecha límite',
+                        label: AppLocalizations.of(context).deadline,
                         value: _fmtDate(goal.deadline!),
                       ),
                     ),
@@ -482,7 +494,7 @@ class _ProgressMetrics extends StatelessWidget {
                     Expanded(
                       child: _InfoRow(
                         icon: Icons.trending_up_rounded,
-                        label: 'Proyección',
+                        label: AppLocalizations.of(context).labelProjection,
                         value: goal.projectedCompletionDate!,
                       ),
                     ),
@@ -494,6 +506,7 @@ class _ProgressMetrics extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   static String _fmt(double v) => v
       .toStringAsFixed(2)
       .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
@@ -604,7 +617,7 @@ class _AiAnalysisCard extends StatelessWidget {
               Icon(Icons.auto_awesome_rounded, color: color, size: 16),
               const SizedBox(width: 6),
               Text(
-                'Análisis IA',
+                AppLocalizations.of(context).aiAnalysisLabel,
                 style: AppTypography.labelMedium(color: color),
               ),
               const Spacer(),
@@ -644,7 +657,7 @@ class _AiAnalysisCard extends StatelessWidget {
                 Icon(Icons.savings_outlined, size: 14, color: color),
                 const SizedBox(width: 6),
                 Text(
-                  'Aportación mensual sugerida: ${goal.monthlyTarget!.toStringAsFixed(2)} €',
+                  'Aportación mensual sugerida: ${CurrencyService().format(goal.monthlyTarget!)}',
                   style: AppTypography.labelMedium(color: color),
                 ),
               ],
@@ -681,7 +694,10 @@ class _ContributionsList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Aportaciones', style: AppTypography.titleSmall()),
+          Text(
+            AppLocalizations.of(context).contributions,
+            style: AppTypography.titleSmall(),
+          ),
           const SizedBox(height: 12),
           if (isLoading)
             const Center(
@@ -695,7 +711,7 @@ class _ContributionsList extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Todavía no hay aportaciones.\nToca "Añadir aportación" para empezar.',
+                  AppLocalizations.of(context).noContributionsYet,
                   textAlign: TextAlign.center,
                   style: AppTypography.bodySmall(
                     color: AppColors.textTertiaryLight,
@@ -733,16 +749,19 @@ class _ContributionTile extends StatelessWidget {
       confirmDismiss: (_) async {
         return await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('¿Eliminar aportación?'),
+          builder: (ctx) => AlertDialog(
+            title: Text(AppLocalizations.of(ctx).deleteContributionTitle),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('No'),
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(AppLocalizations.of(ctx).no),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Sí', style: TextStyle(color: Colors.red)),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  AppLocalizations.of(ctx).confirm,
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
@@ -778,7 +797,7 @@ class _ContributionTile extends StatelessWidget {
                   Text(
                     contribution.note?.isNotEmpty == true
                         ? contribution.note!
-                        : 'Aportación',
+                        : AppLocalizations.of(context).contributionLabel,
                     style: AppTypography.labelMedium(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -793,7 +812,7 @@ class _ContributionTile extends StatelessWidget {
               ),
             ),
             Text(
-              '+${contribution.amount.toStringAsFixed(2)} €',
+              '+${CurrencyService().format(contribution.amount)}',
               style: AppTypography.labelMedium(color: AppColors.success),
             ),
           ],
@@ -806,11 +825,28 @@ class _ContributionTile extends StatelessWidget {
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
 
-// ─── Bottom Sheet: Añadir aportación (RF-20) ──────────────────────────────────
+// ─── Bottom Sheet: Añadir aportación con selección de cuenta y consejo IA ─────
+
+/// Modelo sencillo para representar una cuenta origen de la aportación.
+class _SourceAccount {
+  final String? id; // null = efectivo
+  final String name;
+  final String subtitle;
+  final IconData icon;
+
+  const _SourceAccount({
+    required this.id,
+    required this.name,
+    required this.subtitle,
+    required this.icon,
+  });
+}
 
 class _AddContributionSheet extends StatefulWidget {
   final String goalId;
-  const _AddContributionSheet({required this.goalId});
+  final String goalName;
+
+  const _AddContributionSheet({required this.goalId, required this.goalName});
 
   @override
   State<_AddContributionSheet> createState() => _AddContributionSheetState();
@@ -822,11 +858,141 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
   DateTime _date = DateTime.now();
   final _formKey = GlobalKey<FormState>();
 
+  // Cuentas disponibles
+  List<_SourceAccount> _accounts = [];
+  bool _loadingAccounts = true;
+  _SourceAccount? _selectedAccount;
+
+  // Consejo IA
+  bool _loadingAdvice = false;
+  Map<String, dynamic>? _advice;
+  bool _adviceFetched = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Use addPostFrameCallback so context (and AppLocalizations) is available
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAccounts());
+  }
+
   @override
   void dispose() {
     _amountCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAccounts() async {
+    try {
+      final client = di.sl<ApiClient>();
+      final resp = await client.get(ApiEndpoints.bankAccounts);
+      final list = (resp.data['accounts'] as List?) ?? [];
+      final s = AppLocalizations.of(context);
+      final accounts = <_SourceAccount>[
+        _SourceAccount(
+          id: null,
+          name: s.cashAccountName,
+          subtitle: s.noLinkedBankAccount,
+          icon: Icons.wallet_rounded,
+        ),
+      ];
+      for (final a in list) {
+        final name = a['account_name'] as String? ?? 'Cuenta';
+        final institution = a['institution_name'] as String? ?? '';
+        final balanceCents = (a['balance_cents'] as num?)?.toInt() ?? 0;
+        final balanceEur = balanceCents / 100.0;
+        accounts.add(
+          _SourceAccount(
+            id: a['id'] as String?,
+            name: name,
+            subtitle:
+                '${institution.isNotEmpty ? '$institution · ' : ''}${CurrencyService().format(balanceEur)}',
+            icon: Icons.account_balance_rounded,
+          ),
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _accounts = accounts;
+          _selectedAccount = accounts.first;
+          _loadingAccounts = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          final s2 = AppLocalizations.of(context);
+          _accounts = [
+            _SourceAccount(
+              id: null,
+              name: s2.cashAccountName,
+              subtitle: s2.noLinkedBankAccount,
+              icon: Icons.wallet_rounded,
+            ),
+          ];
+          _selectedAccount = _accounts.first;
+          _loadingAccounts = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchAdvice() async {
+    if (!_formKey.currentState!.validate()) return;
+    final amount = double.parse(_amountCtrl.text.trim().replaceAll(',', '.'));
+    setState(() {
+      _loadingAdvice = true;
+      _advice = null;
+      _adviceFetched = false;
+    });
+    try {
+      final client = di.sl<ApiClient>();
+      final resp = await client.post(
+        ApiEndpoints.goalContributionAdvice(widget.goalId),
+        data: {'proposed_amount': amount},
+      );
+      if (mounted) {
+        setState(() {
+          _advice = resp.data as Map<String, dynamic>;
+          _adviceFetched = true;
+          _loadingAdvice = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _advice = null;
+          _adviceFetched = true;
+          _loadingAdvice = false;
+        });
+      }
+    }
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedAccount == null) return;
+    final amount = double.parse(_amountCtrl.text.trim().replaceAll(',', '.'));
+    context.read<GoalBloc>().add(
+      AddContribution(
+        goalId: widget.goalId,
+        amount: amount,
+        date: _date,
+        note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+        bankAccountId: _selectedAccount!.id,
+      ),
+    );
+    Navigator.pop(context);
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _date = picked);
   }
 
   @override
@@ -842,143 +1008,365 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
         20,
         MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.gray200,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text('Añadir aportación', style: AppTypography.titleMedium()),
-            const SizedBox(height: 16),
-
-            // Cantidad
-            TextFormField(
-              controller: _amountCtrl,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'Cantidad',
-                suffixText: '€',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d,\.]')),
-              ],
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Introduce una cantidad';
-                final n = double.tryParse(v.replaceAll(',', '.'));
-                if (n == null || n <= 0) {
-                  return 'Introduce una cantidad positiva';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Fecha
-            GestureDetector(
-              onTap: _pickDate,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.gray300),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_rounded,
-                      size: 18,
-                      color: AppColors.gray400,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_date.day}/${_date.month}/${_date.year}',
-                      style: AppTypography.bodyMedium(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Nota
-            TextFormField(
-              controller: _noteCtrl,
-              decoration: InputDecoration(
-                labelText: 'Nota (opcional)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.gray200,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                child: Text(
-                  'Confirmar aportación',
-                  style: AppTypography.labelMedium(color: Colors.white),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                AppLocalizations.of(context).addContribution,
+                style: AppTypography.titleMedium(),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Cantidad ────────────────────────────────────────────────────
+              TextFormField(
+                controller: _amountCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context).amount,
+                  suffixText: AppSettingsService().currentCurrency.symbol,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d,\.]')),
+                ],
+                onChanged: (_) {
+                  // Al cambiar el importe, el consejo queda obsoleto
+                  if (_adviceFetched) {
+                    setState(() {
+                      _advice = null;
+                      _adviceFetched = false;
+                    });
+                  }
+                },
+                validator: (v) {
+                  final s = AppLocalizations.of(context);
+                  if (v == null || v.isEmpty) return s.enterAmount;
+                  final n = double.tryParse(v.replaceAll(',', '.'));
+                  if (n == null || n <= 0) return s.enterPositiveAmount;
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // ── Fecha ───────────────────────────────────────────────────────
+              GestureDetector(
+                onTap: _pickDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.gray300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 18,
+                        color: AppColors.gray400,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${_date.day.toString().padLeft(2, '0')}/${_date.month.toString().padLeft(2, '0')}/${_date.year}',
+                        style: AppTypography.bodyMedium(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+
+              // ── Nota ────────────────────────────────────────────────────────
+              TextFormField(
+                controller: _noteCtrl,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context).goalNoteOptional,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+              const SizedBox(height: 16),
+
+              // ── Cuenta de origen ────────────────────────────────────────────
+              Text(
+                AppLocalizations.of(context).originAccount,
+                style: AppTypography.labelMedium(),
+              ),
+              const SizedBox(height: 8),
+              if (_loadingAccounts)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else
+                _buildAccountSelector(),
+
+              const SizedBox(height: 16),
+
+              // ── Botón Analizar con IA ────────────────────────────────────────
+              if (!_adviceFetched)
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: _loadingAdvice ? null : _fetchAdvice,
+                    icon: _loadingAdvice
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.auto_awesome_rounded, size: 18),
+                    label: Text(
+                      _loadingAdvice
+                          ? AppLocalizations.of(context).analyzingLabel
+                          : AppLocalizations.of(context).analyzeWithAI,
+                      style: AppTypography.labelMedium(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppColors.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ── Tarjeta de consejo IA ────────────────────────────────────────
+              if (_adviceFetched) _buildAdviceCard(),
+
+              const SizedBox(height: 16),
+
+              // ── Confirmar ───────────────────────────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    AppLocalizations.of(context).confirmContribution,
+                    style: AppTypography.labelMedium(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _date = picked);
-  }
-
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    final amount = double.parse(_amountCtrl.text.trim().replaceAll(',', '.'));
-    context.read<GoalBloc>().add(
-      AddContribution(
-        goalId: widget.goalId,
-        amount: amount,
-        date: _date,
-        note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+  Widget _buildAccountSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.gray200),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: _accounts.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final acc = entry.value;
+          final isSelected = _selectedAccount?.id == acc.id;
+          final isLast = idx == _accounts.length - 1;
+          return InkWell(
+            onTap: () => setState(() => _selectedAccount = acc),
+            borderRadius: BorderRadius.vertical(
+              top: idx == 0 ? const Radius.circular(12) : Radius.zero,
+              bottom: isLast ? const Radius.circular(12) : Radius.zero,
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.06)
+                    : Colors.transparent,
+                border: isLast
+                    ? null
+                    : Border(bottom: BorderSide(color: AppColors.gray100)),
+                borderRadius: BorderRadius.vertical(
+                  top: idx == 0 ? const Radius.circular(12) : Radius.zero,
+                  bottom: isLast ? const Radius.circular(12) : Radius.zero,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : AppColors.gray100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      acc.icon,
+                      size: 18,
+                      color: isSelected ? AppColors.primary : AppColors.gray400,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(acc.name, style: AppTypography.labelMedium()),
+                        Text(
+                          acc.subtitle,
+                          style: AppTypography.badge(
+                            color: AppColors.textTertiaryLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isSelected)
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
-    Navigator.pop(context);
+  }
+
+  Widget _buildAdviceCard() {
+    if (_advice == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.gray50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: AppColors.gray400,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'No se pudo obtener el análisis IA. Puedes continuar igualmente.',
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final suggestion = _advice!['suggestion'] as String? ?? 'correct';
+    final adviceText = _advice!['advice'] as String? ?? '';
+    final needed = (_advice!['ahorro_necesario'] as num?)?.toDouble();
+
+    Color color;
+    IconData icon;
+    switch (suggestion) {
+      case 'increase':
+        color = AppColors.error;
+        icon = Icons.trending_up_rounded;
+        break;
+      case 'decrease':
+        color = AppColors.warning;
+        icon = Icons.trending_down_rounded;
+        break;
+      default:
+        color = AppColors.success;
+        icon = Icons.check_circle_outline_rounded;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.20)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome_rounded, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  AppLocalizations.of(context).aiAnalysisLabel,
+                  style: AppTypography.labelMedium(color: color),
+                ),
+                const Spacer(),
+                Icon(icon, size: 16, color: color),
+              ],
+            ),
+            if (adviceText.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                adviceText,
+                style: AppTypography.bodySmall(
+                  color: AppColors.textSecondaryLight,
+                ),
+              ),
+            ],
+            if (needed != null && needed > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Necesario para cumplir el plazo: ${CurrencyService().format(needed)}/mes',
+                style: AppTypography.badge(color: color),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

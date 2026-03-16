@@ -19,6 +19,7 @@ const aiRoutes = require('./routes/ai');       // RF-21 / RF-22
 const goalsRoutes = require('./routes/goals'); // RF-18 / RF-19 / RF-20 / RF-21 / HU-07
 const exportRoutes = require('./routes/export'); // RF-34 / RF-35
 const budgetRoutes = require('./routes/budget'); // RF-32
+const currencyRoutes = require('./routes/currency'); // Exchange rates
 
 // Import services
 const emailService = require('./services/email');
@@ -128,6 +129,7 @@ app.use('/api/v1/ai', aiRoutes);                    // RF-21 / RF-22
 app.use('/api/v1/goals', goalsRoutes);              // RF-18 / RF-19 / RF-20 / HU-07
 app.use('/api/v1/export', exportRoutes);            // RF-34 / RF-35
 app.use('/api/v1/budget', budgetRoutes);            // RF-32
+app.use('/api/v1/currency', currencyRoutes);        // Exchange rates
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -346,6 +348,24 @@ const startServer = async () => {
       `);
       console.log('[auto-migrate] ✓ budgets table (RF-32)');
     } catch (e) { console.warn('[auto-migrate] budgets warning:', e.message); }
+
+    // RF-16: categories.display_order column (added after initial schema in some deployments)
+    try {
+      await db.query(`
+        ALTER TABLE categories
+          ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0
+      `);
+      console.log('[auto-migrate] ✓ categories.display_order (RF-16)');
+    } catch (e) { console.warn('[auto-migrate] categories.display_order warning:', e.message); }
+
+    // RF-09: users.name column for profile editing
+    try {
+      await db.query(`
+        ALTER TABLE users
+          ADD COLUMN IF NOT EXISTS name VARCHAR(255)
+      `);
+      console.log('[auto-migrate] ✓ users.name (RF-09)');
+    } catch (e) { console.warn('[auto-migrate] users.name warning:', e.message); }
 
     if (dbHealth.status !== 'healthy') {
       console.error('Database connection failed:', dbHealth.error);

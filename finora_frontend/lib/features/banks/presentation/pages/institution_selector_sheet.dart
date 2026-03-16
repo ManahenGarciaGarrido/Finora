@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/bank_institution_entity.dart';
@@ -8,6 +9,7 @@ import '../bloc/bank_event.dart';
 import '../bloc/bank_state.dart';
 import 'bank_connection_tutorial.dart';
 import 'psd2_consent_dialog.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 
 /// Bottom sheet that lists available banking institutions (RF-10).
 /// Opened from AccountsPage when the user taps "Conectar banco".
@@ -107,11 +109,11 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Elige tu banco',
+                            AppLocalizations.of(context).chooseBankTitle,
                             style: AppTypography.titleLarge(),
                           ),
                           Text(
-                            'Conexión segura PSD2 / Open Banking',
+                            AppLocalizations.of(context).securePsd2Connection,
                             style: AppTypography.bodySmall(
                               color: AppColors.textSecondaryLight,
                             ),
@@ -139,7 +141,7 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                   controller: _searchCtrl,
                   onChanged: (v) => setState(() => _query = v.toLowerCase()),
                   decoration: InputDecoration(
-                    hintText: 'Buscar banco...',
+                    hintText: AppLocalizations.of(context).searchBankHint,
                     hintStyle: AppTypography.bodyMedium(
                       color: AppColors.textTertiaryLight,
                     ),
@@ -199,11 +201,9 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                   },
                   builder: (context, state) {
                     if (state is InstitutionsLoading) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                          strokeWidth: 2,
-                        ),
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: SkeletonListLoader(count: 6, cardHeight: 64),
                       );
                     }
 
@@ -219,7 +219,7 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'Error al cargar bancos',
+                              AppLocalizations.of(context).errorLoadingBanks,
                               style: AppTypography.titleSmall(),
                             ),
                             const SizedBox(height: 8),
@@ -227,7 +227,7 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                               onPressed: () => context.read<BankBloc>().add(
                                 const LoadInstitutions(),
                               ),
-                              child: const Text('Reintentar'),
+                              child: Text(AppLocalizations.of(context).retry),
                             ),
                           ],
                         ),
@@ -245,7 +245,7 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                     if (institutions.isEmpty && state is InstitutionsLoaded) {
                       return Center(
                         child: Text(
-                          'No se encontraron bancos',
+                          AppLocalizations.of(context).noBanksFound,
                           style: AppTypography.bodyMedium(
                             color: AppColors.textSecondaryLight,
                           ),

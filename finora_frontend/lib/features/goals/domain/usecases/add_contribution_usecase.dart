@@ -10,10 +10,12 @@ class AddContributionUseCase {
     required double amount,
     DateTime? date,
     String? note,
+    String? bankAccountId,
   }) => _repo.addContribution(
     goalId: goalId,
     amount: amount,
     date: date,
     note: note,
+    bankAccountId: bankAccountId,
   );
 }

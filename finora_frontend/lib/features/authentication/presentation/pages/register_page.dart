@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/responsive/responsive_builder.dart';
+import '../../../../core/l10n/app_localizations.dart';
 import '../../../../shared/widgets/animated_gradient_background.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../../shared/widgets/animated_button.dart';
@@ -13,14 +14,6 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
-/// Pantalla de Registro de Usuario (RF-01)
-///
-/// Características:
-/// - Diseño responsive (RNF-12)
-/// - Animaciones fluidas
-/// - Validación en tiempo real
-/// - Indicadores de fortaleza de contraseña
-/// - Soporte para orientación portrait y landscape
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -49,8 +42,8 @@ class _RegisterPageState extends State<RegisterPage>
   bool _isSuccess = false;
   bool _acceptTerms = false;
   bool _acceptPrivacy = false;
-  bool _hasCustomizedConsents =
-      false; // Tracks if user manually configured consents
+  bool _hasCustomizedConsents = false;
+
   Map<String, bool> _consents = {
     'essential': true,
     'analytics': true,
@@ -59,6 +52,7 @@ class _RegisterPageState extends State<RegisterPage>
     'personalization': true,
     'data_processing': true,
   };
+
   double _passwordStrength = 0;
   String? _nameError;
   String? _emailError;
@@ -68,7 +62,6 @@ class _RegisterPageState extends State<RegisterPage>
   @override
   void initState() {
     super.initState();
-
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -90,8 +83,6 @@ class _RegisterPageState extends State<RegisterPage>
         );
 
     _animationController.forward();
-
-    // Listeners para validación en tiempo real
     _passwordController.addListener(_updatePasswordStrength);
   }
 
@@ -109,72 +100,57 @@ class _RegisterPageState extends State<RegisterPage>
     super.dispose();
   }
 
+  // ─── Lógica de Validación (Localizada) ─────────────────────────────────────
+
   void _updatePasswordStrength() {
     final password = _passwordController.text;
     double strength = 0;
-
     if (password.length >= 8) strength += 0.25;
     if (password.contains(RegExp(r'[A-Z]'))) strength += 0.25;
     if (password.contains(RegExp(r'[0-9]'))) strength += 0.25;
     if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) strength += 0.25;
-
-    setState(() {
-      _passwordStrength = strength;
-    });
+    setState(() => _passwordStrength = strength);
   }
 
   String? _validateName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'El nombre es requerido';
-    }
-    if (value.length < 2) {
-      return 'El nombre debe tener al menos 2 caracteres';
-    }
+    final s = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return s.nameRequired;
+    if (value.length < 2) return s.nameTooShort;
     return null;
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'El correo electrónico es requerido';
-    }
+    final s = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return s.emailRequired;
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value)) {
-      return 'Ingresa un correo electrónico válido';
-    }
+    if (!emailRegex.hasMatch(value)) return s.invalidEmail;
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'La contraseña es requerida';
-    }
-    if (value.length < 8) {
-      return 'Mínimo 8 caracteres';
-    }
-    if (!value.contains(RegExp(r'[A-Z]'))) {
-      return 'Debe contener al menos una mayúscula';
-    }
-    if (!value.contains(RegExp(r'[0-9]'))) {
-      return 'Debe contener al menos un número';
-    }
+    final s = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return s.passwordRequired;
+    if (value.length < 8) return s.passwordTooShort;
+    if (!value.contains(RegExp(r'[A-Z]'))) return s.passwordUppercase;
+    if (!value.contains(RegExp(r'[0-9]'))) return s.passwordNumber;
     if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
-      return 'Debe contener al menos un carácter especial';
+      return s.passwordSpecial;
     }
     return null;
   }
 
   String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Confirma tu contraseña';
-    }
-    if (value != _passwordController.text) {
-      return 'Las contraseñas no coinciden';
-    }
+    final s = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return s.confirmPasswordRequired;
+    if (value != _passwordController.text) return s.passwordsDontMatch;
     return null;
   }
 
+  // ─── Gestión de Registro y BLoC ────────────────────────────────────────────
+
   Future<void> _handleRegister() async {
-    // Validar campos
+    final s = AppLocalizations.of(context);
+
     setState(() {
       _nameError = _validateName(_nameController.text);
       _emailError = _validateEmail(_emailController.text);
@@ -193,19 +169,14 @@ class _RegisterPageState extends State<RegisterPage>
 
     if (!_acceptTerms || !_acceptPrivacy) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Debes aceptar los términos y la política de privacidad',
-          ),
+        SnackBar(
+          content: Text(s.acceptTermsPrivacyError),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
 
-    // Enviar evento de registro al BLoC
-    // If user has customized consents (scenario 3), send specific choices
-    // Otherwise (scenarios 1 & 2), send null = all defaults ON
     context.read<AuthBloc>().add(
       RegisterRequested(
         email: _emailController.text.trim(),
@@ -224,7 +195,6 @@ class _RegisterPageState extends State<RegisterPage>
         _isLoading = false;
         _isSuccess = true;
       });
-      // Mostrar diálogo de verificación de email
       Future.delayed(const Duration(milliseconds: 500), () {
         if (context.mounted) {
           _showEmailVerificationDialog(context, state.user.email);
@@ -241,7 +211,33 @@ class _RegisterPageState extends State<RegisterPage>
     }
   }
 
+  /// Helper para renderizar secciones legales con título y cuerpo
+  Widget _buildLegalSection(String title, String body) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.4,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEmailVerificationDialog(BuildContext context, String email) {
+    final s = AppLocalizations.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -249,16 +245,19 @@ class _RegisterPageState extends State<RegisterPage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.mark_email_read_outlined,
               color: AppColors.success,
               size: 28,
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                '¡Registro Exitoso!',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                s.registerSuccessTitle,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -267,13 +266,13 @@ class _RegisterPageState extends State<RegisterPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Te hemos enviado un correo de verificación.',
-              style: TextStyle(fontSize: 14, height: 1.5),
+            Text(
+              s.verificationEmailSent,
+              style: const TextStyle(fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 12),
             Text(
-              'Revisa tu bandeja de entrada en $email y haz clic en el enlace para verificar tu cuenta.',
+              '${s.checkInboxVerify} $email',
               style: const TextStyle(fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 12),
@@ -286,12 +285,16 @@ class _RegisterPageState extends State<RegisterPage>
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+                  const Icon(
+                    Icons.info_outline,
+                    color: AppColors.warning,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'No podrás iniciar sesión hasta verificar tu email.',
-                      style: TextStyle(fontSize: 12, height: 1.4),
+                      s.verificationWarning,
+                      style: const TextStyle(fontSize: 12, height: 1.4),
                     ),
                   ),
                 ],
@@ -312,12 +315,14 @@ class _RegisterPageState extends State<RegisterPage>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Ir a Iniciar Sesión'),
+            child: Text(s.goToLogin),
           ),
         ],
       ),
     );
   }
+
+  // ─── Build Principal ───────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -338,7 +343,6 @@ class _RegisterPageState extends State<RegisterPage>
 
   Widget _buildMobileLayout(BuildContext context) {
     final responsive = ResponsiveUtils(context);
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Padding(
@@ -374,7 +378,6 @@ class _RegisterPageState extends State<RegisterPage>
 
   Widget _buildTabletLayout(BuildContext context) {
     final responsive = ResponsiveUtils(context);
-
     return Center(
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -420,12 +423,12 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   Widget _buildHeader(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Logo o icono
         Container(
           width: responsive.value(mobile: 56.0, tablet: 64.0),
           height: responsive.value(mobile: 56.0, tablet: 64.0),
@@ -441,19 +444,15 @@ class _RegisterPageState extends State<RegisterPage>
           ),
         ),
         SizedBox(height: responsive.value(mobile: 24.0, tablet: 32.0)),
-
-        // Título
         Text(
-          'Crear cuenta',
+          s.registerTitle,
           style: responsive.isMobile
               ? AppTypography.headlineLarge()
               : AppTypography.displaySmall(),
         ),
         const SizedBox(height: 8),
-
-        // Subtítulo
         Text(
-          'Comienza a gestionar tus finanzas de forma inteligente',
+          s.registerSubtitle,
           style: AppTypography.bodyLarge(color: AppColors.textSecondaryLight),
         ),
       ],
@@ -461,6 +460,7 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   Widget _buildForm(BuildContext context) {
+    final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
     final spacing = responsive.value(mobile: 16.0, tablet: 20.0);
 
@@ -468,12 +468,11 @@ class _RegisterPageState extends State<RegisterPage>
       key: _formKey,
       child: Column(
         children: [
-          // Nombre
           CustomTextField(
             controller: _nameController,
             focusNode: _nameFocus,
-            label: 'Nombre completo',
-            hint: 'Ej: Juan García',
+            label: s.fullNameLabel,
+            hint: s.fullNameHint,
             prefixIcon: Icons.person_outline_rounded,
             errorText: _nameError,
             textInputAction: TextInputAction.next,
@@ -485,13 +484,11 @@ class _RegisterPageState extends State<RegisterPage>
             onSubmitted: (_) => _emailFocus.requestFocus(),
           ),
           SizedBox(height: spacing),
-
-          // Email
           CustomTextField(
             controller: _emailController,
             focusNode: _emailFocus,
-            label: 'Correo electrónico',
-            hint: 'tu@email.com',
+            label: s.emailLabel,
+            hint: s.emailHint,
             prefixIcon: Icons.email_outlined,
             errorText: _emailError,
             keyboardType: TextInputType.emailAddress,
@@ -504,13 +501,11 @@ class _RegisterPageState extends State<RegisterPage>
             onSubmitted: (_) => _passwordFocus.requestFocus(),
           ),
           SizedBox(height: spacing),
-
-          // Contraseña
           CustomTextField(
             controller: _passwordController,
             focusNode: _passwordFocus,
-            label: 'Contraseña',
-            hint: 'Mínimo 8 caracteres',
+            label: s.password,
+            hint: s.passwordTooShort,
             prefixIcon: Icons.lock_outline_rounded,
             errorText: _passwordError,
             obscureText: true,
@@ -523,20 +518,16 @@ class _RegisterPageState extends State<RegisterPage>
             },
             onSubmitted: (_) => _confirmPasswordFocus.requestFocus(),
           ),
-
-          // Indicador de fortaleza de contraseña
           if (_passwordController.text.isNotEmpty) ...[
             const SizedBox(height: 8),
             _buildPasswordStrengthIndicator(),
           ],
           SizedBox(height: spacing),
-
-          // Confirmar contraseña
           CustomTextField(
             controller: _confirmPasswordController,
             focusNode: _confirmPasswordFocus,
-            label: 'Confirmar contraseña',
-            hint: 'Repite tu contraseña',
+            label: s.confirmPasswordRequired,
+            hint: s.passwordsDontMatch,
             prefixIcon: Icons.lock_outline_rounded,
             errorText: _confirmPasswordError,
             obscureText: true,
@@ -560,20 +551,21 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   Widget _buildPasswordStrengthIndicator() {
+    final s = AppLocalizations.of(context);
     String label;
     Color color;
 
     if (_passwordStrength <= 0.25) {
-      label = 'Muy débil';
+      label = s.passwordStrengthVeryWeak;
       color = AppColors.error;
     } else if (_passwordStrength <= 0.5) {
-      label = 'Débil';
+      label = s.passwordStrengthWeak;
       color = AppColors.warning;
     } else if (_passwordStrength <= 0.75) {
-      label = 'Media';
+      label = s.passwordStrengthMedium;
       color = AppColors.info;
     } else {
-      label = 'Fuerte';
+      label = s.passwordStrengthStrong;
       color = AppColors.success;
     }
 
@@ -599,23 +591,20 @@ class _RegisterPageState extends State<RegisterPage>
         const SizedBox(height: 8),
         Row(
           children: [
-            _buildRequirement(
-              '8+ caracteres',
-              _passwordController.text.length >= 8,
-            ),
+            _buildRequirement(s.reqChars, _passwordController.text.length >= 8),
             const SizedBox(width: 8),
             _buildRequirement(
-              'Mayúscula',
+              s.reqUpper,
               _passwordController.text.contains(RegExp(r'[A-Z]')),
             ),
             const SizedBox(width: 8),
             _buildRequirement(
-              'Número',
+              s.reqNumber,
               _passwordController.text.contains(RegExp(r'[0-9]')),
             ),
             const SizedBox(width: 8),
             _buildRequirement(
-              'Especial',
+              s.reqSpecial,
               _passwordController.text.contains(
                 RegExp(r'[!@#$%^&*(),.?":{}|<>]'),
               ),
@@ -652,38 +641,26 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   Widget _buildTermsAndPrivacy() {
+    final s = AppLocalizations.of(context);
     return Column(
       children: [
-        // Términos y condiciones
         _buildCheckboxRow(
           value: _acceptTerms,
-          onChanged: (value) {
-            setState(() {
-              _acceptTerms = value ?? false;
-              // If user unchecks and rechecks without re-entering detail view,
-              // reset to all defaults (scenario 1 logic)
-              if (_acceptTerms && _hasCustomizedConsents) {
-                _hasCustomizedConsents = false;
-                _consents = {
-                  'essential': true,
-                  'analytics': true,
-                  'marketing': true,
-                  'third_party': true,
-                  'personalization': true,
-                  'data_processing': true,
-                };
-              }
-            });
-          },
+          onChanged: (value) => setState(() {
+            _acceptTerms = value ?? false;
+            if (_acceptTerms && _hasCustomizedConsents) {
+              _hasCustomizedConsents = false;
+            }
+          }),
           child: RichText(
             text: TextSpan(
               style: AppTypography.bodySmall(
                 color: AppColors.textSecondaryLight,
               ),
               children: [
-                const TextSpan(text: 'Acepto los '),
+                TextSpan(text: s.acceptTermsPart1),
                 TextSpan(
-                  text: 'Términos y Condiciones',
+                  text: s.termsAndConditions,
                   style: AppTypography.bodySmall(
                     color: AppColors.primary,
                   ).copyWith(fontWeight: FontWeight.w600),
@@ -695,36 +672,23 @@ class _RegisterPageState extends State<RegisterPage>
           ),
         ),
         const SizedBox(height: 12),
-
-        // Política de privacidad
         _buildCheckboxRow(
           value: _acceptPrivacy,
-          onChanged: (value) {
-            setState(() {
-              _acceptPrivacy = value ?? false;
-              // Same reset logic: unchecking and rechecking = defaults
-              if (_acceptPrivacy && _hasCustomizedConsents) {
-                _hasCustomizedConsents = false;
-                _consents = {
-                  'essential': true,
-                  'analytics': true,
-                  'marketing': true,
-                  'third_party': true,
-                  'personalization': true,
-                  'data_processing': true,
-                };
-              }
-            });
-          },
+          onChanged: (value) => setState(() {
+            _acceptPrivacy = value ?? false;
+            if (_acceptPrivacy && _hasCustomizedConsents) {
+              _hasCustomizedConsents = false;
+            }
+          }),
           child: RichText(
             text: TextSpan(
               style: AppTypography.bodySmall(
                 color: AppColors.textSecondaryLight,
               ),
               children: [
-                const TextSpan(text: 'He leído y acepto la '),
+                TextSpan(text: s.acceptPrivacyPart1),
                 TextSpan(
-                  text: 'Política de Privacidad',
+                  text: s.privacyPolicy,
                   style: AppTypography.bodySmall(
                     color: AppColors.primary,
                   ).copyWith(fontWeight: FontWeight.w600),
@@ -740,6 +704,7 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   void _showTermsAndConditions() {
+    final s = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -755,9 +720,12 @@ class _RegisterPageState extends State<RegisterPage>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Términos y Condiciones',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Text(
+                    s.termsAndConditions,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -771,80 +739,18 @@ class _RegisterPageState extends State<RegisterPage>
               child: ListView(
                 controller: scrollController,
                 padding: const EdgeInsets.all(16),
-                children: const [
+                children: [
+                  _buildLegalSection(s.termsSection1Title, s.termsSection1Body),
+                  _buildLegalSection(s.termsSection2Title, s.termsSection2Body),
+                  _buildLegalSection(s.termsSection3Title, s.termsSection3Body),
+                  _buildLegalSection(s.termsSection4Title, s.termsSection4Body),
+                  _buildLegalSection(s.termsSection5Title, s.termsSection5Body),
+                  _buildLegalSection(s.termsSection6Title, s.termsSection6Body),
+                  _buildLegalSection(s.termsSection7Title, s.termsSection7Body),
+                  const SizedBox(height: 24),
                   Text(
-                    '1. Aceptación de los Términos',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Al registrarse y utilizar Finora, usted acepta estos Términos y Condiciones '
-                    'y se compromete a cumplirlos. Si no está de acuerdo, no debe utilizar el servicio.',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '2. Descripción del Servicio',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Finora es una aplicación de gestión financiera personal que permite registrar '
-                    'transacciones, visualizar estadísticas y gestionar categorías de gastos e ingresos.',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '3. Cuenta de Usuario',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Usted es responsable de mantener la confidencialidad de su cuenta y contraseña. '
-                    'Debe proporcionar información veraz y actualizada.',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '4. Uso Aceptable',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'El servicio debe usarse solo para fines legales y de gestión financiera personal. '
-                    'Queda prohibido cualquier uso fraudulento o ilegal.',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '5. Protección de Datos',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Sus datos se tratan conforme al GDPR. Consulte nuestra Política de Privacidad '
-                    'para más información sobre el tratamiento de datos personales.',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '6. Limitación de Responsabilidad',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Finora no se responsabiliza de decisiones financieras tomadas en base a la '
-                    'información proporcionada por la aplicación. El servicio es orientativo.',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '7. Modificaciones',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Nos reservamos el derecho de modificar estos términos. Se notificará a los '
-                    'usuarios sobre cambios significativos.',
-                  ),
-                  SizedBox(height: 24),
-                  Text(
-                    'Última actualización: Febrero 2026',
-                    style: TextStyle(
+                    s.lastUpdateText,
+                    style: const TextStyle(
                       color: Colors.grey,
                       fontStyle: FontStyle.italic,
                     ),
@@ -861,7 +767,7 @@ class _RegisterPageState extends State<RegisterPage>
                     Navigator.pop(context);
                     setState(() => _acceptTerms = true);
                   },
-                  child: const Text('Aceptar Términos'),
+                  child: Text(s.acceptTermsButton),
                 ),
               ),
             ),
@@ -872,7 +778,7 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   void _showPrivacyPolicyWithConsents() {
-    // Create a local copy of consents for editing
+    final s = AppLocalizations.of(context);
     final localConsents = Map<String, bool>.from(_consents);
 
     showModalBottomSheet(
@@ -891,9 +797,9 @@ class _RegisterPageState extends State<RegisterPage>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Política de Privacidad',
-                      style: TextStyle(
+                    Text(
+                      s.privacyPolicy,
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -911,82 +817,77 @@ class _RegisterPageState extends State<RegisterPage>
                   controller: scrollController,
                   padding: const EdgeInsets.all(16),
                   children: [
-                    const Text(
-                      'Gestión de Consentimientos',
-                      style: TextStyle(
+                    Text(
+                      s.consentManagementTitle,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Selecciona qué tipos de datos deseas permitirnos procesar. '
-                      'Los marcados como "Requerido" son necesarios para usar el servicio.',
-                      style: TextStyle(color: Colors.grey),
+                    Text(
+                      s.consentDescription,
+                      style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 16),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'essential',
-                      'Cookies y datos esenciales',
-                      'Necesarios para el funcionamiento básico de la aplicación.',
+                      s.essentialDataTitle,
+                      s.essentialDataDesc,
                       required: true,
                     ),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'data_processing',
-                      'Procesamiento de datos financieros',
-                      'Procesar tus transacciones para ofrecerte análisis financiero.',
+                      s.dataProcessingTitle,
+                      s.dataProcessingDesc,
                       required: true,
                     ),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'analytics',
-                      'Análisis y mejora del servicio',
-                      'Nos permite analizar cómo usas la app para mejorar la experiencia.',
+                      s.analyticsTitle,
+                      s.analyticsDesc,
                     ),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'marketing',
-                      'Comunicaciones de marketing',
-                      'Te enviaremos ofertas, novedades y consejos financieros.',
+                      s.marketingTitle,
+                      s.marketingDesc,
                     ),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'third_party',
-                      'Compartir datos con terceros',
-                      'Compartir información con socios para productos relevantes.',
+                      s.thirdPartyTitle,
+                      s.thirdPartyDesc,
                     ),
                     _buildConsentOption(
                       setSheetState,
                       localConsents,
                       'personalization',
-                      'Personalización del servicio',
-                      'Usar tus datos para personalizar recomendaciones y alertas.',
+                      s.personalizationTitle,
+                      s.personalizationDesc,
                     ),
                     const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Resumen de la Política',
-                      style: TextStyle(
+                    Text(
+                      s.policySummaryTitle,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Finora cumple con el GDPR de la UE. Tus datos están protegidos y tienes '
-                      'control total sobre ellos. Puedes modificar estos ajustes en cualquier momento '
-                      'desde Ajustes > Privacidad.\n\n'
-                      'Contacto: privacy@finora.app\n'
-                      'Última actualización: Febrero 2026',
-                      style: TextStyle(fontSize: 13),
+                    Text(
+                      '${s.gdprComplianceText}\n\nContacto: privacy@finora.app\n${s.lastUpdateText}',
+                      style: const TextStyle(fontSize: 13),
                     ),
                   ],
                 ),
@@ -997,23 +898,15 @@ class _RegisterPageState extends State<RegisterPage>
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Check if user modified any consent from the default (all true)
                       final allTrue = localConsents.values.every((v) => v);
-
                       setState(() {
                         _consents = Map<String, bool>.from(localConsents);
                         _acceptPrivacy = true;
-
-                        if (!allTrue) {
-                          // Scenario 3: User unchecked something
-                          _hasCustomizedConsents = true;
-                        }
-                        // Scenarios 1 & 2: User read but left all ON or didn't change
-                        // _hasCustomizedConsents stays false
+                        if (!allTrue) _hasCustomizedConsents = true;
                       });
                       Navigator.pop(context);
                     },
-                    child: const Text('Aceptar Política de Privacidad'),
+                    child: Text(s.acceptPrivacyButton),
                   ),
                 ),
               ),
@@ -1032,6 +925,7 @@ class _RegisterPageState extends State<RegisterPage>
     String description, {
     bool required = false,
   }) {
+    final s = AppLocalizations.of(context);
     return Column(
       children: [
         SwitchListTile(
@@ -1049,7 +943,7 @@ class _RegisterPageState extends State<RegisterPage>
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'Requerido',
+                    s.requiredBadge,
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.orange.shade800,
@@ -1061,12 +955,8 @@ class _RegisterPageState extends State<RegisterPage>
           subtitle: Text(description, style: const TextStyle(fontSize: 12)),
           value: localConsents[key] ?? true,
           onChanged: required
-              ? null // Cannot disable required consents
-              : (value) {
-                  setSheetState(() {
-                    localConsents[key] = value;
-                  });
-                },
+              ? null
+              : (value) => setSheetState(() => localConsents[key] = value),
         ),
         const Divider(),
       ],
@@ -1105,8 +995,9 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   Widget _buildRegisterButton() {
+    final s = AppLocalizations.of(context);
     return GradientButton(
-      text: 'Crear cuenta',
+      text: s.registerTitle,
       onPressed: _handleRegister,
       isLoading: _isLoading,
       isSuccess: _isSuccess,
@@ -1114,19 +1005,18 @@ class _RegisterPageState extends State<RegisterPage>
   }
 
   Widget _buildLoginLink(BuildContext context) {
+    final s = AppLocalizations.of(context);
     return Center(
       child: RichText(
         text: TextSpan(
-          text: '¿Ya tienes una cuenta? ',
+          text: s.alreadyHaveAccount,
           style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
           children: [
             TextSpan(
-              text: 'Inicia sesión',
+              text: s.loginLink,
               style: AppTypography.link(color: AppColors.primary),
               recognizer: TapGestureRecognizer()
-                ..onTap = () {
-                  Navigator.pushNamed(context, '/login');
-                },
+                ..onTap = () => Navigator.pushNamed(context, '/login'),
             ),
           ],
         ),
