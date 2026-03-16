@@ -415,6 +415,72 @@ router.post('/chat', authenticateToken, async (req, res) => {
 });
 
 
+// ── GET /api/v1/ai/context ────────────────────────────────────────────────────
+/**
+ * Devuelve un snapshot financiero resumido del usuario para que el cliente
+ * pueda inyectarlo como contexto en llamadas directas a Gemini.
+ * Respuesta ligera: una sola query SQL agregada.
+ *
+ * Returns: {
+ *   balance_total: float,
+ *   income_30d: float,
+ *   expenses_30d: float,
+ *   top_categories: [{ category, total }],   // top 3 gastos este mes
+ *   currency: 'EUR'
+ * }
+ */
+router.get('/context', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const now = new Date();
+    const startOf30d = new Date(now);
+    startOf30d.setDate(startOf30d.getDate() - 30);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [balanceRes, flowRes, catRes] = await Promise.all([
+      // Total balance
+      db.query(
+        `SELECT COALESCE(SUM(balance_cents), 0)::float / 100 AS total
+         FROM bank_accounts
+         WHERE user_id = $1`,
+        [userId],
+      ),
+      // Income & expenses last 30 days
+      db.query(
+        `SELECT
+           COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0)::float AS income,
+           COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)::float AS expenses
+         FROM transactions
+         WHERE user_id = $1 AND date >= $2`,
+        [userId, startOf30d.toISOString().split('T')[0]],
+      ),
+      // Top 3 expense categories this calendar month
+      db.query(
+        `SELECT COALESCE(category, 'Otros') AS category,
+                SUM(amount)::float AS total
+         FROM transactions
+         WHERE user_id = $1 AND type = 'expense' AND date >= $2
+         GROUP BY 1
+         ORDER BY total DESC
+         LIMIT 3`,
+        [userId, startOfMonth.toISOString().split('T')[0]],
+      ),
+    ]);
+
+    return res.json({
+      balance_total: balanceRes.rows[0]?.total ?? 0,
+      income_30d:    flowRes.rows[0]?.income   ?? 0,
+      expenses_30d:  flowRes.rows[0]?.expenses ?? 0,
+      top_categories: catRes.rows,
+      currency: 'EUR',
+    });
+  } catch (err) {
+    console.error('[ai/context] error:', err.message);
+    return res.status(500).json({ error: 'Context unavailable' });
+  }
+});
+
+
 // ── POST /api/v1/ai/affordability ─────────────────────────────────────────────
 /**
  * RF-26 / HU-13: Análisis "¿Puedo permitírmelo?".

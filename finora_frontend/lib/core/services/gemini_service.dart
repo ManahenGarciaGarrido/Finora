@@ -54,10 +54,7 @@ class GeminiService {
             {'text': systemPrompt},
           ],
         },
-      'generationConfig': {
-        'temperature': 0.4,
-        'maxOutputTokens': 512,
-      },
+      'generationConfig': {'temperature': 0.75, 'maxOutputTokens': 768},
     };
 
     final response = await _dio.post(

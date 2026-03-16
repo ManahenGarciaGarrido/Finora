@@ -16,6 +16,8 @@ import '../../../../core/services/ai_service.dart';
 import '../../../../core/services/gemini_service.dart';
 import '../../../../core/services/app_settings_service.dart';
 import '../../../../core/services/currency_service.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/constants/api_endpoints.dart';
 
 const _kAssistantColor = Color(0xFF6C63FF);
 const _kAssistantSoft = Color(0xFFF0EFFE);
@@ -31,6 +33,7 @@ class _AssistantPageState extends State<AssistantPage>
     with TickerProviderStateMixin {
   final AiService _aiService = sl<AiService>();
   final GeminiService _geminiService = GeminiService();
+  final ApiClient _apiClient = sl<ApiClient>();
 
   final _scrollController = ScrollController();
   final _inputController = TextEditingController();
@@ -42,9 +45,15 @@ class _AssistantPageState extends State<AssistantPage>
   final List<Map<String, String>> _history = [];
   bool _loadingRecs = false;
 
+  /// Financial context fetched from backend — injected into Gemini system prompt
+  String? _financialContext;
+
   @override
   void initState() {
     super.initState();
+    if (GeminiService.hasApiKey) {
+      _fetchFinancialContext(); // fire-and-forget
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final s = AppLocalizations.of(context);
@@ -61,6 +70,27 @@ class _AssistantPageState extends State<AssistantPage>
         });
       }
     });
+  }
+
+  Future<void> _fetchFinancialContext() async {
+    try {
+      final resp = await _apiClient.get(ApiEndpoints.aiContext);
+      final d = resp.data as Map<String, dynamic>;
+      final cs = CurrencyService();
+      final balance = cs.format((d['balance_total'] as num).toDouble());
+      final income = cs.format((d['income_30d'] as num).toDouble());
+      final expenses = cs.format((d['expenses_30d'] as num).toDouble());
+      final cats = (d['top_categories'] as List? ?? [])
+          .map(
+            (c) =>
+                '${c['category']} (${cs.format((c['total'] as num).toDouble())})',
+          )
+          .join(', ');
+      _financialContext =
+          'Balance total: $balance | Ingresos (30d): $income | Gastos (30d): $expenses'
+          '${cats.isNotEmpty ? ' | Top categorías: $cats' : ''}';
+      // ignore: empty_catches
+    } catch (_) {}
   }
 
   @override
@@ -112,19 +142,24 @@ class _AssistantPageState extends State<AssistantPage>
         );
       } else if (GeminiService.hasApiKey) {
         final locale = AppSettingsService().currentLocaleCode;
+        final ctx = _financialContext != null
+            ? '\n\nDatos financieros actuales del usuario: $_financialContext'
+            : '';
         final systemPrompt = locale == 'en'
-            ? '''You are Finn, a personal finance assistant for the Finora app.
-Your ONLY areas of expertise are: personal finances, budgets, expenses, income, savings, investments, financial goals, banking, credit cards, and general money management.
-BEFORE answering, evaluate whether the user's question is related to these topics.
-- If it IS related: answer concisely and helpfully in English (2–4 sentences max).
-- If it is NOT related or is too far from finance (e.g. recipes, sports, history, coding, entertainment): reply ONLY with: "That's outside my area of expertise. I'm here to help you with your finances in Finora."
-Never answer off-topic questions even if asked politely.'''
-            : '''Eres Finn, asistente de finanzas personales de la app Finora.
-Tu ÚNICA área de conocimiento son: finanzas personales, presupuestos, gastos, ingresos, ahorro, inversiones, objetivos financieros, banca, tarjetas de crédito y gestión del dinero en general.
-ANTES de responder, evalúa si la pregunta del usuario está relacionada con estos temas.
-- Si SÍ está relacionada: responde de forma concisa y útil en español (máximo 2–4 frases).
-- Si NO está relacionada o se aleja demasiado de las finanzas (p.ej. recetas, deportes, historia, programación, entretenimiento): responde ÚNICAMENTE con: "Eso está fuera de mis competencias. Estoy aquí para ayudarte con tus finanzas en Finora."
-Nunca respondas preguntas fuera de tema aunque se te pida amablemente.''';
+            ? '''You are Finn, the personal finance assistant built into the Finora app. Think of yourself as a knowledgeable friend who genuinely understands money — not a corporate bot reading from a script. You are smart, warm, direct, and occasionally a bit witty. You speak naturally, like a real person would in a conversation.
+
+Your main focus is personal finance: budgets, spending habits, income, savings, investments, debt, financial goals. But you're not rigid. If someone asks something outside finance, engage briefly and naturally, then bring it back to what you can actually help with — don't just refuse with a canned message.
+
+When you have the user's financial data, use it to give specific, personalised answers. Don't start every reply with "Based on your data..." — just weave it in naturally when relevant.
+
+Keep responses conversational and appropriately concise. Ask follow-up questions when it helps. Share your actual opinion when asked.${ctx.replaceAll('Ingresos', 'Income').replaceAll('Gastos', 'Expenses').replaceAll('Balance total', 'Total balance').replaceAll('Top categorías', 'Top categories')}'''
+            : '''Eres Finn, el asistente financiero integrado en la app Finora. Piensa en ti mismo como un amigo inteligente que entiende de verdad el dinero — no un bot corporativo leyendo un guion. Eres listo, cercano, directo y con cierto sentido del humor cuando viene al caso. Hablas con naturalidad, como lo haría una persona real en una conversación.
+
+Tu especialidad son las finanzas personales: presupuestos, hábitos de gasto, ingresos, ahorro, inversiones, deudas, objetivos financieros. Pero no eres rígido. Si alguien te pregunta algo fuera de las finanzas, responde brevemente y con naturalidad, y luego reconduces hacia lo que puedes ayudar de verdad — no rechaces con un mensaje de plantilla.
+
+Cuando tengas los datos financieros del usuario, úsalos para dar respuestas concretas y personalizadas. No empieces cada respuesta con "Según tus datos..." — intégralo de forma natural cuando sea relevante.
+
+Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas de seguimiento cuando ayude. Da tu opinión real cuando te la pidan.$ctx''';
         final text = await _geminiService.sendMessage(
           message: msg,
           history: _history,
@@ -324,7 +359,6 @@ Nunca respondas preguntas fuera de tema aunque se te pida amablemente.''';
       ],
     );
   }
-
 
   Widget _buildMessageList() {
     return ListView.builder(
