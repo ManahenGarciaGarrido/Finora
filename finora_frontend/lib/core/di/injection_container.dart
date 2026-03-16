@@ -60,6 +60,12 @@ import '../../features/investments/domain/usecases/get_indices_usecase.dart';
 import '../../features/investments/domain/usecases/get_glossary_usecase.dart';
 import '../../features/investments/presentation/bloc/investment_bloc.dart';
 
+// Features - Household
+import '../../features/household/data/datasources/household_remote_datasource.dart';
+import '../../features/household/data/repositories/household_repository_impl.dart';
+import '../../features/household/domain/repositories/household_repository.dart';
+import '../../features/household/presentation/bloc/household_bloc.dart';
+
 // Features - Debts
 import '../../features/debts/data/datasources/debts_remote_datasource.dart';
 import '../../features/debts/data/repositories/debts_repository_impl.dart';
@@ -115,6 +121,9 @@ Future<void> init() async {
 
   //! Features - Debts
   await _initDebts();
+
+  //! Features - Household
+  await _initHousehold();
 
   //! Features - Goals (RF-18 / RF-19 / RF-20 / RF-21 / HU-07)
   await _initGoals();
@@ -312,6 +321,17 @@ Future<void> _initDebts() async {
   sl.registerLazySingleton<DebtsRepository>(() => DebtsRepositoryImpl(sl()));
   sl.registerLazySingleton<DebtsRemoteDataSource>(
     () => DebtsRemoteDataSourceImpl(sl()),
+  );
+}
+
+/// Household feature dependencies
+Future<void> _initHousehold() async {
+  sl.registerFactory(() => HouseholdBloc(sl()));
+  sl.registerLazySingleton<HouseholdRepository>(
+    () => HouseholdRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton<HouseholdRemoteDataSource>(
+    () => HouseholdRemoteDataSourceImpl(sl()),
   );
 }
 
