@@ -395,6 +395,9 @@ abstract class AppStringsBase {
   String get initialBalance;
   String get connectBank;
   String get bankConnected;
+  String get sectionAdvancedFinances;
+  String get settingsDebts;
+  String get settingsDebtsSubtitle;
 
   // ── Categorías ─────────────────────────────────────────────────────────────
   String get noCategories;
@@ -2177,6 +2180,13 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get bankConnected => 'Banco conectado';
 
+  @override
+  String get settingsDebts => 'Deudas y préstamos';
+  @override
+  String get settingsDebtsSubtitle =>
+      'Gestiona deudas, estrategias y calculadoras';
+  @override
+  String get sectionAdvancedFinances => 'Finanzas avanzadas';
   @override
   String get noCategories => 'Sin categorías';
   @override
@@ -5039,6 +5049,13 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get bankConnected => 'Bank connected';
 
+  @override
+  String get settingsDebts => 'Debts y loans';
+  @override
+  String get settingsDebtsSubtitle =>
+      'Manage debts, strategies and calculators';
+  @override
+  String get sectionAdvancedFinances => 'Advanced finances';
   @override
   String get noCategories => 'No categories';
   @override
