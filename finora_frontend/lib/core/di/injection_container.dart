@@ -48,6 +48,18 @@ import '../../features/banks/domain/usecases/exchange_public_token_usecase.dart'
 import '../../features/banks/domain/usecases/import_selected_accounts_usecase.dart';
 import '../../features/banks/presentation/bloc/bank_bloc.dart';
 
+// Features - Investments
+import '../../features/investments/data/datasources/investments_remote_datasource.dart';
+import '../../features/investments/data/repositories/investments_repository_impl.dart';
+import '../../features/investments/domain/repositories/investments_repository.dart';
+import '../../features/investments/domain/usecases/get_profile_usecase.dart';
+import '../../features/investments/domain/usecases/save_profile_usecase.dart';
+import '../../features/investments/domain/usecases/get_portfolio_suggestion_usecase.dart';
+import '../../features/investments/domain/usecases/simulate_returns_usecase.dart';
+import '../../features/investments/domain/usecases/get_indices_usecase.dart';
+import '../../features/investments/domain/usecases/get_glossary_usecase.dart';
+import '../../features/investments/presentation/bloc/investment_bloc.dart';
+
 // Features - Debts
 import '../../features/debts/data/datasources/debts_remote_datasource.dart';
 import '../../features/debts/data/repositories/debts_repository_impl.dart';
@@ -97,6 +109,9 @@ Future<void> init() async {
 
   //! Features - Transactions & Categories
   await _initTransactions();
+
+  //! Features - Investments
+  await _initInvestments();
 
   //! Features - Debts
   await _initDebts();
@@ -247,6 +262,32 @@ Future<void> _initBanks() async {
   // Data sources
   sl.registerLazySingleton<BankRemoteDataSource>(
     () => BankRemoteDataSourceImpl(apiClient: sl()),
+  );
+}
+
+/// Investments feature dependencies
+Future<void> _initInvestments() async {
+  sl.registerFactory(
+    () => InvestmentBloc(
+      getProfile: sl(),
+      saveProfile: sl(),
+      getPortfolioSuggestion: sl(),
+      simulateReturns: sl(),
+      getIndices: sl(),
+      getGlossary: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetProfileUseCase(sl()));
+  sl.registerLazySingleton(() => SaveProfileUseCase(sl()));
+  sl.registerLazySingleton(() => GetPortfolioSuggestionUseCase(sl()));
+  sl.registerLazySingleton(() => SimulateReturnsUseCase(sl()));
+  sl.registerLazySingleton(() => GetIndicesUseCase(sl()));
+  sl.registerLazySingleton(() => GetGlossaryUseCase(sl()));
+  sl.registerLazySingleton<InvestmentsRepository>(
+    () => InvestmentsRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton<InvestmentsRemoteDataSource>(
+    () => InvestmentsRemoteDataSourceImpl(sl()),
   );
 }
 
