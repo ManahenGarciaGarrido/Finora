@@ -1429,6 +1429,8 @@ class AppLocalizations extends AppStringsBase {
   @override
   String newLabel(int count) => _strings.newLabel(count);
   @override
+  String newLabelO(int count) => _strings.newLabelO(count);
+  @override
   String transactionCountLabel(int count) =>
       _strings.transactionCountLabel(count);
   @override
