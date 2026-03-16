@@ -444,7 +444,7 @@ class _BudgetPageState extends State<BudgetPage>
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showBudgetDialog(),
         icon: const Icon(Icons.add_rounded),
-        label: Text(s.newLabel(1)),
+        label: Text(s.newLabelO(1)),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
