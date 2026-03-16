@@ -534,6 +534,7 @@ abstract class AppStringsBase {
   String get passwordStrengthWeak;
   String get passwordStrengthMedium;
   String get passwordStrengthStrong;
+  String get enterPassword;
   String get reqChars;
   String get reqUpper;
   String get reqNumber;
@@ -572,7 +573,6 @@ abstract class AppStringsBase {
   String get backToLogin;
   String get emailSentTitle;
   String get emailSentInstructions;
-  String get enterPassword;
 
   // ── Privacidad — UI strings ────────────────────────────────────────────────
   String get privacyAndData;
@@ -1227,6 +1227,231 @@ abstract class AppStringsBase {
   String get geminiKeyConfigured;
   String get geminiKeyRemoved;
   String get configureGeminiKey;
+
+  // ── Module A: Budget Enhancements ─────────────────────────────────────────
+  String get aiSuggestBudgetsBtn;
+  String get aiSuggestBudgetsTitle;
+  String get aiSuggestBudgetsInfo;
+  String get applyAllSuggestions;
+  String get rolloverLabel;
+  String get rolloverEnabled;
+  String get rolloverDisabled;
+  String get budgetComparativeTab;
+  String get budgetTrendUp;
+  String get budgetTrendDown;
+  String get noHistoryData;
+  String get last3Months;
+
+  // ── Module B: Debts ────────────────────────────────────────────────────────
+  String get debtsTitle;
+  String get debtsNav;
+  String get ownDebtsTab;
+  String get owedToMeTab;
+  String get strategiesTab;
+  String get noDebts;
+  String get addDebt;
+  String get editDebt;
+  String get deleteDebt;
+  String get deleteDebtConfirm;
+  String get debtName;
+  String get creditorName;
+  String get originalAmount;
+  String get remainingAmount;
+  String get interestRate;
+  String get dueDate;
+  String get monthlyPayment;
+  String get debtSaved;
+  String get debtDeleted;
+  String get snowballStrategy;
+  String get avalancheStrategy;
+  String get snowballDesc;
+  String get avalancheDesc;
+  String get totalInterest;
+  String get monthsToPayoff;
+  String get interestSavings;
+  String get loanCalculator;
+  String get mortgageCalculator;
+  String get principal;
+  String get annualRate;
+  String get termMonths;
+  String get calculate;
+  String get monthlyPaymentResult;
+  String get totalPayment;
+  String get extraPaymentLabel;
+  String get savingsWithExtra;
+  String get debtTypeOwn;
+  String get debtTypeOwed;
+  String get paymentOrder;
+  String get recommendedStrategy;
+
+  // ── Module C: Investments ──────────────────────────────────────────────────
+  String get investmentsTitle;
+  String get investmentsNav;
+  String get investorProfileTab;
+  String get portfolioTab;
+  String get simulatorTab;
+  String get marketsTab;
+  String get startQuizBtn;
+  String get quizTitle;
+  String get profileConservative;
+  String get profileModerate;
+  String get profileAggressive;
+  String get profileConservativeDesc;
+  String get profileModerateDesc;
+  String get profileAggressiveDesc;
+  String get investmentHorizon;
+  String get shortTerm;
+  String get mediumTerm;
+  String get longTerm;
+  String get monthlyCapacity;
+  String get saveProfile;
+  String get profileSaved;
+  String get suggestedPortfolio;
+  String get portfolioRationale;
+  String get etfName;
+  String get allocation;
+  String get simulatorTitle;
+  String get monthlyInvestment;
+  String get investmentYears;
+  String get expectedReturn;
+  String get simulate;
+  String get finalAmount;
+  String get totalInvested;
+  String get totalReturns;
+  String get marketIndices;
+  String get glossaryTitle;
+  String get noProfile;
+  String get profileRequired;
+
+  // ── Module D: Household ────────────────────────────────────────────────────
+  String get householdTitle;
+  String get householdNav;
+  String get noHousehold;
+  String get createHousehold;
+  String get householdName;
+  String get inviteMember;
+  String get inviteByEmail;
+  String get memberInvited;
+  String get removeMember;
+  String get membersTab;
+  String get sharedTab;
+  String get balancesTab;
+  String get overviewTab;
+  String get addSharedExpense;
+  String get splitPercentage;
+  String get settleBalance;
+  String get balanceSettled;
+  String get owesYou;
+  String get youOwe;
+  String get householdOverview;
+  String get householdCreated;
+  String get leaveHousehold;
+  String get inviteCode;
+  String get joinWithCode;
+  String get householdRole;
+  String get ownerRole;
+  String get memberRole;
+
+  // ── Module E: Gamification ─────────────────────────────────────────────────
+  String get gamificationTitle;
+  String get gamificationNav;
+  String get healthScore;
+  String get streakLabel;
+  String get streakWeeks;
+  String get longestStreak;
+  String get badgesTitle;
+  String get badgesEarned;
+  String get badgesLocked;
+  String get challengesTitle;
+  String get weeklyChallenge;
+  String get monthlyChallenge;
+  String get challengeComplete;
+  String get benchmarkTitle;
+  String get benchmarkDesc;
+  String get healthScoreBreakdown;
+  String get savingsRateComponent;
+  String get budgetComplianceComponent;
+  String get goalsProgressComponent;
+  String get scoreExcellent;
+  String get scoreGood;
+  String get scoreFair;
+  String get scorePoor;
+  String get noStreakYet;
+
+  // ── Module F: Fiscal ───────────────────────────────────────────────────────
+  String get fiscalTitle;
+  String get fiscalNav;
+  String get deductibleExpensesTab;
+  String get irpfTab;
+  String get taxCalendarTab;
+  String get exportFiscalTab;
+  String get fiscalYear;
+  String get totalDeductible;
+  String get fiscalCategoryLabel;
+  String get tagAsFiscal;
+  String get fiscalCategoryFreelance;
+  String get fiscalCategoryDonation;
+  String get fiscalCategoryCapitalGain;
+  String get fiscalCategoryOther;
+  String get annualIncomeLabel;
+  String get deductionsLabel;
+  String get estimatedTax;
+  String get netIncome;
+  String get effectiveRate;
+  String get taxBrackets;
+  String get taxCalendarTitle;
+  String get exportFiscalBtn;
+  String get exportFiscalDesc;
+  String get fiscalDataExported;
+  String get noFiscalData;
+
+  // ── Module G: OCR ─────────────────────────────────────────────────────────
+  String get ocrTitle;
+  String get ocrNav;
+  String get scanReceipt;
+  String get scanReceiptDesc;
+  String get importStatement;
+  String get importStatementDesc;
+  String get fromCamera;
+  String get fromGallery;
+  String get scanningReceipt;
+  String get extractedData;
+  String get extractedAmount;
+  String get extractedMerchant;
+  String get extractedDate;
+  String get confirmTransaction;
+  String get receiptImported;
+  String get selectFile;
+  String get importedTransactions;
+  String get duplicatesFound;
+  String get duplicateWarning;
+  String get importConfirmed;
+  String get noTextDetected;
+  String get receiptAttached;
+  String get attachReceipt;
+  String get reviewImport;
+  String get selectAll;
+  String get deselectAll;
+  String get importSelected;
+  String get skipDuplicates;
+
+  // ── Module H: Widget ───────────────────────────────────────────────────────
+  String get widgetTitle;
+  String get widgetNav;
+  String get widgetSettingsTitle;
+  String get widgetBalance;
+  String get widgetTodaySpent;
+  String get widgetBudgetPct;
+  String get widgetMetricsLabel;
+  String get widgetAddInstructions;
+  String get widgetWearableTitle;
+  String get widgetWearOS;
+  String get widgetAppleWatch;
+  String get wearableConnected;
+  String get wearableNotConnected;
+  String get wearableInstructions;
+  String get widgetDarkModeAuto;
+  String get widgetLastUpdated;
 }
 
 // ── Español (España) ──────────────────────────────────────────────────────────
@@ -2215,6 +2440,8 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get passwordStrengthStrong => 'Fuerte';
   @override
+  String get enterPassword => 'Por favor, introduce tu contraseña';
+  @override
   String get reqChars => '8+ caracteres';
   @override
   String get reqUpper => 'Mayúscula';
@@ -2297,8 +2524,6 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get emailSentInstructions =>
       'Revisa tu bandeja de entrada y haz clic en el enlace para restablecer tu contraseña.';
-  @override
-  String get enterPassword => 'Por favor introduce tu contraseña ';
 
   @override
   String get privacyAndData => 'Privacidad y Datos';
@@ -3653,6 +3878,450 @@ class _AppStringsEs extends AppStringsBase {
   String get geminiKeyRemoved => 'Clave de Gemini eliminada';
   @override
   String get configureGeminiKey => 'Configurar Gemini';
+
+  // ── Module A: Budget Enhancements ─────────────────────────────────────────
+  @override
+  String get aiSuggestBudgetsBtn => 'Sugerir con IA';
+  @override
+  String get aiSuggestBudgetsTitle => 'Sugerencias de presupuesto';
+  @override
+  String get aiSuggestBudgetsInfo =>
+      'Basado en tu media de los últimos 3 meses';
+  @override
+  String get applyAllSuggestions => 'Aplicar todas';
+  @override
+  String get rolloverLabel => 'Acumular sobrante al mes siguiente';
+  @override
+  String get rolloverEnabled => 'Acumulación activada';
+  @override
+  String get rolloverDisabled => 'Acumulación desactivada';
+  @override
+  String get budgetComparativeTab => 'Comparativa';
+  @override
+  String get budgetTrendUp => 'Subida';
+  @override
+  String get budgetTrendDown => 'Bajada';
+  @override
+  String get noHistoryData => 'Sin datos históricos';
+  @override
+  String get last3Months => 'Últimos 3 meses';
+
+  // ── Module B: Debts ────────────────────────────────────────────────────────
+  @override
+  String get debtsTitle => 'Mis Deudas';
+  @override
+  String get debtsNav => 'Deudas';
+  @override
+  String get ownDebtsTab => 'Mis deudas';
+  @override
+  String get owedToMeTab => 'Me deben';
+  @override
+  String get strategiesTab => 'Estrategias';
+  @override
+  String get noDebts => 'Sin deudas registradas';
+  @override
+  String get addDebt => 'Añadir deuda';
+  @override
+  String get editDebt => 'Editar deuda';
+  @override
+  String get deleteDebt => 'Eliminar deuda';
+  @override
+  String get deleteDebtConfirm => '¿Eliminar esta deuda?';
+  @override
+  String get debtName => 'Nombre de la deuda';
+  @override
+  String get creditorName => 'Acreedor / Deudor';
+  @override
+  String get originalAmount => 'Importe original';
+  @override
+  String get remainingAmount => 'Importe pendiente';
+  @override
+  String get interestRate => 'Tipo de interés (% anual)';
+  @override
+  String get dueDate => 'Fecha de vencimiento';
+  @override
+  String get monthlyPayment => 'Cuota mensual';
+  @override
+  String get debtSaved => 'Deuda guardada';
+  @override
+  String get debtDeleted => 'Deuda eliminada';
+  @override
+  String get snowballStrategy => 'Bola de nieve';
+  @override
+  String get avalancheStrategy => 'Avalancha';
+  @override
+  String get snowballDesc => 'Liquidar primero la deuda de menor importe';
+  @override
+  String get avalancheDesc => 'Priorizar la deuda con mayor interés';
+  @override
+  String get totalInterest => 'Intereses totales';
+  @override
+  String get monthsToPayoff => 'Meses para liquidar';
+  @override
+  String get interestSavings => 'Ahorro en intereses';
+  @override
+  String get loanCalculator => 'Calculadora de préstamo';
+  @override
+  String get mortgageCalculator => 'Calculadora hipoteca';
+  @override
+  String get principal => 'Capital';
+  @override
+  String get annualRate => 'Tasa anual (%)';
+  @override
+  String get termMonths => 'Plazo (meses)';
+  @override
+  String get calculate => 'Calcular';
+  @override
+  String get monthlyPaymentResult => 'Cuota mensual';
+  @override
+  String get totalPayment => 'Pago total';
+  @override
+  String get extraPaymentLabel => 'Pago extra mensual (€)';
+  @override
+  String get savingsWithExtra => 'Ahorro con pago extra';
+  @override
+  String get debtTypeOwn => 'Deuda propia';
+  @override
+  String get debtTypeOwed => 'Me lo deben';
+  @override
+  String get paymentOrder => 'Orden de pago';
+  @override
+  String get recommendedStrategy => 'Estrategia recomendada';
+
+  // ── Module C: Investments ──────────────────────────────────────────────────
+  @override
+  String get investmentsTitle => 'Inversiones';
+  @override
+  String get investmentsNav => 'Inversiones';
+  @override
+  String get investorProfileTab => 'Mi perfil';
+  @override
+  String get portfolioTab => 'Cartera sugerida';
+  @override
+  String get simulatorTab => 'Simulador';
+  @override
+  String get marketsTab => 'Mercados';
+  @override
+  String get startQuizBtn => 'Hacer test de perfil';
+  @override
+  String get quizTitle => 'Test de perfil inversor';
+  @override
+  String get profileConservative => 'Conservador';
+  @override
+  String get profileModerate => 'Moderado';
+  @override
+  String get profileAggressive => 'Agresivo';
+  @override
+  String get profileConservativeDesc =>
+      'Priorizo proteger mi capital y acepto menor rentabilidad';
+  @override
+  String get profileModerateDesc =>
+      'Busco equilibrio entre seguridad y rentabilidad';
+  @override
+  String get profileAggressiveDesc =>
+      'Acepto alta volatilidad a cambio de mayor rentabilidad potencial';
+  @override
+  String get investmentHorizon => 'Horizonte de inversión';
+  @override
+  String get shortTerm => 'Corto plazo (< 3 años)';
+  @override
+  String get mediumTerm => 'Medio plazo (3-10 años)';
+  @override
+  String get longTerm => 'Largo plazo (> 10 años)';
+  @override
+  String get monthlyCapacity => 'Capacidad mensual de inversión (€)';
+  @override
+  String get saveProfile => 'Guardar perfil';
+  @override
+  String get profileSaved => 'Perfil guardado';
+  @override
+  String get suggestedPortfolio => 'Cartera sugerida para tu perfil';
+  @override
+  String get portfolioRationale =>
+      'Basada en tu tolerancia al riesgo y horizonte temporal';
+  @override
+  String get etfName => 'ETF / Fondo';
+  @override
+  String get allocation => 'Asignación';
+  @override
+  String get simulatorTitle => 'Simulador de rentabilidad';
+  @override
+  String get monthlyInvestment => 'Inversión mensual (€)';
+  @override
+  String get investmentYears => 'Años de inversión';
+  @override
+  String get expectedReturn => 'Rentabilidad anual esperada (%)';
+  @override
+  String get simulate => 'Simular';
+  @override
+  String get finalAmount => 'Capital final acumulado';
+  @override
+  String get totalInvested => 'Total invertido';
+  @override
+  String get totalReturns => 'Rentabilidad generada';
+  @override
+  String get marketIndices => 'Índices de referencia';
+  @override
+  String get glossaryTitle => 'Glosario financiero';
+  @override
+  String get noProfile => 'Aún no has definido tu perfil inversor';
+  @override
+  String get profileRequired =>
+      'Completa tu perfil para ver la cartera sugerida';
+
+  // ── Module D: Household ────────────────────────────────────────────────────
+  @override
+  String get householdTitle => 'Mi Hogar';
+  @override
+  String get householdNav => 'Hogar';
+  @override
+  String get noHousehold => 'Aún no perteneces a ningún hogar';
+  @override
+  String get createHousehold => 'Crear hogar';
+  @override
+  String get householdName => 'Nombre del hogar';
+  @override
+  String get inviteMember => 'Invitar miembro';
+  @override
+  String get inviteByEmail => 'Invitar por correo';
+  @override
+  String get memberInvited => 'Invitación enviada';
+  @override
+  String get removeMember => 'Eliminar miembro';
+  @override
+  String get membersTab => 'Miembros';
+  @override
+  String get sharedTab => 'Gastos compartidos';
+  @override
+  String get balancesTab => 'Saldos';
+  @override
+  String get overviewTab => 'Resumen';
+  @override
+  String get addSharedExpense => 'Añadir gasto compartido';
+  @override
+  String get splitPercentage => '% asignado';
+  @override
+  String get settleBalance => 'Liquidar saldo';
+  @override
+  String get balanceSettled => 'Saldo liquidado';
+  @override
+  String get owesYou => 'Te debe';
+  @override
+  String get youOwe => 'Le debes';
+  @override
+  String get householdOverview => 'Resumen del hogar';
+  @override
+  String get householdCreated => 'Hogar creado';
+  @override
+  String get leaveHousehold => 'Salir del hogar';
+  @override
+  String get inviteCode => 'Código de invitación';
+  @override
+  String get joinWithCode => 'Unirse con código';
+  @override
+  String get householdRole => 'Rol';
+  @override
+  String get ownerRole => 'Propietario';
+  @override
+  String get memberRole => 'Miembro';
+
+  // ── Module E: Gamification ─────────────────────────────────────────────────
+  @override
+  String get gamificationTitle => 'Hábitos Financieros';
+  @override
+  String get gamificationNav => 'Hábitos';
+  @override
+  String get healthScore => 'Puntuación de salud financiera';
+  @override
+  String get streakLabel => 'Racha actual';
+  @override
+  String get streakWeeks => 'semanas consecutivas con ahorro positivo';
+  @override
+  String get longestStreak => 'Mayor racha';
+  @override
+  String get badgesTitle => 'Logros';
+  @override
+  String get badgesEarned => 'Conseguidos';
+  @override
+  String get badgesLocked => 'Bloqueados';
+  @override
+  String get challengesTitle => 'Retos';
+  @override
+  String get weeklyChallenge => 'Reto semanal';
+  @override
+  String get monthlyChallenge => 'Reto mensual';
+  @override
+  String get challengeComplete => '¡Reto completado!';
+  @override
+  String get benchmarkTitle => 'Comparativa anónima';
+  @override
+  String get benchmarkDesc => 'Comparativa con usuarios de perfil similar';
+  @override
+  String get healthScoreBreakdown => 'Desglose de puntuación';
+  @override
+  String get savingsRateComponent => 'Tasa de ahorro';
+  @override
+  String get budgetComplianceComponent => 'Cumplimiento de presupuestos';
+  @override
+  String get goalsProgressComponent => 'Progreso de metas';
+  @override
+  String get scoreExcellent => 'Excelente';
+  @override
+  String get scoreGood => 'Buena';
+  @override
+  String get scoreFair => 'Regular';
+  @override
+  String get scorePoor => 'Mejorable';
+  @override
+  String get noStreakYet => 'Empieza tu racha esta semana';
+
+  // ── Module F: Fiscal ───────────────────────────────────────────────────────
+  @override
+  String get fiscalTitle => 'Análisis Fiscal';
+  @override
+  String get fiscalNav => 'Fiscal';
+  @override
+  String get deductibleExpensesTab => 'Gastos deducibles';
+  @override
+  String get irpfTab => 'Estimador IRPF';
+  @override
+  String get taxCalendarTab => 'Calendario fiscal';
+  @override
+  String get exportFiscalTab => 'Exportar';
+  @override
+  String get fiscalYear => 'Ejercicio fiscal';
+  @override
+  String get totalDeductible => 'Total deducible';
+  @override
+  String get fiscalCategoryLabel => 'Categoría fiscal';
+  @override
+  String get tagAsFiscal => 'Etiquetar como gasto fiscal';
+  @override
+  String get fiscalCategoryFreelance => 'Gasto deducible autónomo';
+  @override
+  String get fiscalCategoryDonation => 'Donación';
+  @override
+  String get fiscalCategoryCapitalGain => 'Rendimiento de capital';
+  @override
+  String get fiscalCategoryOther => 'Otro deducible';
+  @override
+  String get annualIncomeLabel => 'Ingresos anuales brutos (€)';
+  @override
+  String get deductionsLabel => 'Total deducciones (€)';
+  @override
+  String get estimatedTax => 'Impuesto estimado (IRPF)';
+  @override
+  String get netIncome => 'Base imponible neta';
+  @override
+  String get effectiveRate => 'Tipo efectivo';
+  @override
+  String get taxBrackets => 'Tramos del IRPF';
+  @override
+  String get taxCalendarTitle => 'Calendario fiscal España';
+  @override
+  String get exportFiscalBtn => 'Exportar datos fiscales';
+  @override
+  String get exportFiscalDesc => 'Formato compatible con Renta Web (AEAT)';
+  @override
+  String get fiscalDataExported => 'Datos fiscales exportados';
+  @override
+  String get noFiscalData => 'Sin gastos etiquetados como deducibles este año';
+
+  // ── Module G: OCR ─────────────────────────────────────────────────────────
+  @override
+  String get ocrTitle => 'Importar documento';
+  @override
+  String get ocrNav => 'Importar';
+  @override
+  String get scanReceipt => 'Escanear ticket/factura';
+  @override
+  String get scanReceiptDesc =>
+      'Fotografía un ticket y extrae los datos automáticamente';
+  @override
+  String get importStatement => 'Importar extracto bancario';
+  @override
+  String get importStatementDesc => 'Importa un fichero CSV o PDF de tu banco';
+  @override
+  String get fromCamera => 'Cámara';
+  @override
+  String get fromGallery => 'Galería';
+  @override
+  String get scanningReceipt => 'Escaneando ticket...';
+  @override
+  String get extractedData => 'Datos extraídos';
+  @override
+  String get extractedAmount => 'Importe detectado';
+  @override
+  String get extractedMerchant => 'Comercio detectado';
+  @override
+  String get extractedDate => 'Fecha detectada';
+  @override
+  String get confirmTransaction => 'Confirmar transacción';
+  @override
+  String get receiptImported => 'Ticket importado como transacción';
+  @override
+  String get selectFile => 'Seleccionar fichero';
+  @override
+  String get importedTransactions => 'Transacciones importadas';
+  @override
+  String get duplicatesFound => 'Posibles duplicados detectados';
+  @override
+  String get duplicateWarning =>
+      'Esta transacción parece duplicada. ¿Importar de todos modos?';
+  @override
+  String get importConfirmed => 'Importación completada';
+  @override
+  String get noTextDetected => 'No se detectó texto en la imagen';
+  @override
+  String get receiptAttached => 'Justificante adjunto';
+  @override
+  String get attachReceipt => 'Adjuntar justificante';
+  @override
+  String get reviewImport => 'Revisar importación';
+  @override
+  String get selectAll => 'Seleccionar todo';
+  @override
+  String get deselectAll => 'Deseleccionar todo';
+  @override
+  String get importSelected => 'Importar seleccionadas';
+  @override
+  String get skipDuplicates => 'Omitir duplicados';
+
+  // ── Module H: Widget ───────────────────────────────────────────────────────
+  @override
+  String get widgetTitle => 'Widget de inicio';
+  @override
+  String get widgetNav => 'Widget';
+  @override
+  String get widgetSettingsTitle => 'Configurar widget';
+  @override
+  String get widgetBalance => 'Saldo actual';
+  @override
+  String get widgetTodaySpent => 'Gasto de hoy';
+  @override
+  String get widgetBudgetPct => 'Presupuesto mensual consumido';
+  @override
+  String get widgetMetricsLabel => 'Métricas a mostrar';
+  @override
+  String get widgetAddInstructions =>
+      'Para añadir el widget: mantén pulsado el escritorio → Widgets → Finora';
+  @override
+  String get widgetWearableTitle => 'Reloj inteligente';
+  @override
+  String get widgetWearOS => 'Wear OS (Android)';
+  @override
+  String get widgetAppleWatch => 'Apple Watch';
+  @override
+  String get wearableConnected => 'Reloj conectado';
+  @override
+  String get wearableNotConnected => 'Sin reloj conectado';
+  @override
+  String get wearableInstructions =>
+      'Instala la app Finora en tu reloj para ver notificaciones y saldo';
+  @override
+  String get widgetDarkModeAuto => 'Se adapta al modo del sistema';
+  @override
+  String get widgetLastUpdated => 'Última actualización';
 }
 
 // ── English (International) ───────────────────────────────────────────────────
@@ -4629,6 +5298,8 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get passwordStrengthStrong => 'Strong';
   @override
+  String get enterPassword => 'Please, enter your password';
+  @override
   String get reqChars => '8+ characters';
   @override
   String get reqUpper => 'Uppercase';
@@ -4711,8 +5382,6 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get emailSentInstructions =>
       'Check your inbox and click the link to reset your password.';
-  @override
-  String get enterPassword => 'Please enter your password';
 
   @override
   String get privacyAndData => 'Privacy & Data';
@@ -6056,6 +6725,448 @@ class _AppStringsEn extends AppStringsBase {
   String get geminiKeyRemoved => 'Gemini key removed';
   @override
   String get configureGeminiKey => 'Configure Gemini';
+
+  // ── Module A: Budget Enhancements ─────────────────────────────────────────
+  @override
+  String get aiSuggestBudgetsBtn => 'Suggest with AI';
+  @override
+  String get aiSuggestBudgetsTitle => 'Budget Suggestions';
+  @override
+  String get aiSuggestBudgetsInfo => 'Based on your 3-month average';
+  @override
+  String get applyAllSuggestions => 'Apply all';
+  @override
+  String get rolloverLabel => 'Roll over unused budget';
+  @override
+  String get rolloverEnabled => 'Rollover enabled';
+  @override
+  String get rolloverDisabled => 'Rollover disabled';
+  @override
+  String get budgetComparativeTab => 'Comparative';
+  @override
+  String get budgetTrendUp => 'Increase';
+  @override
+  String get budgetTrendDown => 'Decrease';
+  @override
+  String get noHistoryData => 'No historical data';
+  @override
+  String get last3Months => 'Last 3 months';
+
+  // ── Module B: Debts ────────────────────────────────────────────────────────
+  @override
+  String get debtsTitle => 'My Debts';
+  @override
+  String get debtsNav => 'Debts';
+  @override
+  String get ownDebtsTab => 'My debts';
+  @override
+  String get owedToMeTab => 'Owed to me';
+  @override
+  String get strategiesTab => 'Strategies';
+  @override
+  String get noDebts => 'No debts registered';
+  @override
+  String get addDebt => 'Add debt';
+  @override
+  String get editDebt => 'Edit debt';
+  @override
+  String get deleteDebt => 'Delete debt';
+  @override
+  String get deleteDebtConfirm => 'Delete this debt?';
+  @override
+  String get debtName => 'Debt name';
+  @override
+  String get creditorName => 'Creditor / Debtor';
+  @override
+  String get originalAmount => 'Original amount';
+  @override
+  String get remainingAmount => 'Remaining amount';
+  @override
+  String get interestRate => 'Interest rate (% annual)';
+  @override
+  String get dueDate => 'Due date';
+  @override
+  String get monthlyPayment => 'Monthly payment';
+  @override
+  String get debtSaved => 'Debt saved';
+  @override
+  String get debtDeleted => 'Debt deleted';
+  @override
+  String get snowballStrategy => 'Snowball';
+  @override
+  String get avalancheStrategy => 'Avalanche';
+  @override
+  String get snowballDesc => 'Pay off smallest debt first';
+  @override
+  String get avalancheDesc => 'Prioritize highest interest debt';
+  @override
+  String get totalInterest => 'Total interest';
+  @override
+  String get monthsToPayoff => 'Months to pay off';
+  @override
+  String get interestSavings => 'Interest savings';
+  @override
+  String get loanCalculator => 'Loan calculator';
+  @override
+  String get mortgageCalculator => 'Mortgage calculator';
+  @override
+  String get principal => 'Principal';
+  @override
+  String get annualRate => 'Annual rate (%)';
+  @override
+  String get termMonths => 'Term (months)';
+  @override
+  String get calculate => 'Calculate';
+  @override
+  String get monthlyPaymentResult => 'Monthly payment';
+  @override
+  String get totalPayment => 'Total payment';
+  @override
+  String get extraPaymentLabel => 'Extra monthly payment (€)';
+  @override
+  String get savingsWithExtra => 'Savings with extra payment';
+  @override
+  String get debtTypeOwn => 'Own debt';
+  @override
+  String get debtTypeOwed => 'Owed to me';
+  @override
+  String get paymentOrder => 'Payment order';
+  @override
+  String get recommendedStrategy => 'Recommended strategy';
+
+  // ── Module C: Investments ──────────────────────────────────────────────────
+  @override
+  String get investmentsTitle => 'Investments';
+  @override
+  String get investmentsNav => 'Investments';
+  @override
+  String get investorProfileTab => 'My profile';
+  @override
+  String get portfolioTab => 'Suggested portfolio';
+  @override
+  String get simulatorTab => 'Simulator';
+  @override
+  String get marketsTab => 'Markets';
+  @override
+  String get startQuizBtn => 'Take profile quiz';
+  @override
+  String get quizTitle => 'Investor profile quiz';
+  @override
+  String get profileConservative => 'Conservative';
+  @override
+  String get profileModerate => 'Moderate';
+  @override
+  String get profileAggressive => 'Aggressive';
+  @override
+  String get profileConservativeDesc =>
+      'I prioritize capital protection and accept lower returns';
+  @override
+  String get profileModerateDesc => 'I seek balance between safety and returns';
+  @override
+  String get profileAggressiveDesc =>
+      'I accept high volatility for higher potential returns';
+  @override
+  String get investmentHorizon => 'Investment horizon';
+  @override
+  String get shortTerm => 'Short term (< 3 years)';
+  @override
+  String get mediumTerm => 'Medium term (3-10 years)';
+  @override
+  String get longTerm => 'Long term (> 10 years)';
+  @override
+  String get monthlyCapacity => 'Monthly investment capacity (€)';
+  @override
+  String get saveProfile => 'Save profile';
+  @override
+  String get profileSaved => 'Profile saved';
+  @override
+  String get suggestedPortfolio => 'Suggested portfolio for your profile';
+  @override
+  String get portfolioRationale =>
+      'Based on your risk tolerance and time horizon';
+  @override
+  String get etfName => 'ETF / Fund';
+  @override
+  String get allocation => 'Allocation';
+  @override
+  String get simulatorTitle => 'Return simulator';
+  @override
+  String get monthlyInvestment => 'Monthly investment (€)';
+  @override
+  String get investmentYears => 'Years of investment';
+  @override
+  String get expectedReturn => 'Expected annual return (%)';
+  @override
+  String get simulate => 'Simulate';
+  @override
+  String get finalAmount => 'Final accumulated capital';
+  @override
+  String get totalInvested => 'Total invested';
+  @override
+  String get totalReturns => 'Generated returns';
+  @override
+  String get marketIndices => 'Market indices';
+  @override
+  String get glossaryTitle => 'Financial glossary';
+  @override
+  String get noProfile => "You haven't defined your investor profile yet";
+  @override
+  String get profileRequired =>
+      'Complete your profile to see the suggested portfolio';
+
+  // ── Module D: Household ────────────────────────────────────────────────────
+  @override
+  String get householdTitle => 'My Household';
+  @override
+  String get householdNav => 'Household';
+  @override
+  String get noHousehold => "You don't belong to any household yet";
+  @override
+  String get createHousehold => 'Create household';
+  @override
+  String get householdName => 'Household name';
+  @override
+  String get inviteMember => 'Invite member';
+  @override
+  String get inviteByEmail => 'Invite by email';
+  @override
+  String get memberInvited => 'Invitation sent';
+  @override
+  String get removeMember => 'Remove member';
+  @override
+  String get membersTab => 'Members';
+  @override
+  String get sharedTab => 'Shared expenses';
+  @override
+  String get balancesTab => 'Balances';
+  @override
+  String get overviewTab => 'Overview';
+  @override
+  String get addSharedExpense => 'Add shared expense';
+  @override
+  String get splitPercentage => '% assigned';
+  @override
+  String get settleBalance => 'Settle balance';
+  @override
+  String get balanceSettled => 'Balance settled';
+  @override
+  String get owesYou => 'Owes you';
+  @override
+  String get youOwe => 'You owe';
+  @override
+  String get householdOverview => 'Household overview';
+  @override
+  String get householdCreated => 'Household created';
+  @override
+  String get leaveHousehold => 'Leave household';
+  @override
+  String get inviteCode => 'Invite code';
+  @override
+  String get joinWithCode => 'Join with code';
+  @override
+  String get householdRole => 'Role';
+  @override
+  String get ownerRole => 'Owner';
+  @override
+  String get memberRole => 'Member';
+
+  // ── Module E: Gamification ─────────────────────────────────────────────────
+  @override
+  String get gamificationTitle => 'Financial Habits';
+  @override
+  String get gamificationNav => 'Habits';
+  @override
+  String get healthScore => 'Financial health score';
+  @override
+  String get streakLabel => 'Current streak';
+  @override
+  String get streakWeeks => 'consecutive weeks with positive savings';
+  @override
+  String get longestStreak => 'Longest streak';
+  @override
+  String get badgesTitle => 'Achievements';
+  @override
+  String get badgesEarned => 'Earned';
+  @override
+  String get badgesLocked => 'Locked';
+  @override
+  String get challengesTitle => 'Challenges';
+  @override
+  String get weeklyChallenge => 'Weekly challenge';
+  @override
+  String get monthlyChallenge => 'Monthly challenge';
+  @override
+  String get challengeComplete => 'Challenge completed!';
+  @override
+  String get benchmarkTitle => 'Anonymous benchmark';
+  @override
+  String get benchmarkDesc => 'Compared to similar users';
+  @override
+  String get healthScoreBreakdown => 'Score breakdown';
+  @override
+  String get savingsRateComponent => 'Savings rate';
+  @override
+  String get budgetComplianceComponent => 'Budget compliance';
+  @override
+  String get goalsProgressComponent => 'Goals progress';
+  @override
+  String get scoreExcellent => 'Excellent';
+  @override
+  String get scoreGood => 'Good';
+  @override
+  String get scoreFair => 'Fair';
+  @override
+  String get scorePoor => 'Needs improvement';
+  @override
+  String get noStreakYet => 'Start your streak this week';
+
+  // ── Module F: Fiscal ───────────────────────────────────────────────────────
+  @override
+  String get fiscalTitle => 'Tax Analysis';
+  @override
+  String get fiscalNav => 'Tax';
+  @override
+  String get deductibleExpensesTab => 'Deductible expenses';
+  @override
+  String get irpfTab => 'IRPF Estimator';
+  @override
+  String get taxCalendarTab => 'Tax calendar';
+  @override
+  String get exportFiscalTab => 'Export';
+  @override
+  String get fiscalYear => 'Fiscal year';
+  @override
+  String get totalDeductible => 'Total deductible';
+  @override
+  String get fiscalCategoryLabel => 'Fiscal category';
+  @override
+  String get tagAsFiscal => 'Tag as fiscal expense';
+  @override
+  String get fiscalCategoryFreelance => 'Self-employed deductible expense';
+  @override
+  String get fiscalCategoryDonation => 'Donation';
+  @override
+  String get fiscalCategoryCapitalGain => 'Capital gain';
+  @override
+  String get fiscalCategoryOther => 'Other deductible';
+  @override
+  String get annualIncomeLabel => 'Annual gross income (€)';
+  @override
+  String get deductionsLabel => 'Total deductions (€)';
+  @override
+  String get estimatedTax => 'Estimated tax (IRPF)';
+  @override
+  String get netIncome => 'Net taxable income';
+  @override
+  String get effectiveRate => 'Effective rate';
+  @override
+  String get taxBrackets => 'Tax brackets';
+  @override
+  String get taxCalendarTitle => 'Spain tax calendar';
+  @override
+  String get exportFiscalBtn => 'Export tax data';
+  @override
+  String get exportFiscalDesc => 'Compatible with Renta Web (AEAT)';
+  @override
+  String get fiscalDataExported => 'Tax data exported';
+  @override
+  String get noFiscalData => 'No expenses tagged as deductible this year';
+
+  // ── Module G: OCR ─────────────────────────────────────────────────────────
+  @override
+  String get ocrTitle => 'Import document';
+  @override
+  String get ocrNav => 'Import';
+  @override
+  String get scanReceipt => 'Scan receipt/invoice';
+  @override
+  String get scanReceiptDesc =>
+      'Photo a receipt and extract data automatically';
+  @override
+  String get importStatement => 'Import bank statement';
+  @override
+  String get importStatementDesc => 'Import a CSV or PDF file from your bank';
+  @override
+  String get fromCamera => 'Camera';
+  @override
+  String get fromGallery => 'Gallery';
+  @override
+  String get scanningReceipt => 'Scanning receipt...';
+  @override
+  String get extractedData => 'Extracted data';
+  @override
+  String get extractedAmount => 'Detected amount';
+  @override
+  String get extractedMerchant => 'Detected merchant';
+  @override
+  String get extractedDate => 'Detected date';
+  @override
+  String get confirmTransaction => 'Confirm transaction';
+  @override
+  String get receiptImported => 'Receipt imported as transaction';
+  @override
+  String get selectFile => 'Select file';
+  @override
+  String get importedTransactions => 'Imported transactions';
+  @override
+  String get duplicatesFound => 'Possible duplicates detected';
+  @override
+  String get duplicateWarning =>
+      'This transaction appears to be a duplicate. Import anyway?';
+  @override
+  String get importConfirmed => 'Import completed';
+  @override
+  String get noTextDetected => 'No text detected in the image';
+  @override
+  String get receiptAttached => 'Receipt attached';
+  @override
+  String get attachReceipt => 'Attach receipt';
+  @override
+  String get reviewImport => 'Review import';
+  @override
+  String get selectAll => 'Select all';
+  @override
+  String get deselectAll => 'Deselect all';
+  @override
+  String get importSelected => 'Import selected';
+  @override
+  String get skipDuplicates => 'Skip duplicates';
+
+  // ── Module H: Widget ───────────────────────────────────────────────────────
+  @override
+  String get widgetTitle => 'Home screen widget';
+  @override
+  String get widgetNav => 'Widget';
+  @override
+  String get widgetSettingsTitle => 'Configure widget';
+  @override
+  String get widgetBalance => 'Current balance';
+  @override
+  String get widgetTodaySpent => "Today's spending";
+  @override
+  String get widgetBudgetPct => 'Monthly budget used';
+  @override
+  String get widgetMetricsLabel => 'Metrics to display';
+  @override
+  String get widgetAddInstructions =>
+      'To add the widget: long press home screen → Widgets → Finora';
+  @override
+  String get widgetWearableTitle => 'Smartwatch';
+  @override
+  String get widgetWearOS => 'Wear OS (Android)';
+  @override
+  String get widgetAppleWatch => 'Apple Watch';
+  @override
+  String get wearableConnected => 'Watch connected';
+  @override
+  String get wearableNotConnected => 'No watch connected';
+  @override
+  String get wearableInstructions =>
+      'Install Finora on your watch to see notifications and balance';
+  @override
+  String get widgetDarkModeAuto => 'Adapts to system theme';
+  @override
+  String get widgetLastUpdated => 'Last updated';
 }
 
 // ── Factory principal ─────────────────────────────────────────────────────────

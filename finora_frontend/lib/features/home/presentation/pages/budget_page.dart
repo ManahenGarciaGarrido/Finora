@@ -38,11 +38,12 @@ class _BudgetPageState extends State<BudgetPage>
   List<Map<String, dynamic>> _statuses = [];
   List<Map<String, dynamic>> _alerts = [];
   List<Map<String, dynamic>> _unbudgeted = [];
+  List<Map<String, dynamic>> _history = [];
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _loadData();
   }
 
@@ -96,13 +97,15 @@ class _BudgetPageState extends State<BudgetPage>
       _error = null;
     });
     try {
-      final [statusRes, budgetRes] = await Future.wait([
+      final results = await Future.wait([
         _apiClient.get('/budget/status'),
         _apiClient.get('/budget'),
+        _apiClient.get('/budget/history?months=3'),
       ]);
 
-      final statusData = statusRes.data as Map<String, dynamic>;
-      final budgetData = budgetRes.data as Map<String, dynamic>;
+      final statusData = results[0].data as Map<String, dynamic>;
+      final budgetData = results[1].data as Map<String, dynamic>;
+      final historyData = results[2].data as Map<String, dynamic>;
 
       setState(() {
         _statuses = List<Map<String, dynamic>>.from(
@@ -113,6 +116,9 @@ class _BudgetPageState extends State<BudgetPage>
           statusData['unbudgeted'] ?? [],
         );
         _budgets = List<Map<String, dynamic>>.from(budgetData['budgets'] ?? []);
+        _history = List<Map<String, dynamic>>.from(
+          historyData['history'] ?? [],
+        );
         _loading = false;
       });
     } catch (e) {
@@ -120,6 +126,147 @@ class _BudgetPageState extends State<BudgetPage>
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _showAiSuggestDialog() async {
+    final s = AppLocalizations.of(context);
+    List<Map<String, dynamic>> suggestions = [];
+    bool loadingSuggestions = true;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          if (loadingSuggestions) {
+            _apiClient
+                .get('/budget/suggest')
+                .then((res) {
+                  final data = res.data as Map<String, dynamic>;
+                  setDialogState(() {
+                    suggestions = List<Map<String, dynamic>>.from(
+                      data['suggestions'] ?? [],
+                    );
+                    loadingSuggestions = false;
+                  });
+                })
+                .catchError((_) {
+                  setDialogState(() => loadingSuggestions = false);
+                });
+          }
+          return AlertDialog(
+            title: Text(s.aiSuggestBudgetsTitle),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s.aiSuggestBudgetsInfo,
+                    style: AppTypography.bodySmall(color: AppColors.gray500),
+                  ),
+                  const SizedBox(height: 12),
+                  if (loadingSuggestions)
+                    const Center(child: CircularProgressIndicator())
+                  else if (suggestions.isEmpty)
+                    Text(
+                      s.noHistoryData,
+                      style: AppTypography.bodySmall(color: AppColors.gray400),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 300),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: suggestions.length,
+                        itemBuilder: (_, i) {
+                          final sug = suggestions[i];
+                          return ListTile(
+                            dense: true,
+                            title: Text(
+                              _getTranslatedCategory(sug['category'] as String),
+                              style: AppTypography.bodyMedium(),
+                            ),
+                            trailing: Text(
+                              _formatCurrency(
+                                (sug['suggested_limit'] as num).toDouble(),
+                              ),
+                              style: AppTypography.labelSmall(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(s.cancel),
+              ),
+              if (!loadingSuggestions && suggestions.isNotEmpty)
+                FilledButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    for (final sug in suggestions) {
+                      try {
+                        await _apiClient.post(
+                          '/budget',
+                          data: {
+                            'category': sug['category'],
+                            'monthly_limit': sug['suggested_limit'],
+                          },
+                        );
+                      } catch (_) {}
+                    }
+                    await _loadData();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(s.budgetSavedMsg),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(s.applyAllSuggestions),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _toggleRollover(String category, bool current) async {
+    final s = AppLocalizations.of(context);
+    try {
+      await _apiClient.patch(
+        '/budget/${Uri.encodeComponent(category)}/rollover',
+        data: {'rollover_enabled': !current},
+      );
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(!current ? s.rolloverEnabled : s.rolloverDisabled),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${s.error}: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -279,9 +426,15 @@ class _BudgetPageState extends State<BudgetPage>
           tabs: [
             Tab(text: s.budgetStatusTab),
             Tab(text: s.myBudgetsTab),
+            Tab(text: s.budgetComparativeTab),
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: s.aiSuggestBudgetsBtn,
+            icon: const Icon(Icons.auto_awesome_rounded),
+            onPressed: _showAiSuggestDialog,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadData,
@@ -304,7 +457,11 @@ class _BudgetPageState extends State<BudgetPage>
           ? _buildError()
           : TabBarView(
               controller: _tabs,
-              children: [_buildStatusTab(), _buildBudgetsTab()],
+              children: [
+                _buildStatusTab(),
+                _buildBudgetsTab(),
+                _buildComparativeTab(),
+              ],
             ),
     );
   }
@@ -594,6 +751,31 @@ class _BudgetPageState extends State<BudgetPage>
                       _formatCurrency((b['monthly_limit'] as num).toDouble()),
                       style: AppTypography.bodySmall(color: AppColors.gray500),
                     ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.autorenew_rounded,
+                          size: 12,
+                          color: AppColors.gray400,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          s.rolloverLabel,
+                          style: AppTypography.labelSmall(
+                            color: AppColors.gray400,
+                          ),
+                        ),
+                        Transform.scale(
+                          scale: 0.7,
+                          child: Switch(
+                            value: b['rollover_enabled'] as bool? ?? false,
+                            onChanged: (v) =>
+                                _toggleRollover(b['category'] as String, !v),
+                            activeThumbColor: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -620,6 +802,183 @@ class _BudgetPageState extends State<BudgetPage>
           ),
         );
       },
+    );
+  }
+
+  // ── Tab: Comparativa ──────────────────────────────────────────────────────
+
+  Widget _buildComparativeTab() {
+    final s = AppLocalizations.of(context);
+    if (_history.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.bar_chart_rounded, color: AppColors.gray400, size: 56),
+            const SizedBox(height: 16),
+            Text(
+              s.noHistoryData,
+              style: AppTypography.bodyMedium(color: AppColors.gray500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Group by category
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final row in _history) {
+      final cat = row['category'] as String;
+      grouped.putIfAbsent(cat, () => []).add(row);
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.compare_arrows_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                s.last3Months,
+                style: AppTypography.titleSmall(color: AppColors.primary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...grouped.entries.map((entry) {
+            final cat = entry.key;
+            final rows = entry.value
+              ..sort(
+                (a, b) =>
+                    (b['period'] as String).compareTo(a['period'] as String),
+              );
+            // Determine trend: compare most recent to previous
+            double? trendPct;
+            if (rows.length >= 2) {
+              final recent = (rows[0]['spent'] as num).toDouble();
+              final prev = (rows[1]['spent'] as num).toDouble();
+              if (prev > 0) trendPct = ((recent - prev) / prev) * 100;
+            }
+            final isUp = trendPct != null && trendPct > 5;
+            final isDown = trendPct != null && trendPct < -5;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.gray200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _getTranslatedCategory(cat),
+                          style: AppTypography.titleSmall(),
+                        ),
+                      ),
+                      if (isUp)
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.trending_up_rounded,
+                              color: AppColors.error,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              s.budgetTrendUp,
+                              style: AppTypography.labelSmall(
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ],
+                        )
+                      else if (isDown)
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.trending_down_rounded,
+                              color: AppColors.success,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              s.budgetTrendDown,
+                              style: AppTypography.labelSmall(
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...rows
+                      .take(3)
+                      .map(
+                        (r) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                r['period'] as String,
+                                style: AppTypography.bodySmall(
+                                  color: AppColors.gray500,
+                                ),
+                              ),
+                              Text(
+                                _formatCurrency((r['spent'] as num).toDouble()),
+                                style: AppTypography.bodySmall(),
+                              ),
+                              if (r['percentage'] != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        ((r['percentage'] as num).toDouble() >
+                                                    100
+                                                ? AppColors.error
+                                                : AppColors.success)
+                                            .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${(r['percentage'] as num).toStringAsFixed(0)}%',
+                                    style: AppTypography.labelSmall(
+                                      color:
+                                          (r['percentage'] as num).toDouble() >
+                                              100
+                                          ? AppColors.error
+                                          : AppColors.success,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }

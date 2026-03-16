@@ -349,6 +349,15 @@ const startServer = async () => {
       console.log('[auto-migrate] ✓ budgets table (RF-32)');
     } catch (e) { console.warn('[auto-migrate] budgets warning:', e.message); }
 
+    // Budget rollover_enabled column
+    try {
+      await db.query(`
+        ALTER TABLE budgets
+          ADD COLUMN IF NOT EXISTS rollover_enabled BOOLEAN NOT NULL DEFAULT FALSE
+      `);
+      console.log('[auto-migrate] ✓ budgets.rollover_enabled');
+    } catch (e) { console.warn('[auto-migrate] budgets.rollover_enabled warning:', e.message); }
+
     // RF-16: categories.display_order column (added after initial schema in some deployments)
     try {
       await db.query(`
