@@ -60,6 +60,13 @@ import '../../features/investments/domain/usecases/get_indices_usecase.dart';
 import '../../features/investments/domain/usecases/get_glossary_usecase.dart';
 import '../../features/investments/presentation/bloc/investment_bloc.dart';
 
+// Features - Widget
+import '../../features/widget/data/datasources/widget_remote_datasource.dart';
+import '../../features/widget/data/repositories/widget_repository_impl.dart';
+import '../../features/widget/domain/repositories/widget_repository.dart';
+import '../../features/widget/presentation/bloc/widget_bloc.dart';
+import '../../features/widget/services/widget_channel_service.dart';
+
 // Features - OCR
 import '../../features/ocr/data/datasources/ocr_remote_datasource.dart';
 import '../../features/ocr/data/repositories/ocr_repository_impl.dart';
@@ -139,6 +146,9 @@ Future<void> init() async {
 
   //! Features - Debts
   await _initDebts();
+
+  //! Features - Widget
+  await _initWidget();
 
   //! Features - OCR
   await _initOcr();
@@ -348,6 +358,16 @@ Future<void> _initDebts() async {
   sl.registerLazySingleton<DebtsRepository>(() => DebtsRepositoryImpl(sl()));
   sl.registerLazySingleton<DebtsRemoteDataSource>(
     () => DebtsRemoteDataSourceImpl(sl()),
+  );
+}
+
+/// Widget feature dependencies
+Future<void> _initWidget() async {
+  sl.registerLazySingleton(() => WidgetChannelService());
+  sl.registerFactory(() => WidgetBloc(sl(), sl()));
+  sl.registerLazySingleton<WidgetRepository>(() => WidgetRepositoryImpl(sl()));
+  sl.registerLazySingleton<WidgetRemoteDataSource>(
+    () => WidgetRemoteDataSourceImpl(sl()),
   );
 }
 
