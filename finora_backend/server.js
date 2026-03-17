@@ -24,6 +24,7 @@ const debtRoutes = require('./routes/debts');
 const investmentRoutes = require('./routes/investments');
 const householdRoutes = require('./routes/household');
 const gamificationRoutes = require('./routes/gamification');
+const fiscalRoutes = require('./routes/fiscal');
 
 // Import services
 const emailService = require('./services/email');
@@ -138,6 +139,7 @@ app.use('/api/v1/debts', debtRoutes);
 app.use('/api/v1/investments', investmentRoutes);
 app.use('/api/v1/household', householdRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
+app.use('/api/v1/fiscal', fiscalRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -520,6 +522,18 @@ const startServer = async () => {
       }
       console.log('[auto-migrate] ✓ gamification tables');
     } catch (e) { console.warn('[auto-migrate] gamification warning:', e.message); }
+
+    // Fiscal category column on transactions
+    try {
+      await db.query(`
+        ALTER TABLE transactions
+          ADD COLUMN IF NOT EXISTS fiscal_category VARCHAR(50)
+      `);
+      await db.query(
+        `CREATE INDEX IF NOT EXISTS idx_transactions_fiscal ON transactions(user_id, fiscal_category) WHERE fiscal_category IS NOT NULL`
+      );
+      console.log('[auto-migrate] ✓ transactions.fiscal_category');
+    } catch (e) { console.warn('[auto-migrate] fiscal_category warning:', e.message); }
 
     // Budget rollover_enabled column
     try {
