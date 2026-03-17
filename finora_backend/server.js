@@ -26,6 +26,7 @@ const householdRoutes = require('./routes/household');
 const gamificationRoutes = require('./routes/gamification');
 const fiscalRoutes = require('./routes/fiscal');
 const ocrRoutes = require('./routes/ocr');
+const widgetRoutes = require('./routes/widget');
 
 // Import services
 const emailService = require('./services/email');
@@ -142,6 +143,7 @@ app.use('/api/v1/household', householdRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/fiscal', fiscalRoutes);
 app.use('/api/v1/ocr', ocrRoutes);
+app.use('/api/v1/widget', widgetRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -524,6 +526,15 @@ const startServer = async () => {
       }
       console.log('[auto-migrate] ✓ gamification tables');
     } catch (e) { console.warn('[auto-migrate] gamification warning:', e.message); }
+
+    // Widget settings column on users
+    try {
+      await db.query(`
+        ALTER TABLE users
+          ADD COLUMN IF NOT EXISTS widget_settings JSONB DEFAULT '{}'::jsonb
+      `);
+      console.log('[auto-migrate] ✓ users.widget_settings');
+    } catch (e) { console.warn('[auto-migrate] widget_settings warning:', e.message); }
 
     // Source column on transactions (for OCR/CSV import tracking)
     try {

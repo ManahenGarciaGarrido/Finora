@@ -35,6 +35,7 @@ import '../../../household/presentation/pages/household_page.dart';
 import '../../../gamification/presentation/pages/gamification_page.dart';
 import '../../../fiscal/presentation/pages/fiscal_page.dart';
 import '../../../ocr/presentation/pages/ocr_page.dart';
+import '../../../widget/presentation/pages/widget_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -438,6 +439,16 @@ class _SettingsPageState extends State<SettingsPage> {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const OcrPage()),
+                    ),
+                  ),
+                  _divider(),
+                  _buildSettingsRow(
+                    icon: Icons.widgets_outlined,
+                    title: s.settingsWidget,
+                    subtitle: s.settingsWidgetSubtitle,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WidgetPage()),
                     ),
                   ),
                 ],
