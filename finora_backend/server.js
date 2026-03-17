@@ -23,6 +23,7 @@ const currencyRoutes = require('./routes/currency'); // Exchange rates
 const debtRoutes = require('./routes/debts');
 const investmentRoutes = require('./routes/investments');
 const householdRoutes = require('./routes/household');
+const gamificationRoutes = require('./routes/gamification');
 
 // Import services
 const emailService = require('./services/email');
@@ -136,6 +137,7 @@ app.use('/api/v1/currency', currencyRoutes);        // Exchange rates
 app.use('/api/v1/debts', debtRoutes);
 app.use('/api/v1/investments', investmentRoutes);
 app.use('/api/v1/household', householdRoutes);
+app.use('/api/v1/gamification', gamificationRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -441,6 +443,83 @@ const startServer = async () => {
       await db.query(`CREATE INDEX IF NOT EXISTS idx_debts_user_id ON debts(user_id)`);
       console.log('[auto-migrate] ✓ debts table');
     } catch (e) { console.warn('[auto-migrate] debts warning:', e.message); }
+
+    // Gamification tables
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS user_streaks (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          streak_type VARCHAR(50) NOT NULL,
+          current_count INTEGER NOT NULL DEFAULT 0,
+          longest_count INTEGER NOT NULL DEFAULT 0,
+          last_activity_date DATE,
+          UNIQUE(user_id, streak_type)
+        )
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS badges (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          badge_key VARCHAR(100) NOT NULL UNIQUE,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          icon VARCHAR(100),
+          category VARCHAR(50),
+          sort_order INTEGER NOT NULL DEFAULT 0
+        )
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS user_badges (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          badge_id UUID NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+          earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, badge_id)
+        )
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS challenges (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          challenge_type VARCHAR(50) NOT NULL,
+          target_value DECIMAL(12,2) NOT NULL DEFAULT 0,
+          reward_points INTEGER NOT NULL DEFAULT 0,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          ends_at TIMESTAMP
+        )
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS user_challenges (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          challenge_id UUID NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+          progress DECIMAL(12,2) NOT NULL DEFAULT 0,
+          is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+          joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, challenge_id)
+        )
+      `);
+      // Seed default badges
+      const defaultBadges = [
+        { key: 'first_transaction', name: 'First Step', desc: 'Record your first transaction', icon: 'star', cat: 'transactions', ord: 1 },
+        { key: 'ten_transactions', name: 'Getting Started', desc: 'Record 10 transactions', icon: 'trending_up', cat: 'transactions', ord: 2 },
+        { key: 'fifty_transactions', name: 'Consistent Tracker', desc: 'Record 50 transactions', icon: 'emoji_events', cat: 'transactions', ord: 3 },
+        { key: 'first_goal_completed', name: 'Goal Getter', desc: 'Complete your first savings goal', icon: 'flag', cat: 'goals', ord: 1 },
+        { key: 'three_goals_completed', name: 'Achiever', desc: 'Complete 3 savings goals', icon: 'military_tech', cat: 'goals', ord: 2 },
+        { key: 'streak_7', name: 'Week Warrior', desc: 'Maintain a 7-day streak', icon: 'local_fire_department', cat: 'streaks', ord: 1 },
+        { key: 'streak_30', name: 'Monthly Master', desc: 'Maintain a 30-day streak', icon: 'whatshot', cat: 'streaks', ord: 2 },
+      ];
+      for (const b of defaultBadges) {
+        await db.query(
+          `INSERT INTO badges (badge_key, name, description, icon, category, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (badge_key) DO NOTHING`,
+          [b.key, b.name, b.desc, b.icon, b.cat, b.ord]
+        );
+      }
+      console.log('[auto-migrate] ✓ gamification tables');
+    } catch (e) { console.warn('[auto-migrate] gamification warning:', e.message); }
 
     // Budget rollover_enabled column
     try {
