@@ -3079,6 +3079,16 @@ class AppLocalizations extends AppStringsBase {
 
   @override
   String get settingsHouseholdSubtitle => _strings.settingsHouseholdSubtitle;
+
+  @override
+  String get joinChallenge => _strings.joinChallenge;
+
+  @override
+  String get settingsGamification => _strings.settingsGamification;
+
+  @override
+  String get settingsGamificationSubtitle =>
+      _strings.settingsGamificationSubtitle;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────
