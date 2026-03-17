@@ -60,6 +60,12 @@ import '../../features/investments/domain/usecases/get_indices_usecase.dart';
 import '../../features/investments/domain/usecases/get_glossary_usecase.dart';
 import '../../features/investments/presentation/bloc/investment_bloc.dart';
 
+// Features - OCR
+import '../../features/ocr/data/datasources/ocr_remote_datasource.dart';
+import '../../features/ocr/data/repositories/ocr_repository_impl.dart';
+import '../../features/ocr/domain/repositories/ocr_repository.dart';
+import '../../features/ocr/presentation/bloc/ocr_bloc.dart';
+
 // Features - Fiscal
 import '../../features/fiscal/data/datasources/fiscal_remote_datasource.dart';
 import '../../features/fiscal/data/repositories/fiscal_repository_impl.dart';
@@ -133,6 +139,9 @@ Future<void> init() async {
 
   //! Features - Debts
   await _initDebts();
+
+  //! Features - OCR
+  await _initOcr();
 
   //! Features - Fiscal
   await _initFiscal();
@@ -339,6 +348,15 @@ Future<void> _initDebts() async {
   sl.registerLazySingleton<DebtsRepository>(() => DebtsRepositoryImpl(sl()));
   sl.registerLazySingleton<DebtsRemoteDataSource>(
     () => DebtsRemoteDataSourceImpl(sl()),
+  );
+}
+
+/// OCR feature dependencies
+Future<void> _initOcr() async {
+  sl.registerFactory(() => OcrBloc(sl()));
+  sl.registerLazySingleton<OcrRepository>(() => OcrRepositoryImpl(sl()));
+  sl.registerLazySingleton<OcrRemoteDataSource>(
+    () => OcrRemoteDataSourceImpl(sl()),
   );
 }
 
