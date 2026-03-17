@@ -402,6 +402,8 @@ abstract class AppStringsBase {
   String get settingsInvestmentsSubtitle;
   String get settingsHousehold;
   String get settingsHouseholdSubtitle;
+  String get settingsGamification;
+  String get settingsGamificationSubtitle;
 
   // ── Categorías ─────────────────────────────────────────────────────────────
   String get noCategories;
@@ -1385,6 +1387,7 @@ abstract class AppStringsBase {
   String get scoreFair;
   String get scorePoor;
   String get noStreakYet;
+  String get joinChallenge;
 
   // ── Module F: Fiscal ───────────────────────────────────────────────────────
   String get fiscalTitle;
@@ -2199,6 +2202,11 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get settingsHouseholdSubtitle =>
       'Finanzas compartidas con tu familia o pareja';
+  @override
+  String get settingsGamification => 'Hábitos financieros';
+  @override
+  String get settingsGamificationSubtitle =>
+      'Rachas, logros, retos y puntuación de salud';
   @override
   String get sectionAdvancedFinances => 'Finanzas avanzadas';
   @override
@@ -4201,6 +4209,8 @@ class _AppStringsEs extends AppStringsBase {
   String get scorePoor => 'Mejorable';
   @override
   String get noStreakYet => 'Empieza tu racha esta semana';
+  @override
+  String get joinChallenge => 'Unirse';
 
   // ── Module F: Fiscal ───────────────────────────────────────────────────────
   @override
@@ -5078,6 +5088,11 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get settingsHouseholdSubtitle =>
       'Shared finances with family or partner';
+  @override
+  String get settingsGamification => 'Financial habits';
+  @override
+  String get settingsGamificationSubtitle =>
+      'Streaks, badges, challenges and health score';
   @override
   String get sectionAdvancedFinances => 'Advanced finances';
   @override
@@ -7065,6 +7080,8 @@ class _AppStringsEn extends AppStringsBase {
   String get scorePoor => 'Needs improvement';
   @override
   String get noStreakYet => 'Start your streak this week';
+  @override
+  String get joinChallenge => 'Join';
 
   // ── Module F: Fiscal ───────────────────────────────────────────────────────
   @override
