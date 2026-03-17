@@ -3089,6 +3089,27 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get settingsGamificationSubtitle =>
       _strings.settingsGamificationSubtitle;
+
+  @override
+  String get settingsFiscal => _strings.settingsFiscal;
+
+  @override
+  String get settingsFiscalSubtitle => _strings.settingsFiscalSubtitle;
+
+  @override
+  String get settingsOcr => _strings.settingsOcr;
+
+  @override
+  String get settingsOcrSubtitle => _strings.settingsOcrSubtitle;
+
+  @override
+  String get settingsWidget => _strings.settingsWidget;
+
+  @override
+  String get settingsWidgetSubtitle => _strings.settingsWidgetSubtitle;
+
+  @override
+  String get removeFiscalTag => _strings.removeFiscalTag;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────
