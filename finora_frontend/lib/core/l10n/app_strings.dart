@@ -404,6 +404,12 @@ abstract class AppStringsBase {
   String get settingsHouseholdSubtitle;
   String get settingsGamification;
   String get settingsGamificationSubtitle;
+  String get settingsFiscal;
+  String get settingsFiscalSubtitle;
+  String get settingsOcr;
+  String get settingsOcrSubtitle;
+  String get settingsWidget;
+  String get settingsWidgetSubtitle;
 
   // ── Categorías ─────────────────────────────────────────────────────────────
   String get noCategories;
@@ -1404,6 +1410,7 @@ abstract class AppStringsBase {
   String get fiscalCategoryDonation;
   String get fiscalCategoryCapitalGain;
   String get fiscalCategoryOther;
+  String get removeFiscalTag;
   String get annualIncomeLabel;
   String get deductionsLabel;
   String get estimatedTax;
@@ -2202,6 +2209,20 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get settingsHouseholdSubtitle =>
       'Finanzas compartidas con tu familia o pareja';
+  @override
+  String get settingsFiscal => 'Análisis fiscal';
+  @override
+  String get settingsFiscalSubtitle =>
+      'Gastos deducibles, IRPF y calendario AEAT';
+  @override
+  String get settingsOcr => 'Importar documentos';
+  @override
+  String get settingsOcrSubtitle => 'Escanea tickets y extractos bancarios';
+  @override
+  String get settingsWidget => 'Widget de inicio';
+  @override
+  String get settingsWidgetSubtitle =>
+      'Configura el widget y reloj inteligente';
   @override
   String get settingsGamification => 'Hábitos financieros';
   @override
@@ -4242,6 +4263,8 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get fiscalCategoryOther => 'Otro deducible';
   @override
+  String get removeFiscalTag => 'Quitar etiqueta fiscal';
+  @override
   String get annualIncomeLabel => 'Ingresos anuales brutos (€)';
   @override
   String get deductionsLabel => 'Total deducciones (€)';
@@ -5088,6 +5111,19 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get settingsHouseholdSubtitle =>
       'Shared finances with family or partner';
+  @override
+  String get settingsFiscal => 'Tax analysis';
+  @override
+  String get settingsFiscalSubtitle =>
+      'Deductible expenses, IRPF and tax calendar';
+  @override
+  String get settingsOcr => 'Import documents';
+  @override
+  String get settingsOcrSubtitle => 'Scan receipts and bank statements';
+  @override
+  String get settingsWidget => 'Home screen widget';
+  @override
+  String get settingsWidgetSubtitle => 'Configure widget and smartwatch';
   @override
   String get settingsGamification => 'Financial habits';
   @override
@@ -7112,6 +7148,8 @@ class _AppStringsEn extends AppStringsBase {
   String get fiscalCategoryCapitalGain => 'Capital gain';
   @override
   String get fiscalCategoryOther => 'Other deductible';
+  @override
+  String get removeFiscalTag => 'Remove fiscal tag';
   @override
   String get annualIncomeLabel => 'Annual gross income (€)';
   @override
