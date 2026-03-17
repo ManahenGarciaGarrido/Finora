@@ -33,6 +33,8 @@ import '../../../debts/presentation/pages/debts_page.dart';
 import '../../../investments/presentation/pages/investments_page.dart';
 import '../../../household/presentation/pages/household_page.dart';
 import '../../../gamification/presentation/pages/gamification_page.dart';
+import '../../../fiscal/presentation/pages/fiscal_page.dart';
+import '../../../ocr/presentation/pages/ocr_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -416,6 +418,26 @@ class _SettingsPageState extends State<SettingsPage> {
                       MaterialPageRoute(
                         builder: (_) => const GamificationPage(),
                       ),
+                    ),
+                  ),
+                  _divider(),
+                  _buildSettingsRow(
+                    icon: Icons.receipt_long_outlined,
+                    title: s.settingsFiscal,
+                    subtitle: s.settingsFiscalSubtitle,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FiscalPage()),
+                    ),
+                  ),
+                  _divider(),
+                  _buildSettingsRow(
+                    icon: Icons.document_scanner_outlined,
+                    title: s.settingsOcr,
+                    subtitle: s.settingsOcrSubtitle,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OcrPage()),
                     ),
                   ),
                 ],

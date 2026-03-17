@@ -25,6 +25,7 @@ const investmentRoutes = require('./routes/investments');
 const householdRoutes = require('./routes/household');
 const gamificationRoutes = require('./routes/gamification');
 const fiscalRoutes = require('./routes/fiscal');
+const ocrRoutes = require('./routes/ocr');
 
 // Import services
 const emailService = require('./services/email');
@@ -140,6 +141,7 @@ app.use('/api/v1/investments', investmentRoutes);
 app.use('/api/v1/household', householdRoutes);
 app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/fiscal', fiscalRoutes);
+app.use('/api/v1/ocr', ocrRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -522,6 +524,15 @@ const startServer = async () => {
       }
       console.log('[auto-migrate] ✓ gamification tables');
     } catch (e) { console.warn('[auto-migrate] gamification warning:', e.message); }
+
+    // Source column on transactions (for OCR/CSV import tracking)
+    try {
+      await db.query(`
+        ALTER TABLE transactions
+          ADD COLUMN IF NOT EXISTS source VARCHAR(50)
+      `);
+      console.log('[auto-migrate] ✓ transactions.source');
+    } catch (e) { console.warn('[auto-migrate] transactions.source warning:', e.message); }
 
     // Fiscal category column on transactions
     try {
