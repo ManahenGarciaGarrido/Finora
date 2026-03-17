@@ -7,11 +7,8 @@
 library;
 
 import 'dart:math' as math;
-import 'package:finora_frontend/features/gamification/presentation/pages/gamification_page.dart';
 import 'package:finora_frontend/features/home/presentation/pages/change_password_page.dart';
 import 'package:finora_frontend/features/home/presentation/pages/edit_profile_page.dart';
-import 'package:finora_frontend/features/household/presentation/pages/household_page.dart';
-import 'package:finora_frontend/features/investments/presentation/pages/investments_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -33,6 +30,9 @@ import 'budget_page.dart'; // RF-32
 import 'two_fa_setup_page.dart'; // RNF-03
 import 'notification_settings_page.dart'; // RF-31 / RF-32 / RF-33
 import '../../../debts/presentation/pages/debts_page.dart';
+import '../../../investments/presentation/pages/investments_page.dart';
+import '../../../household/presentation/pages/household_page.dart';
+import '../../../gamification/presentation/pages/gamification_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
