@@ -106,6 +106,9 @@ dependencies:
   # RNF-13: Internacionalización y formateo de números/fechas por locale
   intl: ^0.20.2
 
+  # Module G: OCR text recognition via ML Kit
+  google_mlkit_text_recognition: ^0.13.0
+
   # RNF-08: Splash screen nativo optimizado
   # Muestra el splash antes de que el motor de Flutter arranque,
   # eliminando la pantalla en blanco del cold start.
