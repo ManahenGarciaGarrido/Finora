@@ -60,6 +60,12 @@ import '../../features/investments/domain/usecases/get_indices_usecase.dart';
 import '../../features/investments/domain/usecases/get_glossary_usecase.dart';
 import '../../features/investments/presentation/bloc/investment_bloc.dart';
 
+// Features - Gamification
+import '../../features/gamification/data/datasources/gamification_remote_datasource.dart';
+import '../../features/gamification/data/repositories/gamification_repository_impl.dart';
+import '../../features/gamification/domain/repositories/gamification_repository.dart';
+import '../../features/gamification/presentation/bloc/gamification_bloc.dart';
+
 // Features - Household
 import '../../features/household/data/datasources/household_remote_datasource.dart';
 import '../../features/household/data/repositories/household_repository_impl.dart';
@@ -121,6 +127,9 @@ Future<void> init() async {
 
   //! Features - Debts
   await _initDebts();
+
+  //! Features - Gamification
+  await _initGamification();
 
   //! Features - Household
   await _initHousehold();
@@ -321,6 +330,17 @@ Future<void> _initDebts() async {
   sl.registerLazySingleton<DebtsRepository>(() => DebtsRepositoryImpl(sl()));
   sl.registerLazySingleton<DebtsRemoteDataSource>(
     () => DebtsRemoteDataSourceImpl(sl()),
+  );
+}
+
+/// Gamification feature dependencies
+Future<void> _initGamification() async {
+  sl.registerFactory(() => GamificationBloc(sl()));
+  sl.registerLazySingleton<GamificationRepository>(
+    () => GamificationRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton<GamificationRemoteDataSource>(
+    () => GamificationRemoteDataSourceImpl(sl()),
   );
 }
 
