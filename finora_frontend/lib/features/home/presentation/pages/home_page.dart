@@ -9,13 +9,12 @@ import '../../../../core/utils/app_startup_tracker.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
-import '../../../banks/presentation/bloc/bank_bloc.dart';
-import '../../../banks/presentation/bloc/bank_event.dart';
+import 'accounts_page.dart';
 import 'dashboard_content.dart';
 import 'transactions_page.dart';
 import 'stats_page.dart';
-import 'accounts_page.dart';
 import 'settings_page.dart';
+import 'modules_hub_page.dart';
 
 /// Página Principal / Shell de navegación
 ///
@@ -51,15 +50,17 @@ class _HomePageState extends State<HomePage> {
       const StatsPage(),
       // RF-12: key pública para filtrar transacciones por cuenta desde accounts_page
       TransactionsPage(key: _txPageKey),
+      ModulesHubPage(
+        onNavigateToAccounts: () => setState(() => _selectedNavIndex = 5),
+      ),
+      const SettingsPage(),
+      // Índice 5: AccountsPage integrada en el IndexedStack para mantener bottom nav
       AccountsPage(
+        onBack: () => setState(() => _selectedNavIndex = 3),
         onViewAccountTransactions: (accountId, accountName) {
-          // Aplicar filtro de cuenta en la página de transacciones
-          _txPageKey.currentState?.filterByBankAccount(accountId, accountName);
-          // Navegar a la pestaña de transacciones (index 2)
           setState(() => _selectedNavIndex = 2);
         },
       ),
-      const SettingsPage(),
     ];
 
     // Cargar transacciones tras el primer frame, cuando el token JWT ya está
@@ -77,10 +78,6 @@ class _HomePageState extends State<HomePage> {
 
   void _onTabSelected(int index) {
     setState(() => _selectedNavIndex = index);
-    // Recargar cuentas bancarias al entrar en el tab Cuentas (index 3)
-    if (index == 3) {
-      context.read<BankBloc>().add(const LoadBankAccounts());
-    }
   }
 
   void _onRailTap(int index) {
@@ -175,9 +172,9 @@ class _HomePageState extends State<HomePage> {
           label: Text(AppLocalizations.of(context).transactions),
         ),
         NavigationRailDestination(
-          icon: const Icon(Icons.account_balance_wallet_outlined),
-          selectedIcon: const Icon(Icons.account_balance_wallet_rounded),
-          label: Text(AppLocalizations.of(context).accounts),
+          icon: const Icon(Icons.grid_view_outlined),
+          selectedIcon: const Icon(Icons.grid_view_rounded),
+          label: Text(AppLocalizations.of(context).modules),
         ),
         NavigationRailDestination(
           icon: const Icon(Icons.settings_outlined),
@@ -217,9 +214,9 @@ class _HomePageState extends State<HomePage> {
                 // Espacio central para el FAB
                 const SizedBox(width: 64),
                 _buildNavItem(
-                  Icons.account_balance_wallet_outlined,
-                  Icons.account_balance_wallet_rounded,
-                  s.accounts,
+                  Icons.grid_view_outlined,
+                  Icons.grid_view_rounded,
+                  s.modules,
                   3,
                 ),
                 _buildNavItem(
@@ -242,7 +239,9 @@ class _HomePageState extends State<HomePage> {
     String label,
     int index,
   ) {
-    final isSelected = _selectedNavIndex == index;
+    // Cuando AccountsPage (índice 5) está activa, el tab "Módulos" (3) se muestra seleccionado
+    final effectiveIndex = _selectedNavIndex == 5 ? 3 : _selectedNavIndex;
+    final isSelected = effectiveIndex == index;
 
     return InkWell(
       onTap: () => _onTabSelected(index),

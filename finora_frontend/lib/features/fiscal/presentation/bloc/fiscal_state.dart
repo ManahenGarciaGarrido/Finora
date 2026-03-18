@@ -35,9 +35,20 @@ class CalendarLoaded extends FiscalState {
   const CalendarLoaded(this.events);
 }
 
+class AllTransactionsLoaded extends FiscalState {
+  final List<FiscalTransactionEntity> transactions;
+  const AllTransactionsLoaded(this.transactions);
+}
+
 class FiscalExported extends FiscalState {
   final List<FiscalTransactionEntity> transactions;
   const FiscalExported(this.transactions);
+}
+
+class FiscalExportReady extends FiscalState {
+  final String filePath;
+  final String format;
+  const FiscalExportReady({required this.filePath, required this.format});
 }
 
 class FiscalError extends FiscalState {

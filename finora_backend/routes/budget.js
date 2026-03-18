@@ -28,7 +28,7 @@ const { body, param, validationResult } = require('express-validator');
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT id, category, monthly_limit::float, created_at, updated_at
+      `SELECT id, category, monthly_limit::float, rollover_enabled, created_at, updated_at
        FROM budgets
        WHERE user_id = $1
        ORDER BY category ASC`,
@@ -189,7 +189,7 @@ router.post(
          VALUES ($1, $2, $3)
          ON CONFLICT (user_id, category)
          DO UPDATE SET monthly_limit = $3, updated_at = NOW()
-         RETURNING id, category, monthly_limit::float, created_at, updated_at`,
+         RETURNING id, category, monthly_limit::float, rollover_enabled, created_at, updated_at`,
         [userId, category, monthly_limit]
       );
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/l10n/app_localizations.dart';
@@ -67,6 +68,8 @@ class _FiscalPageState extends State<FiscalPage>
                 backgroundColor: AppColors.success,
               ),
             );
+          } else if (state is FiscalExportReady) {
+            _shareExportFile(state.filePath, state.format, s);
           } else if (state is FiscalError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -89,6 +92,7 @@ class _FiscalPageState extends State<FiscalPage>
                 labelColor: AppColors.primary,
                 indicatorColor: AppColors.primary,
                 isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 tabs: [
                   Tab(text: s.deductibleExpensesTab),
                   Tab(text: s.irpfTab),
@@ -122,64 +126,233 @@ class _FiscalPageState extends State<FiscalPage>
     );
   }
 
+  Future<void> _shareExportFile(String path, String format, dynamic s) async {
+    try {
+      final file = XFile(
+        path,
+        mimeType: format == 'xlsx'
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'text/csv',
+      );
+      await Share.shareXFiles([file], subject: s.exportShareTitle);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildDeductibles(BuildContext ctx, dynamic s) {
     final fmt = CurrencyService().format;
-    if (_deductibles.isEmpty) {
-      return Center(
-        child: Text(
-          s.noFiscalData,
-          style: AppTypography.bodyMedium(color: AppColors.gray500),
-        ),
-      );
-    }
     return Column(
       children: [
-        Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.primarySoft,
-            borderRadius: BorderRadius.circular(12),
+        if (_totalDeductible > 0)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  s.totalDeductible,
+                  style: AppTypography.titleSmall(color: AppColors.primary),
+                ),
+                Text(
+                  fmt(_totalDeductible),
+                  style: AppTypography.titleMedium(color: AppColors.primary),
+                ),
+              ],
+            ),
           ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                s.totalDeductible,
-                style: AppTypography.titleSmall(color: AppColors.primary),
+              Expanded(
+                child: Text(
+                  _deductibles.isEmpty
+                      ? s.noFiscalData
+                      : '${_deductibles.length} gastos deducibles',
+                  style: AppTypography.bodySmall(color: AppColors.gray500),
+                ),
               ),
-              Text(
-                fmt(_totalDeductible),
-                style: AppTypography.titleMedium(color: AppColors.primary),
+              FilledButton.tonalIcon(
+                onPressed: () => _showAllTransactionsSheet(ctx, s),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text(s.markDeductible),
+                style: FilledButton.styleFrom(
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  textStyle: const TextStyle(fontSize: 13),
+                ),
               ),
             ],
           ),
         ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _deductibles.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final t = _deductibles[i];
-              return ListTile(
-                tileColor: AppColors.surfaceLight,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: AppColors.gray200),
-                ),
-                title: Text(t.description),
-                subtitle: Text(t.fiscalCategory ?? ''),
-                trailing: Text(
-                  fmt(t.amount),
-                  style: AppTypography.titleSmall(color: AppColors.primary),
-                ),
-                onLongPress: () => _showTagDialog(ctx, t, s),
-              );
-            },
+        if (_deductibles.isEmpty)
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.receipt_long_rounded,
+                    size: 56,
+                    color: AppColors.gray300,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    s.noFiscalData,
+                    style: AppTypography.bodyMedium(color: AppColors.gray500),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Pulsa "Marcar como deducible" para etiquetar gastos',
+                    style: AppTypography.bodySmall(color: AppColors.gray400),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _deductibles.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) {
+                final t = _deductibles[i];
+                return _deductibleTile(ctx, t, fmt, s);
+              },
+            ),
           ),
-        ),
       ],
+    );
+  }
+
+  Widget _deductibleTile(
+    BuildContext ctx,
+    FiscalTransactionEntity t,
+    Function fmt,
+    dynamic s,
+  ) {
+    final categoryColor = _categoryColor(t.fiscalCategory);
+    return ListTile(
+      tileColor: AppColors.surfaceLight,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: AppColors.gray200),
+      ),
+      leading: CircleAvatar(
+        radius: 18,
+        backgroundColor: categoryColor.withValues(alpha: 0.15),
+        child: Icon(
+          _categoryIcon(t.fiscalCategory),
+          size: 18,
+          color: categoryColor,
+        ),
+      ),
+      title: Text(
+        t.description,
+        style: AppTypography.bodyMedium(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        _categoryLabel(t.fiscalCategory, s),
+        style: AppTypography.bodySmall(color: categoryColor),
+      ),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            fmt(t.amount),
+            style: AppTypography.titleSmall(color: AppColors.primary),
+          ),
+          Text(
+            t.date.substring(0, 10),
+            style: AppTypography.bodySmall(color: AppColors.gray400),
+          ),
+        ],
+      ),
+      onTap: () => _showTagDialog(ctx, t, s),
+    );
+  }
+
+  Color _categoryColor(String? cat) {
+    switch (cat) {
+      case 'freelance':
+        return const Color(0xFF6C63FF);
+      case 'donation':
+        return const Color(0xFF4CAF50);
+      case 'capital_gain':
+        return const Color(0xFFFF9800);
+      default:
+        return AppColors.gray500;
+    }
+  }
+
+  IconData _categoryIcon(String? cat) {
+    switch (cat) {
+      case 'freelance':
+        return Icons.work_rounded;
+      case 'donation':
+        return Icons.volunteer_activism_rounded;
+      case 'capital_gain':
+        return Icons.trending_up_rounded;
+      default:
+        return Icons.receipt_rounded;
+    }
+  }
+
+  String _categoryLabel(String? cat, dynamic s) {
+    switch (cat) {
+      case 'freelance':
+        return s.fiscalCategoryFreelance;
+      case 'donation':
+        return s.fiscalCategoryDonation;
+      case 'capital_gain':
+        return s.fiscalCategoryCapitalGain;
+      case 'other':
+        return s.fiscalCategoryOther;
+      default:
+        return cat ?? '';
+    }
+  }
+
+  void _showAllTransactionsSheet(BuildContext ctx, dynamic s) {
+    // Capturamos el bloc ANTES de abrir el sheet para evitar problemas de contexto.
+    // NO disparamos LoadAllTransactions aquí: lo hace el propio sheet en su initState
+    // para evitar que la página principal muestre el skeleton loader mientras el sheet está abierto.
+    final bloc = ctx.read<FiscalBloc>();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BlocProvider.value(
+        value: bloc,
+        child: _AllTransactionsSheet(
+          onTag: (id, cat) {
+            bloc.add(TagTransaction(id, fiscalCategory: cat));
+          },
+          s: s,
+        ),
+      ),
     );
   }
 
@@ -232,6 +405,7 @@ class _FiscalPageState extends State<FiscalPage>
             decoration: InputDecoration(
               labelText: s.annualIncomeLabel,
               border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.euro_rounded),
             ),
             keyboardType: TextInputType.number,
           ),
@@ -241,11 +415,12 @@ class _FiscalPageState extends State<FiscalPage>
             decoration: InputDecoration(
               labelText: s.deductionsLabel,
               border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.remove_circle_outline_rounded),
             ),
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 16),
-          FilledButton(
+          FilledButton.icon(
             onPressed: () {
               final income = double.tryParse(_incomeCtrl.text) ?? 0;
               final extra = double.tryParse(_extraCtrl.text) ?? 0;
@@ -253,7 +428,8 @@ class _FiscalPageState extends State<FiscalPage>
                 EstimateIrpf(income, extraDeductions: extra),
               );
             },
-            child: Text(s.irpfTab),
+            icon: const Icon(Icons.calculate_rounded),
+            label: Text(s.irpfTab),
           ),
           if (_irpfResult != null) ...[
             const SizedBox(height: 24),
@@ -352,25 +528,471 @@ class _FiscalPageState extends State<FiscalPage>
   }
 
   Widget _buildExport(BuildContext ctx, dynamic s) {
-    return Center(
+    final year = DateTime.now().year;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(Icons.download_rounded, color: AppColors.primary, size: 56),
+          const SizedBox(height: 12),
+          Text(
+            s.exportSelectFormat,
+            style: AppTypography.titleSmall(),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            s.exportFiscalDesc,
+            style: AppTypography.bodySmall(color: AppColors.gray500),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          // Excel card
+          _exportFormatCard(
+            ctx: ctx,
+            icon: Icons.table_chart_rounded,
+            color: const Color(0xFF217346),
+            title: 'Excel (.xlsx)',
+            description: s.exportXlsxDesc,
+            buttonLabel: 'Exportar Excel',
+            onTap: () => ctx.read<FiscalBloc>().add(
+              ExportFiscal(year: year, format: 'xlsx'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // CSV card
+          _exportFormatCard(
+            ctx: ctx,
+            icon: Icons.description_rounded,
+            color: const Color(0xFF0078D4),
+            title: 'CSV',
+            description: s.exportCsvDesc,
+            buttonLabel: 'Exportar CSV',
+            onTap: () => ctx.read<FiscalBloc>().add(
+              ExportFiscal(year: year, format: 'csv'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.gray100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '* Los archivos exportados son compatibles con la Agencia Tributaria (AEAT) y Renta Web.',
+              style: AppTypography.bodySmall(color: AppColors.gray500),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _exportFormatCard({
+    required BuildContext ctx,
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String description,
+    required String buttonLabel,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.gray200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTypography.titleSmall()),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: AppTypography.bodySmall(color: AppColors.gray500),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(
+              onPressed: onTap,
+              style: FilledButton.styleFrom(
+                backgroundColor: color,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                textStyle: const TextStyle(fontSize: 13),
+              ),
+              child: Text(buttonLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── All Transactions Bottom Sheet ─────────────────────────────────────────────
+
+class _AllTransactionsSheet extends StatefulWidget {
+  final void Function(String id, String? category) onTag;
+  final dynamic s;
+
+  const _AllTransactionsSheet({required this.onTag, required this.s});
+
+  @override
+  State<_AllTransactionsSheet> createState() => _AllTransactionsSheetState();
+}
+
+class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Dispara la carga desde dentro del sheet para no afectar el estado de la página principal
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<FiscalBloc>().add(const LoadAllTransactions());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = CurrencyService().format;
+    final s = widget.s;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      maxChildSize: 0.95,
+      minChildSize: 0.5,
+      builder: (_, controller) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceLight,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.gray300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(s.allExpensesTitle, style: AppTypography.titleSmall()),
+                  const SizedBox(height: 12),
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Buscar gasto...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                    onChanged: (v) => setState(() => _search = v.toLowerCase()),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: BlocBuilder<FiscalBloc, FiscalState>(
+                buildWhen: (prev, current) =>
+                    current is FiscalLoading ||
+                    current is AllTransactionsLoaded ||
+                    current is FiscalError,
+                builder: (ctx, state) {
+                  if (state is FiscalLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (state is FiscalError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.error_outline_rounded,
+                              size: 48,
+                              color: AppColors.error,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              state.message,
+                              style: AppTypography.bodyMedium(
+                                color: AppColors.gray600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: () => ctx.read<FiscalBloc>().add(
+                                const LoadAllTransactions(),
+                              ),
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Reintentar'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  if (state is! AllTransactionsLoaded) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Cargando transacciones...',
+                            style: AppTypography.bodyMedium(
+                              color: AppColors.gray500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  final all = state.transactions
+                      .where(
+                        (t) =>
+                            _search.isEmpty ||
+                            t.description.toLowerCase().contains(_search) ||
+                            (t.category?.toLowerCase().contains(_search) ??
+                                false),
+                      )
+                      .toList();
+                  if (state.transactions.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.receipt_long_rounded,
+                              size: 56,
+                              color: AppColors.gray300,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No hay transacciones disponibles',
+                              style: AppTypography.titleSmall(),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Añade transacciones en la pantalla principal para poder '
+                              'marcarlas como gastos deducibles aquí.',
+                              style: AppTypography.bodySmall(
+                                color: AppColors.gray500,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  if (all.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Sin resultados para "$_search"',
+                        style: AppTypography.bodyMedium(
+                          color: AppColors.gray500,
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    controller: controller,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: all.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final t = all[i];
+                      final isTagged = t.fiscalCategory != null;
+                      return ListTile(
+                        tileColor: isTagged
+                            ? AppColors.primarySoft
+                            : AppColors.surfaceLight,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(
+                            color: isTagged
+                                ? AppColors.primary.withValues(alpha: 0.3)
+                                : AppColors.gray200,
+                          ),
+                        ),
+                        leading: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: isTagged
+                              ? AppColors.primary.withValues(alpha: 0.15)
+                              : AppColors.gray100,
+                          child: Icon(
+                            isTagged
+                                ? Icons.check_circle_rounded
+                                : Icons.circle_outlined,
+                            size: 18,
+                            color: isTagged
+                                ? AppColors.primary
+                                : AppColors.gray400,
+                          ),
+                        ),
+                        title: Text(
+                          t.description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyMedium(),
+                        ),
+                        subtitle: Text(
+                          isTagged
+                              ? _catLabel(t.fiscalCategory, s)
+                              : (t.category ?? ''),
+                          style: AppTypography.bodySmall(
+                            color: isTagged
+                                ? AppColors.primary
+                                : AppColors.gray500,
+                          ),
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              fmt(t.amount),
+                              style: AppTypography.titleSmall(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            Text(
+                              t.date.substring(0, 10),
+                              style: AppTypography.bodySmall(
+                                color: AppColors.gray400,
+                              ),
+                            ),
+                          ],
+                        ),
+                        onTap: () => _showQuickTagMenu(ctx, t, s),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _catLabel(String? cat, dynamic s) {
+    switch (cat) {
+      case 'freelance':
+        return s.fiscalCategoryFreelance;
+      case 'donation':
+        return s.fiscalCategoryDonation;
+      case 'capital_gain':
+        return s.fiscalCategoryCapitalGain;
+      case 'other':
+        return s.fiscalCategoryOther;
+      default:
+        return cat ?? '';
+    }
+  }
+
+  void _showQuickTagMenu(
+    BuildContext ctx,
+    FiscalTransactionEntity t,
+    dynamic s,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.download_rounded, color: AppColors.primary, size: 64),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Text(
-              s.exportFiscalDesc,
-              style: AppTypography.bodyMedium(color: AppColors.gray600),
-              textAlign: TextAlign.center,
+              t.description,
+              style: AppTypography.titleSmall(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => ctx.read<FiscalBloc>().add(const ExportFiscal()),
-              icon: const Icon(Icons.download_rounded),
-              label: Text(s.exportFiscalBtn),
-            ),
+            const SizedBox(height: 4),
+            const Divider(),
+            for (final entry in {
+              'freelance': s.fiscalCategoryFreelance,
+              'donation': s.fiscalCategoryDonation,
+              'capital_gain': s.fiscalCategoryCapitalGain,
+              'other': s.fiscalCategoryOther,
+            }.entries)
+              ListTile(
+                leading: Icon(
+                  Icons.label_outline_rounded,
+                  color: AppColors.primary,
+                ),
+                title: Text(entry.value),
+                selected: t.fiscalCategory == entry.key,
+                selectedColor: AppColors.primary,
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onTag(t.id, entry.key);
+                },
+              ),
+            if (t.fiscalCategory != null)
+              ListTile(
+                leading: Icon(Icons.label_off_rounded, color: AppColors.error),
+                title: Text(
+                  s.removeFiscalTag,
+                  style: TextStyle(color: AppColors.error),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onTag(t.id, null);
+                },
+              ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

@@ -13,7 +13,7 @@ router.get('/streaks', async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT * FROM user_streaks WHERE user_id = $1 ORDER BY streak_type`,
-      [req.user.id]
+      [req.user.userId]
     );
     res.json({ streaks: rows });
   } catch (err) {
@@ -29,13 +29,13 @@ router.post('/streaks/record', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const existing = await db.query(
       `SELECT * FROM user_streaks WHERE user_id = $1 AND streak_type = $2`,
-      [req.user.id, streak_type]
+      [req.user.userId, streak_type]
     );
     if (existing.rows.length === 0) {
       await db.query(
         `INSERT INTO user_streaks (user_id, streak_type, current_count, longest_count, last_activity_date)
          VALUES ($1, $2, 1, 1, $3)`,
-        [req.user.id, streak_type, today]
+        [req.user.userId, streak_type, today]
       );
     } else {
       const s = existing.rows[0];
@@ -54,12 +54,12 @@ router.post('/streaks/record', async (req, res) => {
         `UPDATE user_streaks
          SET current_count = $1, longest_count = $2, last_activity_date = $3
          WHERE user_id = $4 AND streak_type = $5`,
-        [newCount, newLongest, today, req.user.id, streak_type]
+        [newCount, newLongest, today, req.user.userId, streak_type]
       );
     }
     const updated = await db.query(
       `SELECT * FROM user_streaks WHERE user_id = $1 AND streak_type = $2`,
-      [req.user.id, streak_type]
+      [req.user.userId, streak_type]
     );
     res.json({ streak: updated.rows[0] });
   } catch (err) {
@@ -79,7 +79,7 @@ router.get('/badges', async (req, res) => {
        FROM badges b
        LEFT JOIN user_badges ub ON ub.badge_id = b.id AND ub.user_id = $1
        ORDER BY b.category, b.sort_order`,
-      [req.user.id]
+      [req.user.userId]
     );
     res.json({ badges: rows });
   } catch (err) {
@@ -93,17 +93,17 @@ router.post('/badges/check', async (req, res) => {
     // Count transactions
     const txCount = await db.query(
       `SELECT COUNT(*) FROM transactions WHERE user_id = $1`,
-      [req.user.id]
+      [req.user.userId]
     );
     // Count goals
     const goalCount = await db.query(
-      `SELECT COUNT(*) FROM goals WHERE user_id = $1 AND status = 'completed'`,
-      [req.user.id]
+      `SELECT COUNT(*) FROM savings_goals WHERE user_id = $1 AND status = 'completed'`,
+      [req.user.userId]
     );
     // Streak
     const streakRow = await db.query(
       `SELECT MAX(current_count) as max_streak FROM user_streaks WHERE user_id = $1`,
-      [req.user.id]
+      [req.user.userId]
     );
 
     const txNum = parseInt(txCount.rows[0].count, 10);
@@ -129,12 +129,12 @@ router.post('/badges/check', async (req, res) => {
       const badgeId = badge.rows[0].id;
       const already = await db.query(
         `SELECT 1 FROM user_badges WHERE user_id = $1 AND badge_id = $2`,
-        [req.user.id, badgeId]
+        [req.user.userId, badgeId]
       );
       if (!already.rows.length) {
         await db.query(
           `INSERT INTO user_badges (user_id, badge_id, earned_at) VALUES ($1, $2, NOW())`,
-          [req.user.id, badgeId]
+          [req.user.userId, badgeId]
         );
         awarded.push(c.key);
       }
@@ -160,7 +160,7 @@ router.get('/challenges', async (req, res) => {
        LEFT JOIN user_challenges uc ON uc.challenge_id = c.id AND uc.user_id = $1
        WHERE c.is_active = true
        ORDER BY c.ends_at`,
-      [req.user.id]
+      [req.user.userId]
     );
     res.json({ challenges: rows });
   } catch (err) {
@@ -173,7 +173,7 @@ router.post('/challenges/:id/join', async (req, res) => {
   try {
     const existing = await db.query(
       `SELECT 1 FROM user_challenges WHERE user_id = $1 AND challenge_id = $2`,
-      [req.user.id, req.params.id]
+      [req.user.userId, req.params.id]
     );
     if (existing.rows.length) {
       return res.status(409).json({ error: 'already_joined' });
@@ -181,7 +181,7 @@ router.post('/challenges/:id/join', async (req, res) => {
     await db.query(
       `INSERT INTO user_challenges (user_id, challenge_id, progress, is_completed, joined_at)
        VALUES ($1, $2, 0, false, NOW())`,
-      [req.user.id, req.params.id]
+      [req.user.userId, req.params.id]
     );
     res.json({ message: 'joined' });
   } catch (err) {
@@ -201,7 +201,7 @@ router.patch('/challenges/:id/progress', async (req, res) => {
     await db.query(
       `UPDATE user_challenges SET progress = $1, is_completed = $2
        WHERE user_id = $3 AND challenge_id = $4`,
-      [progress, isCompleted, req.user.id, req.params.id]
+      [progress, isCompleted, req.user.userId, req.params.id]
     );
     res.json({ progress, is_completed: isCompleted });
   } catch (err) {
@@ -219,7 +219,7 @@ router.get('/health-score', async (req, res) => {
 
     // Budget adherence: ratio of budgets not exceeded this month
     const budgets = await db.query(
-      `SELECT b.amount as limit_amount,
+      `SELECT b.monthly_limit as limit_amount,
               COALESCE(SUM(t.amount), 0) as spent
        FROM budgets b
        LEFT JOIN transactions t ON t.user_id = b.user_id
@@ -227,8 +227,8 @@ router.get('/health-score', async (req, res) => {
          AND t.type = 'expense'
          AND t.date >= $2
        WHERE b.user_id = $1
-       GROUP BY b.amount`,
-      [req.user.id, firstOfMonth]
+       GROUP BY b.monthly_limit, b.category`,
+      [req.user.userId, firstOfMonth]
     );
     const budgetScore = budgets.rows.length === 0 ? 50 :
       (budgets.rows.filter(r => parseFloat(r.spent) <= parseFloat(r.limit_amount)).length
@@ -240,7 +240,7 @@ router.get('/health-score', async (req, res) => {
        FROM transactions
        WHERE user_id = $1 AND date >= $2
        GROUP BY type`,
-      [req.user.id, firstOfMonth]
+      [req.user.userId, firstOfMonth]
     );
     let income = 0, expenses = 0;
     savingsData.rows.forEach(r => {
@@ -253,15 +253,15 @@ router.get('/health-score', async (req, res) => {
     // Goal progress: avg completion of active goals
     const goals = await db.query(
       `SELECT COALESCE(AVG(LEAST(current_amount / NULLIF(target_amount, 0) * 100, 100)), 50) as avg_progress
-       FROM goals WHERE user_id = $1 AND status != 'completed'`,
-      [req.user.id]
+       FROM savings_goals WHERE user_id = $1 AND status != 'completed'`,
+      [req.user.userId]
     );
     const goalScore = parseFloat(goals.rows[0].avg_progress || 50);
 
     // Streak bonus: max streak / 30 days * 20 pts bonus
     const streak = await db.query(
       `SELECT COALESCE(MAX(current_count), 0) as max FROM user_streaks WHERE user_id = $1`,
-      [req.user.id]
+      [req.user.userId]
     );
     const streakBonus = Math.min((parseInt(streak.rows[0].max, 10) / 30) * 20, 20);
 

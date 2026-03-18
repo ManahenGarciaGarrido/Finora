@@ -14,6 +14,8 @@ import '../bloc/household_bloc.dart';
 import '../bloc/household_event.dart';
 import '../bloc/household_state.dart';
 import 'create_household_page.dart';
+import 'invite_member_page.dart';
+import 'add_shared_expense_page.dart';
 
 class HouseholdPage extends StatefulWidget {
   const HouseholdPage({super.key});
@@ -117,6 +119,7 @@ class _HouseholdPageState extends State<HouseholdPage>
                       labelColor: AppColors.primary,
                       indicatorColor: AppColors.primary,
                       isScrollable: true,
+                      tabAlignment: TabAlignment.start,
                       tabs: [
                         Tab(text: s.overviewTab),
                         Tab(text: s.membersTab),
@@ -139,10 +142,19 @@ class _HouseholdPageState extends State<HouseholdPage>
                 if (_household != null)
                   IconButton(
                     icon: const Icon(Icons.person_add_outlined),
-                    onPressed: () => _showInviteDialog(ctx, s),
+                    onPressed: () => _openInvitePage(ctx),
                   ),
               ],
             ),
+            floatingActionButton: (_household != null && !_loading)
+                ? FloatingActionButton.extended(
+                    onPressed: () => _openAddExpensePage(ctx),
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(s.addSharedExpense),
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  )
+                : null,
             body: _loading
                 ? const Padding(
                     padding: EdgeInsets.all(16),
@@ -220,7 +232,7 @@ class _HouseholdPageState extends State<HouseholdPage>
         ),
         const SizedBox(height: 16),
         OutlinedButton.icon(
-          onPressed: () => _showInviteDialog(ctx, s),
+          onPressed: () => _openInvitePage(ctx),
           icon: const Icon(Icons.person_add_outlined),
           label: Text(s.inviteMember),
         ),
@@ -285,34 +297,91 @@ class _HouseholdPageState extends State<HouseholdPage>
 
   Widget _buildTransactions(BuildContext ctx, dynamic s) {
     final fmt = CurrencyService().format;
-    if (_transactions.isEmpty) {
-      return Center(
-        child: Text(
-          s.noData,
-          style: AppTypography.bodyMedium(color: AppColors.gray500),
-        ),
-      );
-    }
-    return ListView.separated(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: _transactions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, i) {
-        final t = _transactions[i];
-        return ListTile(
-          tileColor: AppColors.surfaceLight,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: AppColors.gray200),
+      children: [
+        // How-to info card
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
           ),
-          title: Text(t.description),
-          subtitle: Text(t.createdByName),
-          trailing: Text(
-            fmt(t.amount),
-            style: AppTypography.titleSmall(color: AppColors.primary),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.lightbulb_outline_rounded,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    s.householdExpenseHowTitle,
+                    style: AppTypography.titleSmall(color: AppColors.primary),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                s.householdExpenseHowBody,
+                style: AppTypography.bodySmall(color: AppColors.gray700),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+        const SizedBox(height: 16),
+        if (_transactions.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    color: AppColors.gray400,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    s.noData,
+                    style: AppTypography.bodyMedium(color: AppColors.gray500),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: () => _openAddExpensePage(ctx),
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(s.addSharedExpense),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ...List.generate(_transactions.length, (i) {
+            final t = _transactions[i];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                tileColor: AppColors.surfaceLight,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: AppColors.gray200),
+                ),
+                title: Text(t.description),
+                subtitle: Text(t.createdByName),
+                trailing: Text(
+                  fmt(t.amount),
+                  style: AppTypography.titleSmall(color: AppColors.primary),
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 80), // FAB space
+      ],
     );
   }
 
@@ -332,13 +401,16 @@ class _HouseholdPageState extends State<HouseholdPage>
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
         final b = _balances[i];
+        HouseholdMemberEntity? foundMember;
+        for (final m in _members) {
+          if (m.userId == b.owerId) {
+            foundMember = m;
+            break;
+          }
+        }
         final memberName =
-            _members
-                .firstWhere(
-                  (m) => m.userId == b.owerId,
-                  orElse: () => _members.first,
-                )
-                .name ??
+            (foundMember ?? (_members.isNotEmpty ? _members.first : null))
+                ?.name ??
             b.owerId;
         return Container(
           padding: const EdgeInsets.all(14),
@@ -378,35 +450,29 @@ class _HouseholdPageState extends State<HouseholdPage>
     );
   }
 
-  void _showInviteDialog(BuildContext ctx, dynamic s) {
-    final ctrl = TextEditingController();
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(s.inviteByEmail),
-        content: TextField(
-          controller: ctrl,
-          decoration: InputDecoration(
-            hintText: s.email,
-            border: const OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.emailAddress,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(s.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ctx.read<HouseholdBloc>().add(InviteMember(ctrl.text.trim()));
-            },
-            child: Text(s.inviteMember),
-          ),
-        ],
+  void _openInvitePage(BuildContext ctx) async {
+    final email = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const InviteMemberPage()),
+    );
+    if (email != null && email.isNotEmpty && ctx.mounted) {
+      ctx.read<HouseholdBloc>().add(InviteMember(email));
+    }
+  }
+
+  void _openAddExpensePage(BuildContext ctx) async {
+    final data = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddSharedExpensePage(members: _members),
       ),
     );
+    if (data != null && ctx.mounted) {
+      ctx.read<HouseholdBloc>().add(CreateSharedTransaction(data));
+      // Reload transactions and balances
+      ctx.read<HouseholdBloc>().add(const LoadSharedTransactions());
+      ctx.read<HouseholdBloc>().add(const LoadBalances());
+    }
   }
 
   void _openCreateHousehold(BuildContext ctx, dynamic s) async {

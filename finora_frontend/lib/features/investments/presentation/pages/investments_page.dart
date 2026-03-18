@@ -15,6 +15,20 @@ import '../widgets/market_index_card.dart';
 import '../widgets/portfolio_allocation_widget.dart';
 import '../widgets/return_simulator_widget.dart';
 import 'investor_quiz_page.dart';
+import 'market_detail_page.dart';
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(title, style: AppTypography.titleSmall()),
+    );
+  }
+}
 
 class InvestmentsPage extends StatefulWidget {
   const InvestmentsPage({super.key});
@@ -31,6 +45,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
   List<MarketIndexEntity> _indices = [];
   List<Map<String, dynamic>> _glossary = [];
   bool _loading = true;
+  DateTime? _indicesLastUpdated;
 
   @override
   void initState() {
@@ -68,6 +83,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
             setState(() {
               _indices = state.indices;
               _loading = false;
+              _indicesLastUpdated = DateTime.now();
             });
           } else if (state is GlossaryLoaded) {
             setState(() {
@@ -98,6 +114,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
                 labelColor: AppColors.primary,
                 indicatorColor: AppColors.primary,
                 isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 tabs: [
                   Tab(text: s.investorProfileTab),
                   Tab(text: s.portfolioTab),
@@ -288,21 +305,96 @@ class _InvestmentsPageState extends State<InvestmentsPage>
         ),
       );
     }
+
+    final crypto = _indices.where((i) => i.category == 'crypto').toList();
+    final equity = _indices.where((i) => i.category == 'equity').toList();
+    final other = _indices
+        .where((i) => i.category == 'commodity' || i.category == 'forex')
+        .toList();
+
     return RefreshIndicator(
       onRefresh: () async =>
           ctx.read<InvestmentBloc>().add(const LoadIndices()),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(s.marketIndices, style: AppTypography.titleSmall()),
-          const SizedBox(height: 12),
-          ..._indices.map(
-            (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: MarketIndexCard(index: i),
+          // Last updated timestamp
+          if (_indicesLastUpdated != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                '${s.lastUpdated}: ${_formatTime(_indicesLastUpdated!)}',
+                style: AppTypography.labelSmall(color: AppColors.gray400),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+
+          // Crypto section
+          if (crypto.isNotEmpty) ...[
+            _SectionHeader(title: '${s.sectionCrypto} (${crypto.length})'),
+            const SizedBox(height: 8),
+            ...crypto.map(
+              (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MarketDetailPage(index: i),
+                    ),
+                  ),
+                  child: MarketIndexCard(index: i),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // Equity section
+          if (equity.isNotEmpty) ...[
+            _SectionHeader(title: '${s.sectionEquity} (${equity.length})'),
+            const SizedBox(height: 8),
+            ...equity.map(
+              (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MarketDetailPage(index: i),
+                    ),
+                  ),
+                  child: MarketIndexCard(index: i),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // Commodities & Forex section
+          if (other.isNotEmpty) ...[
+            _SectionHeader(
+              title: '${s.sectionCommoditiesForex} (${other.length})',
+            ),
+            const SizedBox(height: 8),
+            ...other.map(
+              (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MarketDetailPage(index: i),
+                    ),
+                  ),
+                  child: MarketIndexCard(index: i),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // Glossary
+          const SizedBox(height: 8),
           Text(s.glossaryTitle, style: AppTypography.titleSmall()),
           const SizedBox(height: 8),
           if (_glossary.isEmpty)
@@ -335,6 +427,12 @@ class _InvestmentsPageState extends State<InvestmentsPage>
         ],
       ),
     );
+  }
+
+  String _formatTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
   }
 
   void _openQuiz(BuildContext ctx, dynamic s) async {

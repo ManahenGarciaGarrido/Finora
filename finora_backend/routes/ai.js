@@ -279,6 +279,68 @@ router.get('/anomalies', authenticateToken, async (req, res) => {
 });
 
 
+// ── POST /api/v1/ai/chat ──────────────────────────────────────────────────────
+/**
+ * RF-25: Asistente conversacional IA vía Gemini
+ * Proxy entre la app Flutter y la Gemini API usando la clave del servidor.
+ */
+router.post('/chat', authenticateToken, async (req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ error: 'Gemini API key not configured on server.' });
+    }
+
+    const { message, history = [], systemPrompt } = req.body;
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'message is required' });
+    }
+
+    const contents = [];
+    for (const h of history) {
+      contents.push({
+        role: h.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: h.content }],
+      });
+    }
+    contents.push({ role: 'user', parts: [{ text: message }] });
+
+    const body = {
+      contents,
+      generationConfig: { temperature: 0.75, maxOutputTokens: 768 },
+    };
+    if (systemPrompt) {
+      body.systemInstruction = { parts: [{ text: systemPrompt }] };
+    }
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if (!geminiRes.ok) {
+      const text = await geminiRes.text();
+      console.error('[RF-25] Gemini error:', text);
+      return res.status(502).json({ error: 'Gemini API error', detail: text });
+    }
+
+    const data = await geminiRes.json();
+    const candidates = data.candidates;
+    if (!candidates || candidates.length === 0) {
+      return res.status(502).json({ error: 'No response from Gemini' });
+    }
+    const text = candidates[0].content.parts[0].text;
+    return res.json({ response: text });
+  } catch (err) {
+    console.error('[RF-25] chat error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /api/v1/ai/subscriptions ─────────────────────────────────────────────
 /**
  * RF-24 / HU-11: Detección automática de suscripciones y pagos recurrentes.

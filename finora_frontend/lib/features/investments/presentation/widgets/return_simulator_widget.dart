@@ -41,11 +41,13 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
         'years': int.parse(_years.text),
         'annual_return': double.parse(_rate.text.replaceAll(',', '.')),
       });
+      if (!mounted) return;
       setState(() {
         _result = result;
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
     }
   }

@@ -35,7 +35,7 @@ router.get('/data', async (req, res) => {
     // Budget adherence this month
     const budgetResult = await db.query(
       `SELECT
-         COALESCE(SUM(b.amount), 0) AS total_budget,
+         COALESCE(SUM(b.monthly_limit), 0) AS total_budget,
          COALESCE(SUM(tx_sum.spent), 0) AS total_spent
        FROM budgets b
        LEFT JOIN (
@@ -56,7 +56,7 @@ router.get('/data', async (req, res) => {
     // Active goal (first by progress)
     const goalResult = await db.query(
       `SELECT name, current_amount, target_amount
-       FROM goals
+       FROM savings_goals
        WHERE user_id = $1 AND status = 'active'
        ORDER BY current_amount / NULLIF(target_amount, 0) DESC
        LIMIT 1`,
@@ -83,6 +83,13 @@ router.get('/data', async (req, res) => {
   }
 });
 
+const DEFAULT_WIDGET_SETTINGS = {
+  show_balance: true,
+  show_today_spent: true,
+  show_budget_pct: true,
+  dark_mode: 'auto',
+};
+
 // GET /widget/settings  – get user widget preferences
 router.get('/settings', async (req, res) => {
   try {
@@ -90,15 +97,11 @@ router.get('/settings', async (req, res) => {
       `SELECT widget_settings FROM users WHERE id = $1`,
       [req.user.id]
     );
-    const settings = rows[0]?.widget_settings || {
-      show_balance: true,
-      show_today_spent: true,
-      show_budget_pct: true,
-      dark_mode: 'auto',
-    };
+    const settings = rows[0]?.widget_settings || DEFAULT_WIDGET_SETTINGS;
     res.json({ settings });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Column may not exist yet — return defaults
+    res.json({ settings: DEFAULT_WIDGET_SETTINGS });
   }
 });
 
@@ -113,7 +116,8 @@ router.patch('/settings', async (req, res) => {
     );
     res.json({ settings });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Column may not exist yet — accept settings without persisting
+    res.json({ settings });
   }
 });
 

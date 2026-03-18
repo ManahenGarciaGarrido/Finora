@@ -29,13 +29,6 @@ import 'export_page.dart'; // RF-34 / RF-35
 import 'budget_page.dart'; // RF-32
 import 'two_fa_setup_page.dart'; // RNF-03
 import 'notification_settings_page.dart'; // RF-31 / RF-32 / RF-33
-import '../../../debts/presentation/pages/debts_page.dart';
-import '../../../investments/presentation/pages/investments_page.dart';
-import '../../../household/presentation/pages/household_page.dart';
-import '../../../gamification/presentation/pages/gamification_page.dart';
-import '../../../fiscal/presentation/pages/fiscal_page.dart';
-import '../../../ocr/presentation/pages/ocr_page.dart';
-import '../../../widget/presentation/pages/widget_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -351,104 +344,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const PrivacyPage()),
-                    ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.delete_outline_rounded,
-                    title: s.deleteAccount,
-                    subtitle: s.deleteAllData,
-                    isDeveloping: true,
-                    isDanger: true,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Finanzas avanzadas
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                responsive.horizontalPadding,
-                16,
-                responsive.horizontalPadding,
-                0,
-              ),
-              child: _buildSettingsSection(
-                title: s.sectionAdvancedFinances,
-                children: [
-                  _buildSettingsRow(
-                    icon: Icons.credit_card_outlined,
-                    title: s.settingsDebts,
-                    subtitle: s.settingsDebtsSubtitle,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DebtsPage()),
-                    ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.trending_up_rounded,
-                    title: s.settingsInvestments,
-                    subtitle: s.settingsInvestmentsSubtitle,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const InvestmentsPage(),
-                      ),
-                    ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.home_outlined,
-                    title: s.settingsHousehold,
-                    subtitle: s.settingsHouseholdSubtitle,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HouseholdPage()),
-                    ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.emoji_events_outlined,
-                    title: s.settingsGamification,
-                    subtitle: s.settingsGamificationSubtitle,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const GamificationPage(),
-                      ),
-                    ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.receipt_long_outlined,
-                    title: s.settingsFiscal,
-                    subtitle: s.settingsFiscalSubtitle,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const FiscalPage()),
-                    ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.document_scanner_outlined,
-                    title: s.settingsOcr,
-                    subtitle: s.settingsOcrSubtitle,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const OcrPage()),
-                    ),
-                  ),
-                  _divider(),
-                  _buildSettingsRow(
-                    icon: Icons.widgets_outlined,
-                    title: s.settingsWidget,
-                    subtitle: s.settingsWidgetSubtitle,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WidgetPage()),
                     ),
                   ),
                 ],

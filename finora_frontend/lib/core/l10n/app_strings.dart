@@ -56,6 +56,19 @@ abstract class AppStringsBase {
   String get statistics;
   String get goals;
   String get settings;
+  String get modules;
+
+  // ── Module Hub subtitles ───────────────────────────────────────────────────
+  String get budgetTitle;
+  String get budgetSubtitle;
+  String get debtsSubtitle;
+  String get investmentsSubtitle;
+  String get householdSubtitle;
+  String get gamificationSubtitle;
+  String get fiscalSubtitle;
+  String get ocrSubtitle;
+  String get widgetSubtitle;
+  String get accountsSubtitle;
 
   // ── Autenticación ──────────────────────────────────────────────────────────
   String get login;
@@ -1300,6 +1313,18 @@ abstract class AppStringsBase {
   String get paymentOrder;
   String get recommendedStrategy;
 
+  // Debts tutorial
+  String get debtsTutorialTitle;
+  String get debtsTutorialStep1Title;
+  String get debtsTutorialStep1Body;
+  String get debtsTutorialStep2Title;
+  String get debtsTutorialStep2Body;
+  String get debtsTutorialStep3Title;
+  String get debtsTutorialStep3Body;
+  String get debtsTutorialStep4Title;
+  String get debtsTutorialStep4Body;
+  String get debtsTutorialStart;
+
   // ── Module C: Investments ──────────────────────────────────────────────────
   String get investmentsTitle;
   String get investmentsNav;
@@ -1338,6 +1363,16 @@ abstract class AppStringsBase {
   String get glossaryTitle;
   String get noProfile;
   String get profileRequired;
+  String get volume24h;
+  String get marketCap;
+  String get high24h;
+  String get low24h;
+  String get sectionCrypto;
+  String get sectionEquity;
+  String get sectionCommoditiesForex;
+  String get lastUpdated;
+  String get chartStatsTitle;
+  String get refresh;
 
   // ── Module D: Household ────────────────────────────────────────────────────
   String get householdTitle;
@@ -1367,6 +1402,12 @@ abstract class AppStringsBase {
   String get householdRole;
   String get ownerRole;
   String get memberRole;
+
+  // Household explain
+  String get householdExpenseExplain;
+  String get householdExpenseHowTitle;
+  String get householdExpenseHowBody;
+  String get householdInviteInfo;
 
   // ── Module E: Gamification ─────────────────────────────────────────────────
   String get gamificationTitle;
@@ -1422,6 +1463,12 @@ abstract class AppStringsBase {
   String get exportFiscalDesc;
   String get fiscalDataExported;
   String get noFiscalData;
+  String get allExpensesTitle;
+  String get markDeductible;
+  String get exportSelectFormat;
+  String get exportXlsxDesc;
+  String get exportCsvDesc;
+  String get exportShareTitle;
 
   // ── Module G: OCR ─────────────────────────────────────────────────────────
   String get ocrTitle;
@@ -1470,6 +1517,9 @@ abstract class AppStringsBase {
   String get wearableInstructions;
   String get widgetDarkModeAuto;
   String get widgetLastUpdated;
+  String get wearableSyncBtn;
+  String get wearableConnecting;
+  String get widgetUpdateSuccess;
 }
 
 // ── Español (España) ──────────────────────────────────────────────────────────
@@ -1543,6 +1593,29 @@ class _AppStringsEs extends AppStringsBase {
   String get goals => 'Objetivos';
   @override
   String get settings => 'Ajustes';
+  @override
+  String get modules => 'Módulos';
+
+  @override
+  String get budgetTitle => 'Presupuestos';
+  @override
+  String get budgetSubtitle => 'Controla gastos por categoría';
+  @override
+  String get debtsSubtitle => 'Gestiona deudas y préstamos';
+  @override
+  String get investmentsSubtitle => 'Perfil e ideas de inversión';
+  @override
+  String get householdSubtitle => 'Gastos compartidos del hogar';
+  @override
+  String get gamificationSubtitle => 'Racha, logros y retos';
+  @override
+  String get fiscalSubtitle => 'IRPF y análisis fiscal';
+  @override
+  String get ocrSubtitle => 'Importa tickets y extractos';
+  @override
+  String get widgetSubtitle => 'Widget pantalla y reloj';
+  @override
+  String get accountsSubtitle => 'Tus cuentas y tarjetas';
 
   @override
   String get login => 'Iniciar sesión';
@@ -4043,6 +4116,30 @@ class _AppStringsEs extends AppStringsBase {
   String get paymentOrder => 'Orden de pago';
   @override
   String get recommendedStrategy => 'Estrategia recomendada';
+  @override
+  String get debtsTutorialTitle => 'Gestor de deudas';
+  @override
+  String get debtsTutorialStep1Title => '¿Qué es este módulo?';
+  @override
+  String get debtsTutorialStep1Body =>
+      'Aquí puedes registrar todas tus deudas (tarjetas, préstamos, amigos…) y las que te deben a ti. Tendrás una vista completa de tu situación financiera.';
+  @override
+  String get debtsTutorialStep2Title => 'Añade una deuda';
+  @override
+  String get debtsTutorialStep2Body =>
+      'Pulsa el botón "+" para registrar una deuda. Indica el nombre, importe pendiente, interés y cuota mensual. Puedes marcar si es una deuda propia o si alguien te la debe a ti.';
+  @override
+  String get debtsTutorialStep3Title => 'Estrategias de pago';
+  @override
+  String get debtsTutorialStep3Body =>
+      'En la pestaña "Estrategias" encontrarás dos métodos probados:\n\n• Bola de nieve: paga primero la deuda más pequeña para ganar motivación.\n• Avalancha: paga primero la de mayor interés para ahorrar más dinero.';
+  @override
+  String get debtsTutorialStep4Title => 'Calculadoras';
+  @override
+  String get debtsTutorialStep4Body =>
+      'Usa el menú ⋮ (esquina superior derecha) para acceder a la calculadora de préstamos e hipotecas. Simula distintas condiciones antes de firmar nada.';
+  @override
+  String get debtsTutorialStart => '¡Empezar!';
 
   // ── Module C: Investments ──────────────────────────────────────────────────
   @override
@@ -4124,6 +4221,26 @@ class _AppStringsEs extends AppStringsBase {
   @override
   String get profileRequired =>
       'Completa tu perfil para ver la cartera sugerida';
+  @override
+  String get volume24h => 'Volumen 24h';
+  @override
+  String get marketCap => 'Cap. mercado';
+  @override
+  String get high24h => 'Máx. 24h';
+  @override
+  String get low24h => 'Mín. 24h';
+  @override
+  String get sectionCrypto => 'Criptomonedas';
+  @override
+  String get sectionEquity => 'Índices y ETFs';
+  @override
+  String get sectionCommoditiesForex => 'Materias primas & Forex';
+  @override
+  String get lastUpdated => 'Actualizado';
+  @override
+  String get chartStatsTitle => 'Estadísticas';
+  @override
+  String get refresh => 'Actualizar';
 
   // ── Module D: Household ────────────────────────────────────────────────────
   @override
@@ -4180,6 +4297,17 @@ class _AppStringsEs extends AppStringsBase {
   String get ownerRole => 'Propietario';
   @override
   String get memberRole => 'Miembro';
+  @override
+  String get householdExpenseExplain =>
+      'Los gastos del hogar son gastos que compartes con tu familia o compañeros de piso. Finora calcula automáticamente quién debe cuánto a quién.';
+  @override
+  String get householdExpenseHowTitle => '¿Cómo funciona?';
+  @override
+  String get householdExpenseHowBody =>
+      '1. Añade un gasto compartido con el botón +\n2. Indica la descripción y el importe\n3. El sistema lo reparte equitativamente entre todos los miembros\n4. En "Saldos" puedes ver quién te debe dinero y liquidar deudas';
+  @override
+  String get householdInviteInfo =>
+      'Introduce el correo electrónico del miembro que quieres invitar. Recibirá una notificación para unirse al hogar.';
 
   // ── Module E: Gamification ─────────────────────────────────────────────────
   @override
@@ -4286,6 +4414,20 @@ class _AppStringsEs extends AppStringsBase {
   String get fiscalDataExported => 'Datos fiscales exportados';
   @override
   String get noFiscalData => 'Sin gastos etiquetados como deducibles este año';
+  @override
+  String get allExpensesTitle => 'Todos los gastos del año';
+  @override
+  String get markDeductible => 'Marcar como deducible';
+  @override
+  String get exportSelectFormat => 'Selecciona el formato de exportación';
+  @override
+  String get exportXlsxDesc =>
+      'Excel con tablas detalladas, totales por categoría y gráfico de barras';
+  @override
+  String get exportCsvDesc =>
+      'Archivo CSV compatible con cualquier hoja de cálculo';
+  @override
+  String get exportShareTitle => 'Exportar datos fiscales';
 
   // ── Module G: OCR ─────────────────────────────────────────────────────────
   @override
@@ -4382,6 +4524,12 @@ class _AppStringsEs extends AppStringsBase {
   String get widgetDarkModeAuto => 'Se adapta al modo del sistema';
   @override
   String get widgetLastUpdated => 'Última actualización';
+  @override
+  String get wearableSyncBtn => 'Sincronizar con reloj';
+  @override
+  String get wearableConnecting => 'Conectando...';
+  @override
+  String get widgetUpdateSuccess => 'Widget actualizado';
 }
 
 // ── English (International) ───────────────────────────────────────────────────
@@ -4455,6 +4603,29 @@ class _AppStringsEn extends AppStringsBase {
   String get goals => 'Goals';
   @override
   String get settings => 'Settings';
+  @override
+  String get modules => 'Modules';
+
+  @override
+  String get budgetTitle => 'Budgets';
+  @override
+  String get budgetSubtitle => 'Track spending by category';
+  @override
+  String get debtsSubtitle => 'Manage debts and loans';
+  @override
+  String get investmentsSubtitle => 'Profile and investment ideas';
+  @override
+  String get householdSubtitle => 'Shared household expenses';
+  @override
+  String get gamificationSubtitle => 'Streak, badges and challenges';
+  @override
+  String get fiscalSubtitle => 'Income tax and fiscal analysis';
+  @override
+  String get ocrSubtitle => 'Import receipts and statements';
+  @override
+  String get widgetSubtitle => 'Home screen & watch widget';
+  @override
+  String get accountsSubtitle => 'Your accounts and cards';
 
   @override
   String get login => 'Sign in';
@@ -6931,6 +7102,31 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get recommendedStrategy => 'Recommended strategy';
 
+  @override
+  String get debtsTutorialTitle => 'Debt Manager';
+  @override
+  String get debtsTutorialStep1Title => 'What is this module?';
+  @override
+  String get debtsTutorialStep1Body =>
+      'Here you can track all your debts (credit cards, loans, friends…) and what others owe you. Get a clear picture of your financial position.';
+  @override
+  String get debtsTutorialStep2Title => 'Add a debt';
+  @override
+  String get debtsTutorialStep2Body =>
+      'Tap the "+" button to add a debt. Enter the name, outstanding balance, interest rate and monthly payment. You can mark it as your own debt or money owed to you.';
+  @override
+  String get debtsTutorialStep3Title => 'Repayment strategies';
+  @override
+  String get debtsTutorialStep3Body =>
+      'The "Strategies" tab shows two proven methods:\n\n• Snowball: pay the smallest debt first to build momentum.\n• Avalanche: pay the highest-interest debt first to save the most money.';
+  @override
+  String get debtsTutorialStep4Title => 'Calculators';
+  @override
+  String get debtsTutorialStep4Body =>
+      'Use the ⋮ menu (top right) to open the loan and mortgage calculators. Simulate different terms before signing anything.';
+  @override
+  String get debtsTutorialStart => 'Get started!';
+
   // ── Module C: Investments ──────────────────────────────────────────────────
   @override
   String get investmentsTitle => 'Investments';
@@ -7010,6 +7206,26 @@ class _AppStringsEn extends AppStringsBase {
   @override
   String get profileRequired =>
       'Complete your profile to see the suggested portfolio';
+  @override
+  String get volume24h => '24h Volume';
+  @override
+  String get marketCap => 'Market Cap';
+  @override
+  String get high24h => '24h High';
+  @override
+  String get low24h => '24h Low';
+  @override
+  String get sectionCrypto => 'Cryptocurrencies';
+  @override
+  String get sectionEquity => 'Indices & ETFs';
+  @override
+  String get sectionCommoditiesForex => 'Commodities & Forex';
+  @override
+  String get lastUpdated => 'Updated';
+  @override
+  String get chartStatsTitle => 'Statistics';
+  @override
+  String get refresh => 'Refresh';
 
   // ── Module D: Household ────────────────────────────────────────────────────
   @override
@@ -7066,6 +7282,18 @@ class _AppStringsEn extends AppStringsBase {
   String get ownerRole => 'Owner';
   @override
   String get memberRole => 'Member';
+
+  @override
+  String get householdExpenseExplain =>
+      'Household expenses are costs shared with your family or housemates. Finora automatically calculates who owes what to whom.';
+  @override
+  String get householdExpenseHowTitle => 'How does it work?';
+  @override
+  String get householdExpenseHowBody =>
+      '1. Add a shared expense with the + button\n2. Enter the description and amount\n3. The system splits it equally among all members\n4. In "Balances" you can see who owes you money and settle debts';
+  @override
+  String get householdInviteInfo =>
+      'Enter the email address of the member you want to invite. They will receive a notification to join the household.';
 
   // ── Module E: Gamification ─────────────────────────────────────────────────
   @override
@@ -7172,6 +7400,19 @@ class _AppStringsEn extends AppStringsBase {
   String get fiscalDataExported => 'Tax data exported';
   @override
   String get noFiscalData => 'No expenses tagged as deductible this year';
+  @override
+  String get allExpensesTitle => 'All expenses this year';
+  @override
+  String get markDeductible => 'Mark as deductible';
+  @override
+  String get exportSelectFormat => 'Select export format';
+  @override
+  String get exportXlsxDesc =>
+      'Excel with detailed tables, category totals and bar chart';
+  @override
+  String get exportCsvDesc => 'CSV file compatible with any spreadsheet';
+  @override
+  String get exportShareTitle => 'Export tax data';
 
   // ── Module G: OCR ─────────────────────────────────────────────────────────
   @override
@@ -7268,6 +7509,12 @@ class _AppStringsEn extends AppStringsBase {
   String get widgetDarkModeAuto => 'Adapts to system theme';
   @override
   String get widgetLastUpdated => 'Last updated';
+  @override
+  String get wearableSyncBtn => 'Sync with watch';
+  @override
+  String get wearableConnecting => 'Connecting...';
+  @override
+  String get widgetUpdateSuccess => 'Widget updated';
 }
 
 // ── Factory principal ─────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -27,6 +28,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _bioController;
   bool _isSaving = false;
   String? _photoPath;
+  String? _remotePhotoBase64; // loaded from backend on init
 
   // Language and currency state
   String _selectedLocale = 'es';
@@ -45,6 +47,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _bioController = TextEditingController();
     _selectedLocale = AppSettingsService().currentLocaleCode;
     _selectedCurrency = AppSettingsService().currentCurrency;
+    _loadRemotePhoto();
+  }
+
+  Future<void> _loadRemotePhoto() async {
+    try {
+      final apiClient = di.sl<ApiClient>();
+      final resp = await apiClient.get('/user/profile');
+      final data = resp.data as Map<String, dynamic>;
+      final user = data['user'] as Map<String, dynamic>? ?? {};
+      final photo = user['photoBase64'] as String?;
+      if (photo != null && photo.isNotEmpty && mounted) {
+        setState(() => _remotePhotoBase64 = photo);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -66,6 +82,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
         '/user/profile',
         data: {'name': _nameController.text.trim()},
       );
+
+      // Upload photo if a new one was picked
+      if (_photoPath != null) {
+        final bytes = await File(_photoPath!).readAsBytes();
+        final base64Str = base64Encode(bytes);
+        await apiClient.post(
+          '/user/profile/photo',
+          data: {'photo_base64': base64Str},
+        );
+      }
 
       if (mounted) {
         context.read<AuthBloc>().add(
@@ -141,11 +167,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: AppColors.primary,
+                  ),
                 ),
                 title: Text(s.camera, style: AppTypography.bodyMedium()),
-                subtitle: Text(s.takePictureNow,
-                    style: AppTypography.bodySmall(color: AppColors.textSecondaryLight)),
+                subtitle: Text(
+                  s.takePictureNow,
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickPhoto(ImageSource.camera);
@@ -159,11 +192,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.photo_library_rounded, color: AppColors.primary),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: AppColors.primary,
+                  ),
                 ),
                 title: Text(s.gallery, style: AppTypography.bodyMedium()),
-                subtitle: Text(s.selectFromGallery,
-                    style: AppTypography.bodySmall(color: AppColors.textSecondaryLight)),
+                subtitle: Text(
+                  s.selectFromGallery,
+                  style: AppTypography.bodySmall(
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickPhoto(ImageSource.gallery);
@@ -178,10 +218,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       color: AppColors.error.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.error,
+                    ),
                   ),
-                  title: Text(s.deletePhoto,
-                      style: AppTypography.bodyMedium(color: AppColors.error)),
+                  title: Text(
+                    s.deletePhoto,
+                    style: AppTypography.bodyMedium(color: AppColors.error),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     setState(() => _photoPath = null);
@@ -218,7 +263,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ? const TextStyle(fontWeight: FontWeight.bold)
                       : null,
                 ),
-                if (_selectedLocale == 'es') const Spacer() else const SizedBox(),
+                if (_selectedLocale == 'es')
+                  const Spacer()
+                else
+                  const SizedBox(),
                 if (_selectedLocale == 'es')
                   const Icon(Icons.check_rounded, size: 16),
               ],
@@ -235,7 +283,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ? const TextStyle(fontWeight: FontWeight.bold)
                       : null,
                 ),
-                if (_selectedLocale == 'en') const Spacer() else const SizedBox(),
+                if (_selectedLocale == 'en')
+                  const Spacer()
+                else
+                  const SizedBox(),
                 if (_selectedLocale == 'en')
                   const Icon(Icons.check_rounded, size: 16),
               ],
@@ -255,8 +306,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       context: context,
       builder: (ctx) => SimpleDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(AppLocalizations.of(context).settingsCurrency,
-            style: AppTypography.titleMedium()),
+        title: Text(
+          AppLocalizations.of(context).settingsCurrency,
+          style: AppTypography.titleMedium(),
+        ),
         children: AppSettingsService.availableCurrencies.map((cfg) {
           final isSelected = cfg.code == _selectedCurrency.code;
           return SimpleDialogOption(
@@ -373,9 +426,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         radius: 56,
                         backgroundColor: AppColors.primarySoft,
                         backgroundImage: _photoPath != null
-                            ? FileImage(File(_photoPath!))
-                            : null,
-                        child: _photoPath == null
+                            ? FileImage(File(_photoPath!)) as ImageProvider
+                            : (_remotePhotoBase64 != null
+                                  ? MemoryImage(
+                                      base64Decode(_remotePhotoBase64!),
+                                    )
+                                  : null),
+                        child:
+                            (_photoPath == null && _remotePhotoBase64 == null)
                             ? Text(
                                 _nameController.text.isNotEmpty
                                     ? _nameController.text[0].toUpperCase()
@@ -505,7 +563,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   subtitle: Text(
                     _getLanguageLabel(),
                     style: AppTypography.bodySmall(
-                        color: AppColors.textTertiaryLight),
+                      color: AppColors.textTertiaryLight,
+                    ),
                   ),
                   trailing: const Icon(
                     Icons.chevron_right_rounded,
@@ -540,12 +599,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       color: AppColors.textSecondaryLight,
                     ),
                   ),
-                  title: Text(s.settingsCurrency,
-                      style: AppTypography.titleSmall()),
+                  title: Text(
+                    s.settingsCurrency,
+                    style: AppTypography.titleSmall(),
+                  ),
                   subtitle: Text(
                     '${_selectedCurrency.code} - ${_selectedCurrency.name}',
                     style: AppTypography.bodySmall(
-                        color: AppColors.textTertiaryLight),
+                      color: AppColors.textTertiaryLight,
+                    ),
                   ),
                   trailing: const Icon(
                     Icons.chevron_right_rounded,
