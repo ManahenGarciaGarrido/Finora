@@ -134,6 +134,42 @@ async function migrate() {
     `);
     console.log('[migrate] ✓ categories.display_order');
 
+    // 8. Create budgets table if not exists (RF-32)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS budgets (
+        id               UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id          UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        category         VARCHAR(100)  NOT NULL,
+        monthly_limit    NUMERIC(12,2) NOT NULL CHECK (monthly_limit > 0),
+        rollover_enabled BOOLEAN       NOT NULL DEFAULT FALSE,
+        created_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (user_id, category)
+      )
+    `);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id)`);
+    // Add rollover_enabled to existing budgets tables that predate this migration
+    await db.query(`
+      ALTER TABLE budgets
+        ADD COLUMN IF NOT EXISTS rollover_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    console.log('[migrate] ✓ budgets table + rollover_enabled');
+
+    // 9. Add photo_base64 column to users (RF-09)
+    await db.query(`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS photo_base64 TEXT
+    `);
+    console.log('[migrate] ✓ users.photo_base64');
+
+    // 10. Add widget_settings column to users
+    await db.query(`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS widget_settings JSONB
+          DEFAULT '{"show_balance":true,"show_today_spent":true,"show_budget_pct":true,"dark_mode":"auto"}'::jsonb
+    `);
+    console.log('[migrate] ✓ users.widget_settings');
+
     console.log('[migrate] Migration completed successfully.');
   } catch (err) {
     console.error('[migrate] Migration failed:', err.message);

@@ -5,6 +5,9 @@ const db = require('../services/db');
 
 router.use(authenticateToken);
 
+// Ensure fiscal_category column exists on running DB (migration may not have run)
+db.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fiscal_category VARCHAR(100)`).catch(() => {});
+
 // ─── DEDUCTIBLE EXPENSES ──────────────────────────────────────────────────────
 
 // GET /fiscal/deductible?year=2024  – list transactions tagged as fiscal
@@ -40,6 +43,33 @@ router.patch('/tag/:transactionId', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'not found' });
     res.json({ transaction: rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /fiscal/all-transactions?year=2025  – list ALL transactions (optionally filtered by year)
+// When year is omitted, returns ALL transactions so user can tag any expense as deductible.
+router.get('/all-transactions', async (req, res) => {
+  const year = req.query.year ? parseInt(req.query.year, 10) : null;
+  try {
+    const { rows } = year
+      ? await db.query(
+          `SELECT id, description, amount, date, category, fiscal_category
+           FROM transactions
+           WHERE user_id = $1
+             AND EXTRACT(YEAR FROM date) = $2
+           ORDER BY fiscal_category NULLS LAST, date DESC`,
+          [req.user.id, year]
+        )
+      : await db.query(
+          `SELECT id, description, amount, date, category, fiscal_category
+           FROM transactions
+           WHERE user_id = $1
+           ORDER BY fiscal_category NULLS LAST, date DESC`,
+          [req.user.id]
+        );
+    res.json({ transactions: rows, year: year || 'all' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -134,7 +164,7 @@ router.get('/calendar', async (req, res) => {
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 
-// GET /fiscal/export?year=2024&format=json  – export fiscal data
+// GET /fiscal/export?year=2024&format=json|csv|xlsx  – export fiscal data
 router.get('/export', async (req, res) => {
   const year = req.query.year || new Date().getFullYear();
   const format = req.query.format || 'json';
@@ -156,9 +186,157 @@ router.get('/export', async (req, res) => {
           `"${r.id}","${r.description}",${r.amount},"${r.date}","${r.category}","${r.fiscal_category}"`
         );
       });
-      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="fiscal_${year}.csv"`);
-      return res.send(lines.join('\n'));
+      return res.send('\uFEFF' + lines.join('\n')); // BOM for Excel UTF-8 compatibility
+    }
+
+    if (format === 'xlsx') {
+      const ExcelJS = require('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Finora';
+      workbook.created = new Date();
+      workbook.modified = new Date();
+
+      // ── Category totals ──────────────────────────────────────────────────
+      const categoryTotals = {};
+      let grandTotal = 0;
+      rows.forEach(r => {
+        const cat = r.fiscal_category || 'other';
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + parseFloat(r.amount);
+        grandTotal += parseFloat(r.amount);
+      });
+
+      // ── Sheet 1: Resumen ─────────────────────────────────────────────────
+      const summarySheet = workbook.addWorksheet('Resumen');
+      summarySheet.columns = [
+        { key: 'label', width: 36 },
+        { key: 'value', width: 20 },
+      ];
+
+      const titleRow = summarySheet.addRow(['INFORME FISCAL FINORA', '']);
+      titleRow.font = { bold: true, size: 16, color: { argb: 'FF6C63FF' } };
+      titleRow.height = 28;
+
+      summarySheet.addRow([`Ejercicio fiscal: ${year}`, '']);
+      summarySheet.addRow([`Generado el: ${new Date().toLocaleDateString('es-ES')}`, '']);
+      summarySheet.addRow([]);
+
+      const headerRow = summarySheet.addRow(['CONCEPTO', 'IMPORTE (€)']);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6C63FF' } };
+      headerRow.alignment = { horizontal: 'center' };
+
+      const catLabels = {
+        freelance: 'Gasto deducible autónomo',
+        donation: 'Donaciones',
+        capital_gain: 'Rendimiento de capital',
+        other: 'Otros deducibles',
+      };
+      Object.entries(categoryTotals).forEach(([cat, total]) => {
+        const row = summarySheet.addRow([catLabels[cat] || cat, parseFloat(total).toFixed(2)]);
+        row.getCell(2).alignment = { horizontal: 'right' };
+        row.getCell(2).numFmt = '#,##0.00 €';
+      });
+
+      summarySheet.addRow([]);
+      const totalRow = summarySheet.addRow(['TOTAL DEDUCIBLE', parseFloat(grandTotal).toFixed(2)]);
+      totalRow.font = { bold: true };
+      totalRow.getCell(2).font = { bold: true, color: { argb: 'FF388E3C' } };
+      totalRow.getCell(2).numFmt = '#,##0.00 €';
+      totalRow.getCell(2).alignment = { horizontal: 'right' };
+
+      summarySheet.addRow([]);
+      summarySheet.addRow(['* Datos exportados desde la app Finora', '']);
+      summarySheet.addRow(['* Verifica con tu asesor fiscal antes de presentar', '']);
+
+      // ── Sheet 2: Gastos deducibles ────────────────────────────────────────
+      const txSheet = workbook.addWorksheet('Gastos Deducibles');
+      txSheet.columns = [
+        { header: 'Descripción', key: 'description', width: 40 },
+        { header: 'Importe (€)', key: 'amount', width: 15 },
+        { header: 'Fecha', key: 'date', width: 14 },
+        { header: 'Categoría', key: 'category', width: 20 },
+        { header: 'Tipo fiscal', key: 'fiscal_category', width: 28 },
+      ];
+
+      const txHeaderRow = txSheet.getRow(1);
+      txHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      txHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6C63FF' } };
+      txHeaderRow.alignment = { horizontal: 'center' };
+      txHeaderRow.height = 22;
+
+      rows.forEach((r, i) => {
+        const row = txSheet.addRow({
+          description: r.description,
+          amount: parseFloat(r.amount),
+          date: new Date(r.date).toLocaleDateString('es-ES'),
+          category: r.category,
+          fiscal_category: catLabels[r.fiscal_category] || r.fiscal_category,
+        });
+        row.getCell('amount').numFmt = '#,##0.00 €';
+        row.getCell('amount').font = { color: { argb: 'FF388E3C' } };
+        row.getCell('amount').alignment = { horizontal: 'right' };
+        if (i % 2 === 1) {
+          row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F2FF' } };
+        }
+      });
+
+      // Total row in tx sheet
+      const txTotal = txSheet.addRow({
+        description: 'TOTAL',
+        amount: parseFloat(grandTotal),
+        date: '',
+        category: '',
+        fiscal_category: '',
+      });
+      txTotal.font = { bold: true };
+      txTotal.getCell('amount').numFmt = '#,##0.00 €';
+      txTotal.getCell('amount').alignment = { horizontal: 'right' };
+      txTotal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E6FF' } };
+
+      // ── Sheet 3: Gráfico (category chart data) ───────────────────────────
+      const chartSheet = workbook.addWorksheet('Gráfico Categorías');
+      chartSheet.columns = [
+        { header: 'Categoría', key: 'cat', width: 32 },
+        { header: 'Total (€)', key: 'total', width: 18 },
+      ];
+      const chartHeaderRow = chartSheet.getRow(1);
+      chartHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      chartHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6C63FF' } };
+
+      const catDataRows = [];
+      Object.entries(categoryTotals).forEach(([cat, total]) => {
+        const row = chartSheet.addRow({ cat: catLabels[cat] || cat, total: parseFloat(total) });
+        row.getCell('total').numFmt = '#,##0.00 €';
+        catDataRows.push(row.number);
+      });
+
+      // Add bar chart
+      if (catDataRows.length > 0) {
+        const firstDataRow = catDataRows[0];
+        const lastDataRow = catDataRows[catDataRows.length - 1];
+        chartSheet.addChart({
+          type: 'bar',
+          series: [
+            {
+              name: { formula: `'Gráfico Categorías'!$B$1` },
+              labels: { formula: `'Gráfico Categorías'!$A$${firstDataRow}:$A$${lastDataRow}` },
+              values: { formula: `'Gráfico Categorías'!$B$${firstDataRow}:$B$${lastDataRow}` },
+            },
+          ],
+          title: { name: `Gastos deducibles por categoría — ${year}` },
+          legend: { position: 'bottom' },
+          plotArea: { bar: { barDir: 'col', grouping: 'clustered' } },
+          tl: { col: 3, row: 1 },
+          br: { col: 11, row: 18 },
+        });
+      }
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="fiscal_${year}.xlsx"`);
+      await workbook.xlsx.write(res);
+      return res.end();
     }
 
     res.json({ transactions: rows, year, exported_at: new Date().toISOString() });

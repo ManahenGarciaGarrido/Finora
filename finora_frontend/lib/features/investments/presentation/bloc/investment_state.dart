@@ -44,6 +44,17 @@ class GlossaryLoaded extends InvestmentState {
   const GlossaryLoaded(this.terms);
 }
 
+class ChartLoaded extends InvestmentState {
+  final String ticker;
+  final String period;
+  final List<Map<String, dynamic>> points;
+  const ChartLoaded({
+    required this.ticker,
+    required this.period,
+    required this.points,
+  });
+}
+
 class InvestmentError extends InvestmentState {
   final String message;
   const InvestmentError(this.message);

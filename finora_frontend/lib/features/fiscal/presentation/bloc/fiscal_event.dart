@@ -24,7 +24,13 @@ class LoadCalendar extends FiscalEvent {
   const LoadCalendar({this.year});
 }
 
+class LoadAllTransactions extends FiscalEvent {
+  final int? year;
+  const LoadAllTransactions({this.year});
+}
+
 class ExportFiscal extends FiscalEvent {
   final int? year;
-  const ExportFiscal({this.year});
+  final String format; // 'csv' | 'xlsx'
+  const ExportFiscal({this.year, this.format = 'xlsx'});
 }

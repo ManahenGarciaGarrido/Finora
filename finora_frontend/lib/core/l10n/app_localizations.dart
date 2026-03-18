@@ -3110,6 +3110,139 @@ class AppLocalizations extends AppStringsBase {
 
   @override
   String get removeFiscalTag => _strings.removeFiscalTag;
+
+  @override
+  String get accountsSubtitle => _strings.accountsSubtitle;
+
+  @override
+  String get budgetSubtitle => _strings.budgetSubtitle;
+
+  @override
+  String get budgetTitle => _strings.budgetTitle;
+
+  @override
+  String get debtsSubtitle => _strings.debtsSubtitle;
+
+  @override
+  String get debtsTutorialStart => _strings.debtsTutorialStart;
+
+  @override
+  String get debtsTutorialStep1Body => _strings.debtsTutorialStep1Body;
+
+  @override
+  String get debtsTutorialStep1Title => _strings.debtsTutorialStep1Title;
+
+  @override
+  String get debtsTutorialStep2Body => _strings.debtsTutorialStep2Body;
+
+  @override
+  String get debtsTutorialStep2Title => _strings.debtsTutorialStep2Title;
+
+  @override
+  String get debtsTutorialStep3Body => _strings.debtsTutorialStep3Body;
+
+  @override
+  String get debtsTutorialStep3Title => _strings.debtsTutorialStep3Title;
+
+  @override
+  String get debtsTutorialStep4Body => _strings.debtsTutorialStep4Body;
+
+  @override
+  String get debtsTutorialStep4Title => _strings.debtsTutorialStep4Title;
+
+  @override
+  String get debtsTutorialTitle => _strings.debtsTutorialTitle;
+
+  @override
+  String get fiscalSubtitle => _strings.fiscalSubtitle;
+
+  @override
+  String get gamificationSubtitle => _strings.gamificationSubtitle;
+
+  @override
+  String get householdExpenseExplain => _strings.householdExpenseExplain;
+
+  @override
+  String get householdExpenseHowBody => _strings.householdExpenseHowBody;
+
+  @override
+  String get householdExpenseHowTitle => _strings.householdExpenseHowTitle;
+
+  @override
+  String get householdInviteInfo => _strings.householdInviteInfo;
+
+  @override
+  String get householdSubtitle => _strings.householdSubtitle;
+
+  @override
+  String get investmentsSubtitle => _strings.investmentsSubtitle;
+
+  @override
+  String get modules => _strings.modules;
+
+  @override
+  String get ocrSubtitle => _strings.ocrSubtitle;
+
+  @override
+  String get widgetSubtitle => _strings.widgetSubtitle;
+
+  // ── Investments: real-time market data ─────────────────────────────────────
+  @override
+  String get volume24h => _strings.volume24h;
+
+  @override
+  String get marketCap => _strings.marketCap;
+
+  @override
+  String get high24h => _strings.high24h;
+
+  @override
+  String get low24h => _strings.low24h;
+
+  @override
+  String get sectionCrypto => _strings.sectionCrypto;
+
+  @override
+  String get sectionEquity => _strings.sectionEquity;
+
+  @override
+  String get sectionCommoditiesForex => _strings.sectionCommoditiesForex;
+
+  @override
+  String get lastUpdated => _strings.lastUpdated;
+
+  @override
+  String get chartStatsTitle => _strings.chartStatsTitle;
+
+  @override
+  String get refresh => _strings.refresh;
+
+  @override
+  String get allExpensesTitle => _strings.allExpensesTitle;
+
+  @override
+  String get markDeductible => _strings.markDeductible;
+
+  @override
+  String get exportSelectFormat => _strings.exportSelectFormat;
+
+  @override
+  String get exportXlsxDesc => _strings.exportXlsxDesc;
+
+  @override
+  String get exportCsvDesc => _strings.exportCsvDesc;
+
+  @override
+  String get exportShareTitle => _strings.exportShareTitle;
+
+  @override
+  String get wearableSyncBtn => _strings.wearableSyncBtn;
+
+  @override
+  String get wearableConnecting => _strings.wearableConnecting;
+
+  @override
+  String get widgetUpdateSuccess => _strings.widgetUpdateSuccess;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────

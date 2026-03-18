@@ -28,4 +28,8 @@ class InvestmentsRepositoryImpl implements InvestmentsRepository {
 
   @override
   Future<List<Map<String, dynamic>>> getGlossary() => _ds.getGlossary();
+
+  @override
+  Future<Map<String, dynamic>> getChart(String ticker, String period) =>
+      _ds.getChart(ticker, period);
 }

@@ -13,6 +13,7 @@ import '../widgets/debt_card.dart';
 import '../widgets/strategy_comparison_widget.dart';
 import 'add_edit_debt_page.dart';
 import 'loan_calculator_page.dart';
+import 'debts_tutorial_page.dart';
 
 class DebtsPage extends StatefulWidget {
   const DebtsPage({super.key});
@@ -33,6 +34,25 @@ class _DebtsPageState extends State<DebtsPage>
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    _checkFirstTime();
+  }
+
+  void _checkFirstTime() async {
+    final seen = await debtsTutorialAlreadySeen();
+    if (!seen && mounted) {
+      // Show tutorial after the first frame so the page is fully built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => const DebtsTutorialPage(),
+            ),
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -54,6 +74,8 @@ class _DebtsPageState extends State<DebtsPage>
               _loading = false;
               _error = null;
             });
+            // Refresh strategies whenever debts list changes
+            ctx.read<DebtBloc>().add(const LoadStrategies());
           } else if (state is DebtLoading) {
             setState(() => _loading = true);
           } else if (state is DebtError) {

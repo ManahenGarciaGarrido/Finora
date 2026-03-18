@@ -44,6 +44,11 @@ flutter {
     source = "../.."
 }
 
+dependencies {
+    // Wear OS Data Layer API — needed for smartwatch real connectivity
+    implementation("com.google.android.gms:play-services-wearable:18.1.0")
+}
+
 // Suprimir warnings de versiones obsoletas de Java
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-Xlint:-options")

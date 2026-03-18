@@ -38,7 +38,11 @@ class AccountsPage extends StatefulWidget {
   final void Function(String accountId, String accountName)?
   onViewAccountTransactions;
 
-  const AccountsPage({super.key, this.onViewAccountTransactions});
+  /// Callback para volver a la pantalla de módulos cuando AccountsPage
+  /// está integrada en el IndexedStack de HomePage.
+  final VoidCallback? onBack;
+
+  const AccountsPage({super.key, this.onViewAccountTransactions, this.onBack});
 
   @override
   State<AccountsPage> createState() => _AccountsPageState();
@@ -303,128 +307,147 @@ class _AccountsPageState extends State<AccountsPage> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveUtils(context);
 
-    return SafeArea(
-      child: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () => _onPullToRefresh(context),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          slivers: [
-            // Header
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  16,
-                  responsive.horizontalPadding,
-                  0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      AppLocalizations.of(context).accounts,
-                      style: AppTypography.headlineSmall(),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // HU-06: Campana de notificaciones in-app
-                        const NotificationBell(),
-                        const SizedBox(width: 4),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
-                            borderRadius: BorderRadius.circular(12),
+    return Material(
+      color: AppColors.backgroundLight,
+      child: SafeArea(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () => _onPullToRefresh(context),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              // Header
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    16,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.onBack != null)
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_rounded),
+                              onPressed: widget.onBack,
+                              color: AppColors.textPrimaryLight,
+                              constraints: const BoxConstraints(
+                                minWidth: 40,
+                                minHeight: 40,
+                              ),
+                              padding: EdgeInsets.zero,
+                            ),
+                          Text(
+                            AppLocalizations.of(context).accounts,
+                            style: AppTypography.headlineSmall(),
                           ),
-                          child: IconButton(
-                            icon: const Icon(Icons.add_rounded),
-                            onPressed: () => _connectBank(context),
-                            color: AppColors.white,
-                            constraints: const BoxConstraints(
-                              minWidth: 44,
-                              minHeight: 44,
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // HU-06: Campana de notificaciones in-app
+                          const NotificationBell(),
+                          const SizedBox(width: 4),
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.add_rounded),
+                              onPressed: () => _connectBank(context),
+                              color: AppColors.white,
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Balance calculado desde transacciones
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  20,
-                  responsive.horizontalPadding,
-                  0,
+              // Balance calculado desde transacciones
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    20,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildTransactionBalance(context),
                 ),
-                child: _buildTransactionBalance(context),
               ),
-            ),
 
-            // Tarjeta de efectivo
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  16,
-                  responsive.horizontalPadding,
-                  0,
+              // Tarjeta de efectivo
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    16,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildCashCard(context),
                 ),
-                child: _buildCashCard(context),
               ),
-            ),
 
-            // Saldo de cuentas bancarias
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  20,
-                  responsive.horizontalPadding,
-                  0,
+              // Saldo de cuentas bancarias
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    20,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildBankAccountsSection(context),
                 ),
-                child: _buildBankAccountsSection(context),
               ),
-            ),
 
-            // Conectar cuenta bancaria
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  20,
-                  responsive.horizontalPadding,
-                  0,
+              // Conectar cuenta bancaria
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    20,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildConnectBankCard(context),
                 ),
-                child: _buildConnectBankCard(context),
               ),
-            ),
 
-            // Métodos de pago
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  20,
-                  responsive.horizontalPadding,
-                  0,
+              // Métodos de pago
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    20,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildPaymentMethodsSummary(context),
                 ),
-                child: _buildPaymentMethodsSummary(context),
               ),
-            ),
 
-            SliverToBoxAdapter(child: SizedBox(height: responsive.hp(12))),
-          ],
-        ), // CustomScrollView
-      ), // RefreshIndicator
+              SliverToBoxAdapter(child: SizedBox(height: responsive.hp(12))),
+            ],
+          ), // CustomScrollView
+        ), // RefreshIndicator
+      ), // SafeArea
     );
   }
 

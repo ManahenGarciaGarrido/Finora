@@ -7,8 +7,6 @@
     android:targetCellWidth="3"
     android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
-    android:previewLayout="@layout/finora_widget"
     android:initialLayout="@layout/finora_widget"
     android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen"
-    android:description="@string/app_name" />
+    android:widgetCategory="home_screen" />

@@ -27,3 +27,9 @@ class LoadIndices extends InvestmentEvent {
 class LoadGlossary extends InvestmentEvent {
   const LoadGlossary();
 }
+
+class LoadChart extends InvestmentEvent {
+  final String ticker;
+  final String period; // '7d', '30d', '90d', '180d', '365d'
+  const LoadChart(this.ticker, {this.period = '7d'});
+}

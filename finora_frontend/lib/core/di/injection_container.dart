@@ -321,6 +321,7 @@ Future<void> _initInvestments() async {
       simulateReturns: sl(),
       getIndices: sl(),
       getGlossary: sl(),
+      repository: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetProfileUseCase(sl()));

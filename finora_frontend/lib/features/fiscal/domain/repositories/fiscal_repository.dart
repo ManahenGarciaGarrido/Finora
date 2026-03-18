@@ -4,6 +4,7 @@ import '../entities/tax_event_entity.dart';
 
 abstract class FiscalRepository {
   Future<List<FiscalTransactionEntity>> getDeductibles({int? year});
+  Future<List<FiscalTransactionEntity>> getAllTransactions({int? year});
   Future<FiscalTransactionEntity> tagTransaction(
     String transactionId,
     String? fiscalCategory,
@@ -14,4 +15,5 @@ abstract class FiscalRepository {
   });
   Future<List<TaxEventEntity>> getCalendar({int? year});
   Future<List<FiscalTransactionEntity>> exportFiscal({int? year});
+  Future<String> downloadExport({int? year, required String format});
 }

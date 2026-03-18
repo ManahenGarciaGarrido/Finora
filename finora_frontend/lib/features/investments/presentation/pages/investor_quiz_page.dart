@@ -6,6 +6,7 @@ import '../../../../core/l10n/app_localizations.dart';
 import '../bloc/investment_bloc.dart';
 import '../bloc/investment_event.dart';
 import '../bloc/investment_state.dart';
+import 'investment_allocation_animation_page.dart';
 
 class InvestorQuizPage extends StatefulWidget {
   const InvestorQuizPage({super.key});
@@ -31,13 +32,15 @@ class _InvestorQuizPageState extends State<InvestorQuizPage> {
     return BlocListener<InvestmentBloc, InvestmentState>(
       listener: (ctx, state) {
         if (state is ProfileSaved) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(s.profileSaved),
-              backgroundColor: AppColors.success,
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: ctx.read<InvestmentBloc>(),
+                child: const InvestmentAllocationAnimationPage(),
+              ),
             ),
           );
-          Navigator.pop(context, true);
         } else if (state is InvestmentError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

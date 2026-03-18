@@ -10,6 +10,7 @@ abstract class InvestmentsRemoteDataSource {
   Future<Map<String, dynamic>> simulateReturns(Map<String, dynamic> data);
   Future<List<MarketIndexModel>> getIndices();
   Future<List<Map<String, dynamic>>> getGlossary();
+  Future<Map<String, dynamic>> getChart(String ticker, String period);
 }
 
 class InvestmentsRemoteDataSourceImpl implements InvestmentsRemoteDataSource {
@@ -58,5 +59,11 @@ class InvestmentsRemoteDataSourceImpl implements InvestmentsRemoteDataSource {
   Future<List<Map<String, dynamic>>> getGlossary() async {
     final r = await _client.get('/investments/glossary');
     return List<Map<String, dynamic>>.from(r.data['glossary'] as List);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getChart(String ticker, String period) async {
+    final r = await _client.get('/investments/chart/$ticker?period=$period');
+    return r.data as Map<String, dynamic>;
   }
 }

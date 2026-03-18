@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS users (
     terms_accepted_at TIMESTAMP,
     privacy_accepted BOOLEAN DEFAULT FALSE,
     privacy_accepted_at TIMESTAMP,
+    photo_base64 TEXT,
+    widget_settings JSONB DEFAULT '{"show_balance":true,"show_today_spent":true,"show_budget_pct":true,"dark_mode":"auto"}'::jsonb,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -546,4 +548,26 @@ CREATE INDEX IF NOT EXISTS idx_goal_contributions_date    ON goal_contributions(
 DROP TRIGGER IF EXISTS update_goal_contributions_updated_at ON goal_contributions;
 CREATE TRIGGER update_goal_contributions_updated_at
     BEFORE UPDATE ON goal_contributions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- ============================================
+-- RF-32: BUDGETS
+-- Presupuestos mensuales por categoría
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS budgets (
+    id               UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id          UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category         VARCHAR(100)  NOT NULL,
+    monthly_limit    NUMERIC(12,2) NOT NULL CHECK (monthly_limit > 0),
+    rollover_enabled BOOLEAN       NOT NULL DEFAULT FALSE,
+    created_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, category)
+);
+
+CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
+
+DROP TRIGGER IF EXISTS update_budgets_updated_at ON budgets;
+CREATE TRIGGER update_budgets_updated_at
+    BEFORE UPDATE ON budgets
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

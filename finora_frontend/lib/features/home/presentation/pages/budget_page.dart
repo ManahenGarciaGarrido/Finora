@@ -17,6 +17,8 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/services/currency_service.dart';
 import '../../../../shared/widgets/skeleton_loader.dart';
+import 'create_edit_budget_page.dart';
+import 'budget_suggestions_page.dart';
 
 /// RF-32: Gestión visual de presupuestos mensuales por categoría.
 class BudgetPage extends StatefulWidget {
@@ -127,119 +129,6 @@ class _BudgetPageState extends State<BudgetPage>
         _loading = false;
       });
     }
-  }
-
-  Future<void> _showAiSuggestDialog() async {
-    final s = AppLocalizations.of(context);
-    List<Map<String, dynamic>> suggestions = [];
-    bool loadingSuggestions = true;
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          if (loadingSuggestions) {
-            _apiClient
-                .get('/budget/suggest')
-                .then((res) {
-                  final data = res.data as Map<String, dynamic>;
-                  setDialogState(() {
-                    suggestions = List<Map<String, dynamic>>.from(
-                      data['suggestions'] ?? [],
-                    );
-                    loadingSuggestions = false;
-                  });
-                })
-                .catchError((_) {
-                  setDialogState(() => loadingSuggestions = false);
-                });
-          }
-          return AlertDialog(
-            title: Text(s.aiSuggestBudgetsTitle),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    s.aiSuggestBudgetsInfo,
-                    style: AppTypography.bodySmall(color: AppColors.gray500),
-                  ),
-                  const SizedBox(height: 12),
-                  if (loadingSuggestions)
-                    const Center(child: CircularProgressIndicator())
-                  else if (suggestions.isEmpty)
-                    Text(
-                      s.noHistoryData,
-                      style: AppTypography.bodySmall(color: AppColors.gray400),
-                    )
-                  else
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 300),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: suggestions.length,
-                        itemBuilder: (_, i) {
-                          final sug = suggestions[i];
-                          return ListTile(
-                            dense: true,
-                            title: Text(
-                              _getTranslatedCategory(sug['category'] as String),
-                              style: AppTypography.bodyMedium(),
-                            ),
-                            trailing: Text(
-                              _formatCurrency(
-                                (sug['suggested_limit'] as num).toDouble(),
-                              ),
-                              style: AppTypography.labelSmall(
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(s.cancel),
-              ),
-              if (!loadingSuggestions && suggestions.isNotEmpty)
-                FilledButton(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    for (final sug in suggestions) {
-                      try {
-                        await _apiClient.post(
-                          '/budget',
-                          data: {
-                            'category': sug['category'],
-                            'monthly_limit': sug['suggested_limit'],
-                          },
-                        );
-                      } catch (_) {}
-                    }
-                    await _loadData();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(s.budgetSavedMsg),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(s.applyAllSuggestions),
-                ),
-            ],
-          );
-        },
-      ),
-    );
   }
 
   Future<void> _toggleRollover(String category, bool current) async {
@@ -433,7 +322,15 @@ class _BudgetPageState extends State<BudgetPage>
           IconButton(
             tooltip: s.aiSuggestBudgetsBtn,
             icon: const Icon(Icons.auto_awesome_rounded),
-            onPressed: _showAiSuggestDialog,
+            onPressed: () async {
+              final result = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BudgetSuggestionsPage(),
+                ),
+              );
+              if (result == true) _loadData();
+            },
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -442,9 +339,15 @@ class _BudgetPageState extends State<BudgetPage>
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showBudgetDialog(),
+        onPressed: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const CreateEditBudgetPage()),
+          );
+          if (result == true) _loadData();
+        },
         icon: const Icon(Icons.add_rounded),
-        label: Text(s.newLabelO(1)),
+        label: Text(s.newLabel(1)),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -759,19 +662,26 @@ class _BudgetPageState extends State<BudgetPage>
                           color: AppColors.gray400,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          s.rolloverLabel,
-                          style: AppTypography.labelSmall(
-                            color: AppColors.gray400,
+                        Flexible(
+                          child: Text(
+                            s.rolloverLabel,
+                            style: AppTypography.labelSmall(
+                              color: AppColors.gray400,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Transform.scale(
-                          scale: 0.7,
-                          child: Switch(
-                            value: b['rollover_enabled'] as bool? ?? false,
-                            onChanged: (v) =>
-                                _toggleRollover(b['category'] as String, !v),
-                            activeThumbColor: AppColors.primary,
+                        SizedBox(
+                          width: 36,
+                          height: 24,
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: Switch(
+                              value: b['rollover_enabled'] as bool? ?? false,
+                              onChanged: (v) =>
+                                  _toggleRollover(b['category'] as String, !v),
+                              activeThumbColor: AppColors.primary,
+                            ),
                           ),
                         ),
                       ],
@@ -785,10 +695,18 @@ class _BudgetPageState extends State<BudgetPage>
                   color: AppColors.gray500,
                   size: 20,
                 ),
-                onPressed: () => _showBudgetDialog(
-                  category: b['category'] as String,
-                  currentLimit: (b['monthly_limit'] as num).toDouble(),
-                ),
+                onPressed: () async {
+                  final result = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CreateEditBudgetPage(
+                        category: b['category'] as String,
+                        currentLimit: (b['monthly_limit'] as num).toDouble(),
+                      ),
+                    ),
+                  );
+                  if (result == true) _loadData();
+                },
               ),
               IconButton(
                 icon: Icon(

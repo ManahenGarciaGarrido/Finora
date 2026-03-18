@@ -9,4 +9,5 @@ abstract class InvestmentsRepository {
   Future<Map<String, dynamic>> simulateReturns(Map<String, dynamic> data);
   Future<List<MarketIndexEntity>> getIndices();
   Future<List<Map<String, dynamic>>> getGlossary();
+  Future<Map<String, dynamic>> getChart(String ticker, String period);
 }

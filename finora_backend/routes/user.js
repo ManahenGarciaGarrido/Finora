@@ -7,6 +7,10 @@ const bcrypt = require('bcryptjs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
+// Ensure new columns exist on running DB (migration may not have run)
+db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_base64 TEXT`).catch(() => {});
+db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS widget_settings JSONB DEFAULT '{"show_balance":true,"show_today_spent":true,"show_budget_pct":true,"dark_mode":"auto"}'::jsonb`).catch(() => {});
+
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -42,7 +46,7 @@ const authenticateToken = (req, res, next) => {
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, email, name, created_at FROM users WHERE id = $1',
+      'SELECT id, email, name, photo_base64, created_at FROM users WHERE id = $1',
       [req.user.userId]
     );
     if (result.rows.length === 0) {
@@ -55,6 +59,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
         userId: user.id,
         email: user.email,
         name: user.name || '',
+        photoBase64: user.photo_base64 || null,
         createdAt: user.created_at,
       }
     });
@@ -168,6 +173,43 @@ router.put('/change-password',
     } catch (error) {
       console.error('Error changing password:', error);
       res.status(500).json({ error: 'Server Error', message: 'Error al cambiar la contraseña' });
+    }
+  }
+);
+
+/**
+ * POST /api/v1/user/profile/photo
+ * Upload profile photo as base64 (RF-09)
+ */
+router.post('/profile/photo',
+  authenticateToken,
+  [
+    body('photo_base64').isString().notEmpty().withMessage('photo_base64 is required'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation Error', details: errors.array() });
+      }
+      const { photo_base64 } = req.body;
+      // Validate it's a valid base64 string
+      if (!/^[A-Za-z0-9+/]+=*$/.test(photo_base64) && !/^data:image\//.test(photo_base64)) {
+        return res.status(400).json({ error: 'Invalid base64 image data' });
+      }
+      // Strip data URI prefix if present
+      const base64Data = photo_base64.includes(',')
+        ? photo_base64.split(',')[1]
+        : photo_base64;
+
+      await db.query(
+        'UPDATE users SET photo_base64 = $1, updated_at = NOW() WHERE id = $2',
+        [base64Data, req.user.userId]
+      );
+      res.status(200).json({ message: 'Foto actualizada exitosamente' });
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      res.status(500).json({ error: 'Server Error', message: 'Error al subir la foto' });
     }
   }
 );

@@ -8,6 +8,7 @@ class FiscalBloc extends Bloc<FiscalEvent, FiscalState> {
 
   FiscalBloc(this._repo) : super(const FiscalInitial()) {
     on<LoadDeductibles>(_onLoadDeductibles);
+    on<LoadAllTransactions>(_onLoadAll);
     on<TagTransaction>(_onTag);
     on<EstimateIrpf>(_onEstimate);
     on<LoadCalendar>(_onCalendar);
@@ -32,7 +33,13 @@ class FiscalBloc extends Bloc<FiscalEvent, FiscalState> {
     try {
       final tx = await _repo.tagTransaction(e.transactionId, e.fiscalCategory);
       emit(TransactionTagged(tx));
-      add(const LoadDeductibles());
+      // Reload deductibles list (main page) then all transactions (bottom sheet)
+      final list = await _repo.getDeductibles();
+      final total = list.fold(0.0, (sum, t) => sum + t.amount);
+      emit(DeductiblesLoaded(list, total));
+      // Re-emit AllTransactionsLoaded so the bottom sheet refreshes
+      final all = await _repo.getAllTransactions();
+      emit(AllTransactionsLoaded(all));
     } catch (err) {
       emit(FiscalError(_msg(err)));
     }
@@ -61,11 +68,29 @@ class FiscalBloc extends Bloc<FiscalEvent, FiscalState> {
     }
   }
 
+  Future<void> _onLoadAll(
+    LoadAllTransactions e,
+    Emitter<FiscalState> emit,
+  ) async {
+    emit(const FiscalLoading());
+    try {
+      final list = await _repo.getAllTransactions(year: e.year);
+      emit(AllTransactionsLoaded(list));
+    } catch (err) {
+      emit(FiscalError(_msg(err)));
+    }
+  }
+
   Future<void> _onExport(ExportFiscal e, Emitter<FiscalState> emit) async {
     emit(const FiscalLoading());
     try {
-      final data = await _repo.exportFiscal(year: e.year);
-      emit(FiscalExported(data));
+      if (e.format == 'json') {
+        final data = await _repo.exportFiscal(year: e.year);
+        emit(FiscalExported(data));
+      } else {
+        final path = await _repo.downloadExport(year: e.year, format: e.format);
+        emit(FiscalExportReady(filePath: path, format: e.format));
+      }
     } catch (err) {
       emit(FiscalError(_msg(err)));
     }

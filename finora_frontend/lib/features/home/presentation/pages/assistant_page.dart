@@ -13,7 +13,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/services/ai_service.dart';
-import '../../../../core/services/gemini_service.dart';
 import '../../../../core/services/app_settings_service.dart';
 import '../../../../core/services/currency_service.dart';
 import '../../../../core/network/api_client.dart';
@@ -32,7 +31,6 @@ class AssistantPage extends StatefulWidget {
 class _AssistantPageState extends State<AssistantPage>
     with TickerProviderStateMixin {
   final AiService _aiService = sl<AiService>();
-  final GeminiService _geminiService = GeminiService();
   final ApiClient _apiClient = sl<ApiClient>();
 
   final _scrollController = ScrollController();
@@ -51,9 +49,7 @@ class _AssistantPageState extends State<AssistantPage>
   @override
   void initState() {
     super.initState();
-    if (GeminiService.hasApiKey) {
-      _fetchFinancialContext(); // fire-and-forget
-    }
+    _fetchFinancialContext(); // fire-and-forget
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final s = AppLocalizations.of(context);
@@ -140,7 +136,7 @@ class _AssistantPageState extends State<AssistantPage>
           intent: 'affordability',
           affordabilityResult: result,
         );
-      } else if (GeminiService.hasApiKey) {
+      } else {
         final locale = AppSettingsService().currentLocaleCode;
         final ctx = _financialContext != null
             ? '\n\nDatos financieros actuales del usuario: $_financialContext'
@@ -160,25 +156,31 @@ Tu especialidad son las finanzas personales: presupuestos, hábitos de gasto, in
 Cuando tengas los datos financieros del usuario, úsalos para dar respuestas concretas y personalizadas. No empieces cada respuesta con "Según tus datos..." — intégralo de forma natural cuando sea relevante.
 
 Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas de seguimiento cuando ayude. Da tu opinión real cuando te la pidan.$ctx''';
-        final text = await _geminiService.sendMessage(
-          message: msg,
-          history: _history,
-          systemPrompt: systemPrompt,
-        );
-        response = ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          content: text,
-          isUser: false,
-          timestamp: DateTime.now(),
-          intent: 'general',
-        );
-      } else {
-        final locale = AppSettingsService().currentLocaleCode;
-        response = await _aiService.chatWithAssistant(
-          msg,
-          history: _history,
-          language: locale,
-        );
+        try {
+          final resp = await _apiClient.post(
+            '/ai/chat',
+            data: {
+              'message': msg,
+              'history': _history,
+              'systemPrompt': systemPrompt,
+            },
+          );
+          final text =
+              (resp.data as Map<String, dynamic>)['response'] as String;
+          response = ChatMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            content: text,
+            isUser: false,
+            timestamp: DateTime.now(),
+            intent: 'general',
+          );
+        } catch (_) {
+          response = await _aiService.chatWithAssistant(
+            msg,
+            history: _history,
+            language: locale,
+          );
+        }
       }
 
       _history.add({'role': 'user', 'content': msg});
