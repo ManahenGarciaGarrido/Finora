@@ -1,0 +1,635 @@
+/// Pantalla de Inicio de Sesión (RF-02 + RF-03)
+///
+/// Características:
+/// - Diseño responsive (RNF-12)
+/// - Animaciones fluidas
+/// - Validación en tiempo real
+/// - Autenticación biométrica (RF-03): Touch ID, Face ID, huella Android
+/// - Manejo de credenciales incorrectas
+/// - Sesión persistente con token seguro
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/responsive/breakpoints.dart';
+import '../../../../core/responsive/responsive_builder.dart';
+import '../../../../shared/widgets/animated_gradient_background.dart';
+import '../../../../shared/widgets/custom_text_field.dart';
+import '../../../../shared/widgets/animated_button.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_event.dart';
+import '../bloc/auth_state.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  bool _isLoading = false;
+  String? _emailError;
+  String? _passwordError;
+
+  // RF-03: Biometric state
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
+  String _biometricLabel = 'Huella dactilar';
+  bool _biometricAuthenticating = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
+
+    _animationController.forward();
+
+    // RF-03: Check biometric availability on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthBloc>().add(const CheckBiometricAvailability());
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
+
+  String? _validateEmail(String? value) {
+    final s = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return s.emailRequired;
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(value)) return s.emailInvalid;
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return AppLocalizations.of(context).passwordRequired;
+    }
+    return null;
+  }
+
+  Future<void> _handleLogin() async {
+    setState(() {
+      _emailError = _validateEmail(_emailController.text);
+      _passwordError = _validatePassword(_passwordController.text);
+    });
+
+    if (_emailError != null || _passwordError != null) return;
+
+    context.read<AuthBloc>().add(
+      LoginRequested(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      ),
+    );
+  }
+
+  // RF-03: Trigger biometric authentication
+  void _handleBiometricLogin() {
+    context.read<AuthBloc>().add(const BiometricLoginRequested());
+  }
+
+  void _handleAuthState(BuildContext context, AuthState state) {
+    if (state is AuthLoading || state is BiometricAuthenticating) {
+      setState(() {
+        _isLoading = state is AuthLoading;
+        _biometricAuthenticating = state is BiometricAuthenticating;
+      });
+    } else if (state is Authenticated) {
+      setState(() {
+        _isLoading = false;
+        _biometricAuthenticating = false;
+      });
+
+      if (!state.user.isEmailVerified) {
+        _showEmailVerificationDialog(context);
+      } else {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (context.mounted) Navigator.pushReplacementNamed(context, '/home');
+        });
+      }
+    } else if (state is BiometricAvailable) {
+      setState(() {
+        _biometricAvailable = true;
+        _biometricEnabled = state.isEnabled;
+        _biometricLabel = state.biometricLabel;
+        _biometricAuthenticating = false;
+      });
+      // RF-03: Auto-trigger biometric if enabled (acceso < 2 segundos)
+      if (state.isEnabled) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _handleBiometricLogin();
+        });
+      }
+    } else if (state is BiometricNotAvailable) {
+      setState(() {
+        _biometricAvailable = false;
+        _biometricEnabled = false;
+        _biometricAuthenticating = false;
+      });
+    } else if (state is BiometricFailed) {
+      setState(() {
+        _isLoading = false;
+        _biometricAuthenticating = false;
+      });
+      if (mounted &&
+          state.reason.isNotEmpty &&
+          !state.reason.contains('cancelada')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(state.reason),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } else if (state is EmailResent) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.message),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else if (state is AuthError) {
+      setState(() {
+        _isLoading = false;
+        _biometricAuthenticating = false;
+      });
+
+      if (state.message.contains('verifica tu correo') ||
+          state.message.contains('Cuenta No Verificada')) {
+        _showEmailVerificationDialog(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(state.message),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } else {
+      setState(() {
+        _isLoading = false;
+        _biometricAuthenticating = false;
+      });
+    }
+  }
+
+  void _showEmailVerificationDialog(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.mail_outline, color: AppColors.warning, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                s.emailVerificationPending,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              s.emailNotVerifiedMsg,
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              s.checkInboxMsg,
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.read<AuthBloc>().add(
+                ResendVerificationRequested(
+                  email: _emailController.text.trim(),
+                ),
+              );
+            },
+            child: Text(
+              s.resendEmail,
+              style: const TextStyle(color: AppColors.primary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(s.understood),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AuthBloc, AuthState>(
+      listener: _handleAuthState,
+      child: Scaffold(
+        body: AnimatedGradientBackground(
+          child: SafeArea(
+            child: ResponsiveBuilder(
+              mobile: (context) => _buildMobileLayout(context),
+              tablet: (context) => _buildTabletLayout(context),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
+    final responsive = ResponsiveUtils(context);
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: responsive.horizontalPadding,
+          vertical: responsive.verticalPadding,
+        ),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Reducido de hp(6) a hp(4) para menos sensación de vacío
+                SizedBox(height: responsive.hp(4)),
+                _buildHeader(context),
+                SizedBox(height: responsive.hp(3.5)), // Reducido de hp(5)
+                _buildForm(context),
+                const SizedBox(height: 8), // Más cercano al input de password
+                _buildForgotPassword(context),
+                SizedBox(height: responsive.hp(3)), // Reducido de hp(4)
+                _buildLoginButton(),
+                if (_biometricAvailable && _biometricEnabled) ...[
+                  const SizedBox(height: 24),
+                  _buildBiometricDivider(),
+                  const SizedBox(height: 24),
+                  _buildBiometricButton(),
+                ],
+                SizedBox(height: responsive.hp(3)),
+                _buildRegisterLink(context),
+                SizedBox(height: responsive.hp(2)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabletLayout(BuildContext context) {
+    final responsive = ResponsiveUtils(context);
+
+    return Center(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Container(
+          constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+          padding: EdgeInsets.symmetric(
+            horizontal: responsive.horizontalPadding,
+            vertical: responsive.verticalPadding,
+          ),
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Card(
+                elevation: 0,
+                color: Colors.white.withValues(alpha: 0.95),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Padding(
+                  // Usamos paddings fijos y controlados en vez de hp(5) masivo
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 48,
+                    vertical: 40,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(context),
+                      const SizedBox(height: 32),
+                      _buildForm(context),
+                      const SizedBox(height: 8),
+                      _buildForgotPassword(context),
+                      const SizedBox(height: 32),
+                      _buildLoginButton(),
+                      if (_biometricAvailable && _biometricEnabled) ...[
+                        const SizedBox(height: 24),
+                        _buildBiometricDivider(),
+                        const SizedBox(height: 24),
+                        _buildBiometricButton(),
+                      ],
+                      const SizedBox(height: 32),
+                      _buildRegisterLink(context),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12), // Reducido de 16
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14), // Ligeramente más sutil
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.2), // Menos opaco
+                blurRadius: 16, // Sombra más contenida
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.account_balance_wallet,
+            size: 32, // Reducido de 40 para no verse sobredimensionado
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 20), // Reducido de 24
+        Text(
+          s.welcomeBack,
+          // Puedes ajustar AppTypography.displayLarge en tu theme si sigue viéndose gigante
+          style: AppTypography.displayLarge(color: AppColors.textPrimaryLight),
+        ),
+        const SizedBox(height: 6), // Reducido de 8
+        Text(
+          s.signInToContinue,
+          style: AppTypography.bodyLarge(color: AppColors.textSecondaryLight),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          Semantics(
+            label: s.email,
+            child: CustomTextField(
+              controller: _emailController,
+              focusNode: _emailFocus,
+              label: s.email,
+              hint: s.emailHint,
+              prefixIcon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              errorText: _emailError,
+              onChanged: (_) {
+                if (_emailError != null) setState(() => _emailError = null);
+              },
+              onSubmitted: (_) {
+                _emailFocus.unfocus();
+                _passwordFocus.requestFocus();
+              },
+            ),
+          ),
+          const SizedBox(
+            height: 16,
+          ), // Reducido de 20 para agrupar visualmente el form
+          Semantics(
+            label: s.password,
+            child: CustomTextField(
+              controller: _passwordController,
+              focusNode: _passwordFocus,
+              label: s.password,
+              hint: '••••••••',
+              prefixIcon: Icons.lock_outlined,
+              obscureText: true,
+              showPasswordToggle: true,
+              textInputAction: TextInputAction.done,
+              errorText: _passwordError,
+              onChanged: (_) {
+                if (_passwordError != null) {
+                  setState(() => _passwordError = null);
+                }
+              },
+              onSubmitted: (_) {
+                _passwordFocus.unfocus();
+                _handleLogin();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForgotPassword(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
+        child: Text(
+          AppLocalizations.of(context).forgotPassword,
+          style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginButton() {
+    final s = AppLocalizations.of(context);
+    return Semantics(
+      label: s.login,
+      button: true,
+      child: AnimatedButton(
+        onPressed: _isLoading ? null : _handleLogin,
+        isLoading: _isLoading,
+        text: s.login,
+        icon: Icons.login,
+      ),
+    );
+  }
+
+  Widget _buildBiometricDivider() {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: AppColors.gray200, height: 1)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'o',
+            style: AppTypography.bodySmall(
+              color: AppColors.textTertiaryLight,
+            ).copyWith(fontWeight: FontWeight.w600), // Ligeramente más visible
+          ),
+        ),
+        const Expanded(child: Divider(color: AppColors.gray200, height: 1)),
+      ],
+    );
+  }
+
+  Widget _buildBiometricButton() {
+    final s = AppLocalizations.of(context);
+    final isFaceId = _biometricLabel == 'Face ID';
+    final icon = isFaceId ? Icons.face_rounded : Icons.fingerprint_rounded;
+
+    return Semantics(
+      label: '${s.accessWith} $_biometricLabel',
+      button: true,
+      hint: s.biometricDescription,
+      child: SizedBox(
+        width: double.infinity,
+        height:
+            48, // Reducido de 52 para que no parezca un botón principal "gordo"
+        child: OutlinedButton.icon(
+          onPressed: _biometricAuthenticating ? null : _handleBiometricLogin,
+          icon: _biometricAuthenticating
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                )
+              : Icon(
+                  icon,
+                  size: 20,
+                  color: AppColors.primary,
+                ), // Icono a 20 en vez de 22
+          label: Text(
+            _biometricAuthenticating
+                ? s.authenticating
+                : '${s.accessWith} $_biometricLabel',
+            style: AppTypography.labelLarge(color: AppColors.primary),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(
+              color: AppColors.primary,
+              width: 1.0,
+            ), // Borde más fino y elegante
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                12,
+              ), // Acorde a la nueva altura
+            ),
+            backgroundColor: AppColors.primarySoft,
+            elevation: 0,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegisterLink(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    return Center(
+      child: RichText(
+        text: TextSpan(
+          text: '${s.noAccountYet} ',
+          style: AppTypography.bodyMedium(color: AppColors.textSecondaryLight),
+          children: [
+            TextSpan(
+              text: s.register,
+              style: AppTypography.link(color: AppColors.primary).copyWith(
+                fontWeight: FontWeight.w600, // Destaca más la acción
+              ),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () => Navigator.pushNamed(context, '/register'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

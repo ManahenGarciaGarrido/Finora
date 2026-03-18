@@ -1,0 +1,2303 @@
+/**
+ * Bank connection routes — RF-10 / RF-11
+ *
+ * Endpoints:
+ *  GET  /institutions               – Listar bancos (selector visual)
+ *  POST /connect                    – Iniciar flujo de consentimiento Plaid
+ *  GET  /plaid-link                 – Página HTML con botón de autorización (real mode)
+ *  POST /plaid-authorize            – Crear sandbox token + exchange server-side → linked
+ *  POST /plaid-exchange             – Intercambiar public_token → access_token (Dart HTTP)
+ *  GET  /callback                   – (legacy / compatibilidad Salt Edge)
+ *  GET  /mock-auth?ref={id}         – Página mock de autenticación bancaria
+ *  GET  /mock-callback?ref={id}     – Mock callback: crea cuentas demo
+ *  GET  /callback-success           – HTML estático "¡Banco conectado!"
+ *  GET  /accounts                   – Listar cuentas vinculadas del usuario
+ *  POST /accounts/setup             – Crear cuenta bancaria manualmente
+ *  GET  /cards                      – Listar tarjetas del usuario
+ *  POST /accounts/:accountId/cards  – Añadir tarjeta a una cuenta
+ *  POST /accounts/:accountId/import-csv – Importar CSV
+ *  GET  /:id/sync-status            – Polling del estado de conexión
+ *  POST /:id/sync                   – Forzar re-sync de saldos
+ *  POST /:id/import-transactions    – Importar transacciones Plaid (RF-11)
+ *  POST /sync-all                   – Sync masivo para cron job interno (RF-11)
+ *  DELETE /:id/disconnect           – Eliminar conexión y cuentas
+ */
+
+const express = require('express');
+const router = express.Router();
+const jwt = require('jsonwebtoken');
+const db = require('../services/db');
+const plaid = require('../services/plaid');
+const { autoCategory, autoCategorySimple } = require('../services/categoryMapper');
+const { sendPushToUser } = require('../services/fcm'); // RF-31
+
+// RF-14: URL del servicio Python de IA (configurable via env)
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+
+// Previene importaciones concurrentes para la misma conexión bancaria,
+// evitando que un retry borre cuentas que aún están siendo procesadas.
+const _importInProgress = new Set();
+
+/**
+ * RF-14: Categoriza con el servicio Python si está disponible.
+ * Fallback automático al motor de reglas (autoCategorySimple).
+ */
+async function smartCategorize(description, txType) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000); // 2s timeout
+    const resp = await fetch(`${AI_SERVICE_URL}/categorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, type: txType }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.category;
+    }
+  } catch {
+    // Servicio AI no disponible
+  }
+  return autoCategorySimple(description, txType);
+}
+
+/**
+ * RF-14: Categoriza un lote de transacciones en un solo round-trip al servicio de IA.
+ * Más eficiente que smartCategorize() individual para importaciones masivas.
+ * Fallback automático a smartCategorize() uno a uno si el batch falla.
+ * @param {{ description: string, type: string }[]} items
+ * @returns {Promise<string[]>} Array de categorías en el mismo orden
+ */
+async function batchCategorize(items) {
+  if (items.length === 0) return [];
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    const resp = await fetch(`${AI_SERVICE_URL}/categorize/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactions: items }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.results && data.results.length === items.length) {
+        return data.results.map(r => r.category);
+      }
+    }
+  } catch (e) {
+    console.warn('[batchCategorize] AI batch failed, fallback individual:', e.message);
+  }
+  // Fallback: categorizar uno a uno
+  return Promise.all(items.map(item => smartCategorize(item.description, item.type)));
+}
+
+const { withRetry, withCache, ratesBreaker } = require('../services/circuitBreaker');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// ─── Auth middleware ───────────────────────────────────────────────────────────
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized', message: 'No token provided' });
+  }
+  const token = authHeader.substring(7);
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (error) {
+    const msg = error.name === 'TokenExpiredError' ? 'Token expired' : 'Invalid token';
+    return res.status(401).json({ error: 'Unauthorized', message: msg });
+  }
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function baseUrl(req) {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+/**
+ * Convierte amountCents a EUR usando la API pública de Frankfurter (BCE).
+ *
+ * RNF-16: La tasa de cambio se cachea 1 hora (withCache con allowStale=true).
+ *         Si la API de tasas falla, se usa la última tasa conocida (stale fallback).
+ *         El circuit breaker de tasas evita saturar el servicio en caso de error.
+ *
+ * @param {number} amountCents   Importe en centavos en la moneda origen
+ * @param {string} currency      Código ISO 4217 (ej: 'USD', 'GBP')
+ * @returns {Promise<number>}    Importe en céntimos de EUR
+ */
+async function toEurCents(amountCents, currency) {
+  if (!currency || currency.toUpperCase() === 'EUR') return amountCents;
+  const key = currency.toUpperCase();
+
+  const rate = await withCache(
+    `rate_${key}_EUR`,
+    () => ratesBreaker.call(async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000); // 10s timeout
+      try {
+        const r = await fetch(
+          `https://api.frankfurter.app/latest?from=${key}&to=EUR`,
+          { signal: controller.signal }
+        );
+        const data = r.ok ? await r.json() : null;
+        const fetchedRate = data?.rates?.EUR;
+        if (!fetchedRate) throw new Error(`Tasa no disponible para ${key}`);
+        return fetchedRate;
+      } finally {
+        clearTimeout(timer);
+      }
+    }),
+    60 * 60 * 1000, // TTL: 1 hora
+    { allowStale: true }  // RNF-16: fallback a última tasa conocida si falla
+  ).catch(() => 1); // Si no hay stale y falla → 1:1 (sin conversión)
+
+  return Math.round(amountCents * rate);
+}
+
+// ─── RF-01: Generador de transacciones demo realistas para España ─────────────
+//
+// Genera un historial verosímil de 18-24 meses con:
+//  - Perfil de usuario consistente (sueldo fijo, alquiler proporcional)
+//  - Pagos fijos mensuales (alquiler, suscripciones, suministros) en día fijo ±2%
+//  - Nómina siempre entre los días 25-29 de cada mes
+//  - Comercios variables con rangos de importe por categoría
+//  - Patrones estacionales (gastos navideños en diciembre, verano en julio-agosto)
+//  - Pagas extra en junio y diciembre
+//  - Categorización final mediante el servicio de IA
+
+// Comercios variables — freq: 'weekly'=3-5×/mes, 'biweekly'=1-3×/mes,
+//                             'monthly'=~1×/mes, 'rare'=~30%/mes
+// range: [min, max] céntimos de euro
+const _VARIABLE_MERCHANTS = [
+  // Alimentación
+  { desc: 'Mercadona',       cat: 'Alimentación', pm: 'debit_card',  freq: 'weekly',   range: [1500, 10500] },
+  { desc: 'Carrefour',       cat: 'Alimentación', pm: 'debit_card',  freq: 'biweekly', range: [2000, 13500] },
+  { desc: 'Lidl',            cat: 'Alimentación', pm: 'debit_card',  freq: 'biweekly', range: [900,  7500]  },
+  { desc: 'Dia',             cat: 'Alimentación', pm: 'debit_card',  freq: 'biweekly', range: [600,  4500]  },
+  { desc: 'Cafetería',       cat: 'Alimentación', pm: 'debit_card',  freq: 'weekly',   range: [150,  650]   },
+  { desc: 'Restaurante',     cat: 'Alimentación', pm: 'debit_card',  freq: 'biweekly', range: [1200, 4500]  },
+  { desc: 'Just Eat',        cat: 'Alimentación', pm: 'credit_card', freq: 'biweekly', range: [1400, 3800]  },
+  { desc: 'Telepizza',       cat: 'Alimentación', pm: 'debit_card',  freq: 'monthly',  range: [1500, 3200]  },
+  // Transporte
+  { desc: 'Repsol',          cat: 'Transporte',   pm: 'debit_card',  freq: 'biweekly', range: [4000, 8800]  },
+  { desc: 'BP',              cat: 'Transporte',   pm: 'debit_card',  freq: 'biweekly', range: [3800, 8200]  },
+  { desc: 'Cepsa',           cat: 'Transporte',   pm: 'debit_card',  freq: 'monthly',  range: [4200, 8600]  },
+  { desc: 'Renfe Cercanías', cat: 'Transporte',   pm: 'debit_card',  freq: 'monthly',  range: [1500, 5500]  },
+  { desc: 'Cabify',          cat: 'Transporte',   pm: 'credit_card', freq: 'biweekly', range: [700,  2800]  },
+  { desc: 'Aparcamiento',    cat: 'Transporte',   pm: 'debit_card',  freq: 'biweekly', range: [300,  2200]  },
+  // Ropa
+  { desc: 'Zara',            cat: 'Ropa',         pm: 'debit_card',  freq: 'monthly',  range: [2500, 13000] },
+  { desc: 'H&M',             cat: 'Ropa',         pm: 'credit_card', freq: 'monthly',  range: [1500, 7500]  },
+  { desc: 'Mango',           cat: 'Ropa',         pm: 'credit_card', freq: 'monthly',  range: [2000, 12000] },
+  { desc: 'Primark',         cat: 'Ropa',         pm: 'debit_card',  freq: 'monthly',  range: [1000, 5000]  },
+  { desc: 'Decathlon',       cat: 'Ropa',         pm: 'debit_card',  freq: 'rare',     range: [2000, 15000] },
+  // Ocio
+  { desc: 'Cines Yelmo',     cat: 'Ocio',         pm: 'debit_card',  freq: 'monthly',  range: [700,  1600]  },
+  { desc: 'Amazon',          cat: 'Otros',        pm: 'credit_card', freq: 'weekly',   range: [800,  15000] },
+  { desc: 'Steam',           cat: 'Ocio',         pm: 'credit_card', freq: 'monthly',  range: [500,  7000]  },
+  { desc: 'El Corte Inglés', cat: 'Otros',        pm: 'credit_card', freq: 'monthly',  range: [2000, 20000] },
+  { desc: 'MediaMarkt',      cat: 'Otros',        pm: 'credit_card', freq: 'rare',     range: [5000, 60000] },
+  // Salud
+  { desc: 'Farmacia',        cat: 'Salud',        pm: 'debit_card',  freq: 'monthly',  range: [400,  5500]  },
+  { desc: 'Dentista',        cat: 'Salud',        pm: 'debit_card',  freq: 'rare',     range: [5000, 25000] },
+  // Hogar
+  { desc: 'Leroy Merlin',    cat: 'Vivienda',     pm: 'debit_card',  freq: 'rare',     range: [2000, 35000] },
+  { desc: 'IKEA',            cat: 'Vivienda',     pm: 'credit_card', freq: 'rare',     range: [3000, 45000] },
+  { desc: 'Correos',         cat: 'Otros',        pm: 'debit_card',  freq: 'monthly',  range: [300,  2200]  },
+];
+
+// Pagos fijos mensuales: importe base ± variance cada mes, en día fijo
+// base: céntimos de euro base; variance: fracción máxima de variación (ej. 0.05 = ±5%)
+const _FIXED_EXPENSE_TEMPLATES = [
+  { desc: 'Netflix',             cat: 'Ocio',      pm: 'direct_debit',  day: 5,  base: 1599,  variance: 0    },
+  { desc: 'Spotify',             cat: 'Ocio',      pm: 'direct_debit',  day: 8,  base: 999,   variance: 0    },
+  { desc: 'Vodafone',            cat: 'Servicios', pm: 'direct_debit',  day: 10, base: 3900,  variance: 0.04 },
+  { desc: 'Iberdrola',           cat: 'Servicios', pm: 'direct_debit',  day: 15, base: 6500,  variance: 0.30 },
+  { desc: 'Comunidad vecinos',   cat: 'Vivienda',  pm: 'bank_transfer', day: 3,  base: 8500,  variance: 0    },
+  { desc: 'Seguro coche',        cat: 'Servicios', pm: 'direct_debit',  day: 20, base: 6200,  variance: 0.05 },
+];
+
+// Ingresos fijos: nómina + extras opcionales
+// probability: chance per month (1.0 = every month)
+const _INCOME_TEMPLATES = [
+  { desc: 'Freelance cliente',      cat: 'Freelance',      pm: 'bank_transfer', dayRange: [1, 15],  range: [30000, 150000], probability: 0.35 },
+  { desc: 'Transferencia recibida', cat: 'Otros ingresos', pm: 'bizum',         dayRange: [1, 28],  range: [2000,  30000],  probability: 0.20 },
+];
+
+/**
+ * RF-01: Genera transacciones demo realistas para una cuenta bancaria recién importada.
+ *
+ * @param {string} bankAccountId  UUID de la cuenta
+ * @param {string} userId         UUID del usuario
+ * @param {number} targetBalanceCents  Saldo objetivo en céntimos de EUR
+ */
+/**
+ * RF-01: Genera un historial de transacciones demo realista usando el servicio
+ * de IA (Gemini 1.5 Flash) como primera opción, con doble fallback:
+ *   1.º  Python AI /generate-sample-transactions (Gemini)
+ *   2.º  Python AI /generate-sample-transactions (reglas estadísticas)
+ *   3.º  Generador local de reglas (sin red, siempre disponible)
+ *
+ * En todos los casos el saldo cuadra exactamente con targetBalanceCents y
+ * las descripciones son enriquecidas por el modelo de categorización ML.
+ */
+async function generateRandomTransactions(bankAccountId, userId, targetBalanceCents) {
+  const today      = new Date();
+  const monthsBack = 18 + Math.floor(Math.random() * 7);  // 18-24 meses aleatorio
+
+  // ── 1. Intentar con el servicio Python de IA ─────────────────────────────
+  let aiTxs    = null;
+  let aiSource = 'local';
+  try {
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 60000); // 60 s para Gemini
+    const aiResp = await fetch(`${AI_SERVICE_URL}/generate-sample-transactions`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        balance_eur: targetBalanceCents / 100,
+        months:      monthsBack,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (aiResp.ok) {
+      const aiBody = await aiResp.json();
+      if (Array.isArray(aiBody.transactions) && aiBody.transactions.length >= monthsBack * 8) {
+        aiTxs    = aiBody.transactions;
+        aiSource = aiBody.source || 'ai';
+      }
+    }
+  } catch (err) {
+    console.warn('[generateTx] Servicio AI no disponible, usando generador local:', err.message);
+  }
+
+  // ── 2. Si el servicio AI devolvió transacciones, usar esas ───────────────
+  if (aiTxs) {
+    console.log(`[generateTx] Usando ${aiTxs.length} txs del servicio AI (source=${aiSource})`);
+
+    // Normalizar al formato interno {amountCents, isExpense, desc, cat, pm, dateStr}
+    let txList = aiTxs.map(t => ({
+      amountCents: Math.max(1, Number(t.cents) || Math.round(parseFloat(t.amount || 0) * 100)),
+      isExpense:   t.type === 'expense',
+      desc:        String(t.desc || t.description || '').trim() || 'Transacción',
+      cat:         String(t.cat || '').trim(),
+      pm:          String(t.pm || t.payment_method || 'debit_card').trim(),
+      dateStr:     String(t.date || '').trim(),
+    })).filter(t => t.amountCents > 0 && t.dateStr.match(/^\d{4}-\d{2}-\d{2}$/));
+
+    // Cuadrar saldo distribuyendo la diferencia en los ingresos existentes
+    // (sin añadir transacciones de ajuste artificiales que inflarían categorías)
+    {
+      const incomes    = txList.filter(t => !t.isExpense);
+      const totalInc   = incomes.reduce((s, t) => s + t.amountCents, 0);
+      const totalExp   = txList.filter(t => t.isExpense).reduce((s, t) => s + t.amountCents, 0);
+      const diffCents  = targetBalanceCents - (totalInc - totalExp);
+
+      if (diffCents !== 0 && incomes.length > 0 && totalInc > 0) {
+        // Escalar todos los ingresos proporcionalmente para cuadrar el saldo exacto
+        const factor = Math.max(0.5, Math.min(3.0, (totalInc + diffCents) / totalInc));
+        let applied = 0;
+        for (const t of incomes) {
+          const newAmt   = Math.max(1, Math.round(t.amountCents * factor));
+          applied       += newAmt - t.amountCents;
+          t.amountCents  = newAmt;
+        }
+        // Ajuste residual de céntimos en el primer ingreso
+        const residual = diffCents - applied;
+        if (residual !== 0) {
+          incomes[0].amountCents = Math.max(1, incomes[0].amountCents + residual);
+        }
+      }
+    }
+
+    // Categorizar en lote con el modelo ML
+    const batchItems = txList.map(tx => ({
+      description: tx.desc, type: tx.isExpense ? 'expense' : 'income',
+    }));
+    let aiCategories;
+    try {
+      aiCategories = await batchCategorize(batchItems);
+    } catch {
+      aiCategories = txList.map(tx => tx.cat);
+    }
+
+    // Categorías genéricas de fallback que el modelo ML devuelve cuando no
+    // tiene suficiente confianza. Si el AI generó una categoría específica
+    // en tx.cat, preferimos esa sobre el fallback genérico del ML.
+    const ML_FALLBACK_CATS = new Set([
+      'Otros', 'Otros gastos', 'Otros ingresos', 'other', 'Other',
+    ]);
+
+    for (let i = 0; i < txList.length; i++) {
+      const tx       = txList[i];
+      const amount   = (tx.amountCents / 100).toFixed(2);
+      const mlCat    = aiCategories[i] && aiCategories[i].trim();
+      // Si el ML devolvió una categoría específica (no genérica), usarla.
+      // Si el ML devolvió "Otros*", preferir la categoría pre-asignada por el
+      // generador de IA (tx.cat), que ya es semánticamente correcta.
+      const category = (mlCat && !ML_FALLBACK_CATS.has(mlCat))
+        ? mlCat
+        : (tx.cat && tx.cat.trim()) || mlCat || (tx.isExpense ? 'Otros gastos' : 'Otros ingresos');
+      await db.query(
+        `INSERT INTO transactions
+           (user_id, bank_account_id, amount, type, description, category, date, payment_method)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [userId, bankAccountId, amount, tx.isExpense ? 'expense' : 'income',
+         tx.desc, category, tx.dateStr, tx.pm]
+      );
+    }
+    return;
+  }
+
+  // ── 3. Fallback local: generador budget-first (sin transacciones de ajuste) ─
+  console.log('[generateTx] Usando generador de reglas estadísticas local (budget-first)');
+
+  const salaryDay = 25 + Math.floor(Math.random() * 5);
+  const hasGym    = Math.random() > 0.45;
+  const hasHBO    = Math.random() > 0.60;
+
+  // ─── PASO 1: Pre-calcular todos los periodos mensuales ───────────────────
+  const monthPeriods = [];
+  for (let mBack = monthsBack; mBack >= 0; mBack--) {
+    const yr       = today.getFullYear();
+    const mo       = today.getMonth() - mBack;
+    const midx     = new Date(yr, mo, 1).getMonth(); // 0-11
+    const seasonal = midx === 11 ? 1.20 : (midx === 6 || midx === 7) ? 1.15 : 1.0;
+    const salaryDate = new Date(yr, mo, salaryDay);
+    const hasSalary  = salaryDate <= today;
+    const extraDay   = 15 + Math.floor(Math.random() * 5);
+    const extraDate  = new Date(yr, mo, extraDay);
+    const hasExtra   = (midx === 5 || midx === 11) && extraDate <= today;
+    monthPeriods.push({ yr, mo, midx, seasonal, hasSalary, hasExtra, salaryDate, extraDate });
+  }
+
+  // ─── PASO 2: Derivar salario desde el saldo objetivo ────────────────────
+  // Queremos: ingresos_totales × tasa_ahorro = targetBalance
+  // ingresos_totales ≈ salaryCents × (nóminas + pagas_extra × ratio_paga)
+  const salaryCount  = monthPeriods.filter(p => p.hasSalary).length;
+  const extraCount   = monthPeriods.filter(p => p.hasExtra).length;
+  const extraRatio   = 0.85 + Math.random() * 0.30;   // paga extra: 85-115% del salario
+  const savingsRate  = 0.10 + Math.random() * 0.15;   // tasa ahorro objetivo: 10-25%
+  const incomeMultiplier = Math.max(1, salaryCount + extraCount * extraRatio);
+  const rawSalary    = Math.round(targetBalanceCents / (savingsRate * incomeMultiplier));
+  const salaryCents  = Math.max(120000, Math.min(350000, rawSalary));
+
+  const rentCents = Math.floor(salaryCents * (0.28 + Math.random() * 0.18));
+  const gymBase   = hasGym ? (3500 + Math.floor(Math.random() * 3000)) : 0;
+
+  const fixedExpConfig = [
+    { desc: 'Alquiler mensual', cat: 'Vivienda',  pm: 'bank_transfer', day: 1,  base: rentCents, variance: 0    },
+    ..._FIXED_EXPENSE_TEMPLATES,
+    ...(hasHBO ? [{ desc: 'HBO Max',  cat: 'Ocio',  pm: 'direct_debit', day: 12, base: 899,     variance: 0 }] : []),
+    ...(hasGym ? [{ desc: 'Gimnasio', cat: 'Salud', pm: 'direct_debit', day: 2,  base: gymBase, variance: 0 }] : []),
+  ];
+
+  // ─── PASO 3: Generar ingresos y gastos fijos ─────────────────────────────
+  const incomeTxs    = [];
+  const fixedExpTxs  = [];
+  let totalIncomeCents   = 0;
+  let totalFixedExpCents = 0;
+
+  for (let idx = 0; idx < monthPeriods.length; idx++) {
+    const { yr, mo, midx, hasSalary, hasExtra, salaryDate, extraDate } = monthPeriods[idx];
+
+    // Nómina con ligera subida salarial (más antigua = más baja)
+    if (hasSalary) {
+      const drift  = 1 + idx * 0.0005;
+      const amount = Math.round(salaryCents * drift);
+      totalIncomeCents += amount;
+      incomeTxs.push({ amountCents: amount, isExpense: false,
+        desc: 'Nómina', cat: 'Salario', pm: 'bank_transfer',
+        dateStr: salaryDate.toISOString().split('T')[0] });
+    }
+
+    // Pagas extra (junio y diciembre)
+    if (hasExtra) {
+      const amount = Math.round(salaryCents * extraRatio);
+      totalIncomeCents += amount;
+      incomeTxs.push({ amountCents: amount, isExpense: false,
+        desc: 'Paga extra', cat: 'Salario', pm: 'bank_transfer',
+        dateStr: extraDate.toISOString().split('T')[0] });
+    }
+
+    // Ingresos variables (freelance, transferencias recibidas)
+    for (const tmpl of _INCOME_TEMPLATES) {
+      if (Math.random() < (tmpl.probability || 0)) {
+        const [dMin, dMax] = tmpl.dayRange;
+        const day    = dMin + Math.floor(Math.random() * (dMax - dMin + 1));
+        const txDate = new Date(yr, mo, day);
+        if (txDate > today) continue;
+        const amount = tmpl.range[0] + Math.floor(Math.random() * (tmpl.range[1] - tmpl.range[0]));
+        totalIncomeCents += amount;
+        incomeTxs.push({ amountCents: amount, isExpense: false,
+          desc: tmpl.desc, cat: tmpl.cat, pm: tmpl.pm,
+          dateStr: txDate.toISOString().split('T')[0] });
+      }
+    }
+
+    // Gastos fijos
+    for (const fe of fixedExpConfig) {
+      const txDate = new Date(yr, mo, fe.day);
+      if (txDate > today) continue;
+      const variation = 1 + (Math.random() * 2 - 1) * fe.variance;
+      const amount    = Math.round(fe.base * variation);
+      totalFixedExpCents += amount;
+      fixedExpTxs.push({ amountCents: amount, isExpense: true,
+        desc: fe.desc, cat: fe.cat, pm: fe.pm,
+        dateStr: txDate.toISOString().split('T')[0] });
+    }
+  }
+
+  // ─── PASO 4: Calcular presupuesto de gastos variables ────────────────────
+  // variableBudget = ingreso_total - saldo_objetivo - gastos_fijos
+  let variableBudget = totalIncomeCents - targetBalanceCents - totalFixedExpCents;
+
+  // Si los gastos fijos ya superan el presupuesto, reducir el alquiler
+  if (variableBudget < 0) {
+    const overage  = -variableBudget;
+    const rentTxs  = fixedExpTxs.filter(t => t.desc === 'Alquiler mensual');
+    if (rentTxs.length > 0) {
+      const cutPerMonth = Math.ceil(overage / rentTxs.length);
+      for (const t of rentTxs) {
+        const cut     = Math.min(cutPerMonth, Math.max(0, t.amountCents - 30000));
+        totalFixedExpCents -= cut;
+        t.amountCents      -= cut;
+      }
+      variableBudget = totalIncomeCents - targetBalanceCents - totalFixedExpCents;
+    }
+    variableBudget = Math.max(0, variableBudget);
+  }
+
+  // ─── PASO 5: Generar gastos variables en bruto ───────────────────────────
+  const rawVarTxs = [];
+  let rawVarTotal = 0;
+
+  for (const { yr, mo, seasonal } of monthPeriods) {
+    for (const merchant of _VARIABLE_MERCHANTS) {
+      let occurrences;
+      switch (merchant.freq) {
+        case 'weekly':   occurrences = 3 + Math.floor(Math.random() * 3); break;
+        case 'biweekly': occurrences = 1 + Math.floor(Math.random() * 3); break;
+        case 'monthly':  occurrences = Math.random() > 0.25 ? 1 : 0; break;
+        case 'rare':     occurrences = Math.random() < 0.30 ? 1 : 0; break;
+        default:         occurrences = 1;
+      }
+      for (let k = 0; k < occurrences; k++) {
+        const day    = 1 + Math.floor(Math.random() * 28);
+        const txDate = new Date(yr, mo, day);
+        if (txDate > today) continue;
+        const [rMin, rMax] = merchant.range;
+        const amount = Math.round((rMin + Math.floor(Math.random() * (rMax - rMin))) * seasonal);
+        rawVarTotal += amount;
+        rawVarTxs.push({ amountCents: amount, isExpense: true,
+          desc: merchant.desc, cat: merchant.cat, pm: merchant.pm,
+          dateStr: txDate.toISOString().split('T')[0] });
+      }
+    }
+  }
+
+  // ─── PASO 6: Escalar gastos variables al presupuesto exacto ──────────────
+  // El factor de escala garantiza que suma(gastos_variables) = variableBudget
+  const scale  = rawVarTotal > 0 ? variableBudget / rawVarTotal : 1.0;
+  const varTxs = rawVarTxs.map(tx => ({
+    ...tx,
+    amountCents: Math.max(1, Math.round(tx.amountCents * scale)),
+  }));
+
+  // Ajuste de céntimos residuales por redondeos (distribuir en las más grandes)
+  let residual = variableBudget - varTxs.reduce((s, t) => s + t.amountCents, 0);
+  if (residual !== 0 && varTxs.length > 0) {
+    const bySize = varTxs.slice().sort((a, b) => b.amountCents - a.amountCents);
+    for (const tx of bySize) {
+      if (residual === 0) break;
+      const maxAdj = Math.max(1, Math.round(tx.amountCents * 0.02));
+      const adj    = residual > 0 ? Math.min(residual, maxAdj) : Math.max(residual, -maxAdj);
+      tx.amountCents += adj;
+      residual       -= adj;
+    }
+  }
+
+  // ─── PASO 7: Combinar todas las transacciones (sin ajuste de saldo) ───────
+  // Por construcción: totalIncomeCents - totalFixedExpCents - sum(varTxs) = targetBalanceCents
+  const txList = [...incomeTxs, ...fixedExpTxs, ...varTxs];
+
+  // Categorizar en lote y luego insertar
+  const batchItems = txList.map(tx => ({ description: tx.desc, type: tx.isExpense ? 'expense' : 'income' }));
+  let aiCategories;
+  try {
+    aiCategories = await batchCategorize(batchItems);
+  } catch {
+    aiCategories = txList.map(tx => tx.cat);
+  }
+
+  // Misma lógica que en el path AI: preferir categoría específica del ML,
+  // pero si devuelve un fallback genérico usar la categoría predefinida del generador.
+  const _ML_FALLBACK_CATS = new Set([
+    'Otros', 'Otros gastos', 'Otros ingresos', 'other', 'Other',
+  ]);
+
+  for (let i = 0; i < txList.length; i++) {
+    const tx       = txList[i];
+    const amount   = (tx.amountCents / 100).toFixed(2);
+    const mlCat    = aiCategories[i] && aiCategories[i].trim();
+    const category = (mlCat && !_ML_FALLBACK_CATS.has(mlCat))
+      ? mlCat
+      : (tx.cat && tx.cat.trim()) || mlCat || (tx.isExpense ? 'Otros gastos' : 'Otros ingresos');
+    await db.query(
+      `INSERT INTO transactions
+         (user_id, bank_account_id, amount, type, description, category, date, payment_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [userId, bankAccountId, amount, tx.isExpense ? 'expense' : 'income',
+       tx.desc, category, tx.dateStr, tx.pm]
+    );
+  }
+}
+
+// ─── GET /institutions ────────────────────────────────────────────────────────
+
+router.get('/institutions', authenticateToken, async (req, res) => {
+  try {
+    const country = req.query.country || null;
+    const institutions = await plaid.listInstitutions(country);
+    res.json({ institutions });
+  } catch (err) {
+    console.error('banks/institutions error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /connect ─────────────────────────────────────────────────────────────
+//
+// Inicia el flujo Plaid:
+//  - Mock mode  → devuelve is_mock:true (Flutter navega a setup manual)
+//  - Real mode  → crea link_token y devuelve auth_url apuntando a /plaid-link
+
+router.post('/connect', authenticateToken, async (req, res) => {
+  const { institution_id } = req.body;
+  if (!institution_id) {
+    return res.status(400).json({ error: 'Bad Request', message: 'institution_id is required' });
+  }
+
+  try {
+    // CU-02 FA1: Verificar límite de 3 intentos fallidos en la última hora
+    const failedAttempts = await db.query(
+      `SELECT COUNT(*) AS cnt FROM bank_connections
+       WHERE user_id = $1 AND institution_id = $2 AND status = 'failed'
+         AND created_at > NOW() - INTERVAL '1 hour'`,
+      [req.user.userId, institution_id]
+    );
+    const attemptCount = parseInt(failedAttempts.rows[0].cnt);
+    if (attemptCount >= 3) {
+      return res.status(429).json({
+        error: 'MAX_ATTEMPTS_REACHED',
+        message: 'Has alcanzado el límite de 3 intentos fallidos para este banco. Espera 1 hora o contacta con soporte.',
+        code: 'MAX_ATTEMPTS_REACHED',
+        retry_after_minutes: 60,
+      });
+    }
+
+    // Obtener nombre/logo del banco para mostrarlo en la UI
+    let institutionName = institution_id;
+    let institutionLogo = null;
+    try {
+      const institutions = await plaid.listInstitutions();
+      const inst = institutions.find(i => i.id === institution_id);
+      if (inst) {
+        institutionName = inst.name;
+        institutionLogo = inst.logo || null;
+      }
+    } catch (_) { /* no crítico */ }
+
+    // Insertar registro de conexión en estado pending
+    const insertResult = await db.query(
+      `INSERT INTO bank_connections (user_id, institution_id, status, institution_name, institution_logo)
+       VALUES ($1, $2, 'pending', $3, $4)
+       RETURNING id`,
+      [req.user.userId, institution_id, institutionName, institutionLogo]
+    );
+    const connectionId = insertResult.rows[0].id;
+
+    // Mock mode: Flutter navega a la página de setup manual
+    if (plaid.isMockMode()) {
+      console.log(`[mock/connect] userId=${req.user.userId} connectionId=${connectionId} institution=${institution_id}`);
+      return res.json({
+        connection_id: connectionId,
+        is_mock: true,
+        institution_name: institutionName,
+      });
+    }
+
+    // Sandbox mode: crear token server-side, obtener lista de cuentas con tasas
+    // de cambio reales y devolver a Flutter para que el usuario elija cuáles vincular.
+    const publicToken = await plaid.createSandboxPublicToken(institution_id);
+    const { access_token } = await plaid.exchangePublicToken(publicToken);
+
+    // Guardar access_token para usarlo después en /import-accounts
+    await db.query(
+      'UPDATE bank_connections SET requisition_id = $1 WHERE id = $2',
+      [access_token, connectionId]
+    );
+
+    const rawAccounts = await plaid.fetchAccounts(access_token);
+
+    // Convertir saldos a EUR con tasa de cambio real (frankfurter.app / BCE)
+    const pendingAccounts = await Promise.all(rawAccounts.map(async acct => ({
+      external_account_id: acct.externalAccountId,
+      name:                acct.name,
+      currency:            acct.currency,
+      balance_cents:       acct.balanceCents,
+      balance_eur_cents:   await toEurCents(acct.balanceCents, acct.currency),
+      iban:                acct.iban,
+    })));
+
+    console.log(`[sandbox/connect] userId=${req.user.userId} connectionId=${connectionId} pending=${pendingAccounts.length}`);
+    res.json({
+      connection_id:    connectionId,
+      auth_url:         '',
+      institution_name: institutionName,
+      is_mock:          false,
+      pending_accounts: pendingAccounts,
+    });
+  } catch (err) {
+    console.error('banks/connect error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── GET /plaid-link ──────────────────────────────────────────────────────────
+//
+// Página de autorización bancaria para el WebView de Flutter.
+//
+// Reemplaza el flujo anterior basado en el SDK de Plaid Link JS, que en
+// Android WebView realizaba una redirección de página completa a los
+// servidores de Plaid, descargando el contexto JavaScript de la página
+// original y haciendo que onSuccess nunca se disparara.
+//
+// Solución: botón simple → form POST → /plaid-authorize (sin JS externo).
+// El backend crea el public_token vía API de sandbox de Plaid,
+// intercambia el token y redirige a /callback-success.
+// Flutter detecta callback-success en onPageFinished y cierra el WebView.
+
+router.get('/plaid-link', (req, res) => {
+  const connectionId = req.query.ref || '';
+  const base = baseUrl(req);
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conectar banco — Finora</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f0f4f8; display: flex; justify-content: center;
+           align-items: center; min-height: 100vh; padding: 16px; }
+    .card { background: white; border-radius: 16px; padding: 40px 32px;
+            max-width: 400px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            text-align: center; }
+    .logo { font-size: 56px; margin-bottom: 20px; }
+    h1 { font-size: 22px; color: #1e293b; margin-bottom: 10px; }
+    p  { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px; }
+    .badge { display: inline-block; background: #dbeafe; color: #1d4ed8;
+             font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px;
+             text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+    .perms { background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 28px;
+             text-align: left; }
+    .perm { display: flex; align-items: center; gap: 10px; padding: 5px 0;
+            font-size: 13px; color: #374151; }
+    .perm::before { content: '✓'; color: #22c55e; font-weight: bold; flex-shrink: 0; }
+    .btn { display: block; width: 100%; padding: 14px; background: #3B82F6; color: white;
+           border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+           cursor: pointer; margin-bottom: 12px; }
+    .btn:hover { background: #2563eb; }
+    .btn:active { opacity: 0.85; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .spinner { display: none; width: 18px; height: 18px;
+               border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+               border-radius: 50%; animation: spin 0.8s linear infinite;
+               vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🏦</div>
+    <div><span class="badge">Plaid · Sandbox</span></div>
+    <h1>Autorizar acceso bancario</h1>
+    <p>Finora solicitará acceso de solo lectura a tu información bancaria.</p>
+    <div class="perms">
+      <div class="perm">Ver saldo de cuentas</div>
+      <div class="perm">Ver movimientos (últimos 90 días)</div>
+      <div class="perm">Datos cifrados · Solo lectura</div>
+    </div>
+    <form action="${base}/api/v1/banks/plaid-authorize" method="POST"
+          onsubmit="handleSubmit(this)">
+      <input type="hidden" name="ref" value="${connectionId}">
+      <button type="submit" class="btn" id="authBtn">
+        <span class="spinner" id="sp"></span>Autorizar acceso
+      </button>
+    </form>
+  </div>
+  <script>
+    function handleSubmit(form) {
+      const btn = document.getElementById('authBtn');
+      const sp  = document.getElementById('sp');
+      btn.disabled = true;
+      sp.style.display = 'inline-block';
+      btn.childNodes[btn.childNodes.length - 1].textContent = 'Conectando…';
+    }
+  </script>
+</body>
+</html>`);
+});
+
+// ─── POST /plaid-authorize ────────────────────────────────────────────────────
+//
+// Autorización bancaria sin redirección en el WebView.
+// Recibe el connectionId vía form POST desde /plaid-link.
+// Crea un public_token de sandbox directamente en el servidor usando la API
+// de Plaid (/sandbox/public_token/create), lo intercambia por un access_token,
+// persiste las cuentas y marca la conexión como linked.
+// Redirige a /callback-success → Flutter detecta la URL en onNavigationRequest
+// y cierra el WebView automáticamente.
+//
+// Sin autenticación JWT: la seguridad proviene del connectionId opaco (UUID).
+
+router.post('/plaid-authorize', async (req, res) => {
+  const connectionId = req.body.ref;
+  const base = baseUrl(req);
+
+  if (!connectionId) {
+    return res.redirect(`${base}/api/v1/banks/callback-success?error=1`);
+  }
+
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1',
+      [connectionId]
+    );
+    if (connResult.rows.length === 0) {
+      console.warn(`[plaid-authorize] connectionId=${connectionId} not found`);
+      return res.redirect(`${base}/api/v1/banks/callback-success?error=1`);
+    }
+    const conn = connResult.rows[0];
+
+    // Crear public_token de sandbox en el servidor (sin SDK de Plaid Link)
+    const institutionId = conn.institution_id || 'ins_109508';
+    const publicToken = await plaid.createSandboxPublicToken(institutionId);
+
+    // Intercambiar public_token → access_token
+    const { access_token } = await plaid.exchangePublicToken(publicToken);
+
+    // Guardar access_token en requisition_id
+    await db.query(
+      'UPDATE bank_connections SET requisition_id = $1 WHERE id = $2',
+      [access_token, connectionId]
+    );
+
+    // Obtener cuentas desde Plaid
+    const accounts = await plaid.fetchAccounts(access_token);
+    for (const acct of accounts) {
+      await db.query(
+        `INSERT INTO bank_accounts
+           (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (external_account_id) DO UPDATE
+           SET balance_cents = EXCLUDED.balance_cents,
+               account_name  = EXCLUDED.account_name`,
+        [connectionId, conn.user_id, acct.externalAccountId, acct.iban,
+          acct.name, acct.currency, acct.balanceCents]
+      );
+    }
+
+    // Marcar conexión como linked
+    await db.query(
+      `UPDATE bank_connections
+       SET status = 'linked', linked_at = NOW(), last_sync_at = NOW()
+       WHERE id = $1`,
+      [connectionId]
+    );
+
+    // RNF-05: Crear consentimiento PSD2 (90 días según normativa SCA)
+    await createPsd2Consent(connectionId, conn.user_id);
+
+    console.log(`[plaid-authorize] connectionId=${connectionId} userId=${conn.user_id} accounts=${accounts.length}`);
+    res.redirect(`${base}/api/v1/banks/callback-success`);
+  } catch (err) {
+    console.error('banks/plaid-authorize error:', err);
+    res.redirect(`${base}/api/v1/banks/callback-success?error=1`);
+  }
+});
+
+// ─── POST /plaid-exchange ─────────────────────────────────────────────────────
+//
+// Intercambia el public_token de Plaid Link por un access_token permanente.
+// Llamado por el cliente HTTP Dart de Flutter (ya no desde el WebView),
+// lo que garantiza que el JWT y la red funcionan correctamente.
+
+router.post('/plaid-exchange', authenticateToken, async (req, res) => {
+  const { public_token, ref: connectionId, institution_name } = req.body;
+
+  if (!connectionId || !public_token) {
+    return res.status(400).json({ error: 'Bad Request', message: 'public_token y ref son requeridos' });
+  }
+
+  try {
+    // 1. Obtener la conexión de la BD (verificar que pertenece al usuario autenticado)
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [connectionId, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
+    }
+    const conn = connResult.rows[0];
+
+    // 2. Intercambiar public_token → access_token
+    const { access_token } = await plaid.exchangePublicToken(public_token);
+
+    // Guardar el access_token en requisition_id (campo de propósito genérico)
+    await db.query(
+      'UPDATE bank_connections SET requisition_id = $1 WHERE id = $2',
+      [access_token, connectionId]
+    );
+
+    // 3. Obtener cuentas desde Plaid
+    const accounts = await plaid.fetchAccounts(access_token);
+
+    // Usar institution_name enviado por el browser (viene de Plaid metadata)
+    const instName = institution_name || conn.institution_name || 'Banco';
+
+    for (const acct of accounts) {
+      await db.query(
+        `INSERT INTO bank_accounts
+           (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (external_account_id) DO UPDATE
+           SET balance_cents = EXCLUDED.balance_cents,
+               account_name  = EXCLUDED.account_name`,
+        [connectionId, conn.user_id, acct.externalAccountId, acct.iban,
+          acct.name, acct.currency, acct.balanceCents]
+      );
+    }
+
+    // 4. Marcar conexión como linked
+    await db.query(
+      `UPDATE bank_connections
+       SET status = 'linked', institution_name = $1,
+           linked_at = NOW(), last_sync_at = NOW()
+       WHERE id = $2`,
+      [instName, connectionId]
+    );
+
+    // RNF-05: Crear consentimiento PSD2 (90 días según normativa SCA)
+    await createPsd2Consent(connectionId, conn.user_id);
+
+    console.log(`[plaid-exchange] connectionId=${connectionId} userId=${conn.user_id} accounts=${accounts.length}`);
+    res.json({ ok: true, accounts: accounts.length });
+  } catch (err) {
+    console.error('banks/plaid-exchange error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── GET /callback ────────────────────────────────────────────────────────────
+//
+// Callback de compatibilidad (ya no es el flujo principal con Plaid).
+// Se mantiene por si algún proveedor futuro redirige aquí.
+
+router.get('/callback', async (req, res) => {
+  const connectionId = req.query.ref;
+  if (!connectionId) {
+    return res.status(400).send('Missing ref parameter');
+  }
+
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1',
+      [connectionId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).send('Connection not found');
+    }
+    const conn = connResult.rows[0];
+    if (conn.status === 'linked') {
+      return res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success`);
+    }
+
+    await db.query("UPDATE bank_connections SET status = 'failed' WHERE id = $1", [connectionId]).catch(() => {});
+    res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success?error=1`);
+  } catch (err) {
+    console.error('banks/callback error:', err);
+    res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success?error=1`);
+  }
+});
+
+// ─── GET /mock-auth ───────────────────────────────────────────────────────────
+
+router.get('/mock-auth', (req, res) => {
+  const ref = req.query.ref || '';
+  const callbackUrl = `${baseUrl(req)}/api/v1/banks/mock-callback?ref=${encodeURIComponent(ref)}`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Banco Demo – Autorizar acceso</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f0f4f8; display: flex; justify-content: center;
+           align-items: center; min-height: 100vh; padding: 16px; }
+    .card { background: white; border-radius: 16px; padding: 40px 32px;
+            max-width: 400px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
+    .logo { width: 64px; height: 64px; background: #3B82F6; border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; margin: 0 auto 24px; }
+    h1 { font-size: 22px; color: #1e293b; text-align: center; margin-bottom: 8px; }
+    p { font-size: 14px; color: #64748b; text-align: center; margin-bottom: 28px; line-height: 1.5; }
+    .perms { background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 28px; }
+    .perm { display: flex; align-items: center; gap: 10px; padding: 6px 0;
+            font-size: 13px; color: #374151; }
+    .perm::before { content: '✓'; color: #22c55e; font-weight: bold; }
+    .btn { display: block; width: 100%; padding: 14px; background: #3B82F6; color: white;
+           border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+           cursor: pointer; text-decoration: none; text-align: center; margin-bottom: 12px; }
+    .btn:hover { background: #2563eb; }
+    .btn-cancel { background: white; color: #64748b; border: 1px solid #e2e8f0; font-size: 14px; }
+    .btn-cancel:hover { background: #f8fafc; }
+    .badge { display: inline-block; background: #dbeafe; color: #1d4ed8;
+             font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px;
+             text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+    .center { text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🏦</div>
+    <div class="center"><span class="badge">Entorno de pruebas</span></div>
+    <h1>Banco Demo</h1>
+    <p>Finora solicita acceso de solo lectura a tu información bancaria.</p>
+    <div class="perms">
+      <div class="perm">Ver saldo de cuentas</div>
+      <div class="perm">Ver movimientos (12 meses)</div>
+      <div class="perm">Datos cifrados y seguros</div>
+    </div>
+    <a class="btn" href="${callbackUrl}">Autorizar acceso</a>
+    <a class="btn btn-cancel" href="javascript:window.close()">Cancelar</a>
+  </div>
+</body>
+</html>`);
+});
+
+// ─── GET /mock-callback ───────────────────────────────────────────────────────
+
+router.get('/mock-callback', async (req, res) => {
+  const connectionId = req.query.ref;
+  if (!connectionId) {
+    return res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success`);
+  }
+
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1',
+      [connectionId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success`);
+    }
+    const conn = connResult.rows[0];
+
+    if (conn.status !== 'linked') {
+      const mockAccessToken = conn.requisition_id || connectionId;
+      const accounts = await plaid.fetchAccounts(mockAccessToken);
+
+      for (const acct of accounts) {
+        await db.query(
+          `INSERT INTO bank_accounts
+             (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (external_account_id) DO NOTHING`,
+          [connectionId, conn.user_id, acct.externalAccountId, acct.iban,
+            acct.name, acct.currency, acct.balanceCents]
+        );
+      }
+
+      await db.query(
+        `UPDATE bank_connections
+         SET status = 'linked', institution_name = COALESCE(institution_name, 'Banco Demo'),
+             linked_at = NOW(), last_sync_at = NOW()
+         WHERE id = $1`,
+        [connectionId]
+      );
+
+      // RNF-05: Crear consentimiento PSD2
+      await createPsd2Consent(connectionId, conn.user_id);
+    }
+  } catch (err) {
+    console.error('banks/mock-callback error:', err);
+  }
+
+  res.redirect(`${baseUrl(req)}/api/v1/banks/callback-success`);
+});
+
+// ─── GET /callback-success ────────────────────────────────────────────────────
+
+router.get('/callback-success', (req, res) => {
+  const isError = req.query.error === '1';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${isError ? 'Error' : '¡Banco conectado!'}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f0f4f8; display: flex; justify-content: center;
+           align-items: center; min-height: 100vh; padding: 16px; }
+    .card { background: white; border-radius: 16px; padding: 40px 32px;
+            max-width: 400px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            text-align: center; }
+    .icon { font-size: 64px; margin-bottom: 24px; }
+    h1 { font-size: 24px; color: #1e293b; margin-bottom: 12px; }
+    p { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 28px; }
+    .btn { display: inline-block; padding: 14px 32px; background: #3B82F6; color: white;
+           border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
+           cursor: pointer; text-decoration: none; }
+    .btn:hover { background: #2563eb; }
+    .btn-error { background: #ef4444; }
+    .countdown { font-size: 12px; color: #94a3b8; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">${isError ? '❌' : '✅'}</div>
+    <h1>${isError ? 'Error al conectar' : '¡Banco conectado!'}</h1>
+    <p>${isError
+      ? 'No se pudo conectar el banco. Por favor, inténtalo de nuevo desde la app.'
+      : 'Tu banco se ha conectado correctamente. Ya puedes volver a Finora.'
+    }</p>
+    <button class="btn${isError ? ' btn-error' : ''}" onclick="closeAndReturn()">
+      ← Volver a Finora
+    </button>
+    ${!isError ? '<p class="countdown" id="cd">Cerrando en <span id="s">3</span>s…</p>' : ''}
+  </div>
+  <script>
+    function closeAndReturn() {
+      window.close();
+      history.go(-999);
+    }
+    ${!isError ? `
+    let secs = 3;
+    const el = document.getElementById('s');
+    const timer = setInterval(() => {
+      secs--;
+      if (el) el.textContent = secs;
+      if (secs <= 0) { clearInterval(timer); closeAndReturn(); }
+    }, 1000);
+    ` : ''}
+  </script>
+</body>
+</html>`);
+});
+
+// ─── GET /accounts ────────────────────────────────────────────────────────────
+
+router.get('/accounts', authenticateToken, async (req, res) => {
+  try {
+    console.log(`[accounts] querying for userId=${req.user.userId}`);
+    const result = await db.query(
+      `SELECT ba.id, ba.connection_id, ba.external_account_id, ba.iban,
+              ba.account_name, ba.account_type, ba.currency, ba.balance_cents,
+              bc.institution_name, bc.institution_logo, bc.status as connection_status,
+              bc.last_sync_at
+       FROM bank_accounts ba
+       JOIN bank_connections bc ON bc.id = ba.connection_id
+       WHERE ba.user_id = $1 AND bc.status = 'linked'
+       ORDER BY ba.created_at ASC`,
+      [req.user.userId]
+    );
+    console.log(`[accounts] found ${result.rows.length} accounts for userId=${req.user.userId}`);
+    res.json({ accounts: result.rows });
+  } catch (err) {
+    console.error('banks/accounts error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── GET /accounts/summary — RF-12: Balance consolidado de todas las cuentas ──
+
+router.get('/accounts/summary', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Balance consolidado de todas las cuentas vinculadas
+    const summaryResult = await db.query(
+      `SELECT
+         COUNT(ba.id)::INT                                           AS account_count,
+         COALESCE(SUM(ba.balance_cents), 0)::BIGINT                 AS total_balance_cents,
+         json_agg(json_build_object(
+           'id',               ba.id,
+           'account_name',     ba.account_name,
+           'account_type',     ba.account_type,
+           'currency',         ba.currency,
+           'balance_cents',    ba.balance_cents,
+           'iban',             ba.iban,
+           'institution_name', bc.institution_name,
+           'institution_logo', bc.institution_logo,
+           'last_sync_at',     bc.last_sync_at,
+           'connection_status',bc.status
+         ) ORDER BY ba.created_at ASC) AS accounts
+       FROM bank_accounts ba
+       JOIN bank_connections bc ON bc.id = ba.connection_id
+       WHERE ba.user_id = $1 AND bc.status = 'linked'`,
+      [userId]
+    );
+
+    const row = summaryResult.rows[0];
+    res.json({
+      account_count:       row.account_count || 0,
+      total_balance_cents: Number(row.total_balance_cents) || 0,
+      total_balance_eur:   (Number(row.total_balance_cents) || 0) / 100,
+      accounts:            row.accounts || [],
+    });
+  } catch (err) {
+    console.error('banks/accounts/summary error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /accounts/setup ─────────────────────────────────────────────────────
+
+router.post('/accounts/setup', authenticateToken, async (req, res) => {
+  const { connection_id, account_name, account_type = 'current', iban, balance_cents = 0 } = req.body;
+  if (!connection_id || !account_name) {
+    return res.status(400).json({ error: 'Bad Request', message: 'connection_id y account_name son obligatorios' });
+  }
+
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [connection_id, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada' });
+    }
+
+    const accountResult = await db.query(
+      `INSERT INTO bank_accounts
+         (connection_id, user_id, account_name, account_type, iban, currency, balance_cents)
+       VALUES ($1, $2, $3, $4, $5, 'EUR', $6)
+       RETURNING *`,
+      [connection_id, req.user.userId, account_name, account_type, iban || null, Number(balance_cents) || 0]
+    );
+    const account = accountResult.rows[0];
+
+    await db.query(
+      `UPDATE bank_connections
+       SET status = 'linked', linked_at = NOW(), last_sync_at = NOW()
+       WHERE id = $1`,
+      [connection_id]
+    );
+
+    const conn = connResult.rows[0];
+    res.status(201).json({
+      account: {
+        ...account,
+        institution_name: conn.institution_name,
+        institution_logo: conn.institution_logo,
+      },
+    });
+  } catch (err) {
+    console.error('banks/accounts/setup error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── GET /cards ───────────────────────────────────────────────────────────────
+
+router.get('/cards', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT bc.*, ba.account_name, ba.iban
+       FROM bank_cards bc
+       JOIN bank_accounts ba ON ba.id = bc.bank_account_id
+       WHERE bc.user_id = $1
+       ORDER BY bc.created_at ASC`,
+      [req.user.userId]
+    );
+    res.json({ cards: result.rows });
+  } catch (err) {
+    console.error('banks/cards error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /accounts/:accountId/cards ──────────────────────────────────────────
+
+router.post('/accounts/:accountId/cards', authenticateToken, async (req, res) => {
+  const { card_name, card_type = 'debit', last_four } = req.body;
+  if (!card_name) {
+    return res.status(400).json({ error: 'Bad Request', message: 'card_name es obligatorio' });
+  }
+
+  try {
+    const accResult = await db.query(
+      'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
+      [req.params.accountId, req.user.userId]
+    );
+    if (accResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Cuenta no encontrada' });
+    }
+
+    const cardResult = await db.query(
+      `INSERT INTO bank_cards (bank_account_id, user_id, card_name, card_type, last_four)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [req.params.accountId, req.user.userId, card_name, card_type, last_four || null]
+    );
+
+    res.status(201).json({ card: cardResult.rows[0] });
+  } catch (err) {
+    console.error('banks/accounts/cards error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── DELETE /cards/:cardId ─────────────────────────────────────────────────────
+
+router.delete('/cards/:cardId', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      'DELETE FROM bank_cards WHERE id = $1 AND user_id = $2 RETURNING id',
+      [req.params.cardId, req.user.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Tarjeta no encontrada' });
+    }
+    res.json({ deleted: true });
+  } catch (err) {
+    console.error('banks/cards/delete error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /accounts/:accountId/import-csv ─────────────────────────────────────
+
+router.post('/accounts/:accountId/import-csv', authenticateToken, async (req, res) => {
+  const { rows } = req.body;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'rows debe ser un array no vacío' });
+  }
+
+  try {
+    const accResult = await db.query(
+      'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
+      [req.params.accountId, req.user.userId]
+    );
+    if (accResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Cuenta no encontrada' });
+    }
+
+    let imported = 0;
+    let skipped = 0;
+
+    for (const row of rows) {
+      const { date, description, amount, type, category } = row;
+      if (!date || amount === undefined || !type) continue;
+
+      const absAmount = Math.abs(Number(amount));
+      const txType = type === 'income' ? 'income' : 'expense';
+      const txCategory = category || (txType === 'expense' ? 'Otros' : 'Otros ingresos');
+      const txDate = date.slice(0, 10);
+
+      const existing = await db.query(
+        `SELECT id FROM transactions
+         WHERE user_id = $1 AND date = $2 AND amount = $3 AND type = $4
+           AND (description = $5 OR ($5 IS NULL AND description IS NULL))`,
+        [req.user.userId, txDate, absAmount, txType, description || null]
+      );
+
+      if (existing.rows.length > 0) { skipped++; continue; }
+
+      await db.query(
+        `INSERT INTO transactions
+           (user_id, amount, type, category, description, date, payment_method, bank_account_id)
+         VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer', $7)`,
+        [req.user.userId, absAmount, txType, txCategory, description || null, txDate, req.params.accountId]
+      );
+      imported++;
+    }
+
+    res.json({ imported, skipped });
+  } catch (err) {
+    console.error('banks/accounts/import-csv error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── GET /:id/sync-status ─────────────────────────────────────────────────────
+
+router.get('/:id/sync-status', authenticateToken, async (req, res) => {
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
+    }
+
+    const conn = connResult.rows[0];
+    let accounts = [];
+    if (conn.status === 'linked') {
+      const accResult = await db.query(
+        'SELECT * FROM bank_accounts WHERE connection_id = $1 ORDER BY created_at ASC',
+        [req.params.id]
+      );
+      accounts = accResult.rows;
+    }
+
+    res.json({
+      status: conn.status,
+      institution_name: conn.institution_name,
+      institution_logo: conn.institution_logo,
+      linked_at: conn.linked_at,
+      last_sync_at: conn.last_sync_at,
+      accounts,
+    });
+  } catch (err) {
+    console.error('banks/sync-status error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /:id/sync ───────────────────────────────────────────────────────────
+
+router.post('/:id/sync', authenticateToken, async (req, res) => {
+  try {
+    const connResult = await db.query(
+      "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
+      [req.params.id, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Connection not found or not linked' });
+    }
+
+    const conn = connResult.rows[0];
+    // requisition_id almacena el Plaid access_token tras el intercambio
+    const accounts = await plaid.fetchAccounts(conn.requisition_id);
+
+    for (const acct of accounts) {
+      await db.query(
+        `INSERT INTO bank_accounts
+           (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (external_account_id) DO UPDATE
+           SET balance_cents = EXCLUDED.balance_cents,
+               account_name  = EXCLUDED.account_name`,
+        [conn.id, conn.user_id, acct.externalAccountId, acct.iban,
+          acct.name, acct.currency, acct.balanceCents]
+      );
+    }
+
+    await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
+
+    const accResult = await db.query(
+      'SELECT * FROM bank_accounts WHERE connection_id = $1 ORDER BY created_at ASC',
+      [req.params.id]
+    );
+    res.json({ message: 'Sync completed', accounts: accResult.rows });
+  } catch (err) {
+    console.error('banks/sync error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /:id/import-transactions (RF-11) ────────────────────────────────────
+//
+// Importa transacciones reales de Plaid para todas las cuentas de esta conexión.
+// Convención Plaid: amount > 0 = gasto (débito), amount < 0 = ingreso (crédito).
+
+router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
+  // RNF-07: Medir duración total de la sincronización
+  const syncStart = Date.now();
+
+  try {
+    const connResult = await db.query(
+      "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
+      [req.params.id, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Connection not found or not linked' });
+    }
+    const conn = connResult.rows[0];
+
+    // RNF-05: Verificar estado del consentimiento PSD2
+    const consentResult = await db.query(
+      `SELECT *, EXTRACT(DAY FROM (expires_at - NOW())) AS days_remaining
+       FROM psd2_consents WHERE connection_id = $1`,
+      [req.params.id]
+    );
+    if (consentResult.rows.length > 0) {
+      const consent = consentResult.rows[0];
+      const daysLeft = Math.floor(Number(consent.days_remaining));
+
+      if (consent.status === 'revoked') {
+        return res.status(403).json({
+          error: 'CONSENT_REVOKED',
+          message: 'El consentimiento bancario ha sido revocado. Reconecta el banco para continuar.',
+          code: 'CONSENT_REVOKED',
+        });
+      }
+      if (consent.status === 'expired' || daysLeft <= 0) {
+        // Marcar como expirado si no lo estaba ya
+        await db.query(
+          "UPDATE psd2_consents SET status = 'expired' WHERE connection_id = $1",
+          [req.params.id]
+        );
+        return res.status(403).json({
+          error: 'CONSENT_EXPIRED',
+          message: 'El consentimiento PSD2 ha expirado (90 días). Renueva el acceso en la configuración.',
+          code: 'CONSENT_EXPIRED',
+          renewalUrl: `${req.protocol}://${req.get('host')}/api/v1/banks/${req.params.id}/consent/renew`,
+        });
+      }
+      // Avisar si quedan ≤14 días para la expiración
+      if (daysLeft <= 14 && !consent.renewal_notified_at) {
+        await db.query(
+          'UPDATE psd2_consents SET renewal_notified_at = NOW() WHERE connection_id = $1',
+          [req.params.id]
+        );
+        // renewal_warning se incluye en la respuesta abajo
+        req._consentRenewalDays = daysLeft;
+      }
+    }
+
+    const accResult = await db.query(
+      'SELECT * FROM bank_accounts WHERE connection_id = $1',
+      [req.params.id]
+    );
+
+    const fromDate = req.body.from_date || (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 90);
+      return d.toISOString().split('T')[0];
+    })();
+
+    let totalImported = 0;
+    let totalSkipped = 0;
+
+    // Plaid: un access_token cubre todas las cuentas del Item
+    // Obtenemos transacciones por access_token, luego las distribuimos por account_id
+    const accessToken = conn.requisition_id;
+    const allTransactions = await plaid.fetchTransactions(accessToken, fromDate);
+
+    // Mapa: account_id de Plaid → id interno de bank_accounts
+    const accountMap = {};
+    for (const account of accResult.rows) {
+      if (account.external_account_id) {
+        accountMap[account.external_account_id] = account.id;
+      }
+    }
+    // Fallback: si solo hay una cuenta, asignar todas las transacciones a ella
+    const fallbackAccountId = accResult.rows.length === 1 ? accResult.rows[0].id : null;
+
+    // Categorizar todas las transacciones en un solo round-trip a la IA (RF-14)
+    const batchInput = allTransactions.map(tx => ({
+      description: tx.description,
+      type: tx.amount > 0 ? 'expense' : 'income',
+    }));
+    let plaidCategories;
+    try {
+      plaidCategories = await batchCategorize(batchInput);
+    } catch {
+      plaidCategories = batchInput.map(() => 'Otros gastos');
+    }
+
+    for (let i = 0; i < allTransactions.length; i++) {
+      const tx = allTransactions[i];
+      // Plaid: amount > 0 → gasto, amount < 0 → ingreso
+      const absAmount = Math.abs(tx.amount);
+      const txType = tx.amount > 0 ? 'expense' : 'income';
+      const category = (plaidCategories[i] && plaidCategories[i].trim())
+        ? plaidCategories[i]
+        : await smartCategorize(tx.description, txType);
+
+      // Resolver bank_account_id por account_id de Plaid (si disponible)
+      const bankAccountId = (tx.account_id && accountMap[tx.account_id])
+        || fallbackAccountId
+        || (accResult.rows[0]?.id || null);
+
+      const insertResult = await db.query(
+        `INSERT INTO transactions
+           (user_id, amount, type, category, description, date, payment_method, external_tx_id, bank_account_id)
+         VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer', $7, $8)
+         ON CONFLICT (external_tx_id) WHERE external_tx_id IS NOT NULL DO NOTHING
+         RETURNING id`,
+        [conn.user_id, absAmount, txType, category, tx.description,
+          tx.date, tx.id, bankAccountId]
+      );
+
+      if (insertResult.rows.length > 0) totalImported++;
+      else totalSkipped++;
+    }
+
+    await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [req.params.id]);
+
+    // RNF-07: Registrar log de sincronización con duración real
+    const syncDurationMs = Date.now() - syncStart;
+    try {
+      await db.query(
+        `INSERT INTO sync_logs
+           (connection_id, user_id, trigger_type, status, imported_count, skipped_count, duration_ms)
+         VALUES ($1, $2, 'manual', 'success', $3, $4, $5)`,
+        [req.params.id, conn.user_id, totalImported, totalSkipped, syncDurationMs]
+      );
+    } catch (logErr) {
+      console.warn('sync_logs insert warning:', logErr.message);
+    }
+
+    // HU-06 + RF-31: Notificación in-app + push si hay nuevas transacciones
+    if (totalImported > 0) {
+      try {
+        const notifTitle = 'Nuevas transacciones';
+        const notifBody = `Se ${totalImported === 1 ? 'ha importado 1 transacción' : `han importado ${totalImported} transacciones`} de tu banco`;
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_sync', $2, $3, $4)`,
+          [
+            conn.user_id,
+            notifTitle,
+            notifBody,
+            JSON.stringify({ imported: totalImported, skipped: totalSkipped, connection_id: req.params.id }),
+          ]
+        );
+        // RF-31: Enviar push real al dispositivo (respeta preferencias y horario silencioso)
+        await sendPushToUser(db, conn.user_id, notifTitle, notifBody, {
+          type: 'bank_sync', imported: String(totalImported),
+        });
+      } catch (notifErr) {
+        console.warn('notifications insert warning:', notifErr.message);
+      }
+    }
+
+    const responseBody = {
+      message: 'Import completed',
+      imported: totalImported,
+      skipped: totalSkipped,
+      last_sync_at: new Date().toISOString(),
+      duration_ms: Date.now() - syncStart, // RNF-07: duración real para el frontend
+    };
+
+    // RNF-05: Avisar si el consentimiento está próximo a expirar
+    if (req._consentRenewalDays !== undefined) {
+      responseBody.consent_renewal_warning = {
+        message: `Tu consentimiento bancario expira en ${req._consentRenewalDays} días. Renuévalo para mantener la sincronización.`,
+        daysRemaining: req._consentRenewalDays,
+        renewEndpoint: `/${req.params.id}/consent/renew`,
+      };
+    }
+
+    res.json(responseBody);
+  } catch (err) {
+    console.error('banks/import-transactions error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /sync-all (RF-11) ───────────────────────────────────────────────────
+//
+// Endpoint interno para cron job. NO requiere JWT de usuario.
+// Protegido por X-Cron-Secret.
+
+router.post('/sync-all', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.headers['x-cron-secret'] !== cronSecret) {
+    return res.status(403).json({ error: 'Forbidden', message: 'Invalid cron secret' });
+  }
+
+  // RNF-07: Medir duración total del sync masivo
+  const syncAllStart = Date.now();
+
+  try {
+    const connsResult = await db.query(
+      "SELECT * FROM bank_connections WHERE status = 'linked'"
+    );
+
+    let totalConnections = 0;
+    let totalImported = 0;
+    let totalSkipped = 0;
+    const errors = [];
+    const progress = []; // RNF-07: progreso por conexión
+
+    for (const conn of connsResult.rows) {
+      const connSyncStart = Date.now(); // RNF-07: medir duración por conexión
+      try {
+        totalConnections++;
+        const accessToken = conn.requisition_id;
+
+        // 1. Actualizar saldos
+        const accounts = await plaid.fetchAccounts(accessToken);
+        for (const acct of accounts) {
+          await db.query(
+            `INSERT INTO bank_accounts
+               (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (external_account_id) DO UPDATE
+               SET balance_cents = EXCLUDED.balance_cents,
+                   account_name  = EXCLUDED.account_name,
+                   updated_at    = NOW()`,
+            [conn.id, conn.user_id, acct.externalAccountId, acct.iban,
+              acct.name, acct.currency, acct.balanceCents]
+          );
+        }
+
+        // 2. Importar transacciones de los últimos 7 días
+        const since = new Date();
+        since.setDate(since.getDate() - 7);
+        const fromDate = since.toISOString().split('T')[0];
+
+        const accResult = await db.query(
+          'SELECT * FROM bank_accounts WHERE connection_id = $1',
+          [conn.id]
+        );
+
+        const accountMap = {};
+        for (const account of accResult.rows) {
+          if (account.external_account_id) accountMap[account.external_account_id] = account.id;
+        }
+        const fallbackAccountId = accResult.rows.length === 1 ? accResult.rows[0].id : null;
+
+        const transactions = await plaid.fetchTransactions(accessToken, fromDate);
+        for (const tx of transactions) {
+          const absAmount = Math.abs(tx.amount);
+          const txType = tx.amount > 0 ? 'expense' : 'income';
+          const category = await smartCategorize(tx.description, txType);
+          const bankAccountId = (tx.account_id && accountMap[tx.account_id])
+            || fallbackAccountId
+            || (accResult.rows[0]?.id || null);
+
+          const insertResult = await db.query(
+            `INSERT INTO transactions
+               (user_id, amount, type, category, description, date, payment_method, external_tx_id, bank_account_id)
+             VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer', $7, $8)
+             ON CONFLICT (external_tx_id) WHERE external_tx_id IS NOT NULL DO NOTHING
+             RETURNING id`,
+            [conn.user_id, absAmount, txType, category, tx.description,
+              tx.date, tx.id, bankAccountId]
+          );
+
+          if (insertResult.rows.length > 0) totalImported++;
+          else totalSkipped++;
+        }
+
+        await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [conn.id]);
+
+        // RNF-07: Registrar log de cron sync por conexión
+        const connDurationMs = Date.now() - connSyncStart;
+        try {
+          await db.query(
+            `INSERT INTO sync_logs
+               (connection_id, user_id, trigger_type, status, imported_count, skipped_count, duration_ms)
+             VALUES ($1, $2, 'cron', 'success', $3, $4, $5)`,
+            [conn.id, conn.user_id, 0, 0, connDurationMs]
+          );
+        } catch (_) { /* non-critical */ }
+
+        progress.push({ connection_id: conn.id, status: 'success', duration_ms: connDurationMs });
+      } catch (connErr) {
+        const connDurationMs = Date.now() - connSyncStart;
+        console.error(`[sync-all] Error syncing connection ${conn.id}:`, connErr.message);
+        errors.push({ connectionId: conn.id, error: connErr.message });
+
+        // RNF-07: Log de error por conexión
+        try {
+          await db.query(
+            `INSERT INTO sync_logs
+               (connection_id, user_id, trigger_type, status, imported_count, skipped_count, duration_ms, error_message)
+             VALUES ($1, $2, 'cron', 'error', 0, 0, $3, $4)`,
+            [conn.id, conn.user_id, connDurationMs, connErr.message.substring(0, 255)]
+          );
+        } catch (_) { /* non-critical */ }
+
+        progress.push({ connection_id: conn.id, status: 'error', error: connErr.message, duration_ms: connDurationMs });
+      }
+    }
+
+    const totalDurationMs = Date.now() - syncAllStart;
+    console.log(`[sync-all] Done: ${totalConnections} connections, ${totalImported} imported, ${totalSkipped} skipped, ${totalDurationMs}ms`);
+    res.json({
+      message: 'Sync-all completed',
+      connections: totalConnections,
+      imported: totalImported,
+      skipped: totalSkipped,
+      errors,
+      progress,                       // RNF-07: progreso por conexión
+      duration_ms: totalDurationMs,   // RNF-07: duración total
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[sync-all] Fatal error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /:id/import-accounts ───────────────────────────────────────────────
+//
+// El usuario confirmó qué cuentas quiere vincular desde la pantalla de selección.
+// Importa solo las cuentas seleccionadas, convierte saldos a EUR con tasa real
+// y genera transacciones demo para que el balance tenga sentido.
+// Marca la conexión como 'linked'.
+
+router.post('/:id/import-accounts', authenticateToken, async (req, res) => {
+  const connectionId = req.params.id;
+  const { selected_account_ids } = req.body;
+
+  if (!Array.isArray(selected_account_ids) || selected_account_ids.length === 0) {
+    return res.status(400).json({ error: 'Bad Request', message: 'selected_account_ids requerido' });
+  }
+
+  // Prevenir importaciones concurrentes para la misma conexión.
+  // Si el usuario reintenta mientras la primera importación sigue en curso,
+  // la segunda petición devuelve 202 (aceptada, procesando).
+  if (_importInProgress.has(connectionId)) {
+    return res.status(202).json({ ok: false, importing: true, message: 'Importación ya en curso para esta conexión' });
+  }
+  _importInProgress.add(connectionId);
+
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [connectionId, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada' });
+    }
+    const conn = connResult.rows[0];
+    const accessToken = conn.requisition_id;
+
+    // Obtener todas las cuentas del proveedor y filtrar las seleccionadas
+    const allAccounts = await plaid.fetchAccounts(accessToken);
+    const selected = allAccounts.filter(a => selected_account_ids.includes(a.externalAccountId));
+
+    if (selected.length === 0) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Ninguna cuenta válida seleccionada' });
+    }
+
+    // Limpiar transacciones y cuentas previas de esta conexión
+    // (bank_account_id usa ON DELETE SET NULL, así que hay que borrar transacciones primero
+    //  para evitar que transacciones demo antiguas contaminen el balance del usuario)
+    await db.query(
+      `DELETE FROM transactions
+       WHERE bank_account_id IN (
+         SELECT id FROM bank_accounts WHERE connection_id = $1
+       )`,
+      [connectionId]
+    );
+    await db.query('DELETE FROM bank_accounts WHERE connection_id = $1', [connectionId]);
+
+    const importedAccounts = [];
+    for (const acct of selected) {
+      const eurCents = await toEurCents(acct.balanceCents, acct.currency);
+
+      const result = await db.query(
+        `INSERT INTO bank_accounts
+           (connection_id, user_id, external_account_id, iban, account_name, currency, balance_cents)
+         VALUES ($1, $2, $3, $4, $5, 'EUR', $6)
+         RETURNING *`,
+        [connectionId, conn.user_id, acct.externalAccountId, acct.iban, acct.name, eurCents]
+      );
+      const bankAccount = result.rows[0];
+      importedAccounts.push(bankAccount);
+
+      // Generar transacciones demo cuya suma coincide exactamente con eurCents,
+      // el mismo saldo que el usuario vio en la pantalla de selección de cuentas.
+      // balance_cents ya fue insertado correctamente arriba — no hace falta UPDATE.
+      await generateRandomTransactions(bankAccount.id, conn.user_id, eurCents);
+    }
+
+    // Marcar conexión como linked
+    await db.query(
+      `UPDATE bank_connections
+       SET status = 'linked', linked_at = NOW(), last_sync_at = NOW()
+       WHERE id = $1`,
+      [connectionId]
+    );
+
+    // RNF-05: Crear consentimiento PSD2 (90 días)
+    await createPsd2Consent(connectionId, conn.user_id);
+
+    console.log(`[import-accounts] userId=${conn.user_id} connectionId=${connectionId} imported=${importedAccounts.length}`);
+    // last_sync_at se incluye para que el cliente Flutter pueda actualizar
+    // SharedPreferences y evitar que CheckPeriodicSyncRequested dispare de inmediato.
+    res.json({ ok: true, accounts: importedAccounts.length, last_sync_at: new Date().toISOString() });
+  } catch (err) {
+    console.error('[import-accounts] error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  } finally {
+    _importInProgress.delete(connectionId);
+  }
+});
+
+// ─── DELETE /:id/disconnect — RF-13: Desconexión con revocación de tokens ───
+
+router.delete('/:id/disconnect', authenticateToken, async (req, res) => {
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Connection not found' });
+    }
+
+    const conn = connResult.rows[0];
+    const errors = [];
+
+    // RF-13: Revocar access token en el proveedor bancario
+    // (Plaid: invalidItem, SaltEdge: remove connection, Yapily: delete consent)
+    if (conn.access_token) {
+      try {
+        if (conn.provider === 'plaid' || (!conn.provider && conn.access_token.startsWith('access-'))) {
+          // Plaid: invalidar el Item (corta acceso a la institución)
+          await plaid.removeItem(conn.access_token);
+        } else if (conn.provider === 'saltedge') {
+          // SaltEdge: eliminar la conexión en su plataforma
+          const saltedge = require('../services/saltedge');
+          await saltedge.removeConnection(conn.access_token).catch(() => {});
+        }
+      } catch (revokeErr) {
+        // Si falla la revocación remota, continuamos igualmente
+        // (el usuario puede haber revocado manualmente en el banco)
+        console.warn(`[disconnect] Token revocation failed for conn=${conn.id}:`, revokeErr.message);
+        errors.push('Token revocation skipped (provider may have already invalidated it)');
+      }
+    }
+
+    // RF-13: Revocar consentimiento PSD2 en la BD
+    await db.query(
+      `UPDATE psd2_consents
+       SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+       WHERE connection_id = $1`,
+      [req.params.id]
+    ).catch(() => {}); // Tabla puede no existir en entornos de desarrollo
+
+    // RF-13: NO eliminar transacciones — preservar historial (requisito RF-13)
+    // Solo eliminar la cuenta bancaria y marcar la conexión como desconectada
+    await db.query('DELETE FROM bank_accounts WHERE connection_id = $1', [req.params.id]);
+    await db.query(
+      "UPDATE bank_connections SET status = 'disconnected', updated_at = NOW() WHERE id = $1",
+      [req.params.id]
+    );
+
+    res.json({
+      message: 'Cuenta bancaria desconectada correctamente',
+      transaction_history_preserved: true,
+      warnings: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err) {
+    console.error('banks/disconnect error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── RNF-05: Gestión de consentimientos PSD2 ─────────────────────────────────
+
+/**
+ * Crea o actualiza el registro de consentimiento PSD2 para una conexión bancaria.
+ * Llamado internamente cuando una conexión pasa a estado 'linked'.
+ * PSD2: el consentimiento expira a los 90 días (SCA obligatoria cada 90 días).
+ *
+ * @param {string} connectionId
+ * @param {string} userId
+ * @param {string} [scope]
+ */
+async function createPsd2Consent(connectionId, userId, scope = 'read_accounts,read_transactions') {
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 90);
+
+  await db.query(
+    `INSERT INTO psd2_consents (user_id, connection_id, scope, expires_at)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (connection_id)
+     DO UPDATE SET status = 'active', expires_at = EXCLUDED.expires_at,
+                   revoked_at = NULL, updated_at = NOW()`,
+    [userId, connectionId, scope, expiresAt.toISOString()]
+  ).catch(err => {
+    console.warn(`[psd2] No se pudo crear consentimiento para ${connectionId}:`, err.message);
+  });
+}
+
+// ─── GET /consents (RNF-05) ───────────────────────────────────────────────────
+//
+// Lista todos los consentimientos PSD2 activos del usuario.
+// Incluye: estado, scope, fecha de concesión, expiración y días restantes.
+
+router.get('/consents', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT pc.*, bc.institution_name, bc.institution_logo,
+              EXTRACT(DAY FROM (pc.expires_at - NOW())) AS days_remaining
+       FROM psd2_consents pc
+       JOIN bank_connections bc ON bc.id = pc.connection_id
+       WHERE pc.user_id = $1
+       ORDER BY pc.expires_at ASC`,
+      [req.user.userId]
+    );
+
+    const consents = result.rows.map(row => ({
+      id:              row.id,
+      connectionId:    row.connection_id,
+      institutionName: row.institution_name,
+      institutionLogo: row.institution_logo,
+      status:          row.status,
+      scope:           row.scope,
+      grantedAt:       row.granted_at,
+      expiresAt:       row.expires_at,
+      daysRemaining:   Math.max(0, Math.floor(Number(row.days_remaining))),
+      renewalRequired: Number(row.days_remaining) <= 14,
+      revokedAt:       row.revoked_at,
+    }));
+
+    res.json({ consents });
+  } catch (err) {
+    console.error('banks/consents error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /:id/consent/renew (RNF-05) ─────────────────────────────────────────
+//
+// Renueva el consentimiento PSD2 para una conexión bancaria.
+// Reinicia el período de 90 días (PSD2 SCA).
+
+router.post('/:id/consent/renew', authenticateToken, async (req, res) => {
+  const connectionId = req.params.id;
+  try {
+    const connResult = await db.query(
+      "SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2 AND status = 'linked'",
+      [connectionId, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada o no activa' });
+    }
+
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 90);
+
+    await db.query(
+      `INSERT INTO psd2_consents (user_id, connection_id, scope, expires_at)
+       VALUES ($1, $2, 'read_accounts,read_transactions', $3)
+       ON CONFLICT (connection_id)
+       DO UPDATE SET status = 'active', expires_at = EXCLUDED.expires_at,
+                     revoked_at = NULL, renewal_notified_at = NULL, updated_at = NOW()`,
+      [req.user.userId, connectionId, newExpiresAt.toISOString()]
+    );
+
+    console.log(`[consent/renew] userId=${req.user.userId} connectionId=${connectionId} expires=${newExpiresAt.toISOString()}`);
+    res.json({
+      ok: true,
+      message: 'Consentimiento renovado. Acceso garantizado por 90 días más.',
+      expiresAt: newExpiresAt.toISOString(),
+      daysGranted: 90,
+    });
+  } catch (err) {
+    console.error('banks/consent/renew error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── DELETE /:id/consent (RNF-05) ─────────────────────────────────────────────
+//
+// Revoca el consentimiento PSD2. PSD2: revocación implica cese de acceso a datos.
+// La conexión pasa a estado 'disconnected'.
+
+router.delete('/:id/consent', authenticateToken, async (req, res) => {
+  const connectionId = req.params.id;
+  try {
+    const connResult = await db.query(
+      'SELECT * FROM bank_connections WHERE id = $1 AND user_id = $2',
+      [connectionId, req.user.userId]
+    );
+    if (connResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Conexión no encontrada' });
+    }
+
+    await db.query(
+      `UPDATE psd2_consents
+       SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+       WHERE connection_id = $1`,
+      [connectionId]
+    );
+    await db.query(
+      "UPDATE bank_connections SET status = 'disconnected' WHERE id = $1",
+      [connectionId]
+    );
+
+    console.log(`[consent/revoke] userId=${req.user.userId} connectionId=${connectionId}`);
+    res.json({
+      ok: true,
+      message: 'Consentimiento revocado. El banco ha sido desconectado conforme a PSD2.',
+    });
+  } catch (err) {
+    console.error('banks/consent/revoke error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── GET /sync-logs (RNF-07) ─────────────────────────────────────────────────
+//
+// Devuelve el historial de sincronizaciones del usuario (para el indicador de
+// progreso en el frontend). Incluye duración, estado y contador de importadas.
+
+router.get('/sync-logs', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 20, connection_id } = req.query;
+    const userId = req.user.userId;
+
+    let query = `SELECT sl.*, bc.institution_name
+                 FROM sync_logs sl
+                 LEFT JOIN bank_connections bc ON bc.id = sl.connection_id
+                 WHERE sl.user_id = $1`;
+    const params = [userId];
+
+    if (connection_id) {
+      params.push(connection_id);
+      query += ` AND sl.connection_id = $${params.length}`;
+    }
+
+    query += ` ORDER BY sl.synced_at DESC LIMIT $${params.length + 1}`;
+    params.push(parseInt(limit));
+
+    const result = await db.query(query, params);
+    res.json({ sync_logs: result.rows });
+  } catch (err) {
+    console.error('sync-logs error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// ─── POST /plaid-webhook (RF-11 producción) ───────────────────────────────────
+//
+// Webhook de Plaid para sincronización en tiempo real (producción).
+//
+// En producción, Plaid envía notificaciones cuando hay nuevas transacciones
+// o cambios de estado, permitiendo sincronización inmediata en lugar de
+// esperar al cron job de 6 horas.
+//
+// Tipos gestionados:
+//   TRANSACTIONS / DEFAULT_UPDATE   → Nuevas transacciones disponibles
+//   TRANSACTIONS / INITIAL_UPDATE   → Primera carga completada
+//   TRANSACTIONS / HISTORICAL_UPDATE → Histórico completo cargado
+//   ITEM / ERROR                    → Error de acceso al banco
+//   ITEM / PENDING_EXPIRATION       → Token próximo a expirar
+//   ITEM / USER_PERMISSION_REVOKED  → Usuario revocó acceso
+//
+// Configuración en Plaid Dashboard → Developers → Webhooks:
+//   Sandbox:    http://{APP_URL}/api/v1/banks/plaid-webhook
+//   Production: https://{APP_URL}/api/v1/banks/plaid-webhook
+
+router.post('/plaid-webhook', async (req, res) => {
+  // Responder 200 inmediatamente para que Plaid no reintente la entrega
+  res.sendStatus(200);
+
+  const { webhook_type, webhook_code, item_id, error, new_transactions } = req.body || {};
+
+  if (!webhook_type || !item_id) {
+    console.warn('[plaid-webhook] Payload incompleto:', JSON.stringify(req.body));
+    return;
+  }
+
+  console.log(`[plaid-webhook] ${webhook_type}/${webhook_code} item_id=${item_id} new_transactions=${new_transactions || 0}`);
+
+  try {
+    // Buscar la conexión por item_id. En real mode el item_id se almacena
+    // junto al access_token en requisition_id.
+    const connResult = await db.query(
+      `SELECT bc.*
+       FROM bank_connections bc
+       WHERE bc.status = 'linked'
+         AND (bc.requisition_id LIKE $1 OR bc.requisition_id = $2)
+       LIMIT 1`,
+      [`%${item_id}%`, item_id]
+    );
+
+    if (connResult.rows.length === 0) {
+      console.warn(`[plaid-webhook] No se encontró conexión para item_id=${item_id}`);
+      return;
+    }
+
+    const conn = connResult.rows[0];
+
+    // ── TRANSACTIONS: sincronización incremental ───────────────────────────────
+    if (webhook_type === 'TRANSACTIONS') {
+      if (!['DEFAULT_UPDATE', 'INITIAL_UPDATE', 'HISTORICAL_UPDATE'].includes(webhook_code)) return;
+
+      const accessToken = conn.requisition_id;
+
+      // Rango de fechas: histórico para HISTORICAL_UPDATE, últimos 2 días para el resto
+      const since = new Date();
+      since.setDate(since.getDate() - (webhook_code === 'HISTORICAL_UPDATE' ? 365 : 2));
+      const fromDate = since.toISOString().split('T')[0];
+
+      // Mapa external_account_id → bank_account.id para asignar transacciones
+      const accResult = await db.query(
+        'SELECT * FROM bank_accounts WHERE connection_id = $1',
+        [conn.id]
+      );
+      const accountMap = {};
+      for (const a of accResult.rows) {
+        if (a.external_account_id) accountMap[a.external_account_id] = a.id;
+      }
+      const fallbackAccountId = accResult.rows.length === 1 ? accResult.rows[0].id : null;
+
+      const transactions = await plaid.fetchTransactions(accessToken, fromDate);
+      let imported = 0;
+
+      for (const tx of transactions) {
+        const absAmount = Math.abs(tx.amount);
+        const txType = tx.amount > 0 ? 'expense' : 'income';
+        const category = await smartCategorize(tx.description, txType);
+        const bankAccountId = (tx.account_id && accountMap[tx.account_id]) || fallbackAccountId;
+
+        let eurCents;
+        try {
+          eurCents = await toEurCents(Math.round(absAmount * 100), tx.currency || 'USD');
+        } catch (_) {
+          eurCents = Math.round(absAmount * 100);
+        }
+
+        const insertResult = await db.query(
+          `INSERT INTO transactions
+             (user_id, amount, type, category, description, date, payment_method, external_tx_id, bank_account_id)
+           VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer', $7, $8)
+           ON CONFLICT (external_tx_id) WHERE external_tx_id IS NOT NULL DO NOTHING
+           RETURNING id`,
+          [conn.user_id, (eurCents / 100).toFixed(2), txType, category,
+            tx.description, tx.date, tx.id, bankAccountId]
+        );
+        if (insertResult.rows.length > 0) imported++;
+      }
+
+      await db.query('UPDATE bank_connections SET last_sync_at = NOW() WHERE id = $1', [conn.id]);
+
+      await db.query(
+        `INSERT INTO sync_logs
+           (connection_id, user_id, trigger_type, status, imported_count, skipped_count)
+         VALUES ($1, $2, 'cron', 'success', $3, $4)`,
+        [conn.id, conn.user_id, imported, transactions.length - imported]
+      ).catch(() => {});
+
+      if (imported > 0) {
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_sync', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Nuevas transacciones',
+            `Se ${imported === 1 ? 'ha importado 1 transacción' : `han importado ${imported} transacciones`} de tu banco`,
+            JSON.stringify({ imported, connection_id: conn.id, source: 'plaid_webhook' }),
+          ]
+        ).catch(() => {});
+      }
+
+      console.log(`[plaid-webhook] TRANSACTIONS/${webhook_code}: imported=${imported} conn=${conn.id}`);
+
+    // ── ITEM: cambios de estado de la conexión ─────────────────────────────────
+    } else if (webhook_type === 'ITEM') {
+      if (webhook_code === 'ERROR' && error) {
+        await db.query(
+          "UPDATE bank_connections SET status = 'failed', updated_at = NOW() WHERE id = $1",
+          [conn.id]
+        );
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_error', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Error de conexión bancaria',
+            `Hay un problema con ${conn.institution_name || 'tu banco'}. Vuelve a conectarlo en la app.`,
+            JSON.stringify({ error_code: error.error_code, connection_id: conn.id }),
+          ]
+        ).catch(() => {});
+        console.log(`[plaid-webhook] ITEM/ERROR conn=${conn.id} code=${error.error_code}`);
+
+      } else if (webhook_code === 'PENDING_EXPIRATION') {
+        const days = req.body.consent_expiration_time
+          ? Math.ceil((new Date(req.body.consent_expiration_time) - Date.now()) / 86400000)
+          : 7;
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_sync', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Acceso bancario próximo a expirar',
+            `Tu acceso a ${conn.institution_name || 'tu banco'} expirará en ${days} días. Renuévalo para continuar.`,
+            JSON.stringify({ days_remaining: days, connection_id: conn.id }),
+          ]
+        ).catch(() => {});
+        console.log(`[plaid-webhook] ITEM/PENDING_EXPIRATION conn=${conn.id} days=${days}`);
+
+      } else if (webhook_code === 'USER_PERMISSION_REVOKED') {
+        await db.query(
+          "UPDATE bank_connections SET status = 'disconnected', updated_at = NOW() WHERE id = $1",
+          [conn.id]
+        );
+        await db.query(
+          `UPDATE psd2_consents
+           SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+           WHERE connection_id = $1`,
+          [conn.id]
+        ).catch(() => {});
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, body, metadata)
+           VALUES ($1, 'bank_sync', $2, $3, $4)`,
+          [
+            conn.user_id,
+            'Acceso bancario revocado',
+            `Has revocado el acceso de Finora a ${conn.institution_name || 'tu banco'}.`,
+            JSON.stringify({ connection_id: conn.id }),
+          ]
+        ).catch(() => {});
+        console.log(`[plaid-webhook] ITEM/USER_PERMISSION_REVOKED conn=${conn.id}`);
+      }
+    }
+  } catch (err) {
+    console.error('[plaid-webhook] Error procesando webhook:', err.message);
+    // 200 ya enviado, Plaid no reintentará
+  }
+});
+
+// ─── GET /health/circuit-breaker (RNF-16) ─────────────────────────────────────
+//
+// Endpoint de monitorización del circuit breaker de servicios externos.
+
+const { plaidBreaker: _plaidBreaker, ratesBreaker: _ratesBreaker } = require('../services/circuitBreaker');
+
+router.get('/health/circuit-breaker', (req, res) => {
+  res.json({
+    plaid:   _plaidBreaker.status(),
+    rates:   _ratesBreaker.status(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+module.exports = router;
+module.exports.createPsd2Consent = createPsd2Consent;

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Finora Widget – flat RelativeLayout, no nested views, no weights.
+     Maximum RemoteViews compatibility for OPPO ColorOS and other launchers. -->
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="14dp"
+    android:background="#FFFFFF">
+
+    <!-- App label top-left -->
+    <TextView
+        android:id="@+id/widget_app_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:text="Finora"
+        android:textSize="10sp"
+        android:textColor="#9E9E9E" />
+
+    <!-- Balance: largest text, below label -->
+    <TextView
+        android:id="@+id/widget_balance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/widget_app_label"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="2dp"
+        android:text="€0.00"
+        android:textSize="22sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold" />
+
+    <!-- "Hoy" label left -->
+    <TextView
+        android:id="@+id/widget_hoy_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/widget_balance"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="6dp"
+        android:text="Hoy"
+        android:textSize="11sp"
+        android:textColor="#757575" />
+
+    <!-- Today spent: right of row -->
+    <TextView
+        android:id="@+id/widget_today_spent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/widget_balance"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="6dp"
+        android:text="€0.00"
+        android:textSize="11sp"
+        android:textColor="#1A1A2E"
+        android:textStyle="bold" />
+
+    <!-- Budget label left -->
+    <TextView
+        android:id="@+id/widget_budget_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/widget_hoy_label"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="3dp"
+        android:text="Presupuesto"
+        android:textSize="11sp"
+        android:textColor="#757575" />
+
+    <!-- Budget pct: right -->
+    <TextView
+        android:id="@+id/widget_budget_pct"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/widget_today_spent"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="3dp"
+        android:text="0%"
+        android:textSize="11sp"
+        android:textColor="#6C63FF"
+        android:textStyle="bold" />
+
+    <!-- Goal name left -->
+    <TextView
+        android:id="@+id/widget_goal_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/widget_budget_label"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="3dp"
+        android:text=""
+        android:textSize="11sp"
+        android:textColor="#757575" />
+
+    <!-- Goal pct right -->
+    <TextView
+        android:id="@+id/widget_goal_pct"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/widget_budget_pct"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="3dp"
+        android:text=""
+        android:textSize="11sp"
+        android:textColor="#4CAF50"
+        android:textStyle="bold" />
+
+    <!-- Updated at: bottom -->
+    <TextView
+        android:id="@+id/widget_updated_at"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:text=""
+        android:textSize="9sp"
+        android:textColor="#BDBDBD" />
+
+</RelativeLayout>
