@@ -1,0 +1,157 @@
+package com.example.finora_frontend
+
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.Context
+import android.widget.RemoteViews
+import android.content.SharedPreferences
+import android.app.PendingIntent
+import android.content.Intent
+import android.util.Log
+
+/**
+ * FinoraWidget – Android home screen widget scaffold.
+ *
+ * This AppWidgetProvider reads cached financial data from SharedPreferences
+ * (written by Flutter via MethodChannel or WorkManager background sync)
+ * and renders it in the widget layout.
+ *
+ * Data flow:
+ *   1. Flutter calls `storeWidgetData()` via MethodChannel after each sync.
+ *   2. AppWidgetManager.ACTION_APPWIDGET_UPDATE triggers `onUpdate()`.
+ *   3. onUpdate() reads prefs and calls `updateAppWidget()`.
+ *
+ * To register this widget, add to AndroidManifest.xml:
+ *   <receiver android:name=".FinoraWidget" android:exported="true">
+ *     <intent-filter>
+ *       <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+ *     </intent-filter>
+ *     <meta-data
+ *       android:name="android.appwidget.provider"
+ *       android:resource="@xml/finora_widget_info" />
+ *   </receiver>
+ */
+class FinoraWidget : AppWidgetProvider() {
+
+    companion object {
+        private const val TAG = "FinoraWidget"
+        const val PREFS_NAME = "FinoraWidgetPrefs"
+        const val KEY_BALANCE = "balance"
+        const val KEY_TODAY_SPENT = "today_spent"
+        const val KEY_BUDGET_PCT = "budget_pct"
+        const val KEY_GOAL_NAME = "goal_name"
+        const val KEY_GOAL_PCT = "goal_pct"
+        const val KEY_UPDATED_AT = "updated_at"
+
+        /**
+         * Called from Flutter MethodChannel to persist widget data.
+         */
+        fun storeWidgetData(
+            context: Context,
+            balance: String,
+            todaySpent: String,
+            budgetPct: Int,
+            goalName: String,
+            goalPct: Int,
+            updatedAt: String,
+        ) {
+            Log.d(TAG, "storeWidgetData: balance=$balance todaySpent=$todaySpent budgetPct=$budgetPct goalName=$goalName goalPct=$goalPct updatedAt=$updatedAt")
+            val prefs: SharedPreferences =
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString(KEY_BALANCE, balance)
+                .putString(KEY_TODAY_SPENT, todaySpent)
+                .putInt(KEY_BUDGET_PCT, budgetPct)
+                .putString(KEY_GOAL_NAME, goalName)
+                .putInt(KEY_GOAL_PCT, goalPct)
+                .putString(KEY_UPDATED_AT, updatedAt)
+                .apply()
+            Log.d(TAG, "storeWidgetData: prefs saved, broadcasting update")
+
+            // Trigger widget refresh
+            val intent = Intent(context, FinoraWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            context.sendBroadcast(intent)
+            Log.d(TAG, "storeWidgetData: broadcast sent")
+        }
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        Log.d(TAG, "onEnabled: first widget instance added to home screen")
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        Log.d(TAG, "onDisabled: last widget instance removed from home screen")
+    }
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+    ) {
+        Log.d(TAG, "onUpdate: widgetIds=${appWidgetIds.toList()}")
+        for (widgetId in appWidgetIds) {
+            Log.d(TAG, "onUpdate: updating widgetId=$widgetId")
+            updateAppWidget(context, appWidgetManager, widgetId)
+        }
+        Log.d(TAG, "onUpdate: done")
+    }
+
+    private fun updateAppWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+    ) {
+        Log.d(TAG, "updateAppWidget: widgetId=$appWidgetId")
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val balance = prefs.getString(KEY_BALANCE, "€0.00") ?: "€0.00"
+            val todaySpent = prefs.getString(KEY_TODAY_SPENT, "€0.00") ?: "€0.00"
+            val budgetPct = prefs.getInt(KEY_BUDGET_PCT, 0)
+            val goalName = prefs.getString(KEY_GOAL_NAME, "") ?: ""
+            val goalPct = prefs.getInt(KEY_GOAL_PCT, 0)
+            val updatedAt = prefs.getString(KEY_UPDATED_AT, "") ?: ""
+
+            Log.d(TAG, "updateAppWidget: read prefs — balance=$balance todaySpent=$todaySpent budgetPct=$budgetPct goalName=$goalName goalPct=$goalPct updatedAt=$updatedAt")
+
+            Log.d(TAG, "updateAppWidget: creating RemoteViews with layout R.layout.finora_widget")
+            val views = RemoteViews(context.packageName, R.layout.finora_widget)
+            Log.d(TAG, "updateAppWidget: RemoteViews created OK")
+
+            views.setTextViewText(R.id.widget_balance, balance)
+            views.setTextViewText(R.id.widget_today_spent, todaySpent)
+            views.setTextViewText(R.id.widget_budget_pct, "$budgetPct%")
+            if (goalName.isNotEmpty()) {
+                views.setTextViewText(R.id.widget_goal_name, goalName)
+                views.setTextViewText(R.id.widget_goal_pct, "$goalPct%")
+            }
+            views.setTextViewText(R.id.widget_updated_at, updatedAt)
+            Log.d(TAG, "updateAppWidget: all text views set")
+
+            // Tap to open app
+            val launchIntent = context.packageManager
+                .getLaunchIntentForPackage(context.packageName)
+            Log.d(TAG, "updateAppWidget: launchIntent=$launchIntent")
+            if (launchIntent != null) {
+                val pendingIntent = PendingIntent.getActivity(
+                    context, 0, launchIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+                Log.d(TAG, "updateAppWidget: click PendingIntent set")
+            } else {
+                Log.w(TAG, "updateAppWidget: launchIntent is null — tap to open will not work")
+            }
+
+            Log.d(TAG, "updateAppWidget: calling appWidgetManager.updateAppWidget($appWidgetId)")
+            appWidgetManager.updateAppWidget(appWidgetId, views)
+            Log.d(TAG, "updateAppWidget: SUCCESS for widgetId=$appWidgetId")
+        } catch (e: Exception) {
+            Log.e(TAG, "updateAppWidget: EXCEPTION for widgetId=$appWidgetId", e)
+            Log.e(TAG, "updateAppWidget: cause=${e.cause} message=${e.message}")
+        }
+    }
+}

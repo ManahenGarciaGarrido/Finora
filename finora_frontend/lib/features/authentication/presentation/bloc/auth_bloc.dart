@@ -1,0 +1,340 @@
+import 'dart:convert';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/network/api_client.dart';
+import '../../../../core/security/biometric_service.dart';
+import '../../data/datasources/auth_local_datasource.dart';
+import '../../domain/usecases/login_usecase.dart';
+import '../../domain/usecases/register_usecase.dart';
+import '../../domain/usecases/logout_usecase.dart';
+import '../../domain/usecases/forgot_password_usecase.dart';
+import '../../domain/usecases/reset_password_usecase.dart';
+import 'auth_event.dart';
+import 'auth_state.dart';
+
+/// Authentication BLoC
+/// Handles all authentication-related business logic in the presentation layer
+/// Follows BLoC pattern for state management
+class AuthBloc extends Bloc<AuthEvent, AuthState> {
+  final LoginUseCase loginUseCase;
+  final RegisterUseCase registerUseCase;
+  final LogoutUseCase logoutUseCase;
+  final ForgotPasswordUseCase forgotPasswordUseCase;
+  final ResetPasswordUseCase resetPasswordUseCase;
+
+  AuthBloc({
+    required this.loginUseCase,
+    required this.registerUseCase,
+    required this.logoutUseCase,
+    required this.forgotPasswordUseCase,
+    required this.resetPasswordUseCase,
+  }) : super(const AuthInitial()) {
+    // Register event handlers
+    on<LoginRequested>(_onLoginRequested);
+    on<RegisterRequested>(_onRegisterRequested);
+    on<LogoutRequested>(_onLogoutRequested);
+    on<CheckAuthStatus>(_onCheckAuthStatus);
+    on<ClearAuthError>(_onClearAuthError);
+    on<ResendVerificationRequested>(_onResendVerificationRequested);
+    on<ForgotPasswordRequested>(_onForgotPasswordRequested);
+    on<ResetPasswordRequested>(_onResetPasswordRequested);
+    // RF-03: Biometric auth handlers
+    on<BiometricLoginRequested>(_onBiometricLoginRequested);
+    on<CheckBiometricAvailability>(_onCheckBiometricAvailability);
+    // RF-09: Profile update
+    on<UpdateProfileName>(_onUpdateProfileName);
+  }
+
+  /// Handle login request
+  Future<void> _onLoginRequested(
+    LoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await loginUseCase(
+      LoginParams(email: event.email, password: event.password),
+    );
+
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (user) => emit(Authenticated(user: user)),
+    );
+  }
+
+  /// Handle registration request
+  Future<void> _onRegisterRequested(
+    RegisterRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await registerUseCase(
+      RegisterParams(
+        email: event.email,
+        password: event.password,
+        name: event.name,
+        phoneNumber: event.phoneNumber,
+        consents: event.consents,
+      ),
+    );
+
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (user) => emit(RegistrationSuccess(user: user)),
+    );
+  }
+
+  /// Handle logout request
+  Future<void> _onLogoutRequested(
+    LogoutRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await logoutUseCase();
+
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (_) => emit(const LogoutSuccess()),
+    );
+  }
+
+  /// Handle check authentication status
+  ///
+  /// Verifica la sesión usando datos locales primero (sin red) para evitar
+  /// cierres de sesión falsos por problemas de conectividad (RF-08 / RNF-15).
+  Future<void> _onCheckAuthStatus(
+    CheckAuthStatus event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    try {
+      final localDataSource = di.sl<AuthLocalDataSource>();
+      final token = await localDataSource.getToken();
+
+      // Sin token → no autenticado
+      if (token == null || token.isEmpty) {
+        emit(const Unauthenticated());
+        return;
+      }
+
+      // Verificar expiración del JWT localmente (sin llamada de red)
+      if (_isTokenExpired(token)) {
+        await localDataSource.clearToken();
+        emit(const Unauthenticated());
+        return;
+      }
+
+      // Token válido → configurar en ApiClient
+      final apiClient = di.sl<ApiClient>();
+      apiClient.setToken(token);
+
+      // Usar datos de usuario en caché local primero (sin red)
+      try {
+        final cachedUser = await localDataSource.getCachedUser();
+        emit(Authenticated(user: cachedUser));
+        return;
+      } catch (_) {
+        // Sin caché local → intentar con red como fallback
+      }
+
+      // Fallback: obtener usuario desde el servidor
+      final result = await loginUseCase.repository.getCurrentUser();
+      result.fold(
+        (failure) => emit(const Unauthenticated()),
+        (user) => emit(Authenticated(user: user)),
+      );
+    } catch (e) {
+      emit(const Unauthenticated());
+    }
+  }
+
+  /// Decodifica el JWT y comprueba si ha expirado localmente (sin red).
+  bool _isTokenExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = parts[1];
+      // Normalizar padding base64url
+      final normalized = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final map = json.decode(decoded) as Map<String, dynamic>;
+      final exp = map['exp'] as int?;
+      if (exp == null) return false;
+      return DateTime.fromMillisecondsSinceEpoch(
+        exp * 1000,
+      ).isBefore(DateTime.now());
+    } catch (_) {
+      // Si no podemos decodificar, no forzamos el cierre de sesión
+      return false;
+    }
+  }
+
+  /// Handle clear error
+  void _onClearAuthError(ClearAuthError event, Emitter<AuthState> emit) {
+    emit(const AuthInitial());
+  }
+
+  /// Handle resend verification email request
+  Future<void> _onResendVerificationRequested(
+    ResendVerificationRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await loginUseCase.repository.resendVerificationEmail(
+      email: event.email,
+    );
+
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (_) => emit(const EmailResent()),
+    );
+  }
+
+  /// Handle forgot password request
+  Future<void> _onForgotPasswordRequested(
+    ForgotPasswordRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await forgotPasswordUseCase(
+      ForgotPasswordParams(email: event.email),
+    );
+
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (_) => emit(const PasswordResetEmailSent()),
+    );
+  }
+
+  /// Handle reset password request
+  Future<void> _onResetPasswordRequested(
+    ResetPasswordRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+
+    final result = await resetPasswordUseCase(
+      ResetPasswordParams(token: event.token, newPassword: event.newPassword),
+    );
+
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (_) => emit(const PasswordResetSuccess()),
+    );
+  }
+
+  // ── RF-03: Biometric Authentication ─────────────────────────────────────
+
+  /// RF-03: Check if biometric authentication is available on this device
+  Future<void> _onCheckBiometricAvailability(
+    CheckBiometricAvailability event,
+    Emitter<AuthState> emit,
+  ) async {
+    try {
+      final biometricService = di.sl<BiometricService>();
+      final isAvailable = await biometricService.isAvailable();
+      if (!isAvailable) {
+        emit(const BiometricNotAvailable());
+        return;
+      }
+      final isEnabled = await biometricService.isBiometricEnabled();
+      final label = await biometricService.getBiometricLabel();
+      emit(BiometricAvailable(isEnabled: isEnabled, biometricLabel: label));
+    } catch (_) {
+      emit(const BiometricNotAvailable());
+    }
+  }
+
+  /// RF-03: Authenticate with biometric and restore session from secure storage.
+  ///
+  /// Flujo:
+  /// 1. Muestra el diálogo biométrico nativo (< 2 segundos en condiciones normales)
+  /// 2. Si es correcto, recupera el token guardado en SecureStorage
+  /// 3. Si el token sigue siendo válido, emite Authenticated sin red
+  /// 4. Si el token expiró, emite BiometricFailed con fallback a contraseña
+  Future<void> _onBiometricLoginRequested(
+    BiometricLoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const BiometricAuthenticating());
+
+    try {
+      final biometricService = di.sl<BiometricService>();
+      final result = await biometricService.authenticate(
+        reason: 'Accede a Finora con tu huella o Face ID',
+      );
+
+      switch (result) {
+        case BiometricResult.success:
+          // Restaurar sesión desde almacenamiento local
+          final localDataSource = di.sl<AuthLocalDataSource>();
+          final token = await localDataSource.getToken();
+
+          if (token == null || token.isEmpty || _isTokenExpired(token)) {
+            // Token expirado → pedir credenciales
+            emit(
+              const BiometricFailed(
+                reason:
+                    'Tu sesión ha expirado. Por favor inicia sesión con tu contraseña.',
+              ),
+            );
+            return;
+          }
+
+          final apiClient = di.sl<ApiClient>();
+          apiClient.setToken(token);
+
+          try {
+            final cachedUser = await localDataSource.getCachedUser();
+            emit(Authenticated(user: cachedUser));
+          } catch (_) {
+            final res = await loginUseCase.repository.getCurrentUser();
+            res.fold(
+              (_) => emit(
+                const BiometricFailed(
+                  reason:
+                      'No se pudo verificar tu sesión. Por favor inicia sesión con tu contraseña.',
+                ),
+              ),
+              (user) => emit(Authenticated(user: user)),
+            );
+          }
+
+        case BiometricResult.disabled:
+          emit(const BiometricNotAvailable());
+
+        case BiometricResult.notAvailable:
+        case BiometricResult.notEnrolled:
+          emit(const BiometricNotAvailable());
+
+        case BiometricResult.canceled:
+          emit(const BiometricFailed(reason: 'Autenticación cancelada'));
+
+        case BiometricResult.error:
+          emit(
+            const BiometricFailed(
+              reason: 'Error de autenticación. Por favor usa tu contraseña.',
+            ),
+          );
+      }
+    } catch (e) {
+      emit(BiometricFailed(reason: 'Error inesperado: ${e.toString()}'));
+    }
+  }
+
+  /// RF-09: Update the local user name without re-fetching from server
+  void _onUpdateProfileName(
+    UpdateProfileName event,
+    Emitter<AuthState> emit,
+  ) {
+    final current = state;
+    if (current is Authenticated) {
+      emit(Authenticated(user: current.user.copyWith(name: event.name)));
+    }
+  }
+}

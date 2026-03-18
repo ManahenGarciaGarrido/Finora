@@ -1,0 +1,544 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/network_info.dart';
+import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/database/local_database.dart';
+import '../../../../core/sync/sync_manager.dart';
+import '../../domain/entities/transaction_entity.dart';
+import 'transaction_event.dart';
+import 'transaction_state.dart';
+
+/// BLoC para gestionar transacciones (RF-05, RNF-06, RNF-15)
+///
+/// Estrategia offline-first:
+/// 1. Cargar datos de Hive (instantáneo, < 5ms) → emitir inmediatamente
+/// 2. Intentar cargar de API en background → actualizar Hive y UI
+/// 3. Si offline, trabajar exclusivamente con datos locales
+///
+/// Persiste transacciones en Hive y sincroniza con la API cuando hay conexión.
+class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
+  final ApiClient _apiClient;
+  final LocalDatabase _localDatabase;
+  final NetworkInfo _networkInfo;
+  final SyncManager _syncManager;
+  final List<TransactionEntity> _transactions = [];
+
+  /// Cache inteligente: marca cuándo se hizo la última carga desde la API.
+  /// Si han pasado menos de [_cacheTtl], se reutilizan los datos de Hive
+  /// sin lanzar una nueva petición de red (Nota Técnica HU-15).
+  DateTime? _lastApiLoadTime;
+  static const Duration _cacheTtl = Duration(seconds: 30);
+
+  /// RNF-20: Paginación server-side. Tamaño de página inicial (100 en vez de
+  /// cargar todo). Se amplía bajo demanda con LoadMoreTransactions.
+  static const int _serverPageSize = 100;
+  int _currentServerPage = 1;
+  bool _hasMorePages = false;
+  bool _isLoadingMore = false;
+
+  // Totales del servidor (calculados sobre TODOS los registros con window functions)
+  // Se actualizan en cada carga de página 1, garantizando balance real.
+  double? _serverTotalIncome;
+  double? _serverTotalExpenses;
+
+  bool get _isCacheValid =>
+      _lastApiLoadTime != null &&
+      DateTime.now().difference(_lastApiLoadTime!) < _cacheTtl;
+
+  TransactionBloc({
+    required ApiClient apiClient,
+    required LocalDatabase localDatabase,
+    required NetworkInfo networkInfo,
+    required SyncManager syncManager,
+  }) : _apiClient = apiClient,
+       _localDatabase = localDatabase,
+       _networkInfo = networkInfo,
+       _syncManager = syncManager,
+       super(TransactionInitial()) {
+    on<LoadTransactions>(_onLoadTransactions);
+    on<AddTransaction>(_onAddTransaction);
+    on<EditTransaction>(_onEditTransaction);
+    on<DeleteTransaction>(_onDeleteTransaction);
+    on<SyncTransactions>(_onSyncTransactions);
+    on<LoadMoreTransactions>(_onLoadMoreTransactions);
+  }
+
+  List<TransactionEntity> get transactions => List.unmodifiable(_transactions);
+
+  double get totalBalance =>
+      (_serverTotalIncome ?? _localTotalIncome) -
+      (_serverTotalExpenses ?? _localTotalExpenses);
+
+  double get totalIncome => _serverTotalIncome ?? _localTotalIncome;
+
+  double get totalExpenses => _serverTotalExpenses ?? _localTotalExpenses;
+
+  double get _localTotalIncome {
+    double total = 0;
+    for (final t in _transactions) {
+      if (t.isIncome) total += t.amount;
+    }
+    return total;
+  }
+
+  double get _localTotalExpenses {
+    double total = 0;
+    for (final t in _transactions) {
+      if (t.isExpense) total += t.amount;
+    }
+    return total;
+  }
+
+  /// Calcula gastos agrupados por categoría
+  Map<String, double> get expensesByCategory {
+    final map = <String, double>{};
+    for (final t in _transactions) {
+      if (t.isExpense) {
+        map[t.category] = (map[t.category] ?? 0) + t.amount;
+      }
+    }
+    return map;
+  }
+
+  /// Cargar transacciones: primero local (Hive), luego API en background
+  Future<void> _onLoadTransactions(
+    LoadTransactions event,
+    Emitter<TransactionState> emit,
+  ) async {
+    emit(TransactionLoading());
+
+    // Paso 1: Cargar datos locales de Hive (instantáneo, < 5ms)
+    final localData = _localDatabase.getAllTransactions();
+    if (localData.isNotEmpty) {
+      _transactions.clear();
+      for (final map in localData) {
+        _transactions.add(TransactionEntity.fromMap(map));
+      }
+      // Ordenar por fecha (más reciente primero)
+      _transactions.sort((a, b) => b.date.compareTo(a.date));
+      _emitLoaded(emit, isOffline: false);
+    }
+
+    // Paso 2: Cache inteligente — si los datos son recientes (< 30 s),
+    // evitar llamada a la API y devolver los datos de Hive (Nota Técnica HU-15)
+    if (localData.isNotEmpty && _isCacheValid) {
+      debugPrint(
+        'TransactionBloc: Cache válida (${DateTime.now().difference(_lastApiLoadTime!).inSeconds}s), usando datos locales',
+      );
+      _emitLoaded(emit, isOffline: false);
+      return;
+    }
+
+    // Paso 3: Intentar cargar de API en background
+    try {
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        // Sin conexión: emitir datos locales con flag offline
+        if (localData.isEmpty) {
+          _emitLoaded(emit, isOffline: true);
+        } else {
+          _emitLoaded(emit, isOffline: true);
+        }
+        return;
+      }
+
+      // Primero sincronizar cola pendiente
+      if (_syncManager.pendingCount > 0) {
+        await _syncManager.processQueue();
+      }
+
+      // RNF-20: Cargar solo la primera página (100 transacciones).
+      // Páginas adicionales se cargan bajo demanda con LoadMoreTransactions.
+      _currentServerPage = 1;
+      _hasMorePages = false;
+      final List<Map<String, dynamic>> serverTransactions = [];
+
+      final response = await _apiClient.get(
+        ApiEndpoints.transactions,
+        queryParameters: {'limit': _serverPageSize, 'page': 1},
+      );
+      final data = response.data;
+      if (data != null && data['transactions'] != null) {
+        for (final json in data['transactions'] as List) {
+          final entity = _fromJson(json as Map<String, dynamic>);
+          serverTransactions.add(entity.toMap());
+        }
+        final pagination = data['pagination'];
+        if (pagination != null) {
+          _hasMorePages = pagination['hasMore'] == true;
+        }
+        // Extraer totales reales del servidor (calculados sobre TODOS los registros)
+        final totals = data['totals'];
+        if (totals != null) {
+          _serverTotalIncome = (totals['income'] as num?)?.toDouble();
+          _serverTotalExpenses = (totals['expense'] as num?)?.toDouble();
+        }
+      }
+
+      if (serverTransactions.isNotEmpty) {
+        // Añadir transacciones locales pendientes que no están en el servidor
+        final localPending = _localDatabase
+            .getAllTransactions()
+            .where((t) => t['sync_status'] == 'pending')
+            .toList();
+        for (final pendingMap in localPending) {
+          final pending = TransactionEntity.fromMap(pendingMap);
+          if (!serverTransactions.any((t) => t['id'] == pending.id)) {
+            serverTransactions.add(pendingMap);
+          }
+        }
+
+        _transactions.clear();
+        for (final map in serverTransactions) {
+          _transactions.add(TransactionEntity.fromMap(map));
+        }
+
+        // Ordenar por fecha
+        _transactions.sort((a, b) => b.date.compareTo(a.date));
+
+        // Guardar en Hive para acceso offline
+        await _localDatabase.saveAllTransactions(serverTransactions);
+      }
+
+      // Actualizar timestamp de cache tras carga exitosa desde API
+      _lastApiLoadTime = DateTime.now();
+      _emitLoaded(emit, isOffline: false);
+    } catch (e) {
+      debugPrint('TransactionBloc: Error cargando de API: $e');
+      // Si ya tenemos datos locales, los usamos
+      _emitLoaded(emit, isOffline: true);
+    }
+  }
+
+  /// Invalida la cache para forzar recarga desde API en el próximo LoadTransactions.
+  /// También reinicia el estado de paginación server-side (RNF-20).
+  void _invalidateCache() {
+    _lastApiLoadTime = null;
+    _currentServerPage = 1;
+    _hasMorePages = false;
+    _serverTotalIncome = null;
+    _serverTotalExpenses = null;
+  }
+
+  /// Agregar transacción: guardar en Hive primero, luego API si hay conexión
+  Future<void> _onAddTransaction(
+    AddTransaction event,
+    Emitter<TransactionState> emit,
+  ) async {
+    _invalidateCache(); // Las mutaciones siempre deben refrescarse desde la API
+    emit(TransactionLoading());
+
+    final isConnected = await _networkInfo.isConnected;
+
+    if (isConnected) {
+      // Online: intentar enviar a API
+      try {
+        final t = event.transaction;
+        final response = await _apiClient.post(
+          ApiEndpoints.transactions,
+          data: t.toApiMap(),
+        );
+
+        final saved = _fromJson(response.data['transaction']);
+        _transactions.insert(0, saved);
+
+        // Guardar en Hive como synced
+        await _localDatabase.saveTransaction(saved.toMap());
+
+        emit(TransactionAdded(transaction: saved));
+        _emitLoaded(emit);
+        return;
+      } catch (e) {
+        // Diferenciar entre errores de validación y errores de conexión
+        debugPrint('TransactionBloc: Error API - $e');
+
+        // Intentar extraer mensaje de error del servidor
+        String errorMessage = 'Error al registrar la transacción';
+        if (e.toString().contains('Validation Error')) {
+          // Error de validación del servidor
+          errorMessage = _extractValidationError(e);
+          emit(TransactionError(message: errorMessage));
+          return; // Detener aquí, no guardar offline
+        }
+
+        // Para otros errores (conexión, servidor), guardar offline y notificar
+        debugPrint('TransactionBloc: Error API, guardando offline: $e');
+      }
+    }
+
+    // Offline o fallo de conexión: guardar localmente
+    final localId = 'local_${DateTime.now().millisecondsSinceEpoch}';
+    final transaction = event.transaction.copyWith(
+      id: localId,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      syncStatus: SyncStatus.pending,
+    );
+
+    _transactions.insert(0, transaction);
+
+    // Guardar en Hive
+    await _localDatabase.saveTransaction(transaction.toMap());
+
+    // Encolar para sincronización
+    final apiData = transaction.toApiMap();
+    apiData['local_id'] = localId;
+    await _syncManager.enqueueCreate(apiData);
+
+    // Emitir estado con información de guardado offline
+    if (!isConnected) {
+      emit(TransactionAdded(transaction: transaction));
+      // Mostrar SnackBar informativo de guardado offline
+      debugPrint(
+        'TransactionBloc: Transacción guardada offline, se sincronizará cuando haya conexión',
+      );
+    } else {
+      emit(TransactionAdded(transaction: transaction));
+    }
+
+    _emitLoaded(emit, isOffline: !isConnected);
+  }
+
+  /// Extrae mensaje de error de validación desde la excepción
+  String _extractValidationError(dynamic error) {
+    final errorStr = error.toString();
+
+    // Intentar extraer mensaje específico de error
+    if (errorStr.contains('cantidad')) {
+      return 'La cantidad debe ser un número positivo mayor que 0';
+    }
+    if (errorStr.contains('tipo')) {
+      return 'El tipo debe ser ingreso o gasto';
+    }
+    if (errorStr.contains('categoría')) {
+      return 'La categoría es requerida';
+    }
+    if (errorStr.contains('fecha')) {
+      return 'La fecha debe ser una fecha válida';
+    }
+    if (errorStr.contains('método de pago')) {
+      return 'El método de pago es inválido';
+    }
+    if (errorStr.contains('descripción')) {
+      return 'La descripción no puede exceder 500 caracteres';
+    }
+
+    return 'Error de validación en los datos. Por favor, revisa los campos e intenta de nuevo';
+  }
+
+  /// Editar transacción: actualizar en Hive, luego API si hay conexión (RF-06)
+  Future<void> _onEditTransaction(
+    EditTransaction event,
+    Emitter<TransactionState> emit,
+  ) async {
+    _invalidateCache();
+    emit(TransactionLoading());
+
+    final t = event.transaction;
+    final index = _transactions.indexWhere((tx) => tx.id == t.id);
+    if (index == -1) {
+      emit(TransactionError(message: 'Transacción no encontrada'));
+      _emitLoaded(emit);
+      return;
+    }
+
+    final isConnected = await _networkInfo.isConnected;
+
+    if (isConnected) {
+      try {
+        final response = await _apiClient.put(
+          ApiEndpoints.transactionById(t.id!),
+          data: t.toApiMap(),
+        );
+
+        // Usar los datos devueltos por el servidor (incluye updated_at real)
+        final serverData = response.data['transaction'];
+        final updated = serverData != null
+            ? _fromJson(serverData)
+            : t.copyWith(
+                updatedAt: DateTime.now(),
+                syncStatus: SyncStatus.synced,
+              );
+
+        _transactions[index] = updated;
+        await _localDatabase.updateTransaction(t.id!, updated.toMap());
+
+        emit(TransactionUpdated(transaction: updated));
+        _emitLoaded(emit);
+        return;
+      } catch (e) {
+        debugPrint('TransactionBloc: Error editando en API: $e');
+
+        // Intentar extraer mensaje de validación
+        String errorMessage = 'Error al actualizar la transacción';
+        if (e.toString().contains('Validation Error')) {
+          errorMessage = _extractValidationError(e);
+          emit(TransactionError(message: errorMessage));
+          return;
+        }
+        // Para errores de conexión, continuar con guardado offline
+      }
+    }
+
+    // Offline: actualizar localmente y encolar
+    final updated = t.copyWith(
+      updatedAt: DateTime.now(),
+      syncStatus: SyncStatus.pending,
+    );
+    _transactions[index] = updated;
+    await _localDatabase.updateTransaction(t.id!, updated.toMap());
+
+    final apiData = updated.toApiMap();
+    apiData['id'] = t.id;
+    await _syncManager.enqueueUpdate(apiData);
+
+    emit(TransactionUpdated(transaction: updated));
+    _emitLoaded(emit, isOffline: !isConnected);
+  }
+
+  /// Eliminar transacción: eliminar de Hive, luego API si hay conexión
+  Future<void> _onDeleteTransaction(
+    DeleteTransaction event,
+    Emitter<TransactionState> emit,
+  ) async {
+    _invalidateCache();
+    emit(TransactionLoading());
+
+    final isConnected = await _networkInfo.isConnected;
+
+    if (isConnected) {
+      try {
+        await _apiClient.delete(
+          ApiEndpoints.transactionById(event.transactionId),
+        );
+      } catch (_) {
+        // Eliminamos localmente de todas formas
+      }
+    } else {
+      // Offline: encolar delete solo si no es un ID local
+      if (!event.transactionId.startsWith('local_')) {
+        await _syncManager.enqueueDelete(event.transactionId);
+      }
+    }
+
+    _transactions.removeWhere((t) => t.id == event.transactionId);
+    await _localDatabase.deleteTransaction(event.transactionId);
+
+    emit(TransactionDeleted());
+    _emitLoaded(emit, isOffline: !isConnected);
+  }
+
+  /// Sincronizar manualmente las transacciones pendientes
+  Future<void> _onSyncTransactions(
+    SyncTransactions event,
+    Emitter<TransactionState> emit,
+  ) async {
+    final isConnected = await _networkInfo.isConnected;
+    if (!isConnected) {
+      _emitLoaded(emit, isOffline: true);
+      return;
+    }
+
+    emit(TransactionsSyncing());
+
+    final success = await _syncManager.processQueue();
+    if (success) {
+      // Recargar datos del servidor
+      add(LoadTransactions());
+    } else {
+      _emitLoaded(emit);
+    }
+  }
+
+  /// RNF-20: Carga la siguiente página de transacciones del servidor y la añade
+  /// a la lista en memoria. Se llama cuando el usuario llega al final de la lista.
+  Future<void> _onLoadMoreTransactions(
+    LoadMoreTransactions event,
+    Emitter<TransactionState> emit,
+  ) async {
+    if (!_hasMorePages || _isLoadingMore) return;
+
+    _isLoadingMore = true;
+    try {
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        _isLoadingMore = false;
+        return;
+      }
+
+      final nextPage = _currentServerPage + 1;
+      final response = await _apiClient.get(
+        ApiEndpoints.transactions,
+        queryParameters: {'limit': _serverPageSize, 'page': nextPage},
+      );
+      final data = response.data;
+      if (data != null && data['transactions'] != null) {
+        final incoming = <TransactionEntity>[];
+        for (final json in data['transactions'] as List) {
+          incoming.add(_fromJson(json as Map<String, dynamic>));
+        }
+
+        // Añadir solo los que no existen ya (evita duplicados en edge cases)
+        final existingIds = _transactions.map((t) => t.id).toSet();
+        for (final t in incoming) {
+          if (!existingIds.contains(t.id)) _transactions.add(t);
+        }
+
+        // Mantener orden cronológico descendente
+        _transactions.sort((a, b) => b.date.compareTo(a.date));
+
+        _currentServerPage = nextPage;
+        final pagination = data['pagination'];
+        _hasMorePages = pagination?['hasMore'] == true;
+
+        // Persistir en caché local los nuevos elementos
+        final allMaps = _transactions.map((t) => t.toMap()).toList();
+        await _localDatabase.saveAllTransactions(allMaps);
+      }
+    } catch (e) {
+      debugPrint('TransactionBloc: Error cargando más transacciones: $e');
+      // Fallo silencioso - no bloquear la UI
+    } finally {
+      _isLoadingMore = false;
+      _emitLoaded(emit);
+    }
+  }
+
+  void _emitLoaded(Emitter<TransactionState> emit, {bool isOffline = false}) {
+    emit(
+      TransactionsLoaded(
+        transactions: List.unmodifiable(_transactions),
+        balance: totalBalance,
+        totalIncome: totalIncome,
+        totalExpenses: totalExpenses,
+        isOffline: isOffline,
+        pendingSyncCount: _syncManager.pendingCount,
+        hasMorePages: _hasMorePages,
+      ),
+    );
+  }
+
+  TransactionEntity _fromJson(Map<String, dynamic> json) {
+    return TransactionEntity(
+      id: json['id'],
+      amount: (json['amount'] is String)
+          ? double.parse(json['amount'])
+          : (json['amount'] as num).toDouble(),
+      type: TransactionType.fromString(json['type']),
+      category: json['category'],
+      description: json['description'],
+      date: DateTime.parse(json['date']),
+      paymentMethod: PaymentMethod.fromString(json['payment_method']),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : null,
+      syncStatus: SyncStatus.synced,
+      bankAccountId: json['bank_account_id'],
+      cardId: json['card_id'],
+    );
+  }
+}
