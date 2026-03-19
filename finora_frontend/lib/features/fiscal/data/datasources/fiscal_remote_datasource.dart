@@ -1,6 +1,8 @@
 import 'dart:developer' as dev;
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
+
+import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/fiscal_models.dart';
 
@@ -55,39 +57,67 @@ class FiscalRemoteDataSourceImpl implements FiscalRemoteDataSource {
       return FiscalTransactionModel.fromJson(
         res.data['transaction'] as Map<String, dynamic>,
       );
-    } on DioException catch (e) {
-      final status = e.response?.statusCode;
+    } catch (e) {
+      // ApiClient wraps DioException into AppException subclasses (NotFoundException etc.)
+      // so we must catch Object, not DioException.
+      final status = (e is AppException) ? e.code : null;
       dev.log(
-        '[FISCAL] tagTransaction fiscal ERROR → status=$status '
-        'body=${e.response?.data} url=${e.requestOptions.uri}',
+        '[FISCAL] tagTransaction fiscal ERROR → type=${e.runtimeType} status=$status msg=$e',
         name: 'FiscalDS',
       );
-      // Fallback: /fiscal/tag/{id} only works for transactions already in the
-      // fiscal system. For general transactions (from /transactions endpoint),
-      // update fiscal_category directly on the transaction record.
-      if (status == 404) {
+      // Fallback for any 404/405 from /fiscal/tag/{id}.
+      if (e is NotFoundException || status == 404 || status == 405) {
+        // /fiscal/tag/{id} not found or method not allowed.
+        // Fall back: fetch the full transaction then PUT it back with the
+        // updated fiscal_category (the app's standard update endpoint).
         dev.log(
-          '[FISCAL] tagTransaction 404 → falling back to PATCH /transactions/$transactionId',
+          '[FISCAL] tagTransaction $status → falling back to GET+PUT /transactions/$transactionId',
           name: 'FiscalDS',
         );
-        final fallbackRes = await _client.patch(
-          '/transactions/$transactionId',
-          data: {'fiscal_category': fiscalCategory},
-        );
-        dev.log(
-          '[FISCAL] tagTransaction /transactions PATCH SUCCESS → ${fallbackRes.data}',
-          name: 'FiscalDS',
-        );
-        final tx =
-            fallbackRes.data['transaction'] as Map<String, dynamic>? ?? {};
-        return FiscalTransactionModel(
-          id: tx['id']?.toString() ?? transactionId,
-          description: tx['description']?.toString() ?? '',
-          amount: double.tryParse(tx['amount']?.toString() ?? '') ?? 0.0,
-          date: tx['date']?.toString() ?? tx['created_at']?.toString() ?? '',
-          category: tx['category']?.toString(),
-          fiscalCategory: tx['fiscal_category']?.toString() ?? fiscalCategory,
-        );
+        try {
+          // 1. GET current transaction data
+          final getRes = await _client.get('/transactions/$transactionId');
+          final current =
+              (getRes.data['transaction'] ?? getRes.data)
+                  as Map<String, dynamic>;
+          // 2. PUT with fiscal_category updated
+          final updated = Map<String, dynamic>.from(current)
+            ..['fiscal_category'] = fiscalCategory;
+          final putRes = await _client.put(
+            '/transactions/$transactionId',
+            data: updated,
+          );
+          dev.log(
+            '[FISCAL] tagTransaction PUT SUCCESS → ${putRes.data}',
+            name: 'FiscalDS',
+          );
+          final tx =
+              (putRes.data['transaction'] ?? putRes.data)
+                  as Map<String, dynamic>? ??
+              {};
+          return FiscalTransactionModel(
+            id: tx['id']?.toString() ?? transactionId,
+            description: tx['description']?.toString() ?? '',
+            amount: double.tryParse(tx['amount']?.toString() ?? '') ?? 0.0,
+            date: tx['date']?.toString() ?? tx['created_at']?.toString() ?? '',
+            category: tx['category']?.toString(),
+            fiscalCategory: tx['fiscal_category']?.toString() ?? fiscalCategory,
+          );
+        } catch (fallbackErr) {
+          dev.log(
+            '[FISCAL] tagTransaction fallback error: $fallbackErr',
+            name: 'FiscalDS',
+          );
+          // Return a minimal model so the UI can still mark it locally
+          return FiscalTransactionModel(
+            id: transactionId,
+            description: '',
+            amount: 0.0,
+            date: '',
+            category: null,
+            fiscalCategory: fiscalCategory,
+          );
+        }
       }
       rethrow;
     }
@@ -166,24 +196,34 @@ class FiscalRemoteDataSourceImpl implements FiscalRemoteDataSource {
       try {
         dev.log('[FISCAL] Trying fallback URL: $url', name: 'FiscalDS');
         final fallback = await _client.get(url);
+        final rawData = fallback.data;
         dev.log(
-          '[FISCAL] $url → keys: ${fallback.data?.keys?.toList()}',
+          '[FISCAL] $url → data type: ${rawData.runtimeType}',
           name: 'FiscalDS',
         );
-        final candidate =
-            (fallback.data['transactions'] as List?) ??
-            (fallback.data['data'] as List?) ??
-            [];
+
+        List candidate = [];
+        if (rawData is Map) {
+          dev.log(
+            '[FISCAL] $url → keys: ${rawData.keys.toList()}',
+            name: 'FiscalDS',
+          );
+          candidate =
+              (rawData['transactions'] as List?) ??
+              (rawData['data'] as List?) ??
+              [];
+        } else if (rawData is List) {
+          // API returned a bare array
+          candidate = rawData;
+        }
+
         dev.log('[FISCAL] $url → ${candidate.length} items', name: 'FiscalDS');
         if (candidate.isNotEmpty) {
           txList = candidate;
           break;
         }
-      } on DioException catch (e) {
-        dev.log(
-          '[FISCAL] $url → DioException status=${e.response?.statusCode} body=${e.response?.data}',
-          name: 'FiscalDS',
-        );
+      } catch (e) {
+        dev.log('[FISCAL] $url → error: $e', name: 'FiscalDS');
       }
     }
     dev.log(

@@ -31,13 +31,12 @@ class FiscalBloc extends Bloc<FiscalEvent, FiscalState> {
 
   Future<void> _onTag(TagTransaction e, Emitter<FiscalState> emit) async {
     try {
-      final tx = await _repo.tagTransaction(e.transactionId, e.fiscalCategory);
-      emit(TransactionTagged(tx));
-      // Reload deductibles list (main page) then all transactions (bottom sheet)
+      await _repo.tagTransaction(e.transactionId, e.fiscalCategory);
+      // Reload both lists from the server — the PATCH /fiscal/tag/{id}
+      // endpoint now persists fiscal_category correctly in the DB.
       final list = await _repo.getDeductibles();
       final total = list.fold(0.0, (sum, t) => sum + t.amount);
       emit(DeductiblesLoaded(list, total));
-      // Re-emit AllTransactionsLoaded so the bottom sheet refreshes
       final all = await _repo.getAllTransactions();
       emit(AllTransactionsLoaded(all));
     } catch (err) {

@@ -276,17 +276,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
   }
 
   Widget _buildSimulatorTab(BuildContext ctx) {
-    return ReturnSimulatorWidget(
-      onSimulate: (data) async {
-        ctx.read<InvestmentBloc>().add(SimulateReturns(data));
-        // Direct API call for immediate result
-        final bloc = ctx.read<InvestmentBloc>();
-        await Future.delayed(const Duration(milliseconds: 100));
-        final state = bloc.state;
-        if (state is SimulationResult) return state.result;
-        throw Exception('Simulation failed');
-      },
-    );
+    return const ReturnSimulatorWidget();
   }
 
   Widget _buildMarketsTab(BuildContext ctx, dynamic s) {

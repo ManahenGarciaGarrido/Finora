@@ -151,6 +151,12 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => _pickImageFile(ctx),
+            icon: const Icon(Icons.attach_file_rounded),
+            label: Text(s.fromFile),
+          ),
           if (_extracted != null) ...[
             const SizedBox(height: 24),
             Text(s.extractedData, style: AppTypography.titleSmall()),
@@ -325,11 +331,52 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
     }
   }
 
+  /// Pick an image file (jpg/png/webp) from the filesystem for OCR.
+  Future<void> _pickImageFile(BuildContext ctx) async {
+    final s = AppLocalizations.of(ctx);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+      );
+      if (result == null || result.files.isEmpty) return;
+      final path = result.files.first.path;
+      if (path == null) return;
+      if (!ctx.mounted) return;
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(
+          content: Text(s.scanningReceipt),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+      final inputImage = InputImage.fromFilePath(path);
+      final recognized = await _textRecognizer.processImage(inputImage);
+      final text = recognized.text;
+      if (text.trim().isEmpty) {
+        if (!ctx.mounted) return;
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(
+            content: Text(s.noTextDetected),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      if (!ctx.mounted) return;
+      ctx.read<OcrBloc>().add(ExtractReceiptText(text));
+    } catch (e) {
+      if (!ctx.mounted) return;
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
   Future<void> _pickCsv(BuildContext ctx) async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['csv', 'txt'],
+        allowedExtensions: ['csv'],
       );
       if (result == null || result.files.isEmpty) return;
       final bytes = result.files.first.bytes;

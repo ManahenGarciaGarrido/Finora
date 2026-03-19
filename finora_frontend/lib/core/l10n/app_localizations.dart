@@ -3243,6 +3243,9 @@ class AppLocalizations extends AppStringsBase {
 
   @override
   String get widgetUpdateSuccess => _strings.widgetUpdateSuccess;
+
+  @override
+  String get fromFile => _strings.fromFile;
 }
 
 // ── Delegate ──────────────────────────────────────────────────────────────────

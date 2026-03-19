@@ -1479,6 +1479,7 @@ abstract class AppStringsBase {
   String get importStatementDesc;
   String get fromCamera;
   String get fromGallery;
+  String get fromFile;
   String get scanningReceipt;
   String get extractedData;
   String get extractedAmount;
@@ -2724,7 +2725,7 @@ class _AppStringsEs extends AppStringsBase {
   String get rightOfRectification => 'Derecho de Rectificación';
   @override
   String get rightOfRectificationDesc =>
-      'Corrige datos inexactos (próximamente)';
+      'Edita tu nombre y datos personales en tu perfil';
   @override
   String get gdprComplianceDesc =>
       'Finora cumple con el Reglamento General de Protección de Datos (GDPR) '
@@ -4445,6 +4446,8 @@ class _AppStringsEs extends AppStringsBase {
   String get importStatementDesc => 'Importa un fichero CSV o PDF de tu banco';
   @override
   String get fromCamera => 'Cámara';
+  @override
+  String get fromFile => 'Desde archivo';
   @override
   String get fromGallery => 'Galería';
   @override
@@ -7430,6 +7433,8 @@ class _AppStringsEn extends AppStringsBase {
   String get importStatementDesc => 'Import a CSV or PDF file from your bank';
   @override
   String get fromCamera => 'Camera';
+  @override
+  String get fromFile => 'From file';
   @override
   String get fromGallery => 'Gallery';
   @override
