@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/constants/storage_keys.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/security/biometric_service.dart';
+import '../../../../core/security/secure_storage_service.dart';
 import '../../data/datasources/auth_local_datasource.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
@@ -11,6 +13,7 @@ import '../../domain/usecases/forgot_password_usecase.dart';
 import '../../domain/usecases/reset_password_usecase.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
+import '../../../../core/services/profile_photo_service.dart';
 
 /// Authentication BLoC
 /// Handles all authentication-related business logic in the presentation layer
@@ -94,10 +97,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     final result = await logoutUseCase();
 
-    result.fold(
-      (failure) => emit(AuthError(message: failure.message)),
-      (_) => emit(const LogoutSuccess()),
-    );
+    result.fold((failure) => emit(AuthError(message: failure.message)), (_) {
+      ProfilePhotoService().clear();
+      emit(const LogoutSuccess());
+    });
   }
 
   /// Handle check authentication status
@@ -271,19 +274,32 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       switch (result) {
         case BiometricResult.success:
-          // Restaurar sesión desde almacenamiento local
+          // Restaurar sesión desde almacenamiento local.
+          // Intentamos primero el access_token normal; si expiró o no existe
+          // tras un logout, usamos el biometric_access_token que no se borra
+          // al cerrar sesión.
           final localDataSource = di.sl<AuthLocalDataSource>();
-          final token = await localDataSource.getToken();
-
+          final secureStorage = SecureStorageService();
+          await secureStorage.initialize();
+          String? token = await localDataSource.getToken();
           if (token == null || token.isEmpty || _isTokenExpired(token)) {
-            // Token expirado → pedir credenciales
-            emit(
-              const BiometricFailed(
-                reason:
-                    'Tu sesión ha expirado. Por favor inicia sesión con tu contraseña.',
-              ),
+            final biometricToken = await secureStorage.read(
+              key: StorageKeys.biometricToken,
+              decrypt: true,
             );
-            return;
+            if (biometricToken != null &&
+                biometricToken.isNotEmpty &&
+                !_isTokenExpired(biometricToken)) {
+              token = biometricToken;
+            } else {
+              emit(
+                const BiometricFailed(
+                  reason:
+                      'Tu sesión ha expirado. Por favor inicia sesión con tu contraseña.',
+                ),
+              );
+              return;
+            }
           }
 
           final apiClient = di.sl<ApiClient>();
@@ -328,10 +344,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   /// RF-09: Update the local user name without re-fetching from server
-  void _onUpdateProfileName(
-    UpdateProfileName event,
-    Emitter<AuthState> emit,
-  ) {
+  void _onUpdateProfileName(UpdateProfileName event, Emitter<AuthState> emit) {
     final current = state;
     if (current is Authenticated) {
       emit(Authenticated(user: current.user.copyWith(name: event.name)));
