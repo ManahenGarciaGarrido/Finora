@@ -281,62 +281,148 @@ router.get('/anomalies', authenticateToken, async (req, res) => {
 
 // ── POST /api/v1/ai/chat ──────────────────────────────────────────────────────
 /**
- * RF-25: Asistente conversacional IA vía Gemini
- * Proxy entre la app Flutter y la Gemini API usando la clave del servidor.
+ * RF-25: Asistente conversacional Finn vía Ollama (LLM local) + RAG
+ *
+ * Ollama corre localmente en el mismo servidor (http://localhost:11434) sin
+ * coste ni límite de peticiones. Inyecta el contexto financiero real del
+ * usuario en el system prompt para respuestas personalizadas.
+ *
+ * Configuración por variables de entorno:
+ *   OLLAMA_URL   — URL base de Ollama (default: http://localhost:11434)
+ *   OLLAMA_MODEL — modelo a usar      (default: qwen2.5:1.5b)
  */
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(503).json({ error: 'Gemini API key not configured on server.' });
-    }
-
-    const { message, history = [], systemPrompt } = req.body;
+    const { message, history = [] } = req.body;
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'message is required' });
     }
 
-    const contents = [];
+    const userId = req.user.userId;
+    const ollamaUrl   = process.env.OLLAMA_URL   || 'http://localhost:11434';
+    const ollamaModel = process.env.OLLAMA_MODEL  || 'qwen2.5:1.5b';
+
+    // ── Obtener contexto financiero RAG ─────────────────────────────────────
+    const now = new Date();
+    const start30d     = new Date(now); start30d.setDate(now.getDate() - 30);
+    const start3m      = new Date(now); start3m.setMonth(now.getMonth() - 3);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [balanceRes, flowRes, catRes, recentRes] = await Promise.all([
+      db.query(
+        `SELECT COALESCE(SUM(balance_cents), 0)::float / 100 AS total
+         FROM bank_accounts WHERE user_id = $1`,
+        [userId],
+      ),
+      db.query(
+        `SELECT
+           COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END),0)::float AS income,
+           COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0)::float AS expenses
+         FROM transactions WHERE user_id=$1 AND date>=$2`,
+        [userId, start30d.toISOString().split('T')[0]],
+      ),
+      db.query(
+        `SELECT COALESCE(category,'Otros') AS category, SUM(amount)::float AS total
+         FROM transactions
+         WHERE user_id=$1 AND type='expense' AND date>=$2
+         GROUP BY 1 ORDER BY total DESC LIMIT 5`,
+        [userId, startOfMonth.toISOString().split('T')[0]],
+      ),
+      db.query(
+        `SELECT amount::float, type, COALESCE(category,'Otros') AS category,
+                description, TO_CHAR(date,'DD/MM/YYYY') AS date
+         FROM transactions
+         WHERE user_id=$1 AND date>=$2
+         ORDER BY date DESC LIMIT 15`,
+        [userId, start3m.toISOString().split('T')[0]],
+      ),
+    ]);
+
+    const balance   = balanceRes.rows[0]?.total ?? 0;
+    const income30d = flowRes.rows[0]?.income   ?? 0;
+    const exp30d    = flowRes.rows[0]?.expenses  ?? 0;
+    const topCats   = catRes.rows;
+    const recent    = recentRes.rows;
+
+    const catLines = topCats.length
+      ? topCats.map(c => `  • ${c.category}: ${c.total.toFixed(2)} €`).join('\n')
+      : '  (sin datos este mes)';
+    const txLines = recent.length
+      ? recent.map(t =>
+          `  [${t.date}] ${t.type === 'income' ? '+' : '-'}${Math.abs(t.amount).toFixed(2)} € — ${t.category} — ${t.description}`
+        ).join('\n')
+      : '  (sin transacciones recientes)';
+
+    const systemPrompt = `Eres Finn, el asistente financiero personal de Finora. \
+Eres amable, claro y orientado a dar consejos prácticos en español. \
+Tienes acceso al resumen financiero REAL del usuario:
+
+=== DATOS FINANCIEROS DEL USUARIO ===
+Saldo total actual: ${balance.toFixed(2)} €
+Ingresos últimos 30 días: ${income30d.toFixed(2)} €
+Gastos últimos 30 días: ${exp30d.toFixed(2)} €
+Superávit/déficit mensual: ${(income30d - exp30d).toFixed(2)} €
+
+Top categorías de gasto este mes:
+${catLines}
+
+Últimas transacciones (máx. 15):
+${txLines}
+=====================================
+
+Usa estos datos reales para responder de forma personalizada. \
+Si el usuario pregunta por su saldo, gastos o ingresos, usa los números de arriba. \
+Responde siempre en español. Sé conciso (máx. 3-4 párrafos) y ofrece \
+siempre una recomendación accionable.`;
+
+    // ── Llamar a Ollama (API /api/chat compatible con OpenAI) ────────────────
+    const messages = [{ role: 'system', content: systemPrompt }];
     for (const h of history) {
-      contents.push({
-        role: h.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: h.content }],
-      });
+      messages.push({ role: h.role === 'assistant' ? 'assistant' : 'user', content: h.content });
     }
-    contents.push({ role: 'user', parts: [{ text: message }] });
+    messages.push({ role: 'user', content: message });
 
-    const body = {
-      contents,
-      generationConfig: { temperature: 0.75, maxOutputTokens: 768 },
-    };
-    if (systemPrompt) {
-      body.systemInstruction = { parts: [{ text: systemPrompt }] };
+    // Timeout de 60s — suficiente para CPU, evita colgar la request indefinidamente
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+
+    const ollamaRes = await fetch(`${ollamaUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: ollamaModel,
+        messages,
+        stream: false,
+        options: {
+          temperature: 0.7,
+          num_predict: 400,   // ~300 palabras — suficiente y más rápido
+          num_ctx: 2048,      // ventana de contexto reducida para más velocidad en CPU
+          repeat_penalty: 1.1,
+        },
+      }),
+    });
+    clearTimeout(timer);
+
+    if (!ollamaRes.ok) {
+      const errText = await ollamaRes.text();
+      console.error('[RF-25] Ollama error:', errText);
+      return res.status(502).json({ error: 'Ollama error', detail: errText });
     }
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }
-    );
-
-    if (!geminiRes.ok) {
-      const text = await geminiRes.text();
-      console.error('[RF-25] Gemini error:', text);
-      return res.status(502).json({ error: 'Gemini API error', detail: text });
-    }
-
-    const data = await geminiRes.json();
-    const candidates = data.candidates;
-    if (!candidates || candidates.length === 0) {
-      return res.status(502).json({ error: 'No response from Gemini' });
-    }
-    const text = candidates[0].content.parts[0].text;
+    const data = await ollamaRes.json();
+    const text = data.message?.content;
+    if (!text) return res.status(502).json({ error: 'No response from Ollama' });
     return res.json({ response: text });
+
   } catch (err) {
     console.error('[RF-25] chat error:', err.message);
+    // Si Ollama no está levantado devuelve error claro
+    if (err.code === 'ECONNREFUSED') {
+      return res.status(503).json({
+        error: 'El servicio de IA local no está disponible. Asegúrate de que Ollama está corriendo.',
+      });
+    }
     return res.status(500).json({ error: err.message });
   }
 });

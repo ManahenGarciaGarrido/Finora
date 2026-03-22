@@ -1,3 +1,4 @@
+import 'package:finora_frontend/core/database/local_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
@@ -10,11 +11,7 @@ import 'package:finora_frontend/core/network/network_info.dart';
 import 'package:finora_frontend/core/errors/failures.dart';
 import 'package:finora_frontend/core/errors/exceptions.dart';
 
-@GenerateMocks([
-  AuthRemoteDataSource,
-  AuthLocalDataSource,
-  NetworkInfo,
-])
+@GenerateMocks([AuthRemoteDataSource, AuthLocalDataSource, NetworkInfo])
 import 'auth_repository_impl_test.mocks.dart';
 
 void main() {
@@ -22,15 +19,18 @@ void main() {
   late MockAuthRemoteDataSource mockRemoteDataSource;
   late MockAuthLocalDataSource mockLocalDataSource;
   late MockNetworkInfo mockNetworkInfo;
+  late LocalDatabase mockLocalDatabase;
 
   setUp(() {
     mockRemoteDataSource = MockAuthRemoteDataSource();
     mockLocalDataSource = MockAuthLocalDataSource();
     mockNetworkInfo = MockNetworkInfo();
+    mockLocalDatabase = LocalDatabase();
     repository = AuthRepositoryImpl(
       remoteDataSource: mockRemoteDataSource,
       localDataSource: mockLocalDataSource,
       networkInfo: mockNetworkInfo,
+      localDatabase: mockLocalDatabase,
     );
   });
 
@@ -49,10 +49,12 @@ void main() {
     test('should check if device is online', () async {
       // Arrange
       when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(mockRemoteDataSource.login(
-        email: anyNamed('email'),
-        password: anyNamed('password'),
-      )).thenAnswer((_) async => testUserModel);
+      when(
+        mockRemoteDataSource.login(
+          email: anyNamed('email'),
+          password: anyNamed('password'),
+        ),
+      ).thenAnswer((_) async => testUserModel);
       when(mockLocalDataSource.cacheUser(any)).thenAnswer((_) async => {});
 
       // Act
@@ -73,39 +75,42 @@ void main() {
       );
 
       // Assert
-      expect(result, const Left(NetworkFailure(message: 'No internet connection')));
-      verifyNever(mockRemoteDataSource.login(
-        email: any,
-        password: any,
-      ));
+      expect(
+        result,
+        const Left(NetworkFailure(message: 'No internet connection')),
+      );
+      verifyNever(mockRemoteDataSource.login(email: any, password: any));
     });
 
     test('should call remote data source when device is online', () async {
       // Arrange
       when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(mockRemoteDataSource.login(
-        email: anyNamed('email'),
-        password: anyNamed('password'),
-      )).thenAnswer((_) async => testUserModel);
+      when(
+        mockRemoteDataSource.login(
+          email: anyNamed('email'),
+          password: anyNamed('password'),
+        ),
+      ).thenAnswer((_) async => testUserModel);
       when(mockLocalDataSource.cacheUser(any)).thenAnswer((_) async => {});
 
       // Act
       await repository.login(email: testEmail, password: testPassword);
 
       // Assert
-      verify(mockRemoteDataSource.login(
-        email: testEmail,
-        password: testPassword,
-      ));
+      verify(
+        mockRemoteDataSource.login(email: testEmail, password: testPassword),
+      );
     });
 
     test('should cache user data when login is successful', () async {
       // Arrange
       when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(mockRemoteDataSource.login(
-        email: anyNamed('email'),
-        password: anyNamed('password'),
-      )).thenAnswer((_) async => testUserModel);
+      when(
+        mockRemoteDataSource.login(
+          email: anyNamed('email'),
+          password: anyNamed('password'),
+        ),
+      ).thenAnswer((_) async => testUserModel);
       when(mockLocalDataSource.cacheUser(any)).thenAnswer((_) async => {});
 
       // Act
@@ -118,10 +123,12 @@ void main() {
     test('should return User when login is successful', () async {
       // Arrange
       when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(mockRemoteDataSource.login(
-        email: anyNamed('email'),
-        password: anyNamed('password'),
-      )).thenAnswer((_) async => testUserModel);
+      when(
+        mockRemoteDataSource.login(
+          email: anyNamed('email'),
+          password: anyNamed('password'),
+        ),
+      ).thenAnswer((_) async => testUserModel);
       when(mockLocalDataSource.cacheUser(any)).thenAnswer((_) async => {});
 
       // Act
@@ -132,66 +139,67 @@ void main() {
 
       // Assert
       expect(result.isRight(), true);
-      result.fold(
-        (_) => fail('Should return user'),
-        (user) {
-          expect(user.email, equals(testEmail));
-          expect(user.id, equals('1'));
-        },
-      );
+      result.fold((_) => fail('Should return user'), (user) {
+        expect(user.email, equals(testEmail));
+        expect(user.id, equals('1'));
+      });
     });
 
-    test('should return ServerFailure when remote data source throws ServerException', () async {
-      // Arrange
-      when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(mockRemoteDataSource.login(
-        email: anyNamed('email'),
-        password: anyNamed('password'),
-      )).thenThrow(const ServerException(message: 'Server error'));
+    test(
+      'should return ServerFailure when remote data source throws ServerException',
+      () async {
+        // Arrange
+        when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+        when(
+          mockRemoteDataSource.login(
+            email: anyNamed('email'),
+            password: anyNamed('password'),
+          ),
+        ).thenThrow(const ServerException(message: 'Server error'));
 
-      // Act
-      final result = await repository.login(
-        email: testEmail,
-        password: testPassword,
-      );
+        // Act
+        final result = await repository.login(
+          email: testEmail,
+          password: testPassword,
+        );
 
-      // Assert
-      expect(result.isLeft(), true);
-      result.fold(
-        (failure) {
+        // Assert
+        expect(result.isLeft(), true);
+        result.fold((failure) {
           expect(failure, isA<ServerFailure>());
           expect(failure.message, equals('Server error'));
-        },
-        (_) => fail('Should return failure'),
-      );
-    });
+        }, (_) => fail('Should return failure'));
+      },
+    );
 
-    test('should return AuthenticationFailure when credentials are invalid', () async {
-      // Arrange
-      when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(mockRemoteDataSource.login(
-        email: anyNamed('email'),
-        password: anyNamed('password'),
-      )).thenThrow(
-        const AuthenticationException(message: 'Invalid credentials'),
-      );
+    test(
+      'should return AuthenticationFailure when credentials are invalid',
+      () async {
+        // Arrange
+        when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
+        when(
+          mockRemoteDataSource.login(
+            email: anyNamed('email'),
+            password: anyNamed('password'),
+          ),
+        ).thenThrow(
+          const AuthenticationException(message: 'Invalid credentials'),
+        );
 
-      // Act
-      final result = await repository.login(
-        email: testEmail,
-        password: testPassword,
-      );
+        // Act
+        final result = await repository.login(
+          email: testEmail,
+          password: testPassword,
+        );
 
-      // Assert
-      expect(result.isLeft(), true);
-      result.fold(
-        (failure) {
+        // Assert
+        expect(result.isLeft(), true);
+        result.fold((failure) {
           expect(failure, isA<AuthenticationFailure>());
           expect(failure.message, equals('Invalid credentials'));
-        },
-        (_) => fail('Should return failure'),
-      );
-    });
+        }, (_) => fail('Should return failure'));
+      },
+    );
   });
 
   group('logout', () {
@@ -213,9 +221,9 @@ void main() {
     test('should clear local cache even when server request fails', () async {
       // Arrange
       when(mockNetworkInfo.isConnected).thenAnswer((_) async => true);
-      when(mockRemoteDataSource.logout()).thenThrow(
-        const ServerException(message: 'Server error'),
-      );
+      when(
+        mockRemoteDataSource.logout(),
+      ).thenThrow(const ServerException(message: 'Server error'));
       when(mockLocalDataSource.clearCache()).thenAnswer((_) async => {});
       when(mockLocalDataSource.clearToken()).thenAnswer((_) async => {});
 

@@ -15,13 +15,20 @@ router.post('/extract', async (req, res) => {
 
   try {
     const text = raw_text;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
-    // Heuristic amount extraction: find largest numeric value with 2 decimal places
-    const amountMatches = text.match(/\d{1,6}[.,]\d{2}/g) || [];
-    const amounts = amountMatches
-      .map(m => parseFloat(m.replace(',', '.')))
-      .sort((a, b) => b - a);
-    const amount = amounts[0] || null;
+    // Heuristic amount extraction: find TOTAL keyword first, then largest value
+    let amount = null;
+    const totalMatch = text.match(/(?:total|importe|a\s*pagar|amount)[^\d]*(\d{1,6}[.,]\d{2})/i);
+    if (totalMatch) {
+      amount = parseFloat(totalMatch[1].replace(',', '.'));
+    } else {
+      const amountMatches = text.match(/\d{1,6}[.,]\d{2}/g) || [];
+      const amounts = amountMatches
+        .map(m => parseFloat(m.replace(',', '.')))
+        .sort((a, b) => b - a);
+      amount = amounts[0] || null;
+    }
 
     // Date extraction: common date formats
     const dateMatch = text.match(
@@ -34,22 +41,67 @@ router.post('/extract', async (req, res) => {
       extractedDate = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
 
-    // Merchant extraction: first non-empty line after removing numbers/special chars
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const merchantLine = lines.find(l =>
-      l.length > 3 && !/^\d/.test(l) && !/^[€$£]/.test(l)
-    );
+    // Improved merchant extraction: skip address lines, find business name
+    // Patterns to skip: street addresses, postal codes, city-only lines, phone numbers
+    const addressPatterns = [
+      /^c\//i,           // "C/ ..."
+      /^calle/i,         // "Calle ..."
+      /^av(da|enida)?\.?/i, // "Avda. / Avenida ..."
+      /^p(las|zo|aseo)?\.?\s/i, // "Pza. / Paseo ..."
+      /^\d{5}\s/,        // Postal code "28001 Madrid"
+      /\d{9}/,           // Phone number
+      /^nif|^cif|^nif:/i, // Tax ID lines
+      /^tel[ée]?f?[oó]?n?[oó]?/i, // Telephone
+      /^fax/i,
+      /^\+\d{2}/,        // International phone
+      /^www\./i,
+      /@/,               // Email
+      /^fecha/i,         // "Fecha: ..."
+      /^hora/i,          // "Hora: ..."
+      /^ticket|^recibo|^factura|^albar[aá]n/i,
+    ];
 
-    // Description: combine merchant hint with first few words
+    // Prefer lines from the first 5 that look like a business name
+    const merchantCandidates = lines.slice(0, 8).filter(l => {
+      if (l.length < 3 || l.length > 60) return false;
+      if (/^\d/.test(l) && !/^[A-Z]/.test(l)) return false; // starts with digit but not capital
+      if (/^[€$£]/.test(l)) return false;
+      for (const pat of addressPatterns) {
+        if (pat.test(l)) return false;
+      }
+      return true;
+    });
+
+    const merchantLine = merchantCandidates[0] || null;
+
+    // AI categorization hint based on merchant keywords
+    const merchantLower = (merchantLine || '').toLowerCase();
+    let suggestedCategory = 'Otros';
+    if (/mercadona|lidl|carrefour|aldi|eroski|dia|alcampo|hipercor|supermercado/.test(merchantLower)) {
+      suggestedCategory = 'Alimentación';
+    } else if (/restaurante|bar|cafeter[ií]a|pizz|hamburgues|mc\s*donald|burger|kfc|subway|pizza/.test(merchantLower)) {
+      suggestedCategory = 'Restaurantes';
+    } else if (/farmacia|pharmacy|parafarmacia/.test(merchantLower)) {
+      suggestedCategory = 'Salud';
+    } else if (/gasolinera|repsol|cepsa|bp|shell|galp|petrol/.test(merchantLower)) {
+      suggestedCategory = 'Transporte';
+    } else if (/zara|h&m|mango|primark|corte ingl[eé]s|decathlon|sport/.test(merchantLower)) {
+      suggestedCategory = 'Ropa';
+    } else if (/amazon|fnac|mediamarkt|pccomponentes|el corte ingl/.test(merchantLower)) {
+      suggestedCategory = 'Tecnología';
+    }
+
     const description = merchantLine
       ? merchantLine.substring(0, 50)
-      : 'Imported receipt';
+      : 'Ticket importado';
 
     res.json({
       amount,
       date: extractedDate || new Date().toISOString().split('T')[0],
       description,
-      raw_lines: lines.slice(0, 5),
+      merchant: merchantLine,
+      suggested_category: suggestedCategory,
+      raw_lines: lines.slice(0, 8),
       confidence: amount ? 'high' : 'low',
     });
   } catch (err) {
@@ -58,19 +110,19 @@ router.post('/extract', async (req, res) => {
 });
 
 // POST /ocr/import-receipt  – create transaction from extracted receipt data
-// Body: { amount, date, description, category }
+// Body: { amount, date, description, category, payment_method }
 router.post('/import-receipt', async (req, res) => {
-  const { amount, date, description, category = 'other' } = req.body;
+  const { amount, date, description, category = 'Otros', payment_method = 'cash' } = req.body;
   if (!amount || !description) {
     return res.status(400).json({ error: 'amount and description required' });
   }
   try {
     const { rows } = await db.query(
       `INSERT INTO transactions
-         (user_id, amount, description, category, date, type, source)
-       VALUES ($1, $2, $3, $4, $5, 'expense', 'ocr')
+         (user_id, amount, description, category, date, type, payment_method)
+       VALUES ($1, $2, $3, $4, $5, 'expense', $6)
        RETURNING *`,
-      [req.user.id, amount, description, category, date || new Date()]
+      [req.user.userId, amount, description, category, date || new Date(), payment_method]
     );
     res.status(201).json({ transaction: rows[0] });
   } catch (err) {
@@ -81,44 +133,122 @@ router.post('/import-receipt', async (req, res) => {
 // ─── CSV IMPORT ───────────────────────────────────────────────────────────────
 
 // POST /ocr/parse-csv  – parse CSV content and return preview rows
-// Body: { csv_content: string, header_map: { amount, date, description } }
+// Soporta formatos de bancos españoles (BBVA, Santander, CaixaBank, ING, etc.)
+// Body: { csv_content: string, header_map?: { amount, date, description } }
 router.post('/parse-csv', async (req, res) => {
   const { csv_content, header_map } = req.body;
   if (!csv_content) return res.status(400).json({ error: 'csv_content required' });
 
   try {
-    const lines = csv_content.trim().split('\n');
+    const rawLines = csv_content.trim().split(/\r?\n/);
+
+    // Detectar separador (coma, punto y coma, tabulador)
+    const firstLine = rawLines[0];
+    let sep = ',';
+    if ((firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length) sep = ';';
+    else if ((firstLine.match(/\t/g) || []).length > 2) sep = '\t';
+
+    // Saltar líneas de cabecera que no son datos (ej: resúmenes, logos de banco)
+    let dataStart = 0;
+    for (let i = 0; i < Math.min(rawLines.length, 10); i++) {
+      const cols = rawLines[i].split(sep);
+      const lower = rawLines[i].toLowerCase();
+      if (cols.length >= 3 && (
+        lower.includes('fecha') || lower.includes('date') ||
+        lower.includes('importe') || lower.includes('amount') ||
+        lower.includes('concepto') || lower.includes('description')
+      )) {
+        dataStart = i;
+        break;
+      }
+    }
+
+    const lines = rawLines.slice(dataStart);
     if (lines.length < 2) return res.status(400).json({ error: 'empty_csv' });
 
-    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+    const splitLine = (line) => {
+      // Maneja campos con comillas que contienen el separador
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          inQuotes = !inQuotes;
+        } else if (ch === sep && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += ch;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
+    const headers = splitLine(lines[0]).map(h => h.replace(/"/g, '').trim().toLowerCase());
     const map = header_map || {};
 
-    // Auto-detect column indices
+    // Detección automática de columnas para bancos españoles comunes
     const amountIdx = map.amount !== undefined ? map.amount
-      : headers.findIndex(h => h.includes('amount') || h.includes('importe') || h.includes('valor'));
+      : headers.findIndex(h =>
+          h.includes('importe') || h.includes('amount') || h.includes('valor') ||
+          h.includes('cargo') || h.includes('abono') || h.includes('saldo') && h !== 'saldo final' ||
+          h === 'movimiento');
     const dateIdx = map.date !== undefined ? map.date
-      : headers.findIndex(h => h.includes('date') || h.includes('fecha'));
+      : headers.findIndex(h =>
+          h.includes('fecha') || h.includes('date') || h.includes('f.valor') || h === 'f. valor');
     const descIdx = map.description !== undefined ? map.description
-      : headers.findIndex(h => h.includes('desc') || h.includes('concepto') || h.includes('detail'));
+      : headers.findIndex(h =>
+          h.includes('concepto') || h.includes('descripci') || h.includes('detail') ||
+          h.includes('desc') || h.includes('beneficiario') || h.includes('comercio'));
+
+    // Detectar columna de tipo (cargo/abono) para bancos que separan ingresos/gastos
+    const typeIdx = headers.findIndex(h => h === 'tipo' || h === 'cargo' || h === 'abono');
+
+    const parseSpanishDate = (raw) => {
+      if (!raw) return null;
+      // dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy, yyyy-mm-dd
+      const m1 = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+      if (m1) {
+        const [, d, mo, y] = m1;
+        const yr = y.length === 2 ? `20${y}` : y;
+        return `${yr}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      }
+      const m2 = raw.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
+      if (m2) return raw;
+      return null;
+    };
+
+    const parseAmount = (raw) => {
+      if (!raw) return null;
+      const cleaned = raw.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+      const val = parseFloat(cleaned);
+      return isNaN(val) ? null : val;
+    };
 
     const rows = lines.slice(1).map((line, i) => {
-      const cols = line.split(',').map(c => c.replace(/"/g, '').trim());
-      const raw_amount = amountIdx >= 0 ? cols[amountIdx] : null;
-      const amount = raw_amount ? parseFloat(raw_amount.replace(',', '.')) : null;
+      const cols = splitLine(line);
+      if (cols.length < 2) return null;
+      const rawAmount = amountIdx >= 0 ? cols[amountIdx] : null;
+      const amount = parseAmount(rawAmount);
+      const type = amount !== null && amount < 0 ? 'expense' : 'income';
       return {
         index: i,
-        date: dateIdx >= 0 ? cols[dateIdx] : null,
-        description: descIdx >= 0 ? cols[descIdx] : line.substring(0, 40),
-        amount: isNaN(amount) ? null : Math.abs(amount),
+        date: parseSpanishDate(dateIdx >= 0 ? cols[dateIdx] : null),
+        description: descIdx >= 0 ? cols[descIdx]?.substring(0, 80) : line.substring(0, 40),
+        amount: amount !== null ? Math.abs(amount) : null,
+        type,
         raw: cols,
       };
-    }).filter(r => r.amount !== null && r.amount > 0);
+    }).filter(r => r !== null && r.amount !== null && r.amount > 0);
 
     res.json({
       headers,
-      rows: rows.slice(0, 100), // preview up to 100
+      rows: rows.slice(0, 200),
       total_rows: rows.length,
       column_mapping: { amount: amountIdx, date: dateIdx, description: descIdx },
+      separator: sep,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -142,20 +272,23 @@ router.post('/import-csv', async (req, res) => {
           `SELECT 1 FROM transactions
            WHERE user_id = $1 AND amount = $2 AND date::date = $3::date
              AND description = $4 LIMIT 1`,
-          [req.user.id, row.amount, row.date, row.description]
+          [req.user.userId, row.amount, row.date, row.description]
         );
         if (dup.rows.length) { skipped++; continue; }
       }
+      const txType = row.type === 'income' ? 'income' : 'expense';
+      const txCategory = row.category || (txType === 'income' ? 'Otros ingresos' : 'Otros');
       await db.query(
         `INSERT INTO transactions
-           (user_id, amount, description, category, date, type, source)
-         VALUES ($1, $2, $3, $4, $5, 'expense', 'csv_import')`,
+           (user_id, amount, description, category, date, type, payment_method)
+         VALUES ($1, $2, $3, $4, $5, $6, 'bank_transfer')`,
         [
-          req.user.id,
+          req.user.userId,
           row.amount,
-          row.description || 'Imported',
-          row.category || 'other',
+          row.description || 'Importado',
+          txCategory,
           row.date || new Date(),
+          txType,
         ]
       );
       imported++;

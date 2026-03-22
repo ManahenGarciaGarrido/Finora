@@ -12,6 +12,8 @@ class ExtractedReceiptModel extends ExtractedReceiptEntity {
     super.amount,
     required super.date,
     required super.description,
+    super.merchant,
+    super.suggestedCategory,
     required super.rawLines,
     required super.confidence,
   });
@@ -22,6 +24,8 @@ class ExtractedReceiptModel extends ExtractedReceiptEntity {
       amount: j['amount'] != null ? _d(j['amount']) : null,
       date: j['date']?.toString() ?? '',
       description: j['description']?.toString() ?? '',
+      merchant: j['merchant']?.toString(),
+      suggestedCategory: j['suggested_category']?.toString(),
       rawLines: rawList.map((e) => e.toString()).toList(),
       confidence: j['confidence']?.toString() ?? 'low',
     );

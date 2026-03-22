@@ -1183,6 +1183,60 @@ router.get('/accounts/summary', authenticateToken, async (req, res) => {
   }
 });
 
+// ─── POST /accounts/manual ────────────────────────────────────────────────────
+// Crea una cuenta bancaria manual SIN conexión a Plaid/PSD2.
+// Body: { account_name, account_type, iban, balance_cents, currency, icon, color }
+
+router.post('/accounts/manual', authenticateToken, async (req, res) => {
+  const {
+    account_name,
+    account_type = 'current',
+    iban,
+    balance_cents = 0,
+    currency = 'EUR',
+    icon,
+    color,
+    institution_name = 'Cuenta Manual',
+  } = req.body;
+
+  if (!account_name) {
+    return res.status(400).json({ error: 'Bad Request', message: 'account_name es obligatorio' });
+  }
+
+  try {
+    // Crear una conexión "manual" virtual
+    const connResult = await db.query(
+      `INSERT INTO bank_connections
+         (user_id, institution_id, institution_name, institution_logo, status, linked_at, last_sync_at)
+       VALUES ($1, 'manual', $2, $3, 'linked', NOW(), NOW())
+       RETURNING id`,
+      [req.user.userId, institution_name, icon || null]
+    );
+    const connectionId = connResult.rows[0].id;
+
+    const accountResult = await db.query(
+      `INSERT INTO bank_accounts
+         (connection_id, user_id, account_name, account_type, iban, currency, balance_cents)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [connectionId, req.user.userId, account_name, account_type, iban || null, currency, Number(balance_cents) || 0]
+    );
+    const account = accountResult.rows[0];
+
+    res.status(201).json({
+      account: {
+        ...account,
+        institution_name,
+        is_manual: true,
+      },
+      connection_id: connectionId,
+    });
+  } catch (err) {
+    console.error('banks/accounts/manual error:', err);
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
 // ─── POST /accounts/setup ─────────────────────────────────────────────────────
 
 router.post('/accounts/setup', authenticateToken, async (req, res) => {
