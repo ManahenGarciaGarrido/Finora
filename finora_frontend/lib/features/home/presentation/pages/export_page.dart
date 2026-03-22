@@ -24,8 +24,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/di/injection_container.dart' as di;
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 /// RF-34 + RF-35: Página de exportación de transacciones y generación de PDF.
 class ExportPage extends StatefulWidget {
@@ -588,15 +589,14 @@ class _ExportPageState extends State<ExportPage> {
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceLight,
-        elevation: 0,
-        title: Text(s.exportDataTitle, style: AppTypography.titleMedium()),
-        leading: const BackButton(),
-      ),
-      body: ListView(
+    final responsive = ResponsiveUtils(context);
+    final appBar = AppBar(
+      backgroundColor: AppColors.surfaceLight,
+      elevation: 0,
+      title: Text(s.exportDataTitle, style: AppTypography.titleMedium()),
+      leading: const BackButton(),
+    );
+    final body = ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _sectionCard(
@@ -876,7 +876,23 @@ class _ExportPageState extends State<ExportPage> {
             ],
           ),
         ],
-      ),
+      );
+    if (responsive.isTablet) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: appBar,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: body,
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      appBar: appBar,
+      body: body,
     );
   }
 

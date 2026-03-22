@@ -8,6 +8,7 @@ library;
 
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:finora_frontend/features/banks/presentation/pages/psd2_consent_management_page.dart';
 import 'package:finora_frontend/features/home/presentation/pages/change_password_page.dart';
 import 'package:finora_frontend/features/home/presentation/pages/edit_profile_page.dart';
 import 'package:flutter/material.dart';
@@ -19,13 +20,12 @@ import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/security/biometric_service.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
 import '../../../categories/presentation/pages/categories_page.dart';
 import '../../../settings/presentation/pages/privacy_page.dart';
-import '../../../banks/presentation/pages/psd2_consent_management_page.dart';
 import 'export_page.dart'; // RF-34 / RF-35
 import 'budget_page.dart'; // RF-32
 import 'two_fa_setup_page.dart'; // RNF-03
@@ -40,6 +40,9 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  // Tablet two-panel navigation state
+  String _selectedSettingsSection = 'profile';
+
   // RF-03: Biometric state
   bool _biometricDeviceSupported = false;
   bool _biometricEnabled = false;
@@ -130,7 +133,10 @@ class _SettingsPageState extends State<SettingsPage> {
         _biometricEnabled = false;
         _biometricLoading = false;
       });
-      _showSnackBar(s.biometricDeactivatedMsg, AppColors.gray700);
+      _showSnackBar(
+        s.biometricDeactivatedMsg,
+        AppColors.gray700,
+      );
     }
   }
 
@@ -191,6 +197,10 @@ class _SettingsPageState extends State<SettingsPage> {
     context.watch<AuthBloc>();
     final responsive = ResponsiveUtils(context);
     final s = AppLocalizations.of(context);
+
+    if (responsive.isTablet) {
+      return SafeArea(child: _buildTabletLayout(context));
+    }
 
     return SafeArea(
       child: CustomScrollView(
@@ -383,6 +393,298 @@ class _SettingsPageState extends State<SettingsPage> {
 
           SliverToBoxAdapter(child: SizedBox(height: responsive.hp(12))),
         ],
+      ),
+    );
+  }
+
+  // ── Tablet two-panel layout ──────────────────────────────────────────────────
+
+  Widget _buildTabletLayout(BuildContext context) {
+    final s = AppLocalizations.of(context);
+
+    final navItems = [
+      {'key': 'profile', 'label': s.editProfileTitle, 'icon': Icons.person_outline},
+      {'key': 'general', 'label': s.sectionGeneral, 'icon': Icons.tune_rounded},
+      {
+        'key': 'security',
+        'label': s.sectionSecurity,
+        'icon': Icons.lock_outline_rounded,
+      },
+      {
+        'key': 'data',
+        'label': s.sectionData,
+        'icon': Icons.privacy_tip_outlined,
+      },
+    ];
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Left panel
+        Container(
+          width: 280,
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceLight,
+            border: Border(
+              right: BorderSide(color: AppColors.gray100, width: 1),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                child: Text(
+                  s.settings,
+                  style: AppTypography.headlineSmall(),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: navItems.length,
+                  itemBuilder: (context, index) {
+                    final item = navItems[index];
+                    final key = item['key'] as String;
+                    final label = item['label'] as String;
+                    final icon = item['icon'] as IconData;
+                    final isSelected = _selectedSettingsSection == key;
+
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedSettingsSection = key);
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 2,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary.withValues(alpha: 0.1)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              icon,
+                              size: 22,
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.textSecondaryLight,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              label,
+                              style: AppTypography.titleSmall(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textPrimaryLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Vertical divider
+        Container(width: 1, color: AppColors.gray100),
+
+        // Right panel
+        Expanded(
+          child: _buildRightPanelContent(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRightPanelContent(BuildContext context) {
+    switch (_selectedSettingsSection) {
+      case 'profile':
+        return _buildProfileContent(context);
+      case 'general':
+        return _buildGeneralContent(context);
+      case 'security':
+        return _buildSecurityContent(context);
+      case 'data':
+        return _buildDataContent(context);
+      default:
+        return _buildProfileContent(context);
+    }
+  }
+
+  Widget _buildProfileContent(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(s.editProfileTitle, style: AppTypography.headlineSmall()),
+            const SizedBox(height: 20),
+            _buildProfileSection(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGeneralContent(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(s.sectionGeneral, style: AppTypography.headlineSmall()),
+            const SizedBox(height: 20),
+            _buildSettingsSection(
+              title: s.sectionGeneral,
+              children: [
+                _buildSettingsRow(
+                  icon: Icons.category_outlined,
+                  title: s.settingsCategories,
+                  subtitle: s.settingsCategoriesSubtitle,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CategoriesPage()),
+                  ),
+                ),
+                _divider(),
+                _buildSettingsRow(
+                  icon: Icons.notifications_outlined,
+                  title: s.settingsNotifications,
+                  subtitle: s.settingsNotificationsSubtitle,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationSettingsPage(),
+                    ),
+                  ),
+                ),
+                _divider(),
+                _buildSettingsRow(
+                  icon: Icons.account_balance_wallet_rounded,
+                  title: s.settingsBudgets,
+                  subtitle: s.settingsBudgetsSubtitle,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BudgetPage()),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSecurityContent(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(s.sectionSecurity, style: AppTypography.headlineSmall()),
+            const SizedBox(height: 20),
+            _buildSettingsSection(
+              title: s.sectionSecurity,
+              children: [
+                _buildSettingsRow(
+                  icon: Icons.lock_outline_rounded,
+                  title: s.settingsChangePassword,
+                  subtitle: s.settingsChangePasswordSubtitle,
+                  onTap: _navigateToChangePassword,
+                ),
+                _divider(),
+                _buildBiometricRow(),
+                _divider(),
+                _buildSettingsRow(
+                  icon: Icons.security_rounded,
+                  title: s.settingsBiometric2fa,
+                  subtitle: s.twoFactorAuth,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TwoFaSetupPage()),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataContent(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(s.sectionData, style: AppTypography.headlineSmall()),
+            const SizedBox(height: 20),
+            _buildSettingsSection(
+              title: s.sectionData,
+              children: [
+                _buildSettingsRow(
+                  icon: Icons.download_rounded,
+                  title: s.settingsExportData,
+                  subtitle: s.settingsExportDataSubtitle,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ExportPage()),
+                  ),
+                ),
+                _divider(),
+                _buildSettingsRow(
+                  icon: Icons.account_balance_outlined,
+                  title: s.settingsPsd2,
+                  subtitle: s.settingsPsd2Subtitle,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Psd2ConsentManagementPage(
+                        apiClient: di.sl<ApiClient>(),
+                      ),
+                    ),
+                  ),
+                ),
+                _divider(),
+                _buildSettingsRow(
+                  icon: Icons.privacy_tip_outlined,
+                  title: s.settingsPrivacy,
+                  subtitle: s.settingsPrivacySubtitle,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PrivacyPage()),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _buildLogoutButton(),
+          ],
+        ),
       ),
     );
   }

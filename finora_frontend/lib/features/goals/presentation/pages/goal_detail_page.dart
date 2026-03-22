@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/constants/api_endpoints.dart';
@@ -10,6 +10,7 @@ import '../../../../core/services/app_settings_service.dart';
 import '../../../../core/services/currency_service.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/responsive/breakpoints.dart';
 import '../../domain/entities/savings_goal_entity.dart';
 import '../../domain/entities/goal_contribution_entity.dart';
 import '../bloc/goal_bloc.dart';
@@ -57,6 +58,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
       int.parse(_goal.color.replaceAll('#', 'FF'), radix: 16),
     );
     final progressColor = _resolveProgressColor(_goal.progressColor);
+    final responsive = ResponsiveUtils(context);
 
     return BlocConsumer<GoalBloc, GoalState>(
       listener: (context, state) {
@@ -98,7 +100,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
             : <GoalContributionEntity>[];
         final isLoading = state is GoalLoading;
 
-        return Scaffold(
+        final scaffold = Scaffold(
           backgroundColor: AppColors.gray50,
           body: CustomScrollView(
             slivers: [
@@ -296,6 +298,15 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
             ],
           ),
         );
+        if (responsive.isTablet) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: scaffold,
+            ),
+          );
+        }
+        return scaffold;
       },
     );
   }
@@ -437,6 +448,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
       updatedAt: goal.updatedAt,
     );
   }
+
 }
 
 // ─── Métricas de progreso (RF-19) ─────────────────────────────────────────────
@@ -506,10 +518,6 @@ class _ProgressMetrics extends StatelessWidget {
     );
   }
 
-  // ignore: unused_element
-  static String _fmt(double v) => v
-      .toStringAsFixed(2)
-      .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
 
   static String _fmtDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';

@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/di/injection_container.dart' as di;
-import '../../../../shared/widgets/skeleton_loader.dart';
+import '../../../../core/responsive/breakpoints.dart';
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
 import '../../domain/entities/debt_entity.dart';
 import '../bloc/debt_bloc.dart';
 import '../bloc/debt_event.dart';
@@ -64,6 +65,7 @@ class _DebtsPageState extends State<DebtsPage>
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
     return BlocProvider(
       create: (ctx) => di.sl<DebtBloc>()..add(const LoadDebts()),
       child: BlocConsumer<DebtBloc, DebtState>(
@@ -91,9 +93,8 @@ class _DebtsPageState extends State<DebtsPage>
           } else if (state is DebtDeleted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(s.debtDeleted),
-                backgroundColor: AppColors.success,
-              ),
+                  content: Text(s.debtDeleted),
+                  backgroundColor: AppColors.success),
             );
             ctx.read<DebtBloc>().add(const LoadDebts());
           }
@@ -110,6 +111,8 @@ class _DebtsPageState extends State<DebtsPage>
                 controller: _tabs,
                 labelColor: AppColors.primary,
                 indicatorColor: AppColors.primary,
+                isScrollable: !responsive.isTablet,
+                tabAlignment: responsive.isTablet ? TabAlignment.fill : TabAlignment.start,
                 tabs: [
                   Tab(text: s.ownDebtsTab),
                   Tab(text: s.owedToMeTab),
@@ -126,27 +129,24 @@ class _DebtsPageState extends State<DebtsPage>
                   onSelected: (v) {
                     if (v == 'loan') {
                       Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const LoanCalculatorPage(),
-                        ),
-                      );
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const LoanCalculatorPage()));
                     } else if (v == 'mortgage') {
                       Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const LoanCalculatorPage(isMortgage: true),
-                        ),
-                      );
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  const LoanCalculatorPage(isMortgage: true)));
                     }
                   },
                   itemBuilder: (_) => [
-                    PopupMenuItem(value: 'loan', child: Text(s.loanCalculator)),
                     PopupMenuItem(
-                      value: 'mortgage',
-                      child: Text(s.mortgageCalculator),
-                    ),
+                        value: 'loan',
+                        child: Text(s.loanCalculator)),
+                    PopupMenuItem(
+                        value: 'mortgage',
+                        child: Text(s.mortgageCalculator)),
                   ],
                   child: const Padding(
                     padding: EdgeInsets.all(8),
@@ -154,16 +154,17 @@ class _DebtsPageState extends State<DebtsPage>
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: () => ctx.read<DebtBloc>().add(const LoadDebts()),
-                ),
+                    icon: const Icon(Icons.refresh_rounded),
+                    onPressed: () =>
+                        ctx.read<DebtBloc>().add(const LoadDebts())),
               ],
             ),
             floatingActionButton: FloatingActionButton.extended(
               onPressed: () async {
                 final result = await Navigator.push<bool>(
                   context,
-                  MaterialPageRoute(builder: (_) => const AddEditDebtPage()),
+                  MaterialPageRoute(
+                      builder: (_) => const AddEditDebtPage()),
                 );
                 if (result == true && ctx.mounted) {
                   ctx.read<DebtBloc>().add(const LoadDebts());
@@ -176,19 +177,27 @@ class _DebtsPageState extends State<DebtsPage>
             ),
             body: _loading
                 ? const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 24),
                     child: SkeletonListLoader(count: 4, cardHeight: 100),
                   )
                 : _error != null
-                ? _buildError(ctx, s)
-                : TabBarView(
-                    controller: _tabs,
-                    children: [
-                      _buildDebtList(ctx, s, 'own'),
-                      _buildDebtList(ctx, s, 'owed'),
-                      _buildStrategies(ctx, s),
-                    ],
-                  ),
+                    ? _buildError(ctx, s)
+                    : Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: responsive.isTablet ? 900 : double.infinity,
+                          ),
+                          child: TabBarView(
+                            controller: _tabs,
+                            children: [
+                              _buildDebtList(ctx, s, 'own', responsive),
+                              _buildDebtList(ctx, s, 'owed', responsive),
+                              _buildStrategies(ctx, s),
+                            ],
+                          ),
+                        ),
+                      ),
           );
         },
       ),
@@ -200,19 +209,20 @@ class _DebtsPageState extends State<DebtsPage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline_rounded, color: AppColors.error, size: 48),
+          Icon(Icons.error_outline_rounded,
+              color: AppColors.error, size: 48),
           const SizedBox(height: 12),
           Text(_error!, style: AppTypography.bodyMedium()),
           TextButton(
-            onPressed: () => ctx.read<DebtBloc>().add(const LoadDebts()),
-            child: Text(s.retry),
-          ),
+              onPressed: () =>
+                  ctx.read<DebtBloc>().add(const LoadDebts()),
+              child: Text(s.retry)),
         ],
       ),
     );
   }
 
-  Widget _buildDebtList(BuildContext ctx, dynamic s, String type) {
+  Widget _buildDebtList(BuildContext ctx, dynamic s, String type, ResponsiveUtils responsive) {
     final filtered = _debts.where((d) => d.type == type).toList();
     if (filtered.isEmpty) {
       return Center(
@@ -227,16 +237,46 @@ class _DebtsPageState extends State<DebtsPage>
               size: 56,
             ),
             const SizedBox(height: 16),
-            Text(
-              s.noDebts,
-              style: AppTypography.bodyMedium(color: AppColors.gray500),
-            ),
+            Text(s.noDebts,
+                style: AppTypography.bodyMedium(color: AppColors.gray500)),
           ],
         ),
       );
     }
+    if (responsive.isTablet) {
+      return RefreshIndicator(
+        onRefresh: () async => ctx.read<DebtBloc>().add(const LoadDebts()),
+        child: GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 2.2,
+          ),
+          itemCount: filtered.length,
+          itemBuilder: (_, i) {
+            final debt = filtered[i];
+            return DebtCard(
+              debt: debt,
+              onEdit: () async {
+                final result = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => AddEditDebtPage(debt: debt)),
+                );
+                if (result == true && ctx.mounted) {
+                  ctx.read<DebtBloc>().add(const LoadDebts());
+                }
+              },
+              onDelete: () => _confirmDelete(ctx, s, debt.id),
+            );
+          },
+        ),
+      );
+    }
     return RefreshIndicator(
-      onRefresh: () async => ctx.read<DebtBloc>().add(const LoadDebts()),
+      onRefresh: () async =>
+          ctx.read<DebtBloc>().add(const LoadDebts()),
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: filtered.length,
@@ -248,7 +288,8 @@ class _DebtsPageState extends State<DebtsPage>
             onEdit: () async {
               final result = await Navigator.push<bool>(
                 context,
-                MaterialPageRoute(builder: (_) => AddEditDebtPage(debt: debt)),
+                MaterialPageRoute(
+                    builder: (_) => AddEditDebtPage(debt: debt)),
               );
               if (result == true && ctx.mounted) {
                 ctx.read<DebtBloc>().add(const LoadDebts());
@@ -269,10 +310,8 @@ class _DebtsPageState extends State<DebtsPage>
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 12),
-            Text(
-              s.loading,
-              style: AppTypography.bodyMedium(color: AppColors.gray500),
-            ),
+            Text(s.loading,
+                style: AppTypography.bodyMedium(color: AppColors.gray500)),
           ],
         ),
       );
@@ -280,7 +319,8 @@ class _DebtsPageState extends State<DebtsPage>
     return StrategyComparisonWidget(data: _strategies!);
   }
 
-  Future<void> _confirmDelete(BuildContext ctx, dynamic s, String id) async {
+  Future<void> _confirmDelete(
+      BuildContext ctx, dynamic s, String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -288,9 +328,8 @@ class _DebtsPageState extends State<DebtsPage>
         content: Text(s.deleteDebtConfirm),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(s.cancel),
-          ),
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(s.cancel)),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),

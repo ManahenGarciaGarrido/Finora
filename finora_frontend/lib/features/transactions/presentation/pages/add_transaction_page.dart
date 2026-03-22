@@ -1,6 +1,11 @@
 import 'dart:io';
 
 import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import 'package:finora_frontend/features/banks/domain/entities/bank_account_entity.dart';
+import 'package:finora_frontend/features/banks/domain/entities/bank_card_entity.dart';
+import 'package:finora_frontend/features/banks/presentation/bloc/bank_bloc.dart';
+import 'package:finora_frontend/features/banks/presentation/bloc/bank_event.dart';
+import 'package:finora_frontend/features/banks/presentation/bloc/bank_state.dart';
 import 'package:finora_frontend/features/transactions/presentation/bloc/transaction_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,11 +23,6 @@ import '../../../categories/domain/entities/category_entity.dart';
 import '../../../categories/presentation/bloc/category_bloc.dart';
 import '../../../categories/presentation/bloc/category_event.dart';
 import '../../../categories/presentation/bloc/category_state.dart';
-import '../../../banks/presentation/bloc/bank_bloc.dart';
-import '../../../banks/presentation/bloc/bank_event.dart';
-import '../../../banks/presentation/bloc/bank_state.dart';
-import '../../../banks/domain/entities/bank_account_entity.dart';
-import '../../../banks/domain/entities/bank_card_entity.dart';
 
 /// Página de Registro Manual de Transacciones (RF-05, HU-03)
 ///
@@ -524,28 +524,71 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   }
 
   Widget _buildTabletLayout(BuildContext context) {
-    final responsive = ResponsiveUtils(context);
-    return Center(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Container(
-          constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
-          padding: EdgeInsets.symmetric(
-            horizontal: responsive.horizontalPadding,
-            vertical: responsive.verticalPadding,
-          ),
-          child: Card(
-            elevation: 0,
-            color: AppColors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: _buildFormContent(context),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Center(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Card(
+                  elevation: 0,
+                  color: AppColors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: _buildTabletFormContent(context),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTabletFormContent(BuildContext context) {
+    return Form(
+      key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTypeSelector(context),
+          const SizedBox(height: 24),
+          // Pair: Amount + Date side by side
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildAmountField(context)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildDateSelector(context)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildCategorySelector(context),
+          const SizedBox(height: 24),
+          _buildDescriptionField(context),
+          const SizedBox(height: 24),
+          _buildPaymentMethodSelector(context),
+          if (_selectedPaymentMethod.isCard ||
+              _selectedPaymentMethod.isBank) ...[
+            const SizedBox(height: 16),
+            _buildAccountCardSelector(context),
+          ],
+          const SizedBox(height: 24),
+          _buildPhotoTicketSection(context),
+          const SizedBox(height: 32),
+          _buildSubmitButton(context),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }

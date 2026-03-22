@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/services/currency_service.dart';
-import '../../../../shared/widgets/skeleton_loader.dart';
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
 import '../../domain/entities/household_entity.dart';
 import '../../domain/entities/household_member_entity.dart';
 import '../../domain/entities/shared_transaction_entity.dart';
@@ -48,6 +49,7 @@ class _HouseholdPageState extends State<HouseholdPage>
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
     return BlocProvider(
       create: (ctx) => di.sl<HouseholdBloc>()..add(const LoadHousehold()),
       child: BlocConsumer<HouseholdBloc, HouseholdState>(
@@ -81,17 +83,15 @@ class _HouseholdPageState extends State<HouseholdPage>
           } else if (state is MemberInvited) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(s.memberInvited),
-                backgroundColor: AppColors.success,
-              ),
+                  content: Text(s.memberInvited),
+                  backgroundColor: AppColors.success),
             );
             ctx.read<HouseholdBloc>().add(const LoadMembers());
           } else if (state is BalanceSettled) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(s.balanceSettled),
-                backgroundColor: AppColors.success,
-              ),
+                  content: Text(s.balanceSettled),
+                  backgroundColor: AppColors.success),
             );
             ctx.read<HouseholdBloc>().add(const LoadBalances());
           } else if (state is HouseholdLoading) {
@@ -118,8 +118,8 @@ class _HouseholdPageState extends State<HouseholdPage>
                       controller: _tabs,
                       labelColor: AppColors.primary,
                       indicatorColor: AppColors.primary,
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
+                      isScrollable: !responsive.isTablet,
+                      tabAlignment: responsive.isTablet ? TabAlignment.fill : TabAlignment.start,
                       tabs: [
                         Tab(text: s.overviewTab),
                         Tab(text: s.membersTab),
@@ -128,12 +128,12 @@ class _HouseholdPageState extends State<HouseholdPage>
                       ],
                       onTap: (i) {
                         if (i == 2 && _transactions.isEmpty) {
-                          ctx.read<HouseholdBloc>().add(
-                            const LoadSharedTransactions(),
-                          );
+                          ctx.read<HouseholdBloc>()
+                              .add(const LoadSharedTransactions());
                         }
                         if (i == 3 && _balances.isEmpty) {
-                          ctx.read<HouseholdBloc>().add(const LoadBalances());
+                          ctx.read<HouseholdBloc>()
+                              .add(const LoadBalances());
                         }
                       },
                     )
@@ -158,19 +158,25 @@ class _HouseholdPageState extends State<HouseholdPage>
             body: _loading
                 ? const Padding(
                     padding: EdgeInsets.all(16),
-                    child: SkeletonListLoader(count: 4, cardHeight: 80),
-                  )
+                    child: SkeletonListLoader(count: 4, cardHeight: 80))
                 : _household == null
-                ? _buildNoHousehold(ctx, s)
-                : TabBarView(
-                    controller: _tabs,
-                    children: [
-                      _buildOverview(ctx, s),
-                      _buildMembers(ctx, s),
-                      _buildTransactions(ctx, s),
-                      _buildBalances(ctx, s),
-                    ],
-                  ),
+                    ? _buildNoHousehold(ctx, s)
+                    : Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: responsive.isTablet ? 900 : double.infinity,
+                          ),
+                          child: TabBarView(
+                            controller: _tabs,
+                            children: [
+                              _buildOverview(ctx, s),
+                              _buildMembers(ctx, s, responsive),
+                              _buildTransactions(ctx, s, responsive),
+                              _buildBalances(ctx, s),
+                            ],
+                          ),
+                        ),
+                      ),
           );
         },
       ),
@@ -186,11 +192,9 @@ class _HouseholdPageState extends State<HouseholdPage>
           children: [
             Icon(Icons.home_outlined, color: AppColors.gray400, size: 64),
             const SizedBox(height: 16),
-            Text(
-              s.noHousehold,
-              style: AppTypography.bodyMedium(color: AppColors.gray500),
-              textAlign: TextAlign.center,
-            ),
+            Text(s.noHousehold,
+                style: AppTypography.bodyMedium(color: AppColors.gray500),
+                textAlign: TextAlign.center),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () => _openCreateHousehold(ctx, s),
@@ -205,7 +209,8 @@ class _HouseholdPageState extends State<HouseholdPage>
 
   Widget _buildOverview(BuildContext ctx, dynamic s) {
     final fmt = CurrencyService().format;
-    final totalShared = _transactions.fold(0.0, (sum, t) => sum + t.amount);
+    final totalShared =
+        _transactions.fold(0.0, (sum, t) => sum + t.amount);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -244,19 +249,56 @@ class _HouseholdPageState extends State<HouseholdPage>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTypography.bodyMedium(color: AppColors.gray600)),
+        Text(label,
+            style: AppTypography.bodyMedium(color: AppColors.gray600)),
         Text(value, style: AppTypography.titleSmall()),
       ],
     );
   }
 
-  Widget _buildMembers(BuildContext ctx, dynamic s) {
+  Widget _buildMembers(BuildContext ctx, dynamic s, [ResponsiveUtils? responsive]) {
     if (_members.isEmpty) {
       return Center(
-        child: Text(
-          s.membersTab,
-          style: AppTypography.bodyMedium(color: AppColors.gray500),
+          child: Text(s.membersTab,
+              style: AppTypography.bodyMedium(color: AppColors.gray500)));
+    }
+    final isTablet = responsive?.isTablet ?? false;
+    if (isTablet) {
+      return GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 3.0,
         ),
+        itemCount: _members.length,
+        itemBuilder: (_, i) {
+          final m = _members[i];
+          return ListTile(
+            tileColor: AppColors.surfaceLight,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: AppColors.gray200)),
+            leading: CircleAvatar(
+              backgroundColor: AppColors.primarySoft,
+              child: Text(
+                (m.name?.isNotEmpty == true ? m.name![0] : '?').toUpperCase(),
+                style: AppTypography.titleSmall(color: AppColors.primary),
+              ),
+            ),
+            title: Text(m.name ?? m.email ?? '?'),
+            subtitle: Text(m.isOwner ? s.ownerRole : s.memberRole),
+            trailing: m.isOwner
+                ? null
+                : IconButton(
+                    icon: Icon(Icons.remove_circle_outline_rounded,
+                        color: AppColors.error),
+                    onPressed: () =>
+                        ctx.read<HouseholdBloc>().add(RemoveMember(m.userId)),
+                  ),
+          );
+        },
       );
     }
     return ListView.separated(
@@ -268,13 +310,13 @@ class _HouseholdPageState extends State<HouseholdPage>
         return ListTile(
           tileColor: AppColors.surfaceLight,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: AppColors.gray200),
-          ),
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: AppColors.gray200)),
           leading: CircleAvatar(
             backgroundColor: AppColors.primarySoft,
             child: Text(
-              (m.name?.isNotEmpty == true ? m.name![0] : '?').toUpperCase(),
+              (m.name?.isNotEmpty == true ? m.name![0] : '?')
+                  .toUpperCase(),
               style: AppTypography.titleSmall(color: AppColors.primary),
             ),
           ),
@@ -283,10 +325,8 @@ class _HouseholdPageState extends State<HouseholdPage>
           trailing: m.isOwner
               ? null
               : IconButton(
-                  icon: Icon(
-                    Icons.remove_circle_outline_rounded,
-                    color: AppColors.error,
-                  ),
+                  icon: Icon(Icons.remove_circle_outline_rounded,
+                      color: AppColors.error),
                   onPressed: () =>
                       ctx.read<HouseholdBloc>().add(RemoveMember(m.userId)),
                 ),
@@ -295,7 +335,7 @@ class _HouseholdPageState extends State<HouseholdPage>
     );
   }
 
-  Widget _buildTransactions(BuildContext ctx, dynamic s) {
+  Widget _buildTransactions(BuildContext ctx, dynamic s, [ResponsiveUtils? responsive]) {
     final fmt = CurrencyService().format;
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -306,30 +346,25 @@ class _HouseholdPageState extends State<HouseholdPage>
           decoration: BoxDecoration(
             color: AppColors.primarySoft,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: AppColors.primary,
-                    size: 18,
-                  ),
+                  const Icon(Icons.lightbulb_outline_rounded,
+                      color: AppColors.primary, size: 18),
                   const SizedBox(width: 8),
-                  Text(
-                    s.householdExpenseHowTitle,
-                    style: AppTypography.titleSmall(color: AppColors.primary),
-                  ),
+                  Text(s.householdExpenseHowTitle,
+                      style:
+                          AppTypography.titleSmall(color: AppColors.primary)),
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                s.householdExpenseHowBody,
-                style: AppTypography.bodySmall(color: AppColors.gray700),
-              ),
+              Text(s.householdExpenseHowBody,
+                  style: AppTypography.bodySmall(color: AppColors.gray700)),
             ],
           ),
         ),
@@ -340,16 +375,12 @@ class _HouseholdPageState extends State<HouseholdPage>
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Column(
                 children: [
-                  Icon(
-                    Icons.receipt_long_outlined,
-                    color: AppColors.gray400,
-                    size: 48,
-                  ),
+                  Icon(Icons.receipt_long_outlined,
+                      color: AppColors.gray400, size: 48),
                   const SizedBox(height: 12),
-                  Text(
-                    s.noData,
-                    style: AppTypography.bodyMedium(color: AppColors.gray500),
-                  ),
+                  Text(s.noData,
+                      style:
+                          AppTypography.bodyMedium(color: AppColors.gray500)),
                   const SizedBox(height: 8),
                   FilledButton.icon(
                     onPressed: () => _openAddExpensePage(ctx),
@@ -368,15 +399,12 @@ class _HouseholdPageState extends State<HouseholdPage>
               child: ListTile(
                 tileColor: AppColors.surfaceLight,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: AppColors.gray200),
-                ),
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: AppColors.gray200)),
                 title: Text(t.description),
                 subtitle: Text(t.createdByName),
-                trailing: Text(
-                  fmt(t.amount),
-                  style: AppTypography.titleSmall(color: AppColors.primary),
-                ),
+                trailing: Text(fmt(t.amount),
+                    style: AppTypography.titleSmall(color: AppColors.primary)),
               ),
             );
           }),
@@ -389,11 +417,8 @@ class _HouseholdPageState extends State<HouseholdPage>
     final fmt = CurrencyService().format;
     if (_balances.isEmpty) {
       return Center(
-        child: Text(
-          s.noData,
-          style: AppTypography.bodyMedium(color: AppColors.gray500),
-        ),
-      );
+          child: Text(s.noData,
+              style: AppTypography.bodyMedium(color: AppColors.gray500)));
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
@@ -403,15 +428,9 @@ class _HouseholdPageState extends State<HouseholdPage>
         final b = _balances[i];
         HouseholdMemberEntity? foundMember;
         for (final m in _members) {
-          if (m.userId == b.owerId) {
-            foundMember = m;
-            break;
-          }
+          if (m.userId == b.owerId) { foundMember = m; break; }
         }
-        final memberName =
-            (foundMember ?? (_members.isNotEmpty ? _members.first : null))
-                ?.name ??
-            b.owerId;
+        final memberName = (foundMember ?? (_members.isNotEmpty ? _members.first : null))?.name ?? b.owerId;
         return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -426,21 +445,20 @@ class _HouseholdPageState extends State<HouseholdPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(memberName, style: AppTypography.titleSmall()),
-                    Text(
-                      s.owesYou,
-                      style: AppTypography.bodySmall(color: AppColors.gray500),
-                    ),
+                    Text(s.owesYou,
+                        style: AppTypography.bodySmall(
+                            color: AppColors.gray500)),
                   ],
                 ),
               ),
-              Text(
-                fmt(b.amount),
-                style: AppTypography.titleSmall(color: AppColors.success),
-              ),
+              Text(fmt(b.amount),
+                  style: AppTypography.titleSmall(
+                      color: AppColors.success)),
               const SizedBox(width: 8),
               TextButton(
-                onPressed: () =>
-                    ctx.read<HouseholdBloc>().add(SettleBalance(b.owerId)),
+                onPressed: () => ctx
+                    .read<HouseholdBloc>()
+                    .add(SettleBalance(b.owerId)),
                 child: Text(s.settleBalance),
               ),
             ],

@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 class OnboardingPage extends StatefulWidget {
   final VoidCallback onComplete;
@@ -97,72 +98,186 @@ class _OnboardingPageState extends State<OnboardingPage> {
     widget.onComplete();
   }
 
+  Widget _buildMobileLayout(AppLocalizations s, List<_OnboardingData> pages) {
+    return SafeArea(
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8, right: 16),
+              child: Semantics(
+                button: true,
+                label: s.skipIntroductionSemantics,
+                child: TextButton(
+                  onPressed: _complete,
+                  child: Text(
+                    s.skipButton,
+                    style: AppTypography.bodyMedium(color: AppColors.gray400),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (i) => setState(() => _currentPage = i),
+              itemCount: pages.length,
+              itemBuilder: (_, i) => _buildPage(pages[i]),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(pages.length, (i) => _buildDot(i)),
+          ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton(
+                onPressed: () => _next(pages.length),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  _currentPage < pages.length - 1
+                      ? s.nextButton
+                      : s.startNowButton,
+                  style: AppTypography.button(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabletLayout(AppLocalizations s, List<_OnboardingData> pages) {
+    final currentPage = pages[_currentPage];
+    return SafeArea(
+      child: Row(
+        children: [
+          // Left: branding/illustration
+          Expanded(
+            child: Container(
+              color: currentPage.bgColor,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 180,
+                    height: 180,
+                    decoration: BoxDecoration(
+                      color: currentPage.iconColor.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      currentPage.icon,
+                      color: currentPage.iconColor,
+                      size: 90,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Finora',
+                    style: AppTypography.headlineLarge(
+                        color: currentPage.iconColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Right: content
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: TextButton(
+                      onPressed: _complete,
+                      child: Text(
+                        s.skipButton,
+                        style:
+                            AppTypography.bodyMedium(color: AppColors.gray400),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    currentPage.title,
+                    style: AppTypography.headlineMedium(),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    currentPage.subtitle,
+                    style: AppTypography.titleSmall(
+                        color: currentPage.iconColor),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    currentPage.description,
+                    style:
+                        AppTypography.bodyMedium(color: AppColors.gray600),
+                    maxLines: 5,
+                  ),
+                  const Spacer(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children:
+                        List.generate(pages.length, (i) => _buildDot(i)),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: () => _next(pages.length),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        _currentPage < pages.length - 1
+                            ? s.nextButton
+                            : s.startNowButton,
+                        style: AppTypography.button(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
     final pages = _getPages(s);
+    final responsive = ResponsiveUtils(context);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8, right: 16),
-                child: Semantics(
-                  button: true,
-                  label: s.skipIntroductionSemantics,
-                  child: TextButton(
-                    onPressed: _complete,
-                    child: Text(
-                      s.skipButton,
-                      style: AppTypography.bodyMedium(color: AppColors.gray400),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (i) => setState(() => _currentPage = i),
-                itemCount: pages.length,
-                itemBuilder: (_, i) => _buildPage(pages[i]),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(pages.length, (i) => _buildDot(i)),
-            ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: () => _next(pages.length),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(
-                    _currentPage < pages.length - 1
-                        ? s.nextButton
-                        : s.startNowButton,
-                    style: AppTypography.button(color: Colors.white),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+      body: responsive.isTablet
+          ? _buildTabletLayout(s, pages)
+          : _buildMobileLayout(s, pages),
     );
   }
 

@@ -1,6 +1,13 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import 'package:finora_frontend/features/banks/presentation/widgets/notification_bell.dart';
+import 'package:finora_frontend/features/goals/domain/entities/savings_goal_entity.dart';
+import 'package:finora_frontend/features/goals/presentation/bloc/goal_bloc.dart';
+import 'package:finora_frontend/features/goals/presentation/bloc/goal_event.dart';
+import 'package:finora_frontend/features/goals/presentation/bloc/goal_state.dart';
+import 'package:finora_frontend/features/goals/presentation/pages/goal_detail_page.dart';
+import 'package:finora_frontend/features/goals/presentation/pages/goals_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -16,12 +23,6 @@ import '../../../transactions/presentation/bloc/transaction_state.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/pages/edit_transaction_page.dart';
 import '../../../categories/domain/entities/category_entity.dart';
-import '../../../goals/presentation/bloc/goal_bloc.dart'; // RF-18/RF-19/HU-07
-import '../../../goals/presentation/bloc/goal_event.dart';
-import '../../../goals/presentation/bloc/goal_state.dart';
-import '../../../goals/presentation/pages/goals_page.dart';
-import '../../../goals/presentation/pages/goal_detail_page.dart';
-import '../../../goals/domain/entities/savings_goal_entity.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
@@ -32,7 +33,6 @@ import 'transactions_page.dart';
 import '../../../../core/services/app_settings_service.dart';
 import '../../../../core/services/currency_service.dart';
 import '../../../../core/services/profile_photo_service.dart';
-import '../../../banks/presentation/widgets/notification_bell.dart';
 
 /// Contenido del Dashboard principal
 class DashboardContent extends StatefulWidget {
@@ -344,6 +344,9 @@ class _DashboardContentState extends State<DashboardContent>
     final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
     final hp = responsive.horizontalPadding;
+    final isLargeTablet = responsive.screenWidth >= 1024;
+    final columnGap = isLargeTablet ? 32.0 : 24.0;
+    final leftColumnSpacing = isLargeTablet ? 20.0 : 16.0;
 
     return SafeArea(
       child: CustomScrollView(
@@ -353,51 +356,61 @@ class _DashboardContentState extends State<DashboardContent>
           SliverPadding(
             padding: EdgeInsets.all(hp),
             sliver: SliverToBoxAdapter(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      children: [
-                        _buildBalanceCard(context),
-                        const SizedBox(height: 24),
-                        _buildQuickActions(context),
-                        const SizedBox(height: 24),
-                        _buildMonthlyOverview(context),
-                        const SizedBox(height: 16),
-                        _buildIncomeExpenseChart(context),
-                        const SizedBox(height: 16),
-                        _buildSpendingChart(context),
-                        const SizedBox(height: 16),
-                        _buildGoalsSection(context),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      children: [
-                        _buildRecurringExpenses(context),
-                        const SizedBox(height: 16),
-                        // RF-22/HU-09 + RF-21/HU-08: Tarjeta Predicciones IA (tablet)
-                        _buildAiPredictionsCard(context),
-                        const SizedBox(height: 12),
-                        // RF-25/HU-12/CU-04: Asistente IA (tablet)
-                        _buildAssistantCard(context),
-                        const SizedBox(height: 16),
-                        _buildSectionHeader(
-                          s.lastTransactions,
-                          onTap: widget.onNavigateToTransactions,
-                          s,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          children: [
+                            _buildBalanceCard(context),
+                            SizedBox(height: leftColumnSpacing + 4),
+                            _buildQuickActions(context),
+                            SizedBox(height: leftColumnSpacing + 4),
+                            _buildMonthlyOverview(context),
+                            SizedBox(height: leftColumnSpacing),
+                            _buildIncomeExpenseChart(context),
+                            SizedBox(height: leftColumnSpacing),
+                            _buildSpendingChart(context),
+                            SizedBox(height: leftColumnSpacing),
+                            _buildGoalsSection(context),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        _buildTransactionsColumn(context),
-                      ],
-                    ),
+                      ),
+                      SizedBox(width: columnGap),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          children: [
+                            _buildRecurringExpenses(context),
+                            const SizedBox(height: 16),
+                            // RF-22/HU-09 + RF-21/HU-08: Tarjeta Predicciones IA (tablet)
+                            _buildAiPredictionsCard(context),
+                            const SizedBox(height: 12),
+                            // RF-25/HU-12/CU-04: Asistente IA (tablet)
+                            _buildAssistantCard(context),
+                            const SizedBox(height: 16),
+                            if (isLargeTablet) ...[
+                              // Extra widget visible on large tablets (iPad Pro)
+                              _buildMonthlyOverview(context),
+                              const SizedBox(height: 16),
+                            ],
+                            _buildSectionHeader(
+                              s.lastTransactions,
+                              onTap: widget.onNavigateToTransactions,
+                              s,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildTransactionsColumn(context),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -679,32 +692,19 @@ class _DashboardContentState extends State<DashboardContent>
   /// Returns the localized month abbreviation for the given month number (1-12)
   String _getMonthAbbr(AppLocalizations s, int month) {
     switch (month) {
-      case 1:
-        return s.jan;
-      case 2:
-        return s.feb;
-      case 3:
-        return s.mar;
-      case 4:
-        return s.apr;
-      case 5:
-        return s.mayy;
-      case 6:
-        return s.jun;
-      case 7:
-        return s.jul;
-      case 8:
-        return s.aug;
-      case 9:
-        return s.sep;
-      case 10:
-        return s.oct;
-      case 11:
-        return s.nov;
-      case 12:
-        return s.dec;
-      default:
-        return '';
+      case 1: return s.jan;
+      case 2: return s.feb;
+      case 3: return s.mar;
+      case 4: return s.apr;
+      case 5: return s.mayy;
+      case 6: return s.jun;
+      case 7: return s.jul;
+      case 8: return s.aug;
+      case 9: return s.sep;
+      case 10: return s.oct;
+      case 11: return s.nov;
+      case 12: return s.dec;
+      default: return '';
     }
   }
 

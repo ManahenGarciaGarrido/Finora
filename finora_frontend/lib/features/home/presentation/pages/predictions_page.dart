@@ -13,6 +13,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/services/ai_service.dart';
 import '../../../../core/services/currency_service.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 class PredictionsPage extends StatefulWidget {
   const PredictionsPage({super.key});
@@ -57,6 +58,7 @@ class _PredictionsPageState extends State<PredictionsPage>
 
   String _fmtC(double amount, {int decimals = 2}) =>
       CurrencyService().format(amount, decimals: decimals);
+
 
   Future<void> _loadData() async {
     _loadPredictions();
@@ -242,54 +244,69 @@ class _PredictionsPageState extends State<PredictionsPage>
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
+    final appBar = AppBar(
+      backgroundColor: AppColors.white,
+      elevation: 0,
+      title: Text(
+        s.aiPredictionsTitle,
+        style: AppTypography.titleMedium(color: AppColors.textPrimaryLight),
+      ),
+      leading: IconButton(
+        icon: const Icon(
+          Icons.arrow_back_rounded,
+          color: AppColors.textPrimaryLight,
+        ),
+        tooltip: AppLocalizations.of(context).back,
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
+          tooltip: AppLocalizations.of(context).refreshPredictions,
+          onPressed: _loadData,
+        ),
+      ],
+      bottom: TabBar(
+        controller: _tabController,
+        indicatorColor: AppColors.primary,
+        labelColor: AppColors.primary,
+        unselectedLabelColor: AppColors.gray400,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        tabs: [
+          Tab(icon: Icon(Icons.trending_up_rounded), text: s.tabPrediction),
+          Tab(icon: Icon(Icons.savings_rounded), text: s.tabSavings),
+          Tab(icon: Icon(Icons.warning_amber_rounded), text: s.tabAnomalies),
+          Tab(icon: Icon(Icons.repeat_rounded), text: s.tabSubscriptions),
+        ],
+      ),
+    );
+    final body = TabBarView(
+      controller: _tabController,
+      children: [
+        _buildPredictionsTab(context),
+        _buildSavingsTab(context),
+        _buildAnomaliesTab(context),
+        _buildSubscriptionsTab(context),
+      ],
+    );
+    if (responsive.isTablet) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: appBar,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: body,
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        title: Text(
-          s.aiPredictionsTitle,
-          style: AppTypography.titleMedium(color: AppColors.textPrimaryLight),
-        ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppColors.textPrimaryLight,
-          ),
-          tooltip: AppLocalizations.of(context).back,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
-            tooltip: AppLocalizations.of(context).refreshPredictions,
-            onPressed: _loadData,
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.gray400,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          tabs: [
-            Tab(icon: Icon(Icons.trending_up_rounded), text: s.tabPrediction),
-            Tab(icon: Icon(Icons.savings_rounded), text: s.tabSavings),
-            Tab(icon: Icon(Icons.warning_amber_rounded), text: s.tabAnomalies),
-            Tab(icon: Icon(Icons.repeat_rounded), text: s.tabSubscriptions),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildPredictionsTab(context),
-          _buildSavingsTab(context),
-          _buildAnomaliesTab(context),
-          _buildSubscriptionsTab(context),
-        ],
-      ),
+      appBar: appBar,
+      body: body,
     );
   }
 
@@ -310,6 +327,10 @@ class _PredictionsPageState extends State<PredictionsPage>
         subtitle: s.aiEmptyDataSubtitle,
       );
     }
+    final responsive = ResponsiveUtils(context);
+    final cards = _predictionsResult!.predictions
+        .map(_buildCategoryPredictionCard)
+        .toList();
     return RefreshIndicator(
       onRefresh: _loadPredictions,
       child: ListView(
@@ -328,9 +349,18 @@ class _PredictionsPageState extends State<PredictionsPage>
           // CU-05 / HU-09: Gráfico visual predicción vs último mes
           _buildPredictionComparisonChart(context),
           const SizedBox(height: 16),
-          ...(_predictionsResult!.predictions.map(
-            _buildCategoryPredictionCard,
-          )),
+          if (responsive.isTablet)
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 2.2,
+              children: cards,
+            )
+          else
+            ...cards,
         ],
       ),
     );

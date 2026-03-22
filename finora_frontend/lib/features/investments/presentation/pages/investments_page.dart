@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/di/injection_container.dart' as di;
-import '../../../../shared/widgets/skeleton_loader.dart';
+import '../../../../core/responsive/breakpoints.dart';
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
 import '../../domain/entities/investor_profile_entity.dart';
 import '../../domain/entities/portfolio_suggestion_entity.dart';
 import '../../domain/entities/market_index_entity.dart';
@@ -25,7 +26,10 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(title, style: AppTypography.titleSmall()),
+      child: Text(
+        title,
+        style: AppTypography.titleSmall(),
+      ),
     );
   }
 }
@@ -62,8 +66,10 @@ class _InvestmentsPageState extends State<InvestmentsPage>
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
     return BlocProvider(
-      create: (ctx) => di.sl<InvestmentBloc>()..add(const LoadProfile()),
+      create: (ctx) =>
+          di.sl<InvestmentBloc>()..add(const LoadProfile()),
       child: BlocConsumer<InvestmentBloc, InvestmentState>(
         listener: (ctx, state) {
           if (state is ProfileLoaded) {
@@ -73,7 +79,9 @@ class _InvestmentsPageState extends State<InvestmentsPage>
             });
           } else if (state is ProfileSaved) {
             setState(() => _profile = state.profile);
-            ctx.read<InvestmentBloc>().add(const LoadPortfolioSuggestion());
+            ctx
+                .read<InvestmentBloc>()
+                .add(const LoadPortfolioSuggestion());
           } else if (state is PortfolioLoaded) {
             setState(() {
               _portfolio = state.suggestion;
@@ -104,17 +112,15 @@ class _InvestmentsPageState extends State<InvestmentsPage>
             appBar: AppBar(
               backgroundColor: AppColors.surfaceLight,
               elevation: 0,
-              title: Text(
-                s.investmentsTitle,
-                style: AppTypography.titleMedium(),
-              ),
+              title: Text(s.investmentsTitle,
+                  style: AppTypography.titleMedium()),
               leading: const BackButton(),
               bottom: TabBar(
                 controller: _tabs,
                 labelColor: AppColors.primary,
                 indicatorColor: AppColors.primary,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
+                isScrollable: !responsive.isTablet,
+                tabAlignment: responsive.isTablet ? TabAlignment.fill : TabAlignment.start,
                 tabs: [
                   Tab(text: s.investorProfileTab),
                   Tab(text: s.portfolioTab),
@@ -123,9 +129,9 @@ class _InvestmentsPageState extends State<InvestmentsPage>
                 ],
                 onTap: (i) {
                   if (i == 1 && _portfolio == null && _profile != null) {
-                    ctx.read<InvestmentBloc>().add(
-                      const LoadPortfolioSuggestion(),
-                    );
+                    ctx
+                        .read<InvestmentBloc>()
+                        .add(const LoadPortfolioSuggestion());
                   }
                   if (i == 3 && _indices.isEmpty) {
                     ctx.read<InvestmentBloc>().add(const LoadIndices());
@@ -138,14 +144,21 @@ class _InvestmentsPageState extends State<InvestmentsPage>
                     padding: EdgeInsets.all(16),
                     child: SkeletonListLoader(count: 4, cardHeight: 80),
                   )
-                : TabBarView(
-                    controller: _tabs,
-                    children: [
-                      _buildProfileTab(ctx, s),
-                      _buildPortfolioTab(ctx, s),
-                      _buildSimulatorTab(ctx),
-                      _buildMarketsTab(ctx, s),
-                    ],
+                : Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: responsive.isTablet ? 900 : double.infinity,
+                      ),
+                      child: TabBarView(
+                        controller: _tabs,
+                        children: [
+                          _buildProfileTab(ctx, s),
+                          _buildPortfolioTab(ctx, s),
+                          _buildSimulatorTab(ctx),
+                          _buildMarketsTab(ctx, s, responsive),
+                        ],
+                      ),
+                    ),
                   ),
           );
         },
@@ -161,17 +174,13 @@ class _InvestmentsPageState extends State<InvestmentsPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.person_outline_rounded,
-                color: AppColors.gray400,
-                size: 64,
-              ),
+              Icon(Icons.person_outline_rounded,
+                  color: AppColors.gray400, size: 64),
               const SizedBox(height: 16),
-              Text(
-                s.noProfile,
-                style: AppTypography.bodyMedium(color: AppColors.gray500),
-                textAlign: TextAlign.center,
-              ),
+              Text(s.noProfile,
+                  style:
+                      AppTypography.bodyMedium(color: AppColors.gray500),
+                  textAlign: TextAlign.center),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: () => _openQuiz(ctx, s),
@@ -184,21 +193,17 @@ class _InvestmentsPageState extends State<InvestmentsPage>
       );
     }
 
-    final riskLabel =
-        {
-          'conservative': s.profileConservative,
-          'moderate': s.profileModerate,
-          'aggressive': s.profileAggressive,
-        }[_profile!.riskTolerance] ??
-        _profile!.riskTolerance;
+    final riskLabel = {
+      'conservative': s.profileConservative,
+      'moderate': s.profileModerate,
+      'aggressive': s.profileAggressive,
+    }[_profile!.riskTolerance] ?? _profile!.riskTolerance;
 
-    final horizonLabel =
-        {
-          'short': s.shortTerm,
-          'medium': s.mediumTerm,
-          'long': s.longTerm,
-        }[_profile!.investmentHorizon] ??
-        _profile!.investmentHorizon;
+    final horizonLabel = {
+      'short': s.shortTerm,
+      'medium': s.mediumTerm,
+      'long': s.longTerm,
+    }[_profile!.investmentHorizon] ?? _profile!.investmentHorizon;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -253,17 +258,13 @@ class _InvestmentsPageState extends State<InvestmentsPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.pie_chart_outline_rounded,
-                color: AppColors.gray400,
-                size: 56,
-              ),
+              Icon(Icons.pie_chart_outline_rounded,
+                  color: AppColors.gray400, size: 56),
               const SizedBox(height: 16),
-              Text(
-                s.profileRequired,
-                style: AppTypography.bodyMedium(color: AppColors.gray500),
-                textAlign: TextAlign.center,
-              ),
+              Text(s.profileRequired,
+                  style:
+                      AppTypography.bodyMedium(color: AppColors.gray500),
+                  textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -279,7 +280,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
     return const ReturnSimulatorWidget();
   }
 
-  Widget _buildMarketsTab(BuildContext ctx, dynamic s) {
+  Widget _buildMarketsTab(BuildContext ctx, dynamic s, [ResponsiveUtils? responsive]) {
     if (_indices.isEmpty) {
       return Center(
         child: Column(
@@ -287,10 +288,8 @@ class _InvestmentsPageState extends State<InvestmentsPage>
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 12),
-            Text(
-              s.loading,
-              style: AppTypography.bodySmall(color: AppColors.gray500),
-            ),
+            Text(s.loading,
+                style: AppTypography.bodySmall(color: AppColors.gray500)),
           ],
         ),
       );
@@ -301,6 +300,46 @@ class _InvestmentsPageState extends State<InvestmentsPage>
     final other = _indices
         .where((i) => i.category == 'commodity' || i.category == 'forex')
         .toList();
+    final isTablet = responsive?.isTablet ?? false;
+
+    Widget buildIndexList(List<MarketIndexEntity> items) {
+      if (isTablet) {
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 8,
+            childAspectRatio: 3.0,
+          ),
+          itemCount: items.length,
+          itemBuilder: (_, idx) {
+            final i = items[idx];
+            return GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => MarketDetailPage(index: i)),
+              ),
+              child: MarketIndexCard(index: i),
+            );
+          },
+        );
+      }
+      return Column(
+        children: items.map((i) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => MarketDetailPage(index: i)),
+            ),
+            child: MarketIndexCard(index: i),
+          ),
+        )).toList(),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: () async =>
@@ -322,20 +361,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
           if (crypto.isNotEmpty) ...[
             _SectionHeader(title: '${s.sectionCrypto} (${crypto.length})'),
             const SizedBox(height: 8),
-            ...crypto.map(
-              (i) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MarketDetailPage(index: i),
-                    ),
-                  ),
-                  child: MarketIndexCard(index: i),
-                ),
-              ),
-            ),
+            buildIndexList(crypto),
             const SizedBox(height: 8),
           ],
 
@@ -343,43 +369,15 @@ class _InvestmentsPageState extends State<InvestmentsPage>
           if (equity.isNotEmpty) ...[
             _SectionHeader(title: '${s.sectionEquity} (${equity.length})'),
             const SizedBox(height: 8),
-            ...equity.map(
-              (i) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MarketDetailPage(index: i),
-                    ),
-                  ),
-                  child: MarketIndexCard(index: i),
-                ),
-              ),
-            ),
+            buildIndexList(equity),
             const SizedBox(height: 8),
           ],
 
           // Commodities & Forex section
           if (other.isNotEmpty) ...[
-            _SectionHeader(
-              title: '${s.sectionCommoditiesForex} (${other.length})',
-            ),
+            _SectionHeader(title: '${s.sectionCommoditiesForex} (${other.length})'),
             const SizedBox(height: 8),
-            ...other.map(
-              (i) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MarketDetailPage(index: i),
-                    ),
-                  ),
-                  child: MarketIndexCard(index: i),
-                ),
-              ),
-            ),
+            buildIndexList(other),
             const SizedBox(height: 8),
           ],
 
@@ -394,26 +392,21 @@ class _InvestmentsPageState extends State<InvestmentsPage>
               child: Text(s.glossaryTitle),
             )
           else
-            ..._glossary.map(
-              (term) => ExpansionTile(
-                title: Text(
-                  term['term'] as String,
-                  style: AppTypography.bodyMedium(),
-                ),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+            ..._glossary.map((term) => ExpansionTile(
+                  title: Text(term['term'] as String,
+                      style: AppTypography.bodyMedium()),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Text(
+                        term['definition_es'] as String,
+                        style: AppTypography.bodySmall(
+                            color: AppColors.gray600),
+                      ),
                     ),
-                    child: Text(
-                      term['definition_es'] as String,
-                      style: AppTypography.bodySmall(color: AppColors.gray600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                  ],
+                )),
         ],
       ),
     );

@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../bloc/bank_bloc.dart';
@@ -85,9 +86,9 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
           ),
           centerTitle: true,
         ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
+        body: Builder(builder: (context) {
+          final responsive = ResponsiveUtils(context);
+          final listView = ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
             children: [
               // Institution header
@@ -157,8 +158,17 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
               _buildCsvSection(),
               const SizedBox(height: 16),
             ],
-          ),
-        ),
+          );
+          final formBody = Form(key: _formKey, child: listView);
+          return responsive.isTablet
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: formBody,
+                  ),
+                )
+              : formBody;
+        }),
         bottomNavigationBar: _buildSaveButton(),
       ),
     );

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 /// Full-page form to invite a member to the household by email.
 /// Returns the entered email string when the invite is sent.
@@ -31,15 +32,14 @@ class _InviteMemberPageState extends State<InviteMemberPage> {
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceLight,
-        elevation: 0,
-        leading: const BackButton(),
-        title: Text(s.inviteMember, style: AppTypography.titleMedium()),
-      ),
-      body: SingleChildScrollView(
+    final responsive = ResponsiveUtils(context);
+    final appBar = AppBar(
+      backgroundColor: AppColors.surfaceLight,
+      elevation: 0,
+      leading: const BackButton(),
+      title: Text(s.inviteMember, style: AppTypography.titleMedium()),
+    );
+    final body = SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,8 +70,7 @@ class _InviteMemberPageState extends State<InviteMemberPage> {
                   Text(
                     s.inviteMember,
                     style: AppTypography.titleMedium(
-                      color: const Color(0xFF039BE5),
-                    ),
+                        color: const Color(0xFF039BE5)),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -86,22 +85,19 @@ class _InviteMemberPageState extends State<InviteMemberPage> {
                 color: AppColors.primarySoft,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.2),
-                ),
+                    color: AppColors.primary.withValues(alpha: 0.2)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.info_outline_rounded,
-                    color: AppColors.primary,
-                    size: 18,
-                  ),
+                  const Icon(Icons.info_outline_rounded,
+                      color: AppColors.primary, size: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       s.householdInviteInfo,
-                      style: AppTypography.bodySmall(color: AppColors.gray700),
+                      style:
+                          AppTypography.bodySmall(color: AppColors.gray700),
                     ),
                   ),
                 ],
@@ -110,10 +106,8 @@ class _InviteMemberPageState extends State<InviteMemberPage> {
             const SizedBox(height: 28),
 
             // Email field
-            Text(
-              s.email,
-              style: AppTypography.labelSmall(color: AppColors.gray600),
-            ),
+            Text(s.email,
+                style: AppTypography.labelSmall(color: AppColors.gray600)),
             const SizedBox(height: 8),
             Form(
               key: _formKey,
@@ -152,7 +146,23 @@ class _InviteMemberPageState extends State<InviteMemberPage> {
             ),
           ],
         ),
-      ),
+      );
+    if (responsive.isTablet) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: appBar,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: body,
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      appBar: appBar,
+      body: body,
     );
   }
 }

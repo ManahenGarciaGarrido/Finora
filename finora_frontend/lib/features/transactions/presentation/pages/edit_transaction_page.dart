@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
@@ -800,28 +800,67 @@ class _EditTransactionPageState extends State<EditTransactionPage>
   }
 
   Widget _buildTabletLayout(BuildContext context) {
-    final responsive = ResponsiveUtils(context);
-    return Center(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Container(
-          constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
-          padding: EdgeInsets.symmetric(
-            horizontal: responsive.horizontalPadding,
-            vertical: responsive.verticalPadding,
-          ),
-          child: Card(
-            elevation: 0,
-            color: AppColors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: _buildFormContent(context),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Center(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Card(
+                  elevation: 0,
+                  color: AppColors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: _buildTabletFormContent(context),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTabletFormContent(BuildContext context) {
+    return Form(
+      key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.transaction.updatedAt != null) _buildLastModifiedBanner(),
+          _buildTypeSelector(),
+          const SizedBox(height: 24),
+          // Pair: Amount + Date side by side
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildAmountField()),
+              const SizedBox(width: 16),
+              Expanded(child: _buildDateSelector()),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildCategorySelector(),
+          const SizedBox(height: 24),
+          _buildDescriptionField(),
+          const SizedBox(height: 24),
+          _buildPaymentMethodSelector(),
+          const SizedBox(height: 24),
+          _buildPhotoTicketSection(),
+          const SizedBox(height: 32),
+          _buildSubmitButton(),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }

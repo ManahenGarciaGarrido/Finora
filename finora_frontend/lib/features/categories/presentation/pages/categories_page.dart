@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
@@ -9,7 +9,7 @@ import '../../domain/entities/category_entity.dart';
 import '../bloc/category_bloc.dart';
 import '../bloc/category_event.dart';
 import '../bloc/category_state.dart';
-import '../../../../shared/widgets/skeleton_loader.dart';
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
 
 /// Página de gestión de categorías (RF-15, RF-16)
 ///
@@ -251,6 +251,27 @@ class _CategoriesPageState extends State<CategoriesPage>
       );
     }
 
+    if (responsive.isTablet) {
+      return GridView.builder(
+        padding: EdgeInsets.fromLTRB(
+          responsive.horizontalPadding,
+          16,
+          responsive.horizontalPadding,
+          100, // Espacio para el FAB
+        ),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 8,
+          childAspectRatio: 3.0,
+        ),
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          return _buildCategoryCard(context, category);
+        },
+      );
+    }
     return ListView.builder(
       padding: EdgeInsets.fromLTRB(
         responsive.horizontalPadding,

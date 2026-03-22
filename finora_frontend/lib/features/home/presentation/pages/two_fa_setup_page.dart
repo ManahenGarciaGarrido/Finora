@@ -15,7 +15,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/di/injection_container.dart' as di;
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 /// RNF-03: Flujo completo de configuración y gestión de 2FA TOTP.
 class TwoFaSetupPage extends StatefulWidget {
@@ -167,6 +168,26 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
+    final bodyContent = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatusHeader(s),
+                const SizedBox(height: 20),
+                if (_errorMsg != null) _buildError(),
+                if (!_is2faEnabled && _otpauthUri == null)
+                  _buildSetupPrompt(s),
+                if (_otpauthUri != null) _buildQrSection(s),
+                if (_is2faEnabled && _recoveryCodes == null)
+                  _buildEnabledView(s),
+                if (_recoveryCodes != null) _buildRecoveryCodes(s),
+              ],
+            ),
+          );
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
@@ -175,25 +196,14 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
         title: Text(s.twoFactorAuth, style: AppTypography.titleMedium()),
         leading: const BackButton(),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildStatusHeader(s),
-                  const SizedBox(height: 20),
-                  if (_errorMsg != null) _buildError(),
-                  if (!_is2faEnabled && _otpauthUri == null)
-                    _buildSetupPrompt(s),
-                  if (_otpauthUri != null) _buildQrSection(s),
-                  if (_is2faEnabled && _recoveryCodes == null)
-                    _buildEnabledView(s),
-                  if (_recoveryCodes != null) _buildRecoveryCodes(s),
-                ],
+      body: responsive.isTablet
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: bodyContent,
               ),
-            ),
+            )
+          : bodyContent,
     );
   }
 

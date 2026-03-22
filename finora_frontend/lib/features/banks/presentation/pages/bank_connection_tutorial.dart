@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -92,11 +93,12 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
     final steps = _buildSteps(s);
     final step = steps[_currentStep];
     final isLast = _currentStep == steps.length - 1;
 
-    return Container(
+    final content = Container(
       decoration: const BoxDecoration(
         color: AppColors.backgroundLight,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -241,6 +243,15 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
         ),
       ),
     );
+    if (responsive.isTablet) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 }
 

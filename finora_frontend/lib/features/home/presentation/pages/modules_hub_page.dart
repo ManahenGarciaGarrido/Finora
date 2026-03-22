@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../debts/presentation/pages/debts_page.dart';
 import '../../../investments/presentation/pages/investments_page.dart';
 import '../../../household/presentation/pages/household_page.dart';
@@ -19,49 +20,54 @@ class ModulesHubPage extends StatelessWidget {
 
   const ModulesHubPage({super.key, this.onNavigateToAccounts});
 
+  /// Columnas del grid adaptadas al tamaño de pantalla
+  int _gridColumns(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width >= Breakpoints.tabletLarge) return 4;
+    if (width >= Breakpoints.tabletSmall) return 3;
+    return 2;
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
-
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: CustomScrollView(
-        physics: const BouncingScrollPhysics(), // Animación de rebote más suave
         slivers: [
           SliverAppBar(
-            expandedHeight: 110, // Altura ajustada
+            expandedHeight: 120,
             floating: false,
             pinned: true,
-            backgroundColor: AppColors.surfaceLight, // Fondo plano y limpio
+            backgroundColor: AppColors.surfaceLight,
             elevation: 0,
             automaticallyImplyLeading: false,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(
-                bottom: Radius.circular(20), // Borde redondeado suave
-              ),
-            ),
             flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 18),
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
               title: Text(
                 s.modules,
-                style: AppTypography.titleLarge().copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors
-                      .primaryDark, // Texto claro sin el efecto de fondo
+                style: AppTypography.titleLarge(),
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.08),
+                      AppColors.surfaceLight,
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-
-          // Tarjeta principal (Cuentas)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: _AccountsCard(s: s, onNavigate: onNavigateToAccounts),
             ),
           ),
-
-          // Grid de Módulos
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverGrid(
@@ -113,7 +119,8 @@ class ModulesHubPage extends StatelessWidget {
                   subtitle: s.gamificationSubtitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const GamificationPage()),
+                    MaterialPageRoute(
+                        builder: (_) => const GamificationPage()),
                   ),
                 ),
                 _ModuleCard(
@@ -147,17 +154,16 @@ class ModulesHubPage extends StatelessWidget {
                   ),
                 ),
               ]),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.95, // Ajustado para un mejor diseño
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                // Tablet: 3 columnas en portrait, 4 en landscape / iPad Pro
+                crossAxisCount: _gridColumns(context),
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: _gridColumns(context) >= 3 ? 1.2 : 1.1,
               ),
             ),
           ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 32),
-          ), // Espaciado final
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
     );
@@ -171,87 +177,65 @@ class _AccountsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            if (onNavigate != null) {
-              onNavigate!();
-            } else {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const AccountsPage(onViewAccountTransactions: null),
-                ),
-              );
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_rounded,
-                    color: Colors.white,
-                    size: 30,
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        s.accounts,
-                        style: AppTypography.titleMedium(
-                          color: Colors.white,
-                        ).copyWith(fontWeight: FontWeight.bold, fontSize: 18),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        s.accountsSubtitle,
-                        style: AppTypography.bodySmall(
-                          color: Colors.white.withValues(alpha: 0.8),
-                        ).copyWith(height: 1.2),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                ),
-              ],
+    return GestureDetector(
+      onTap: () {
+        if (onNavigate != null) {
+          onNavigate!();
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => AccountsPage(onViewAccountTransactions: null)),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-          ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.account_balance_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s.accounts,
+                    style: AppTypography.titleMedium(color: Colors.white),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    s.accountsSubtitle,
+                    style: AppTypography.bodySmall(
+                        color: Colors.white.withValues(alpha: 0.8)),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                color: Colors.white, size: 16),
+          ],
         ),
       ),
     );
@@ -275,59 +259,48 @@ class _ModuleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          splashColor: color.withValues(alpha: 0.1),
-          highlightColor: color.withValues(alpha: 0.05),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: color, size: 26),
-                ),
-                const Spacer(),
-                Text(
-                  label,
-                  style: AppTypography.titleSmall().copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: AppTypography.labelSmall(
-                    color: AppColors.gray500,
-                  ).copyWith(height: 1.3),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.gray200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-          ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const Spacer(),
+            Text(
+              label,
+              style: AppTypography.titleSmall(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: AppTypography.labelSmall(color: AppColors.gray500),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );

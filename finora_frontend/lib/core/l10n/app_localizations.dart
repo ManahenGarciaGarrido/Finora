@@ -94,6 +94,8 @@ class AppLocalizations extends AppStringsBase {
   @override
   String get goals => _strings.goals;
   @override
+  String get modules => _strings.modules;
+  @override
   String get settings => _strings.settings;
   @override
   String get accounts => _strings.accounts;
@@ -3176,9 +3178,6 @@ class AppLocalizations extends AppStringsBase {
 
   @override
   String get investmentsSubtitle => _strings.investmentsSubtitle;
-
-  @override
-  String get modules => _strings.modules;
 
   @override
   String get ocrSubtitle => _strings.ocrSubtitle;

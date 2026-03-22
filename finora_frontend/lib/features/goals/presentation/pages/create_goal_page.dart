@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../bloc/goal_bloc.dart';
 import '../bloc/goal_event.dart';
 import '../bloc/goal_state.dart';
@@ -54,6 +55,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
     final categories = s.goalCategoriesList;
+    final responsive = ResponsiveUtils(context);
 
     return BlocListener<GoalBloc, GoalState>(
       listener: (context, state) {
@@ -78,7 +80,10 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
           elevation: 0,
           title: Text(s.createGoal, style: AppTypography.titleMedium()),
         ),
-        body: Form(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: responsive.isTablet ? 580 : double.infinity),
+            child: Form(
           key: _formKey,
           child: ListView(
             padding: const EdgeInsets.all(16),
@@ -380,6 +385,8 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
               ),
               const SizedBox(height: 32),
             ],
+          ),
+        ),
           ),
         ),
       ),

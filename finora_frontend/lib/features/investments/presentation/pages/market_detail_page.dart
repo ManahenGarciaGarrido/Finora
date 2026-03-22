@@ -2,9 +2,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../domain/entities/market_index_entity.dart';
 
 class MarketDetailPage extends StatefulWidget {
@@ -64,26 +65,24 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
     final s = AppLocalizations.of(context);
     final index = widget.index;
     final changeColor = index.isPositive ? AppColors.success : AppColors.error;
-
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceLight,
-        elevation: 0,
-        title: Text(
-          '${index.name} (${index.ticker})',
-          style: AppTypography.titleMedium(),
-        ),
-        leading: const BackButton(),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadChart,
-            tooltip: s.refresh,
-          ),
-        ],
+    final responsive = ResponsiveUtils(context);
+    final appBar = AppBar(
+      backgroundColor: AppColors.surfaceLight,
+      elevation: 0,
+      title: Text(
+        '${index.name} (${index.ticker})',
+        style: AppTypography.titleMedium(),
       ),
-      body: ListView(
+      leading: const BackButton(),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded),
+          onPressed: _loadChart,
+          tooltip: s.refresh,
+        ),
+      ],
+    );
+    final body = ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // ── Price header ──────────────────────────────────────────────────
@@ -103,9 +102,7 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
                     Expanded(
                       child: Text(
                         _formatPrice(index.value, index.ticker),
-                        style: AppTypography.titleLarge().copyWith(
-                          fontSize: 32,
-                        ),
+                        style: AppTypography.titleLarge().copyWith(fontSize: 32),
                       ),
                     ),
                     Row(
@@ -160,9 +157,7 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.primary
-                            : Colors.transparent,
+                        color: selected ? AppColors.primary : Colors.transparent,
                         borderRadius: BorderRadius.circular(9),
                       ),
                       alignment: Alignment.center,
@@ -193,20 +188,23 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                ? Center(
-                    child: Text(
-                      'Error cargando datos',
-                      style: AppTypography.bodySmall(color: AppColors.error),
-                    ),
-                  )
-                : _points.isEmpty
-                ? Center(
-                    child: Text(
-                      'Sin datos disponibles',
-                      style: AppTypography.bodySmall(color: AppColors.gray500),
-                    ),
-                  )
-                : _AreaChart(points: _points, color: changeColor),
+                    ? Center(
+                        child: Text(
+                          'Error cargando datos',
+                          style: AppTypography.bodySmall(color: AppColors.error),
+                        ),
+                      )
+                    : _points.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Sin datos disponibles',
+                              style: AppTypography.bodySmall(color: AppColors.gray500),
+                            ),
+                          )
+                        : _AreaChart(
+                            points: _points,
+                            color: changeColor,
+                          ),
           ),
 
           const SizedBox(height: 16),
@@ -270,7 +268,23 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
           // ── Category badge ────────────────────────────────────────────────
           _CategoryBadge(category: index.category),
         ],
-      ),
+      );
+    if (responsive.isTablet) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: appBar,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: body,
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      appBar: appBar,
+      body: body,
     );
   }
 
@@ -344,7 +358,10 @@ class _CategoryBadge extends StatelessWidget {
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(label, style: AppTypography.labelSmall(color: color)),
+      child: Text(
+        label,
+        style: AppTypography.labelSmall(color: color),
+      ),
     );
   }
 }
@@ -392,9 +409,7 @@ class _AreaChartPainter extends CustomPainter {
 
     double getX(int i) => i / (closes.length - 1) * size.width;
     double getY(double v) =>
-        chartHeight -
-        ((v - minVal) / range) * (chartHeight * 0.85) -
-        chartHeight * 0.05;
+        chartHeight - ((v - minVal) / range) * (chartHeight * 0.85) - chartHeight * 0.05;
 
     // Build line path
     final linePath = Path();
@@ -418,7 +433,10 @@ class _AreaChartPainter extends CustomPainter {
     final gradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.03)],
+      colors: [
+        color.withValues(alpha: 0.3),
+        color.withValues(alpha: 0.03),
+      ],
     );
 
     canvas.drawPath(
@@ -444,7 +462,11 @@ class _AreaChartPainter extends CustomPainter {
     // Draw last point dot
     final lastX = getX(closes.length - 1);
     final lastY = getY(closes.last);
-    canvas.drawCircle(Offset(lastX, lastY), 4, Paint()..color = color);
+    canvas.drawCircle(
+      Offset(lastX, lastY),
+      4,
+      Paint()..color = color,
+    );
     canvas.drawCircle(
       Offset(lastX, lastY),
       4,
@@ -462,15 +484,15 @@ class _AreaChartPainter extends CustomPainter {
       final dateStr = _formatDate(points[i]['date'] as String? ?? '');
       labelPaint.text = TextSpan(
         text: dateStr,
-        style: TextStyle(fontSize: 9, color: Colors.grey[500]),
+        style: TextStyle(
+          fontSize: 9,
+          color: Colors.grey[500],
+        ),
       );
       labelPaint.layout();
       final x = getX(i) - labelPaint.width / 2;
       final y = chartHeight + 4;
-      labelPaint.paint(
-        canvas,
-        Offset(x.clamp(0, size.width - labelPaint.width), y),
-      );
+      labelPaint.paint(canvas, Offset(x.clamp(0, size.width - labelPaint.width), y));
     }
   }
 

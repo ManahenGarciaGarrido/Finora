@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../shared/widgets/skeleton_loader.dart';
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
 
 /// Pantalla de gestión de consentimientos PSD2 (RNF-05).
 ///
@@ -158,6 +159,21 @@ class _Psd2ConsentManagementPageState
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
+    final bodyContent = _loading
+        ? const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: SkeletonListLoader(count: 4, cardHeight: 88),
+          )
+        : _error != null
+        ? _ErrorView(error: _error!, onRetry: _loadConsents)
+        : _consents.isEmpty
+        ? const _EmptyView()
+        : _ConsentList(
+            consents: _consents,
+            onRenew: _renewConsent,
+            onRevoke: _revokeConsent,
+          );
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
@@ -172,20 +188,14 @@ class _Psd2ConsentManagementPageState
         ),
         title: Text(s.bankConsentsTitle, style: AppTypography.titleMedium()),
       ),
-      body: _loading
-          ? const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: SkeletonListLoader(count: 4, cardHeight: 88),
+      body: responsive.isTablet
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: bodyContent,
+              ),
             )
-          : _error != null
-          ? _ErrorView(error: _error!, onRetry: _loadConsents)
-          : _consents.isEmpty
-          ? const _EmptyView()
-          : _ConsentList(
-              consents: _consents,
-              onRenew: _renewConsent,
-              onRevoke: _revokeConsent,
-            ),
+          : bodyContent,
     );
   }
 }

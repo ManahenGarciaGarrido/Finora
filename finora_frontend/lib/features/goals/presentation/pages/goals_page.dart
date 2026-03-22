@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../domain/entities/savings_goal_entity.dart';
 import '../bloc/goal_bloc.dart';
 import '../bloc/goal_event.dart';
 import '../bloc/goal_state.dart';
 import 'create_goal_page.dart';
 import 'goal_detail_page.dart';
-import '../../../../shared/widgets/skeleton_loader.dart';
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
 import '../../../../core/services/currency_service.dart';
 
 /// RF-18 / RF-19 / HU-07: Lista de objetivos de ahorro con progreso visual
@@ -119,8 +120,53 @@ class _GoalsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
     final active = goals.where((g) => g.isActive).toList();
     final completed = goals.where((g) => g.isCompleted).toList();
+
+    if (responsive.isTablet) {
+      return RefreshIndicator(
+        onRefresh: () async {
+          context.read<GoalBloc>().add(const LoadGoals());
+        },
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (active.isNotEmpty) ...[
+                  _SectionLabel(s.goalInProgress(active.length)),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.4,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: active.map((g) => _GoalCard(goal: g)).toList(),
+                  ),
+                ],
+                if (completed.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _SectionLabel(s.goalCompletedCount(completed.length)),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.4,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: completed.map((g) => _GoalCard(goal: g)).toList(),
+                  ),
+                ],
+                const SizedBox(height: 80),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: () async {

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/responsive/breakpoints.dart';
 import '../../domain/entities/debt_entity.dart';
 import '../bloc/debt_bloc.dart';
 import '../bloc/debt_event.dart';
@@ -37,19 +38,15 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
     _name = TextEditingController(text: d?.name ?? '');
     _creditor = TextEditingController(text: d?.creditorName ?? '');
     _amount = TextEditingController(
-      text: d != null ? d.amount.toStringAsFixed(2) : '',
-    );
+        text: d != null ? d.amount.toStringAsFixed(2) : '');
     _remaining = TextEditingController(
-      text: d != null ? d.remainingAmount.toStringAsFixed(2) : '',
-    );
+        text: d != null ? d.remainingAmount.toStringAsFixed(2) : '');
     _interest = TextEditingController(
-      text: d != null ? d.interestRate.toStringAsFixed(2) : '',
-    );
+        text: d != null ? d.interestRate.toStringAsFixed(2) : '');
     _monthly = TextEditingController(
-      text: d?.monthlyPayment != null
-          ? d!.monthlyPayment!.toStringAsFixed(2)
-          : '',
-    );
+        text: d?.monthlyPayment != null
+            ? d!.monthlyPayment!.toStringAsFixed(2)
+            : '');
     _notes = TextEditingController(text: d?.notes ?? '');
     _type = d?.type ?? 'own';
     _dueDate = d?.dueDate;
@@ -71,6 +68,7 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
     final isEdit = widget.debt != null;
+    final responsive = ResponsiveUtils(context);
 
     return BlocProvider(
       create: (_) => di.sl<DebtBloc>(),
@@ -100,10 +98,8 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
             appBar: AppBar(
               backgroundColor: AppColors.surfaceLight,
               elevation: 0,
-              title: Text(
-                isEdit ? s.editDebt : s.addDebt,
-                style: AppTypography.titleMedium(),
-              ),
+              title: Text(isEdit ? s.editDebt : s.addDebt,
+                  style: AppTypography.titleMedium()),
               leading: const BackButton(),
               actions: [
                 TextButton(
@@ -112,7 +108,10 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
                 ),
               ],
             ),
-            body: Form(
+            body: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: responsive.isTablet ? 580 : double.infinity),
+                child: Form(
               key: _formKey,
               child: ListView(
                 padding: const EdgeInsets.all(16),
@@ -143,20 +142,17 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
                   TextFormField(
                     controller: _name,
                     decoration: InputDecoration(
-                      labelText: s.debtName,
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? s.fieldRequired
-                        : null,
+                        labelText: s.debtName,
+                        border: const OutlineInputBorder()),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? s.fieldRequired : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _creditor,
                     decoration: InputDecoration(
-                      labelText: s.creditorName,
-                      border: const OutlineInputBorder(),
-                    ),
+                        labelText: s.creditorName,
+                        border: const OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -165,17 +161,14 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
                         child: TextFormField(
                           controller: _amount,
                           decoration: InputDecoration(
-                            labelText: s.originalAmount,
-                            prefixText: '€ ',
-                            border: const OutlineInputBorder(),
-                          ),
+                              labelText: s.originalAmount,
+                              prefixText: '€ ',
+                              border: const OutlineInputBorder()),
                           keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                              decimal: true),
                           validator: (v) {
                             final n = double.tryParse(
-                              v?.replaceAll(',', '.') ?? '',
-                            );
+                                v?.replaceAll(',', '.') ?? '');
                             return (n == null || n <= 0)
                                 ? s.amountInvalid
                                 : null;
@@ -187,17 +180,14 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
                         child: TextFormField(
                           controller: _remaining,
                           decoration: InputDecoration(
-                            labelText: s.remainingAmount,
-                            prefixText: '€ ',
-                            border: const OutlineInputBorder(),
-                          ),
+                              labelText: s.remainingAmount,
+                              prefixText: '€ ',
+                              border: const OutlineInputBorder()),
                           keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                              decimal: true),
                           validator: (v) {
                             final n = double.tryParse(
-                              v?.replaceAll(',', '.') ?? '',
-                            );
+                                v?.replaceAll(',', '.') ?? '');
                             return (n == null || n < 0)
                                 ? s.amountInvalid
                                 : null;
@@ -213,13 +203,11 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
                         child: TextFormField(
                           controller: _interest,
                           decoration: InputDecoration(
-                            labelText: s.interestRate,
-                            suffixText: '%',
-                            border: const OutlineInputBorder(),
-                          ),
+                              labelText: s.interestRate,
+                              suffixText: '%',
+                              border: const OutlineInputBorder()),
                           keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                              decimal: true),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -227,13 +215,11 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
                         child: TextFormField(
                           controller: _monthly,
                           decoration: InputDecoration(
-                            labelText: s.monthlyPayment,
-                            prefixText: '€ ',
-                            border: const OutlineInputBorder(),
-                          ),
+                              labelText: s.monthlyPayment,
+                              prefixText: '€ ',
+                              border: const OutlineInputBorder()),
                           keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                              decimal: true),
                         ),
                       ),
                     ],
@@ -263,13 +249,14 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
                   TextFormField(
                     controller: _notes,
                     decoration: InputDecoration(
-                      labelText: s.note,
-                      border: const OutlineInputBorder(),
-                    ),
+                        labelText: s.note,
+                        border: const OutlineInputBorder()),
                     maxLines: 3,
                   ),
                   const SizedBox(height: 80),
                 ],
+              ),
+            ),
               ),
             ),
           ),
@@ -278,21 +265,14 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
     );
   }
 
-  Widget _typeButton(
-    BuildContext ctx,
-    String label,
-    String value,
-    IconData icon,
-  ) {
+  Widget _typeButton(BuildContext ctx, String label, String value, IconData icon) {
     final selected = _type == value;
     return GestureDetector(
       onTap: () => setState(() => _type = value),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : AppColors.surfaceLight,
+          color: selected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? AppColors.primary : AppColors.gray200,
@@ -301,18 +281,13 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: selected ? AppColors.primary : AppColors.gray400,
-              size: 18,
-            ),
+            Icon(icon,
+                color: selected ? AppColors.primary : AppColors.gray400,
+                size: 18),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTypography.bodyMedium(
-                color: selected ? AppColors.primary : AppColors.gray600,
-              ),
-            ),
+            Text(label,
+                style: AppTypography.bodyMedium(
+                    color: selected ? AppColors.primary : AppColors.gray600)),
           ],
         ),
       ),
@@ -325,9 +300,7 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
     final data = {
       'name': _name.text.trim(),
       'type': _type,
-      'creditor_name': _creditor.text.trim().isEmpty
-          ? null
-          : _creditor.text.trim(),
+      'creditor_name': _creditor.text.trim().isEmpty ? null : _creditor.text.trim(),
       'amount': double.parse(_amount.text.replaceAll(',', '.')),
       'remaining_amount': double.parse(_remaining.text.replaceAll(',', '.')),
       'interest_rate': _interest.text.isEmpty

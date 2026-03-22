@@ -30,6 +30,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
+import '../../../../core/responsive/responsive_builder.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
@@ -317,6 +318,13 @@ class _StatsPageState extends State<StatsPage>
 
   @override
   Widget build(BuildContext context) {
+    return ResponsiveBuilder(
+      mobile: (context) => _buildMobileLayout(context),
+      tablet: (context) => _buildTabletLayout(context),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
     final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
 
@@ -462,6 +470,205 @@ class _StatsPageState extends State<StatsPage>
                         ),
                       SizedBox(height: responsive.hp(12)),
                     ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabletLayout(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
+    final hp = responsive.horizontalPadding;
+
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: () async {
+          context.read<TransactionBloc>().add(LoadTransactions());
+          setState(() {
+            _serverMonthly = null;
+            _serverCategories = null;
+          });
+          await _fetchAnalytics();
+        },
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          slivers: [
+            // Title row
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                child: Text(s.statistics, style: AppTypography.headlineSmall()),
+              ),
+            ),
+            // Period filter as horizontal Wrap
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(hp, 16, hp, 0),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: StatsPeriod.values.map((p) {
+                    final isSel = p == _period;
+                    return Semantics(
+                      label: '${s.period} ${p.getLabel(s)}',
+                      selected: isSel,
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () => _onPeriodChanged(p),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSel ? AppColors.primary : AppColors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSel
+                                  ? AppColors.primary
+                                  : AppColors.gray200,
+                            ),
+                          ),
+                          child: Text(
+                            p.getLabel(s),
+                            style: AppTypography.labelSmall(
+                              color: isSel
+                                  ? AppColors.white
+                                  : AppColors.textSecondaryLight,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            // Main content
+            SliverToBoxAdapter(
+              child: BlocBuilder<TransactionBloc, TransactionState>(
+                builder: (context, state) {
+                  final allTxs = state is TransactionsLoaded
+                      ? state.transactions
+                      : context.read<TransactionBloc>().transactions;
+                  final txs = _filterByPeriod(allTxs, _period);
+
+                  final monthlyData = _serverMonthly ?? _buildMonthlyData(txs);
+                  final catExpenses =
+                      _serverCategories ?? _expensesByCategory(txs);
+
+                  final totalIncome = _serverMonthly != null
+                      ? _serverMonthly!.fold(0.0, (s, d) => s + d.income)
+                      : txs
+                            .where((t) => t.isIncome)
+                            .fold(0.0, (s, t) => s + t.amount);
+                  final totalExpenses = _serverCategories != null
+                      ? _serverCategories!.values.fold(0.0, (s, v) => s + v)
+                      : txs
+                            .where((t) => t.isExpense)
+                            .fold(0.0, (s, t) => s + t.amount);
+
+                  return Padding(
+                    padding: EdgeInsets.all(hp),
+                    child: Column(
+                      children: [
+                        // Summary cards side by side
+                        _buildSummaryCards(
+                          totalIncome,
+                          totalExpenses,
+                          txs.length,
+                          s,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildNetBalanceCard(totalIncome, totalExpenses, s),
+                        const SizedBox(height: 20),
+                        // Pie chart left, category legend right (50/50)
+                        if (catExpenses.isNotEmpty)
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _buildPieChartCard(
+                                    catExpenses,
+                                    totalExpenses,
+                                    context,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: AppColors.gray100,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.04,
+                                          ),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          s.spendingByCategory,
+                                          style: AppTypography.titleMedium(),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        _buildPieLegend(
+                                          catExpenses.entries.toList(),
+                                          catExpenses.entries
+                                              .map(
+                                                (e) =>
+                                                    CategoryEntity.getColorForName(
+                                                      e.key,
+                                                    ),
+                                              )
+                                              .toList(),
+                                          totalExpenses,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Bar chart full width
+                        if (monthlyData.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _buildBarChartCard(monthlyData, context),
+                        ],
+                        // Line chart full width
+                        if (monthlyData.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _buildLineChartCard(monthlyData, context),
+                        ],
+                        if (txs.isEmpty) ...[
+                          const SizedBox(height: 20),
+                          _buildEmptyState(),
+                        ],
+                        SizedBox(height: responsive.hp(12)),
+                      ],
+                    ),
                   );
                 },
               ),
