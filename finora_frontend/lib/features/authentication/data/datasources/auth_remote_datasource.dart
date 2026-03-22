@@ -1,16 +1,15 @@
 import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/constants/storage_keys.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/security/secure_storage_service.dart';
 import '../models/user_model.dart';
 import 'auth_local_datasource.dart';
 
 /// Remote data source for authentication
 /// Handles all HTTP requests related to authentication
 abstract class AuthRemoteDataSource {
-  Future<UserModel> login({
-    required String email,
-    required String password,
-  });
+  Future<UserModel> login({required String email, required String password});
 
   Future<UserModel> register({
     required String email,
@@ -46,10 +45,30 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final ApiClient apiClient;
   final AuthLocalDataSource? localDataSource;
 
-  AuthRemoteDataSourceImpl({
-    required this.apiClient,
-    this.localDataSource,
-  });
+  AuthRemoteDataSourceImpl({required this.apiClient, this.localDataSource});
+
+  /// Solicita al backend un token de 30 días para login biométrico y lo guarda
+  /// de forma segura. Se llama en fire-and-forget para no bloquear el login.
+  Future<void> _saveBiometricToken(String accessToken) async {
+    try {
+      final response = await apiClient.post('/auth/biometric-token');
+      if (response.statusCode == 200) {
+        final biometricToken = response.data['biometric_token'] as String?;
+        if (biometricToken != null) {
+          final storage = SecureStorageService();
+          await storage.initialize();
+          await storage.write(
+            key: StorageKeys.biometricToken,
+            value: biometricToken,
+            encrypt: true,
+          );
+        }
+      }
+    } catch (_) {
+      // No crítico: el login normal ya funciona, el biométrico simplemente
+      // usará el token normal de 24h como fallback.
+    }
+  }
 
   @override
   Future<UserModel> login({
@@ -59,10 +78,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     try {
       final response = await apiClient.post(
         ApiEndpoints.login,
-        data: {
-          'email': email,
-          'password': password,
-        },
+        data: {'email': email, 'password': password},
       );
 
       if (response.statusCode == 200) {
@@ -76,6 +92,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           if (localDataSource != null) {
             await localDataSource!.saveToken(accessToken);
           }
+          // Fire-and-forget: obtener token biométrico de 30d y guardarlo
+          _saveBiometricToken(accessToken);
         }
 
         // Parse user data
@@ -154,6 +172,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> logout() async {
     try {
+      // Suprimir eventos onUnauthorized durante el logout voluntario para
+      // no mostrar el mensaje "Tu sesión ha expirado" al usuario.
+      apiClient.suppressUnauthorized = true;
       await apiClient.post(ApiEndpoints.logout);
       apiClient.clearToken();
     } catch (e) {
@@ -163,6 +184,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         rethrow;
       }
       throw ServerException(message: e.toString());
+    } finally {
+      apiClient.suppressUnauthorized = false;
     }
   }
 
@@ -220,10 +243,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> forgotPassword({required String email}) async {
     try {
-      await apiClient.post(
-        ApiEndpoints.forgotPassword,
-        data: {'email': email},
-      );
+      await apiClient.post(ApiEndpoints.forgotPassword, data: {'email': email});
     } catch (e) {
       if (e is ServerException || e is NetworkException) {
         rethrow;
@@ -240,10 +260,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     try {
       await apiClient.post(
         ApiEndpoints.resetPassword,
-        data: {
-          'token': token,
-          'new_password': newPassword,
-        },
+        data: {'token': token, 'new_password': newPassword},
       );
     } catch (e) {
       if (e is ServerException || e is NetworkException) {
@@ -278,10 +295,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> verify2FA({required String code}) async {
     try {
-      await apiClient.post(
-        ApiEndpoints.verify2FA,
-        data: {'code': code},
-      );
+      await apiClient.post(ApiEndpoints.verify2FA, data: {'code': code});
     } catch (e) {
       if (e is ServerException ||
           e is NetworkException ||

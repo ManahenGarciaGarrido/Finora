@@ -195,6 +195,7 @@ Future<void> _initAuthentication() async {
       remoteDataSource: sl(),
       localDataSource: sl(),
       networkInfo: sl(),
+      localDatabase: sl(),
     ),
   );
 

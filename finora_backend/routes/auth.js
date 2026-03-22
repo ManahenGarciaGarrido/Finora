@@ -571,6 +571,48 @@ router.post('/refresh', async (req, res) => {
 });
 
 /**
+ * POST /api/v1/auth/biometric-token
+ * Emite un token de larga duración (30 días) para login biométrico.
+ * Requiere un token normal válido en Authorization header.
+ */
+router.post('/biometric-token', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No Autorizado', message: 'Token requerido' });
+    }
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    const result = await db.query(
+      'SELECT id, email, email_verified FROM users WHERE id = $1',
+      [decoded.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'No Autorizado', message: 'Usuario no encontrado' });
+    }
+    const user = result.rows[0];
+
+    // Token de 30 días para uso biométrico
+    const biometricToken = jwt.sign(
+      { userId: user.id, email: user.email, emailVerified: user.email_verified, biometric: true },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.status(200).json({
+      biometric_token: biometricToken,
+      expires_in: '30d',
+    });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'No Autorizado', message: 'Token inválido o expirado' });
+    }
+    res.status(500).json({ error: 'Error Interno', message: error.message });
+  }
+});
+
+/**
  * POST /api/v1/auth/forgot-password
  * Request password reset
  */

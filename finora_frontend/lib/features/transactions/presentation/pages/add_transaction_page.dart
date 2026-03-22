@@ -35,7 +35,21 @@ import '../../../categories/presentation/bloc/category_state.dart';
 /// - Método de pago (efectivo, tarjeta, transferencia)
 /// - Foto del ticket (opcional)
 class AddTransactionPage extends StatefulWidget {
-  const AddTransactionPage({super.key});
+  /// Datos pre-rellenados al venir desde el escáner de tickets (HU-03)
+  final double? initialAmount;
+  final String? initialDescription;
+  final String? initialCategory;
+  final DateTime? initialDate;
+  final String? initialPhotoPath;
+
+  const AddTransactionPage({
+    super.key,
+    this.initialAmount,
+    this.initialDescription,
+    this.initialCategory,
+    this.initialDate,
+    this.initialPhotoPath,
+  });
 
   @override
   State<AddTransactionPage> createState() => _AddTransactionPageState();
@@ -72,6 +86,22 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   @override
   void initState() {
     super.initState();
+    // Pre-rellenar datos si vienen del escáner de tickets
+    if (widget.initialAmount != null) {
+      _amountController.text = widget.initialAmount!.toStringAsFixed(2);
+    }
+    if (widget.initialDescription != null) {
+      _descriptionController.text = widget.initialDescription!;
+    }
+    if (widget.initialCategory != null) {
+      _selectedCategory = widget.initialCategory;
+    }
+    if (widget.initialDate != null) {
+      _selectedDate = widget.initialDate!;
+    }
+    if (widget.initialPhotoPath != null) {
+      _photoPath = widget.initialPhotoPath;
+    }
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -534,7 +564,10 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: Card(
                   elevation: 0,
                   color: AppColors.white,
@@ -1029,7 +1062,10 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                   size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(_formatDate(_selectedDate, context), style: AppTypography.input()),
+                Text(
+                  _formatDate(_selectedDate, context),
+                  style: AppTypography.input(),
+                ),
                 const Spacer(),
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,

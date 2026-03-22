@@ -10,6 +10,7 @@ import '../bloc/bank_event.dart';
 import '../bloc/bank_state.dart';
 import 'bank_connection_tutorial.dart';
 import 'psd2_consent_dialog.dart';
+import 'manual_bank_account_page.dart';
 import '../../../../core/responsive/breakpoints.dart';
 
 /// Bottom sheet that lists available banking institutions (RF-10).
@@ -191,6 +192,52 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
 
               const SizedBox(height: 12),
 
+              // Opción: cuenta manual (sin banco)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context); // cerrar sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ManualBankAccountPage(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add_card_rounded, size: 18),
+                  label: const Text('Añadir cuenta manual (sin banco)'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Row(
+                  children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        'o conecta tu banco',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.gray400,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider()),
+                  ],
+                ),
+              ),
+
               // Institution list
               Expanded(
                 child: BlocConsumer<BankBloc, BankState>(
@@ -203,7 +250,10 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                   builder: (context, state) {
                     if (state is InstitutionsLoading) {
                       return const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: SkeletonListLoader(count: 6, cardHeight: 64),
                       );
                     }
@@ -261,11 +311,11 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 2.5,
-                        ),
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 2.5,
+                            ),
                         itemCount: institutions.length,
                         itemBuilder: (context, i) {
                           final inst = institutions[i];
