@@ -10,6 +10,7 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/services/app_settings_service.dart';
+import '../../../../core/services/profile_photo_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
@@ -59,6 +60,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final photo = user['photoBase64'] as String?;
       if (photo != null && photo.isNotEmpty && mounted) {
         setState(() => _remotePhotoBase64 = photo);
+        ProfilePhotoService().update(photo);
       }
     } catch (_) {}
   }
@@ -91,6 +93,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           '/user/profile/photo',
           data: {'photo_base64': base64Str},
         );
+        ProfilePhotoService().update(base64Str);
       }
 
       if (mounted) {

@@ -67,9 +67,7 @@ class InvestmentBloc extends Bloc<InvestmentEvent, InvestmentState> {
     emit(const InvestmentLoading());
     try {
       emit(PortfolioLoaded(await getPortfolioSuggestion()));
-    } catch (err) {
-      emit(InvestmentError(_msg(err)));
-    }
+    } catch (_) {}
   }
 
   Future<void> _onSimulate(

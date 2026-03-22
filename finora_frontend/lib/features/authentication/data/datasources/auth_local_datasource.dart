@@ -23,7 +23,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   final SecureStorageService _secureStorage;
 
   AuthLocalDataSourceImpl({SecureStorageService? secureStorage})
-      : _secureStorage = secureStorage ?? SecureStorageService();
+    : _secureStorage = secureStorage ?? SecureStorageService();
 
   @override
   Future<void> cacheUser(UserModel user) async {
@@ -98,6 +98,13 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       // Store access token encrypted with AES-256
       await _secureStorage.write(
         key: StorageKeys.accessToken,
+        value: token,
+        encrypt: true,
+      );
+
+      // Also persist for biometric re-login (survives regular logout).
+      await _secureStorage.write(
+        key: StorageKeys.biometricToken,
         value: token,
         encrypt: true,
       );
