@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/network_info.dart';
+import '../../../../core/database/local_database.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
@@ -15,11 +16,13 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
   final AuthLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
+  final LocalDatabase localDatabase;
 
   AuthRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     required this.networkInfo,
+    required this.localDatabase,
   });
 
   @override
@@ -29,9 +32,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }) async {
     // Check network connectivity
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
@@ -67,9 +68,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }) async {
     // Check network connectivity
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
@@ -107,12 +106,16 @@ class AuthRepositoryImpl implements AuthRepository {
       // Clear local cache regardless of network status
       await localDataSource.clearCache();
       await localDataSource.clearToken();
+      await localDatabase
+          .clearAll(); // Limpiar transacciones de Hive al cerrar sesión
 
       return const Right(null);
     } on ServerException catch (e) {
       // Still clear local cache even if server logout fails
       await localDataSource.clearCache();
       await localDataSource.clearToken();
+      await localDatabase
+          .clearAll(); // Limpiar transacciones de Hive al cerrar sesión
       return Left(ServerFailure(message: e.message, code: e.code));
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message, code: e.code));
@@ -163,9 +166,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, void>> refreshToken() async {
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
@@ -183,13 +184,9 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, void>> forgotPassword({
-    required String email,
-  }) async {
+  Future<Either<Failure, void>> forgotPassword({required String email}) async {
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
@@ -210,9 +207,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String newPassword,
   }) async {
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
@@ -233,9 +228,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, String>> enable2FA() async {
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
@@ -251,13 +244,9 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, void>> verify2FA({
-    required String code,
-  }) async {
+  Future<Either<Failure, void>> verify2FA({required String code}) async {
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
@@ -277,9 +266,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, void>> disable2FA() async {
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
@@ -299,9 +286,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
   }) async {
     if (!await networkInfo.isConnected) {
-      return const Left(
-        NetworkFailure(message: 'No internet connection'),
-      );
+      return const Left(NetworkFailure(message: 'No internet connection'));
     }
 
     try {
