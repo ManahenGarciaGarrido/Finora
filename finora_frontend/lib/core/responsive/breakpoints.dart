@@ -30,7 +30,7 @@ class Breakpoints {
   static const double tabletLarge = 1024;
 
   /// Desktop
-  static const double desktop = 1200;
+  static const double desktop = 1400;
 
   /// Desktop grande
   static const double desktopLarge = 1440;
