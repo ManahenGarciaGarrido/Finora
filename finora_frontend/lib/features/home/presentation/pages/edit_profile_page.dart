@@ -8,12 +8,13 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/services/app_settings_service.dart';
 import '../../../../core/services/profile_photo_service.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../../authentication/presentation/bloc/auth_state.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -170,18 +171,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.camera_alt_rounded,
-                    color: AppColors.primary,
-                  ),
+                  child: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
                 ),
                 title: Text(s.camera, style: AppTypography.bodyMedium()),
-                subtitle: Text(
-                  s.takePictureNow,
-                  style: AppTypography.bodySmall(
-                    color: AppColors.textSecondaryLight,
-                  ),
-                ),
+                subtitle: Text(s.takePictureNow,
+                    style: AppTypography.bodySmall(color: AppColors.textSecondaryLight)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickPhoto(ImageSource.camera);
@@ -195,18 +189,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.photo_library_rounded,
-                    color: AppColors.primary,
-                  ),
+                  child: const Icon(Icons.photo_library_rounded, color: AppColors.primary),
                 ),
                 title: Text(s.gallery, style: AppTypography.bodyMedium()),
-                subtitle: Text(
-                  s.selectFromGallery,
-                  style: AppTypography.bodySmall(
-                    color: AppColors.textSecondaryLight,
-                  ),
-                ),
+                subtitle: Text(s.selectFromGallery,
+                    style: AppTypography.bodySmall(color: AppColors.textSecondaryLight)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickPhoto(ImageSource.gallery);
@@ -221,15 +208,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       color: AppColors.error.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: AppColors.error,
-                    ),
+                    child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
                   ),
-                  title: Text(
-                    s.deletePhoto,
-                    style: AppTypography.bodyMedium(color: AppColors.error),
-                  ),
+                  title: Text(s.deletePhoto,
+                      style: AppTypography.bodyMedium(color: AppColors.error)),
                   onTap: () {
                     Navigator.pop(ctx);
                     setState(() => _photoPath = null);
@@ -266,10 +248,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ? const TextStyle(fontWeight: FontWeight.bold)
                       : null,
                 ),
-                if (_selectedLocale == 'es')
-                  const Spacer()
-                else
-                  const SizedBox(),
+                if (_selectedLocale == 'es') const Spacer() else const SizedBox(),
                 if (_selectedLocale == 'es')
                   const Icon(Icons.check_rounded, size: 16),
               ],
@@ -286,10 +265,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ? const TextStyle(fontWeight: FontWeight.bold)
                       : null,
                 ),
-                if (_selectedLocale == 'en')
-                  const Spacer()
-                else
-                  const SizedBox(),
+                if (_selectedLocale == 'en') const Spacer() else const SizedBox(),
                 if (_selectedLocale == 'en')
                   const Icon(Icons.check_rounded, size: 16),
               ],
@@ -309,10 +285,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       context: context,
       builder: (ctx) => SimpleDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          AppLocalizations.of(context).settingsCurrency,
-          style: AppTypography.titleMedium(),
-        ),
+        title: Text(AppLocalizations.of(context).settingsCurrency,
+            style: AppTypography.titleMedium()),
         children: AppSettingsService.availableCurrencies.map((cfg) {
           final isSelected = cfg.code == _selectedCurrency.code;
           return SimpleDialogOption(
@@ -376,257 +350,268 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final s = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        title: Text(s.editProfileTitle, style: AppTypography.titleMedium()),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          if (_isSaving)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.only(right: 16),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: _saveProfile,
-              child: Text(
-                s.save,
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
+  Widget _buildBodyContent(AppLocalizations s) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Profile picture section ───────────────────────────────────
+            Center(
+              child: GestureDetector(
+                onTap: _showPhotoPicker,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 56,
+                      backgroundColor: AppColors.primarySoft,
+                      backgroundImage: _photoPath != null
+                          ? FileImage(File(_photoPath!)) as ImageProvider
+                          : (_remotePhotoBase64 != null
+                              ? MemoryImage(base64Decode(_remotePhotoBase64!))
+                              : null),
+                      child: (_photoPath == null && _remotePhotoBase64 == null)
+                          ? Text(
+                              _nameController.text.isNotEmpty
+                                  ? _nameController.text[0].toUpperCase()
+                                  : 'U',
+                              style: AppTypography.headlineLarge(
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.white,
+                            width: 2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: AppColors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Profile picture section ───────────────────────────────────
-              Center(
-                child: GestureDetector(
-                  onTap: _showPhotoPicker,
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 56,
-                        backgroundColor: AppColors.primarySoft,
-                        backgroundImage: _photoPath != null
-                            ? FileImage(File(_photoPath!)) as ImageProvider
-                            : (_remotePhotoBase64 != null
-                                  ? MemoryImage(
-                                      base64Decode(_remotePhotoBase64!),
-                                    )
-                                  : null),
-                        child:
-                            (_photoPath == null && _remotePhotoBase64 == null)
-                            ? Text(
-                                _nameController.text.isNotEmpty
-                                    ? _nameController.text[0].toUpperCase()
-                                    : 'U',
-                                style: AppTypography.headlineLarge(
-                                  color: AppColors.primary,
-                                ),
-                              )
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.white,
-                              width: 2,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt_rounded,
-                            color: AppColors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
+            const SizedBox(height: 32),
 
-              // ── Información personal section ──────────────────────────────
-              Text(
-                s.publicInfoHeading,
-                style: AppTypography.labelMedium(
-                  color: AppColors.textSecondaryLight,
-                ),
+            // ── Información personal section ──────────────────────────────
+            Text(
+              s.publicInfoHeading,
+              style: AppTypography.labelMedium(
+                color: AppColors.textSecondaryLight,
               ),
-              const SizedBox(height: 16),
+            ),
+            const SizedBox(height: 16),
 
-              // Full name field
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: s.fullNameLabel,
-                  prefixIcon: const Icon(Icons.person_outline_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? s.nameRequiredError
-                    : null,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 16),
-
-              // Phone number field (optional)
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: '${s.phoneNumber} (${s.optional})',
-                  prefixIcon: const Icon(Icons.phone_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Bio field (optional, max 150 chars)
-              TextFormField(
-                controller: _bioController,
-                maxLines: 3,
-                maxLength: 150,
-                decoration: InputDecoration(
-                  labelText: '${s.profileBio} (${s.optional})',
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 48),
-                    child: Icon(Icons.notes_rounded),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // ── Idioma y moneda section ───────────────────────────────────
-              Text(
-                s.languageAndCurrency,
-                style: AppTypography.labelMedium(
-                  color: AppColors.textSecondaryLight,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Language selector
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
+            // Full name field
+            TextFormField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: s.fullNameLabel,
+                prefixIcon: const Icon(Icons.person_outline_rounded),
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.gray100),
-                ),
-                child: ListTile(
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.gray100,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.language_rounded,
-                      size: 20,
-                      color: AppColors.textSecondaryLight,
-                    ),
-                  ),
-                  title: Text(s.language, style: AppTypography.titleSmall()),
-                  subtitle: Text(
-                    _getLanguageLabel(),
-                    style: AppTypography.bodySmall(
-                      color: AppColors.textTertiaryLight,
-                    ),
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColors.gray400,
-                  ),
-                  onTap: _showLanguageDialog,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
-              const SizedBox(height: 12),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? s.nameRequiredError
+                  : null,
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 16),
 
-              // Currency selector
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
+            // Phone number field (optional)
+            TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: '${s.phoneNumber} (${s.optional})',
+                prefixIcon: const Icon(Icons.phone_outlined),
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.gray100),
-                ),
-                child: ListTile(
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.gray100,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.currency_exchange_rounded,
-                      size: 20,
-                      color: AppColors.textSecondaryLight,
-                    ),
-                  ),
-                  title: Text(
-                    s.settingsCurrency,
-                    style: AppTypography.titleSmall(),
-                  ),
-                  subtitle: Text(
-                    '${_selectedCurrency.code} - ${_selectedCurrency.name}',
-                    style: AppTypography.bodySmall(
-                      color: AppColors.textTertiaryLight,
-                    ),
-                  ),
-                  trailing: const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColors.gray400,
-                  ),
-                  onTap: _showCurrencyDialog,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+
+            // Bio field (optional, max 150 chars)
+            TextFormField(
+              controller: _bioController,
+              maxLines: 3,
+              maxLength: 150,
+              decoration: InputDecoration(
+                labelText: '${s.profileBio} (${s.optional})',
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(bottom: 48),
+                  child: Icon(Icons.notes_rounded),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // ── Idioma y moneda section ───────────────────────────────────
+            Text(
+              s.languageAndCurrency,
+              style: AppTypography.labelMedium(
+                color: AppColors.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Language selector
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.gray100),
+              ),
+              child: ListTile(
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.gray100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.language_rounded,
+                    size: 20,
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                title: Text(s.language, style: AppTypography.titleSmall()),
+                subtitle: Text(
+                  _getLanguageLabel(),
+                  style: AppTypography.bodySmall(
+                      color: AppColors.textTertiaryLight),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.gray400,
+                ),
+                onTap: _showLanguageDialog,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Currency selector
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.gray100),
+              ),
+              child: ListTile(
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.gray100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.currency_exchange_rounded,
+                    size: 20,
+                    color: AppColors.textSecondaryLight,
+                  ),
+                ),
+                title: Text(s.settingsCurrency,
+                    style: AppTypography.titleSmall()),
+                subtitle: Text(
+                  '${_selectedCurrency.code} - ${_selectedCurrency.name}',
+                  style: AppTypography.bodySmall(
+                      color: AppColors.textTertiaryLight),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.gray400,
+                ),
+                onTap: _showCurrencyDialog,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
+    final appBar = AppBar(
+      title: Text(s.editProfileTitle, style: AppTypography.titleMedium()),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        onPressed: () => Navigator.pop(context),
+      ),
+      actions: [
+        if (_isSaving)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else
+          TextButton(
+            onPressed: _saveProfile,
+            child: Text(
+              s.save,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+      ],
+    );
+    if (responsive.isTablet) {
+      return Scaffold(
+        backgroundColor: AppColors.white,
+        appBar: appBar,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: _buildBodyContent(s),
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      backgroundColor: AppColors.white,
+      appBar: appBar,
+      body: _buildBodyContent(s),
     );
   }
 }

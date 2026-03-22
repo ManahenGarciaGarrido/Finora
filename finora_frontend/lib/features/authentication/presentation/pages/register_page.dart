@@ -1,3 +1,7 @@
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import 'package:finora_frontend/shared/widgets/animated_button.dart';
+import 'package:finora_frontend/shared/widgets/animated_gradient_background.dart';
+import 'package:finora_frontend/shared/widgets/custom_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,10 +10,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/responsive/responsive_builder.dart';
-import '../../../../core/l10n/app_localizations.dart';
-import '../../../../shared/widgets/animated_gradient_background.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
-import '../../../../shared/widgets/animated_button.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -378,39 +378,56 @@ class _RegisterPageState extends State<RegisterPage>
 
   Widget _buildTabletLayout(BuildContext context) {
     final responsive = ResponsiveUtils(context);
-    return Center(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Container(
-          constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
-          padding: EdgeInsets.symmetric(
-            horizontal: responsive.horizontalPadding,
-            vertical: responsive.verticalPadding,
-          ),
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
+    final s = AppLocalizations.of(context);
+
+    return Row(
+      children: [
+        // Left branding panel
+        Expanded(
+          flex: 1,
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: AppColors.primaryGradient,
+            ),
+            child: SafeArea(
+              child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildHeader(context),
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: const Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: 64,
+                          color: Colors.white,
+                        ),
+                      ),
                       const SizedBox(height: 32),
-                      _buildForm(context),
-                      const SizedBox(height: 24),
-                      _buildTermsAndPrivacy(),
-                      const SizedBox(height: 24),
-                      _buildRegisterButton(),
-                      const SizedBox(height: 24),
-                      _buildLoginLink(context),
+                      const Text(
+                        'Finora',
+                        style: TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        s.registerSubtitle,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 ),
@@ -418,7 +435,51 @@ class _RegisterPageState extends State<RegisterPage>
             ),
           ),
         ),
-      ),
+        // Right form panel
+        Expanded(
+          flex: 1,
+          child: Container(
+            color: AppColors.backgroundLight,
+            child: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: responsive.horizontalPadding,
+                        vertical: responsive.verticalPadding,
+                      ),
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildHeader(context),
+                              const SizedBox(height: 32),
+                              _buildForm(context),
+                              const SizedBox(height: 24),
+                              _buildTermsAndPrivacy(),
+                              const SizedBox(height: 24),
+                              _buildRegisterButton(),
+                              const SizedBox(height: 24),
+                              _buildLoginLink(context),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

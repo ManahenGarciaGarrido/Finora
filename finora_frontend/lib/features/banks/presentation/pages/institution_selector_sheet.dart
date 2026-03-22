@@ -1,6 +1,7 @@
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/bank_institution_entity.dart';
@@ -9,7 +10,7 @@ import '../bloc/bank_event.dart';
 import '../bloc/bank_state.dart';
 import 'bank_connection_tutorial.dart';
 import 'psd2_consent_dialog.dart';
-import '../../../../shared/widgets/skeleton_loader.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 /// Bottom sheet that lists available banking institutions (RF-10).
 /// Opened from AccountsPage when the user taps "Conectar banco".
@@ -253,6 +254,25 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                       );
                     }
 
+                    final responsive = ResponsiveUtils(context);
+                    if (responsive.isTablet) {
+                      return GridView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 2.5,
+                        ),
+                        itemCount: institutions.length,
+                        itemBuilder: (context, i) {
+                          final inst = institutions[i];
+                          return _InstitutionTile(institution: inst);
+                        },
+                      );
+                    }
                     return ListView.builder(
                       controller: scrollController,
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),

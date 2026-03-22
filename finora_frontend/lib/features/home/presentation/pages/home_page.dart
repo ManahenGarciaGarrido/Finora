@@ -6,7 +6,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/responsive/responsive_builder.dart';
 import '../../../../core/utils/app_startup_tracker.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../transactions/presentation/bloc/transaction_bloc.dart';
 import '../../../transactions/presentation/bloc/transaction_event.dart';
 import 'accounts_page.dart';
@@ -123,7 +123,12 @@ class _HomePageState extends State<HomePage> {
     return SafeArea(
       child: Row(
         children: [
-          _buildNavigationRail(),
+          _buildExtendedNavigationRail(context),
+          // Separador visual entre rail y contenido
+          Container(
+            width: 1,
+            color: AppColors.gray100,
+          ),
           Expanded(
             child: IndexedStack(index: _selectedNavIndex, children: _pages),
           ),
@@ -132,56 +137,187 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildNavigationRail() {
-    return NavigationRail(
-      selectedIndex: _selectedNavIndex,
-      onDestinationSelected: _onRailTap,
-      backgroundColor: AppColors.surfaceLight,
-      // Añadimos un indicador sutil para que se vea más profesional
-      indicatorColor: AppColors.primary.withValues(alpha: 0.1),
-      leading: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            // Este gradiente ahora será oscuro y elegante
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(12),
+  /// Sidebar estilo escritorio con rail extendido (iconos + etiquetas en fila)
+  Widget _buildExtendedNavigationRail(BuildContext context) {
+    final s = AppLocalizations.of(context);
+    // En tablets grandes el rail es más ancho
+    final screenWidth = MediaQuery.of(context).size.width;
+    final railWidth = screenWidth >= Breakpoints.tabletLarge ? 230.0 : 200.0;
+
+    // Índice efectivo para resaltar Módulos cuando AccountsPage (5) está activa
+    final effectiveIndex = _selectedNavIndex == 5 ? 3 : _selectedNavIndex;
+
+    return Container(
+      width: railWidth,
+      color: AppColors.surfaceLight,
+      child: Column(
+        children: [
+          // ─── Logo / Branding ─────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: AppColors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Finora',
+                  style: AppTypography.titleLarge(color: AppColors.primary)
+                      .copyWith(fontWeight: FontWeight.w700, fontSize: 20),
+                ),
+              ],
+            ),
           ),
-          child: const Icon(
-            Icons.account_balance_wallet_rounded,
-            color: AppColors.white,
+
+          // ─── Botón "+ Añadir transacción" ────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/add-transaction'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: Text(
+                  s.addTransaction,
+                  style: AppTypography.labelMedium(color: AppColors.white)
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 4),
+          Divider(color: AppColors.gray100, height: 1),
+          const SizedBox(height: 8),
+
+          // ─── Items de navegación ─────────────────────────────────────
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              children: [
+                _buildRailItem(
+                  context,
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home_rounded,
+                  label: s.home,
+                  index: 0,
+                  effectiveIndex: effectiveIndex,
+                ),
+                _buildRailItem(
+                  context,
+                  icon: Icons.analytics_outlined,
+                  activeIcon: Icons.analytics_rounded,
+                  label: s.statistics,
+                  index: 1,
+                  effectiveIndex: effectiveIndex,
+                ),
+                _buildRailItem(
+                  context,
+                  icon: Icons.receipt_long_outlined,
+                  activeIcon: Icons.receipt_long_rounded,
+                  label: s.transactions,
+                  index: 2,
+                  effectiveIndex: effectiveIndex,
+                ),
+                _buildRailItem(
+                  context,
+                  icon: Icons.grid_view_outlined,
+                  activeIcon: Icons.grid_view_rounded,
+                  label: s.modules,
+                  index: 3,
+                  effectiveIndex: effectiveIndex,
+                ),
+                _buildRailItem(
+                  context,
+                  icon: Icons.settings_outlined,
+                  activeIcon: Icons.settings_rounded,
+                  label: s.settings,
+                  index: 4,
+                  effectiveIndex: effectiveIndex,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Item individual del rail lateral extendido
+  Widget _buildRailItem(
+    BuildContext context, {
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required int index,
+    required int effectiveIndex,
+  }) {
+    final isSelected = effectiveIndex == index;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: () => _onRailTap(index),
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.primary.withValues(alpha: 0.1)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  isSelected ? activeIcon : icon,
+                  color:
+                      isSelected ? AppColors.primary : AppColors.textSecondaryLight,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: AppTypography.bodyMedium(
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textSecondaryLight,
+                  ).copyWith(
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      destinations: [
-        NavigationRailDestination(
-          icon: const Icon(Icons.home_outlined),
-          selectedIcon: const Icon(Icons.home_rounded),
-          label: Text(AppLocalizations.of(context).home),
-        ),
-        NavigationRailDestination(
-          icon: const Icon(Icons.analytics_outlined),
-          selectedIcon: const Icon(Icons.analytics_rounded),
-          label: Text(AppLocalizations.of(context).statistics),
-        ),
-        NavigationRailDestination(
-          icon: const Icon(Icons.receipt_long_outlined),
-          selectedIcon: const Icon(Icons.receipt_long_rounded),
-          label: Text(AppLocalizations.of(context).transactions),
-        ),
-        NavigationRailDestination(
-          icon: const Icon(Icons.grid_view_outlined),
-          selectedIcon: const Icon(Icons.grid_view_rounded),
-          label: Text(AppLocalizations.of(context).modules),
-        ),
-        NavigationRailDestination(
-          icon: const Icon(Icons.settings_outlined),
-          selectedIcon: const Icon(Icons.settings_rounded),
-          label: Text(AppLocalizations.of(context).settings),
-        ),
-      ],
     );
   }
 

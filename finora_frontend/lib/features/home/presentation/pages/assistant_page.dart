@@ -8,7 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/di/injection_container.dart';
@@ -17,6 +17,7 @@ import '../../../../core/services/app_settings_service.dart';
 import '../../../../core/services/currency_service.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 const _kAssistantColor = Color(0xFF6C63FF);
 const _kAssistantSoft = Color(0xFFF0EFFE);
@@ -77,10 +78,7 @@ class _AssistantPageState extends State<AssistantPage>
       final income = cs.format((d['income_30d'] as num).toDouble());
       final expenses = cs.format((d['expenses_30d'] as num).toDouble());
       final cats = (d['top_categories'] as List? ?? [])
-          .map(
-            (c) =>
-                '${c['category']} (${cs.format((c['total'] as num).toDouble())})',
-          )
+          .map((c) => '${c['category']} (${cs.format((c['total'] as num).toDouble())})')
           .join(', ');
       _financialContext =
           'Balance total: $balance | Ingresos (30d): $income | Gastos (30d): $expenses'
@@ -165,8 +163,7 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
               'systemPrompt': systemPrompt,
             },
           );
-          final text =
-              (resp.data as Map<String, dynamic>)['response'] as String;
+          final text = (resp.data as Map<String, dynamic>)['response'] as String;
           response = ChatMessage(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             content: text,
@@ -278,16 +275,30 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
 
   @override
   Widget build(BuildContext context) {
+    final responsive = ResponsiveUtils(context);
+    final body = Column(
+      children: [
+        Expanded(child: _buildMessageList()),
+        if (_isTyping) _buildTypingIndicator(),
+        _buildInputArea(),
+      ],
+    );
+    if (responsive.isTablet) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: _buildAppBar(),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: body,
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          Expanded(child: _buildMessageList()),
-          if (_isTyping) _buildTypingIndicator(),
-          _buildInputArea(),
-        ],
-      ),
+      body: body,
     );
   }
 
@@ -361,6 +372,7 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
       ],
     );
   }
+
 
   Widget _buildMessageList() {
     return ListView.builder(

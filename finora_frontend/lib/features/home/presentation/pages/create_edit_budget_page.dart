@@ -4,7 +4,8 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 /// Full-page create / edit budget form.
 /// Pass [category] + [currentLimit] to open in edit mode.
@@ -12,7 +13,11 @@ class CreateEditBudgetPage extends StatefulWidget {
   final String? category;
   final double? currentLimit;
 
-  const CreateEditBudgetPage({super.key, this.category, this.currentLimit});
+  const CreateEditBudgetPage({
+    super.key,
+    this.category,
+    this.currentLimit,
+  });
 
   @override
   State<CreateEditBudgetPage> createState() => _CreateEditBudgetPageState();
@@ -49,15 +54,12 @@ class _CreateEditBudgetPageState extends State<CreateEditBudgetPage> {
     setState(() => _saving = true);
     final s = AppLocalizations.of(context);
     try {
-      await di.sl<ApiClient>().post(
-        '/budget',
-        data: {
-          'category': widget.category ?? _catController.text.trim(),
-          'monthly_limit': double.parse(
-            _limitController.text.replaceAll(',', '.'),
-          ),
-        },
-      );
+      await di.sl<ApiClient>().post('/budget', data: {
+        'category': widget.category ?? _catController.text.trim(),
+        'monthly_limit': double.parse(
+          _limitController.text.replaceAll(',', '.'),
+        ),
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -109,18 +111,8 @@ class _CreateEditBudgetPageState extends State<CreateEditBudgetPage> {
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceLight,
-        elevation: 0,
-        leading: const BackButton(),
-        title: Text(
-          _isEditing ? s.editBudgetTitle : s.newBudgetTitle,
-          style: AppTypography.titleMedium(),
-        ),
-      ),
-      body: SingleChildScrollView(
+    final responsive = ResponsiveUtils(context);
+    final bodyContent = SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
@@ -153,17 +145,17 @@ class _CreateEditBudgetPageState extends State<CreateEditBudgetPage> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _isEditing ? s.editBudgetTitle : s.newBudgetTitle,
+                      _isEditing
+                          ? s.editBudgetTitle
+                          : s.newBudgetTitle,
                       style: AppTypography.titleMedium(
-                        color: AppColors.primary,
-                      ),
+                          color: AppColors.primary),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       s.createFirstBudgetInfo,
                       style: AppTypography.bodySmall(
-                        color: AppColors.primary.withValues(alpha: 0.7),
-                      ),
+                          color: AppColors.primary.withValues(alpha: 0.7)),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -172,18 +164,13 @@ class _CreateEditBudgetPageState extends State<CreateEditBudgetPage> {
               const SizedBox(height: 32),
 
               // Category field (disabled when editing)
-              Text(
-                s.name,
-                style: AppTypography.labelSmall(color: AppColors.gray600),
-              ),
+              Text(s.name, style: AppTypography.labelSmall(color: AppColors.gray600)),
               const SizedBox(height: 8),
               if (_isEditing)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 18,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   decoration: BoxDecoration(
                     color: AppColors.gray100,
                     borderRadius: BorderRadius.circular(12),
@@ -212,10 +199,8 @@ class _CreateEditBudgetPageState extends State<CreateEditBudgetPage> {
               const SizedBox(height: 20),
 
               // Monthly limit field
-              Text(
-                s.monthlyLimitLabel,
-                style: AppTypography.labelSmall(color: AppColors.gray600),
-              ),
+              Text(s.monthlyLimitLabel,
+                  style: AppTypography.labelSmall(color: AppColors.gray600)),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _limitController,
@@ -226,11 +211,11 @@ class _CreateEditBudgetPageState extends State<CreateEditBudgetPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 validator: (v) {
-                  final n = double.tryParse(v?.replaceAll(',', '.') ?? '');
+                  final n =
+                      double.tryParse(v?.replaceAll(',', '.') ?? '');
                   return (n == null || n <= 0) ? s.invalidAmountError : null;
                 },
               ),
@@ -258,7 +243,26 @@ class _CreateEditBudgetPageState extends State<CreateEditBudgetPage> {
             ],
           ),
         ),
+      );
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      appBar: AppBar(
+        backgroundColor: AppColors.surfaceLight,
+        elevation: 0,
+        leading: const BackButton(),
+        title: Text(
+          _isEditing ? s.editBudgetTitle : s.newBudgetTitle,
+          style: AppTypography.titleMedium(),
+        ),
       ),
+      body: responsive.isTablet
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 580),
+                child: bodyContent,
+              ),
+            )
+          : bodyContent,
     );
   }
 }

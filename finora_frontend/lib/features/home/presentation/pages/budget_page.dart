@@ -14,9 +14,10 @@ import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/services/currency_service.dart';
-import '../../../../shared/widgets/skeleton_loader.dart';
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import 'create_edit_budget_page.dart';
 import 'budget_suggestions_page.dart';
 
@@ -118,9 +119,7 @@ class _BudgetPageState extends State<BudgetPage>
           statusData['unbudgeted'] ?? [],
         );
         _budgets = List<Map<String, dynamic>>.from(budgetData['budgets'] ?? []);
-        _history = List<Map<String, dynamic>>.from(
-          historyData['history'] ?? [],
-        );
+        _history = List<Map<String, dynamic>>.from(historyData['history'] ?? []);
         _loading = false;
       });
     } catch (e) {
@@ -130,6 +129,7 @@ class _BudgetPageState extends State<BudgetPage>
       });
     }
   }
+
 
   Future<void> _toggleRollover(String category, bool current) async {
     final s = AppLocalizations.of(context);
@@ -150,10 +150,7 @@ class _BudgetPageState extends State<BudgetPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${s.error}: $e'),
-            backgroundColor: AppColors.error,
-          ),
+          SnackBar(content: Text('${s.error}: $e'), backgroundColor: AppColors.error),
         );
       }
     }
@@ -301,71 +298,84 @@ class _BudgetPageState extends State<BudgetPage>
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceLight,
-        elevation: 0,
-        title: Text(s.budgetsTitle, style: AppTypography.titleMedium()),
-        leading: const BackButton(),
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: AppColors.primary,
-          indicatorColor: AppColors.primary,
-          tabs: [
-            Tab(text: s.budgetStatusTab),
-            Tab(text: s.myBudgetsTab),
-            Tab(text: s.budgetComparativeTab),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: s.aiSuggestBudgetsBtn,
-            icon: const Icon(Icons.auto_awesome_rounded),
-            onPressed: () async {
-              final result = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const BudgetSuggestionsPage(),
-                ),
-              );
-              if (result == true) _loadData();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadData,
-          ),
+    final responsive = ResponsiveUtils(context);
+    final appBar = AppBar(
+      backgroundColor: AppColors.surfaceLight,
+      elevation: 0,
+      title: Text(s.budgetsTitle, style: AppTypography.titleMedium()),
+      leading: const BackButton(),
+      bottom: TabBar(
+        controller: _tabs,
+        labelColor: AppColors.primary,
+        indicatorColor: AppColors.primary,
+        tabs: [
+          Tab(text: s.budgetStatusTab),
+          Tab(text: s.myBudgetsTab),
+          Tab(text: s.budgetComparativeTab),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push<bool>(
-            context,
-            MaterialPageRoute(builder: (_) => const CreateEditBudgetPage()),
+      actions: [
+        IconButton(
+          tooltip: s.aiSuggestBudgetsBtn,
+          icon: const Icon(Icons.auto_awesome_rounded),
+          onPressed: () async {
+            final result = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const BudgetSuggestionsPage()),
+            );
+            if (result == true) _loadData();
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded),
+          onPressed: _loadData,
+        ),
+      ],
+    );
+    final fab = FloatingActionButton.extended(
+      onPressed: () async {
+        final result = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+              builder: (_) => const CreateEditBudgetPage()),
+        );
+        if (result == true) _loadData();
+      },
+      icon: const Icon(Icons.add_rounded),
+      label: Text(s.newLabel(1)),
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
+    );
+    final body = _loading
+        ? const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: SkeletonListLoader(count: 5, cardHeight: 80),
+          )
+        : _error != null
+        ? _buildError()
+        : TabBarView(
+            controller: _tabs,
+            children: [_buildStatusTab(), _buildBudgetsTab(), _buildComparativeTab()],
           );
-          if (result == true) _loadData();
-        },
-        icon: const Icon(Icons.add_rounded),
-        label: Text(s.newLabel(1)),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
-      body: _loading
-          ? const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: SkeletonListLoader(count: 5, cardHeight: 80),
-            )
-          : _error != null
-          ? _buildError()
-          : TabBarView(
-              controller: _tabs,
-              children: [
-                _buildStatusTab(),
-                _buildBudgetsTab(),
-                _buildComparativeTab(),
-              ],
-            ),
+    if (responsive.isTablet) {
+      return Scaffold(
+        backgroundColor: AppColors.backgroundLight,
+        appBar: appBar,
+        floatingActionButton: fab,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: body,
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      appBar: appBar,
+      floatingActionButton: fab,
+      body: body,
     );
   }
 
@@ -413,6 +423,42 @@ class _BudgetPageState extends State<BudgetPage>
       );
     }
 
+    final responsive = ResponsiveUtils(context);
+    if (responsive.isTablet) {
+      return RefreshIndicator(
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_alerts.isNotEmpty) ...[
+                _buildAlertsBanner(),
+                const SizedBox(height: 16),
+              ],
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 2.2,
+                children: _statuses.map(_buildStatusCard).toList(),
+              ),
+              if (_unbudgeted.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text(
+                  s.unbudgetedTitle,
+                  style: AppTypography.labelSmall(color: AppColors.gray500),
+                ),
+                const SizedBox(height: 8),
+                ..._unbudgeted.map((u) => _buildUnbudgetedItem(u)),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
     return RefreshIndicator(
       onRefresh: _loadData,
       child: ListView(
@@ -614,6 +660,64 @@ class _BudgetPageState extends State<BudgetPage>
       );
     }
 
+    final responsive = ResponsiveUtils(context);
+    if (responsive.isTablet) {
+      return GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 2.5,
+        ),
+        itemCount: _budgets.length,
+        itemBuilder: (_, i) {
+          final b = _budgets[i];
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.gray200),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.category_rounded, color: AppColors.primary, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(_getTranslatedCategory(b['category'] as String), style: AppTypography.titleSmall()),
+                      Text(_formatCurrency((b['monthly_limit'] as num).toDouble()), style: AppTypography.bodySmall(color: AppColors.gray500)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, color: AppColors.gray500, size: 20),
+                  onPressed: () async {
+                    final result = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => CreateEditBudgetPage(category: b['category'] as String, currentLimit: (b['monthly_limit'] as num).toDouble())));
+                    if (result == true) _loadData();
+                  },
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
+                  onPressed: () => _deleteBudget(b['category'] as String),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _budgets.length,
@@ -656,18 +760,12 @@ class _BudgetPageState extends State<BudgetPage>
                     ),
                     Row(
                       children: [
-                        Icon(
-                          Icons.autorenew_rounded,
-                          size: 12,
-                          color: AppColors.gray400,
-                        ),
+                        Icon(Icons.autorenew_rounded, size: 12, color: AppColors.gray400),
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
                             s.rolloverLabel,
-                            style: AppTypography.labelSmall(
-                              color: AppColors.gray400,
-                            ),
+                            style: AppTypography.labelSmall(color: AppColors.gray400),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -678,8 +776,7 @@ class _BudgetPageState extends State<BudgetPage>
                             fit: BoxFit.contain,
                             child: Switch(
                               value: b['rollover_enabled'] as bool? ?? false,
-                              onChanged: (v) =>
-                                  _toggleRollover(b['category'] as String, !v),
+                              onChanged: (v) => _toggleRollover(b['category'] as String, !v),
                               activeThumbColor: AppColors.primary,
                             ),
                           ),
@@ -701,7 +798,8 @@ class _BudgetPageState extends State<BudgetPage>
                     MaterialPageRoute(
                       builder: (_) => CreateEditBudgetPage(
                         category: b['category'] as String,
-                        currentLimit: (b['monthly_limit'] as num).toDouble(),
+                        currentLimit:
+                            (b['monthly_limit'] as num).toDouble(),
                       ),
                     ),
                   );
@@ -734,10 +832,8 @@ class _BudgetPageState extends State<BudgetPage>
           children: [
             Icon(Icons.bar_chart_rounded, color: AppColors.gray400, size: 56),
             const SizedBox(height: 16),
-            Text(
-              s.noHistoryData,
-              style: AppTypography.bodyMedium(color: AppColors.gray500),
-            ),
+            Text(s.noHistoryData,
+                style: AppTypography.bodyMedium(color: AppColors.gray500)),
           ],
         ),
       );
@@ -757,26 +853,16 @@ class _BudgetPageState extends State<BudgetPage>
         children: [
           Row(
             children: [
-              Icon(
-                Icons.compare_arrows_rounded,
-                color: AppColors.primary,
-                size: 20,
-              ),
+              Icon(Icons.compare_arrows_rounded, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
-              Text(
-                s.last3Months,
-                style: AppTypography.titleSmall(color: AppColors.primary),
-              ),
+              Text(s.last3Months, style: AppTypography.titleSmall(color: AppColors.primary)),
             ],
           ),
           const SizedBox(height: 16),
           ...grouped.entries.map((entry) {
             final cat = entry.key;
             final rows = entry.value
-              ..sort(
-                (a, b) =>
-                    (b['period'] as String).compareTo(a['period'] as String),
-              );
+              ..sort((a, b) => (b['period'] as String).compareTo(a['period'] as String));
             // Determine trend: compare most recent to previous
             double? trendPct;
             if (rows.length >= 2) {
@@ -807,90 +893,55 @@ class _BudgetPageState extends State<BudgetPage>
                         ),
                       ),
                       if (isUp)
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.trending_up_rounded,
-                              color: AppColors.error,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              s.budgetTrendUp,
-                              style: AppTypography.labelSmall(
-                                color: AppColors.error,
-                              ),
-                            ),
-                          ],
-                        )
+                        Row(children: [
+                          Icon(Icons.trending_up_rounded, color: AppColors.error, size: 16),
+                          const SizedBox(width: 4),
+                          Text(s.budgetTrendUp,
+                              style: AppTypography.labelSmall(color: AppColors.error)),
+                        ])
                       else if (isDown)
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.trending_down_rounded,
-                              color: AppColors.success,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              s.budgetTrendDown,
-                              style: AppTypography.labelSmall(
-                                color: AppColors.success,
-                              ),
-                            ),
-                          ],
-                        ),
+                        Row(children: [
+                          Icon(Icons.trending_down_rounded, color: AppColors.success, size: 16),
+                          const SizedBox(width: 4),
+                          Text(s.budgetTrendDown,
+                              style: AppTypography.labelSmall(color: AppColors.success)),
+                        ]),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  ...rows
-                      .take(3)
-                      .map(
-                        (r) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                r['period'] as String,
-                                style: AppTypography.bodySmall(
-                                  color: AppColors.gray500,
-                                ),
-                              ),
-                              Text(
-                                _formatCurrency((r['spent'] as num).toDouble()),
-                                style: AppTypography.bodySmall(),
-                              ),
-                              if (r['percentage'] != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        ((r['percentage'] as num).toDouble() >
-                                                    100
-                                                ? AppColors.error
-                                                : AppColors.success)
-                                            .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '${(r['percentage'] as num).toStringAsFixed(0)}%',
-                                    style: AppTypography.labelSmall(
-                                      color:
-                                          (r['percentage'] as num).toDouble() >
-                                              100
-                                          ? AppColors.error
-                                          : AppColors.success,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+                  ...rows.take(3).map((r) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(r['period'] as String,
+                            style: AppTypography.bodySmall(color: AppColors.gray500)),
+                        Text(
+                          _formatCurrency((r['spent'] as num).toDouble()),
+                          style: AppTypography.bodySmall(),
                         ),
-                      ),
+                        if (r['percentage'] != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: ((r['percentage'] as num).toDouble() > 100
+                                      ? AppColors.error
+                                      : AppColors.success)
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${(r['percentage'] as num).toStringAsFixed(0)}%',
+                              style: AppTypography.labelSmall(
+                                color: (r['percentage'] as num).toDouble() > 100
+                                    ? AppColors.error
+                                    : AppColors.success,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  )),
                 ],
               ),
             );

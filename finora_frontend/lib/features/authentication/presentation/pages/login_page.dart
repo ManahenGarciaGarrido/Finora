@@ -9,18 +9,18 @@
 /// - Sesión persistente con token seguro
 library;
 
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import 'package:finora_frontend/shared/widgets/animated_button.dart';
+import 'package:finora_frontend/shared/widgets/animated_gradient_background.dart';
+import 'package:finora_frontend/shared/widgets/custom_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/responsive/responsive_builder.dart';
-import '../../../../shared/widgets/animated_gradient_background.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
-import '../../../../shared/widgets/animated_button.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -72,7 +72,7 @@ class _LoginPageState extends State<LoginPage>
     );
 
     _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
           CurvedAnimation(
             parent: _animationController,
             curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
@@ -176,6 +176,7 @@ class _LoginPageState extends State<LoginPage>
         _isLoading = false;
         _biometricAuthenticating = false;
       });
+      // Show snackbar — fallback to password is automatic (form stays visible)
       if (mounted &&
           state.reason.isNotEmpty &&
           !state.reason.contains('cancelada')) {
@@ -325,19 +326,19 @@ class _LoginPageState extends State<LoginPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Reducido de hp(6) a hp(4) para menos sensación de vacío
-                SizedBox(height: responsive.hp(4)),
+                SizedBox(height: responsive.hp(6)),
                 _buildHeader(context),
-                SizedBox(height: responsive.hp(3.5)), // Reducido de hp(5)
+                SizedBox(height: responsive.hp(5)),
                 _buildForm(context),
-                const SizedBox(height: 8), // Más cercano al input de password
+                SizedBox(height: responsive.hp(2)),
                 _buildForgotPassword(context),
-                SizedBox(height: responsive.hp(3)), // Reducido de hp(4)
+                SizedBox(height: responsive.hp(4)),
                 _buildLoginButton(),
+                // RF-03: Biometric separator + button
                 if (_biometricAvailable && _biometricEnabled) ...[
-                  const SizedBox(height: 24),
+                  SizedBox(height: responsive.hp(2)),
                   _buildBiometricDivider(),
-                  const SizedBox(height: 24),
+                  SizedBox(height: responsive.hp(2)),
                   _buildBiometricButton(),
                 ],
                 SizedBox(height: responsive.hp(3)),
@@ -354,49 +355,54 @@ class _LoginPageState extends State<LoginPage>
   Widget _buildTabletLayout(BuildContext context) {
     final responsive = ResponsiveUtils(context);
 
-    return Center(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Container(
-          constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
-          padding: EdgeInsets.symmetric(
-            horizontal: responsive.horizontalPadding,
-            vertical: responsive.verticalPadding,
-          ),
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: Card(
-                elevation: 0,
-                color: Colors.white.withValues(alpha: 0.95),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
+    return Row(
+      children: [
+        // Left branding panel
+        Expanded(
+          flex: 1,
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: AppColors.primaryGradient,
+            ),
+            child: SafeArea(
+              child: Center(
                 child: Padding(
-                  // Usamos paddings fijos y controlados en vez de hp(5) masivo
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 48,
-                    vertical: 40,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildHeader(context),
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: const Icon(
+                          Icons.account_balance_wallet,
+                          size: 64,
+                          color: Colors.white,
+                        ),
+                      ),
                       const SizedBox(height: 32),
-                      _buildForm(context),
-                      const SizedBox(height: 8),
-                      _buildForgotPassword(context),
-                      const SizedBox(height: 32),
-                      _buildLoginButton(),
-                      if (_biometricAvailable && _biometricEnabled) ...[
-                        const SizedBox(height: 24),
-                        _buildBiometricDivider(),
-                        const SizedBox(height: 24),
-                        _buildBiometricButton(),
-                      ],
-                      const SizedBox(height: 32),
-                      _buildRegisterLink(context),
+                      const Text(
+                        'Finora',
+                        style: TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        AppLocalizations.of(context).splashSubtitle,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 ),
@@ -404,7 +410,56 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
         ),
-      ),
+        // Right form panel
+        Expanded(
+          flex: 1,
+          child: Container(
+            color: AppColors.backgroundLight,
+            child: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: responsive.horizontalPadding,
+                        vertical: responsive.verticalPadding,
+                      ),
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildHeader(context),
+                              SizedBox(height: responsive.hp(4)),
+                              _buildForm(context),
+                              SizedBox(height: responsive.hp(2)),
+                              _buildForgotPassword(context),
+                              SizedBox(height: responsive.hp(4)),
+                              _buildLoginButton(),
+                              if (_biometricAvailable && _biometricEnabled) ...[
+                                SizedBox(height: responsive.hp(2)),
+                                _buildBiometricDivider(),
+                                SizedBox(height: responsive.hp(2)),
+                                _buildBiometricButton(),
+                              ],
+                              SizedBox(height: responsive.hp(3)),
+                              _buildRegisterLink(context),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -414,35 +469,34 @@ class _LoginPageState extends State<LoginPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(12), // Reducido de 16
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [AppColors.primary, AppColors.secondary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(14), // Ligeramente más sutil
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.2), // Menos opaco
-                blurRadius: 16, // Sombra más contenida
-                offset: const Offset(0, 8),
+                color: AppColors.primary.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
           child: const Icon(
             Icons.account_balance_wallet,
-            size: 32, // Reducido de 40 para no verse sobredimensionado
+            size: 40,
             color: Colors.white,
           ),
         ),
-        const SizedBox(height: 20), // Reducido de 24
+        const SizedBox(height: 24),
         Text(
           s.welcomeBack,
-          // Puedes ajustar AppTypography.displayLarge en tu theme si sigue viéndose gigante
           style: AppTypography.displayLarge(color: AppColors.textPrimaryLight),
         ),
-        const SizedBox(height: 6), // Reducido de 8
+        const SizedBox(height: 8),
         Text(
           s.signInToContinue,
           style: AppTypography.bodyLarge(color: AppColors.textSecondaryLight),
@@ -477,9 +531,7 @@ class _LoginPageState extends State<LoginPage>
               },
             ),
           ),
-          const SizedBox(
-            height: 16,
-          ), // Reducido de 20 para agrupar visualmente el form
+          const SizedBox(height: 20),
           Semantics(
             label: s.password,
             child: CustomTextField(
@@ -512,11 +564,6 @@ class _LoginPageState extends State<LoginPage>
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton(
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
         onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
         child: Text(
           AppLocalizations.of(context).forgotPassword,
@@ -540,24 +587,24 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
+  // RF-03: Divisor "o" entre login normal y biométrico
   Widget _buildBiometricDivider() {
     return Row(
       children: [
-        const Expanded(child: Divider(color: AppColors.gray200, height: 1)),
+        const Expanded(child: Divider(color: AppColors.gray200)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'o',
-            style: AppTypography.bodySmall(
-              color: AppColors.textTertiaryLight,
-            ).copyWith(fontWeight: FontWeight.w600), // Ligeramente más visible
+            style: AppTypography.bodySmall(color: AppColors.textTertiaryLight),
           ),
         ),
-        const Expanded(child: Divider(color: AppColors.gray200, height: 1)),
+        const Expanded(child: Divider(color: AppColors.gray200)),
       ],
     );
   }
 
+  // RF-03: Botón de autenticación biométrica
   Widget _buildBiometricButton() {
     final s = AppLocalizations.of(context);
     final isFaceId = _biometricLabel == 'Face ID';
@@ -569,24 +616,19 @@ class _LoginPageState extends State<LoginPage>
       hint: s.biometricDescription,
       child: SizedBox(
         width: double.infinity,
-        height:
-            48, // Reducido de 52 para que no parezca un botón principal "gordo"
+        height: 52,
         child: OutlinedButton.icon(
           onPressed: _biometricAuthenticating ? null : _handleBiometricLogin,
           icon: _biometricAuthenticating
               ? const SizedBox(
-                  width: 18,
-                  height: 18,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: AppColors.primary,
                   ),
                 )
-              : Icon(
-                  icon,
-                  size: 20,
-                  color: AppColors.primary,
-                ), // Icono a 20 en vez de 22
+              : Icon(icon, size: 22, color: AppColors.primary),
           label: Text(
             _biometricAuthenticating
                 ? s.authenticating
@@ -594,17 +636,11 @@ class _LoginPageState extends State<LoginPage>
             style: AppTypography.labelLarge(color: AppColors.primary),
           ),
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(
-              color: AppColors.primary,
-              width: 1.0,
-            ), // Borde más fino y elegante
+            side: const BorderSide(color: AppColors.primary, width: 1.5),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                12,
-              ), // Acorde a la nueva altura
+              borderRadius: BorderRadius.circular(14),
             ),
             backgroundColor: AppColors.primarySoft,
-            elevation: 0,
           ),
         ),
       ),
@@ -621,9 +657,7 @@ class _LoginPageState extends State<LoginPage>
           children: [
             TextSpan(
               text: s.register,
-              style: AppTypography.link(color: AppColors.primary).copyWith(
-                fontWeight: FontWeight.w600, // Destaca más la acción
-              ),
+              style: AppTypography.link(color: AppColors.primary),
               recognizer: TapGestureRecognizer()
                 ..onTap = () => Navigator.pushNamed(context, '/register'),
             ),

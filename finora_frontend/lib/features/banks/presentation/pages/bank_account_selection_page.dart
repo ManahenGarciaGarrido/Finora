@@ -1,7 +1,8 @@
 import 'dart:async';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/pending_bank_account_entity.dart';
@@ -94,29 +95,41 @@ class _BankAccountSelectionPageState extends State<BankAccountSelectionPage> {
           ),
           title: Text(s.selectAccounts, style: AppTypography.titleMedium()),
         ),
-        body: BlocBuilder<BankBloc, BankState>(
-          builder: (context, state) {
-            final isImporting =
-                state is BankPendingAccountsReady && state.isImporting;
+        body: Builder(builder: (ctx) {
+          final responsive = ResponsiveUtils(ctx);
+          final bodyContent = BlocBuilder<BankBloc, BankState>(
+            builder: (context, state) {
+              final isImporting =
+                  state is BankPendingAccountsReady && state.isImporting;
 
-            if (isImporting) {
-              return _BankImportingOverlay(
-                accountCount: _selected.length,
-                institutionName: widget.institutionName,
-                s: s, // Inyectamos las traducciones al overlay
+              if (isImporting) {
+                return _BankImportingOverlay(
+                  accountCount: _selected.length,
+                  institutionName: widget.institutionName,
+                  s: s,
+                );
+              }
+
+              return Column(
+                children: [
+                  _buildHeader(s),
+                  const Divider(height: 1, color: AppColors.gray200),
+                  _buildAccountsList(s, isImporting),
+                  _buildBottomAction(s, isImporting),
+                ],
               );
-            }
-
-            return Column(
-              children: [
-                _buildHeader(s),
-                const Divider(height: 1, color: AppColors.gray200),
-                _buildAccountsList(s, isImporting),
-                _buildBottomAction(s, isImporting),
-              ],
+            },
+          );
+          if (responsive.isTablet) {
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: bodyContent,
+              ),
             );
-          },
-        ),
+          }
+          return bodyContent;
+        }),
       ),
     );
   }

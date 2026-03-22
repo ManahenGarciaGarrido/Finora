@@ -5,7 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../bloc/ocr_bloc.dart';
 import '../bloc/ocr_event.dart';
@@ -20,7 +21,8 @@ class OcrPage extends StatefulWidget {
   State<OcrPage> createState() => _OcrPageState();
 }
 
-class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
+class _OcrPageState extends State<OcrPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabs;
   final _picker = ImagePicker();
   final _textRecognizer = TextRecognizer();
@@ -56,37 +58,31 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
           if (state is ReceiptExtracted) {
             setState(() {
               _extracted = state.receipt;
-              _amountCtrl.text = state.receipt.amount?.toStringAsFixed(2) ?? '';
+              _amountCtrl.text =
+                  state.receipt.amount?.toStringAsFixed(2) ?? '';
               _descCtrl.text = state.receipt.description;
               _dateCtrl.text = state.receipt.date;
             });
           } else if (state is ReceiptImported) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(s.receiptImported),
-                backgroundColor: AppColors.success,
-              ),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(s.receiptImported),
+              backgroundColor: AppColors.success,
+            ));
             setState(() => _extracted = null);
           } else if (state is CsvParsed) {
             setState(() => _csvPreview = state.preview);
           } else if (state is CsvImported) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  '${s.importConfirmed}: ${state.imported}  |  ${s.skipDuplicates}: ${state.skipped}',
-                ),
-                backgroundColor: AppColors.success,
-              ),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(
+                  '${s.importConfirmed}: ${state.imported}  |  ${s.skipDuplicates}: ${state.skipped}'),
+              backgroundColor: AppColors.success,
+            ));
             setState(() => _csvPreview = null);
           } else if (state is OcrError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.error,
+            ));
           }
         },
         builder: (ctx, state) {
@@ -108,12 +104,27 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
                 ],
               ),
             ),
-            body: loading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabs,
-                    children: [_buildReceiptTab(ctx, s), _buildCsvTab(ctx, s)],
+            body: Builder(builder: (bctx) {
+              final responsive = ResponsiveUtils(bctx);
+              final tabBody = loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabs,
+                      children: [
+                        _buildReceiptTab(ctx, s),
+                        _buildCsvTab(ctx, s),
+                      ],
+                    );
+              if (responsive.isTablet) {
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: tabBody,
                   ),
+                );
+              }
+              return tabBody;
+            }),
           );
         },
       ),
@@ -126,11 +137,9 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            s.scanReceiptDesc,
-            style: AppTypography.bodyMedium(color: AppColors.gray600),
-            textAlign: TextAlign.center,
-          ),
+          Text(s.scanReceiptDesc,
+              style: AppTypography.bodyMedium(color: AppColors.gray600),
+              textAlign: TextAlign.center),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -190,13 +199,11 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
               onPressed: () {
                 final amount = double.tryParse(_amountCtrl.text);
                 if (amount == null) return;
-                ctx.read<OcrBloc>().add(
-                  ImportReceipt(
-                    amount: amount,
-                    date: _dateCtrl.text,
-                    description: _descCtrl.text,
-                  ),
-                );
+                ctx.read<OcrBloc>().add(ImportReceipt(
+                  amount: amount,
+                  date: _dateCtrl.text,
+                  description: _descCtrl.text,
+                ));
               },
               child: Text(s.confirmTransaction),
             ),
@@ -212,11 +219,9 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            s.importStatementDesc,
-            style: AppTypography.bodyMedium(color: AppColors.gray600),
-            textAlign: TextAlign.center,
-          ),
+          Text(s.importStatementDesc,
+              style: AppTypography.bodyMedium(color: AppColors.gray600),
+              textAlign: TextAlign.center),
           const SizedBox(height: 20),
           OutlinedButton.icon(
             onPressed: () => _pickCsv(ctx),
@@ -229,9 +234,8 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${s.importedTransactions}: ${_csvPreview!.rows.length}',
-                  style: AppTypography.titleSmall(),
-                ),
+                    '${s.importedTransactions}: ${_csvPreview!.rows.length}',
+                    style: AppTypography.titleSmall()),
                 Row(
                   children: [
                     TextButton(
@@ -264,15 +268,15 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
                 final row = _csvPreview!.rows[i];
                 return CheckboxListTile(
                   value: row.selected,
-                  onChanged: (v) => setState(() => row.selected = v ?? false),
-                  title: Text(
-                    row.description,
-                    style: AppTypography.bodyMedium(),
-                  ),
+                  onChanged: (v) =>
+                      setState(() => row.selected = v ?? false),
+                  title: Text(row.description,
+                      style: AppTypography.bodyMedium()),
                   subtitle: Text(row.date ?? ''),
                   secondary: Text(
                     row.amount.toStringAsFixed(2),
-                    style: AppTypography.titleSmall(color: AppColors.primary),
+                    style: AppTypography.titleSmall(
+                        color: AppColors.primary),
                   ),
                 );
               },
@@ -280,13 +284,12 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () {
-                final selected = _csvPreview!.rows
-                    .where((r) => r.selected)
-                    .toList();
+                final selected =
+                    _csvPreview!.rows.where((r) => r.selected).toList();
                 if (selected.isEmpty) return;
-                ctx.read<OcrBloc>().add(
-                  ImportCsvRows(selected, skipDuplicates: true),
-                );
+                ctx
+                    .read<OcrBloc>()
+                    .add(ImportCsvRows(selected, skipDuplicates: true));
               },
               child: Text(s.importSelected),
             ),
@@ -302,32 +305,29 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
       final file = await _picker.pickImage(source: source);
       if (file == null) return;
       if (!ctx.mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(
-          content: Text(s.scanningReceipt),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+        content: Text(s.scanningReceipt),
+        duration: const Duration(seconds: 1),
+      ));
       final inputImage = InputImage.fromFilePath(file.path);
       final recognized = await _textRecognizer.processImage(inputImage);
       final text = recognized.text;
       if (text.trim().isEmpty) {
         if (!ctx.mounted) return;
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(s.noTextDetected),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+          content: Text(s.noTextDetected),
+          backgroundColor: AppColors.error,
+        ));
         return;
       }
       if (!ctx.mounted) return;
       ctx.read<OcrBloc>().add(ExtractReceiptText(text));
     } catch (e) {
       if (!ctx.mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
-      );
+      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: AppColors.error,
+      ));
     }
   }
 
@@ -343,32 +343,29 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
       final path = result.files.first.path;
       if (path == null) return;
       if (!ctx.mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(
-          content: Text(s.scanningReceipt),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+        content: Text(s.scanningReceipt),
+        duration: const Duration(seconds: 1),
+      ));
       final inputImage = InputImage.fromFilePath(path);
       final recognized = await _textRecognizer.processImage(inputImage);
       final text = recognized.text;
       if (text.trim().isEmpty) {
         if (!ctx.mounted) return;
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(s.noTextDetected),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+          content: Text(s.noTextDetected),
+          backgroundColor: AppColors.error,
+        ));
         return;
       }
       if (!ctx.mounted) return;
       ctx.read<OcrBloc>().add(ExtractReceiptText(text));
     } catch (e) {
       if (!ctx.mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
-      );
+      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: AppColors.error,
+      ));
     }
   }
 
@@ -386,9 +383,10 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
       ctx.read<OcrBloc>().add(ParseCsv(content));
     } catch (e) {
       if (!ctx.mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
-      );
+      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: AppColors.error,
+      ));
     }
   }
 }

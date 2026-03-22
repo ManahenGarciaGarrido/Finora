@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../bloc/bank_bloc.dart';
@@ -110,27 +111,29 @@ class _BankConnectingPageState extends State<BankConnectingPage>
             style: AppTypography.titleMedium(),
           ),
         ),
-        body: BlocConsumer<BankBloc, BankState>(
-          listener: (context, state) {
-            if (state is BankConnectSuccess) {
-              Navigator.pop(context, true);
-            }
-            // HU-05: No cerrar automáticamente en caso de error;
-            // se muestra la UI de troubleshooting en el builder.
-          },
-          builder: (context, state) {
-            // HU-05: Si hay un fallo, mostrar pantalla de troubleshooting
-            if (state is BankConnectFailure) {
-              return _TroubleshootingView(
-                message: state.message,
-                errorType: state.errorType,
-                connectionId: widget.connectionId,
-                institutionName: widget.institutionName,
-              );
-            }
+        body: Builder(builder: (ctx) {
+          final responsive = ResponsiveUtils(ctx);
+          final blocBody = BlocConsumer<BankBloc, BankState>(
+            listener: (context, state) {
+              if (state is BankConnectSuccess) {
+                Navigator.pop(context, true);
+              }
+              // HU-05: No cerrar automáticamente en caso de error;
+              // se muestra la UI de troubleshooting en el builder.
+            },
+            builder: (context, state) {
+              // HU-05: Si hay un fallo, mostrar pantalla de troubleshooting
+              if (state is BankConnectFailure) {
+                return _TroubleshootingView(
+                  message: state.message,
+                  errorType: state.errorType,
+                  connectionId: widget.connectionId,
+                  institutionName: widget.institutionName,
+                );
+              }
 
-            final attempt = state is BankConnectPolling ? state.attempt : 0;
-            final progress = (attempt / 60.0).clamp(0.0, 1.0);
+              final attempt = state is BankConnectPolling ? state.attempt : 0;
+              final progress = (attempt / 60.0).clamp(0.0, 1.0);
 
             return Center(
               child: Padding(
@@ -240,8 +243,18 @@ class _BankConnectingPageState extends State<BankConnectingPage>
                 ),
               ),
             );
-          },
-        ),
+            },
+          );
+          if (responsive.isTablet) {
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: blocBody,
+              ),
+            );
+          }
+          return blocBody;
+        }),
       ),
     );
   }

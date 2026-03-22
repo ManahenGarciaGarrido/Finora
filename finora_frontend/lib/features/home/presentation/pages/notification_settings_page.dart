@@ -14,7 +14,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/di/injection_container.dart' as di;
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 /// RF-31/RF-32/RF-33: Configuración granular de notificaciones push.
 class NotificationSettingsPage extends StatefulWidget {
@@ -119,32 +120,12 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceLight,
-        elevation: 0,
-        title: Text(s.notificationsTitle, style: AppTypography.titleMedium()),
-        leading: const BackButton(),
-        actions: [
-          if (!_loading)
-            TextButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(s.save),
-            ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
+    final responsive = ResponsiveUtils(context);
+    Widget buildBody() => _loading
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
                 _buildInfoBanner(s),
                 const SizedBox(height: 16),
                 _buildSection(
@@ -298,7 +279,36 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                   ],
                 ),
               ],
+            );
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      appBar: AppBar(
+        backgroundColor: AppColors.surfaceLight,
+        elevation: 0,
+        title: Text(s.notificationsTitle, style: AppTypography.titleMedium()),
+        leading: const BackButton(),
+        actions: [
+          if (!_loading)
+            TextButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(s.save),
             ),
+        ],
+      ),
+      body: responsive.isTablet
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: buildBody(),
+              ),
+            )
+          : buildBody(),
     );
   }
 

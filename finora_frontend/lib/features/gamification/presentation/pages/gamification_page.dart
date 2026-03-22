@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/di/injection_container.dart' as di;
-import '../../../../shared/widgets/skeleton_loader.dart';
+import '../../../../core/responsive/breakpoints.dart';
+import 'package:finora_frontend/shared/widgets/skeleton_loader.dart';
 import '../bloc/gamification_bloc.dart';
 import '../bloc/gamification_event.dart';
 import '../bloc/gamification_state.dart';
@@ -64,11 +65,7 @@ class _GamificationPageState extends State<GamificationPage>
   }
 
   /// Muestra un diálogo cuando se consigue un logro o se completa un reto
-  void _showAchievementDialog(
-    BuildContext context,
-    String title,
-    String message,
-  ) {
+  void _showAchievementDialog(BuildContext context, String title, String message) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -83,24 +80,17 @@ class _GamificationPageState extends State<GamificationPage>
                 color: AppColors.primarySoft,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.emoji_events_rounded,
-                color: AppColors.primary,
-                size: 40,
-              ),
+              child: Icon(Icons.emoji_events_rounded,
+                  color: AppColors.primary, size: 40),
             ),
             const SizedBox(height: 16),
-            Text(
-              title,
-              style: AppTypography.titleMedium(),
-              textAlign: TextAlign.center,
-            ),
+            Text(title,
+                style: AppTypography.titleMedium(),
+                textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text(
-              message,
-              style: AppTypography.bodyMedium(color: AppColors.gray500),
-              textAlign: TextAlign.center,
-            ),
+            Text(message,
+                style: AppTypography.bodyMedium(color: AppColors.gray500),
+                textAlign: TextAlign.center),
           ],
         ),
         actions: [
@@ -117,6 +107,7 @@ class _GamificationPageState extends State<GamificationPage>
   @override
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
+    final responsive = ResponsiveUtils(context);
     return BlocProvider.value(
       value: _bloc,
       child: BlocConsumer<GamificationBloc, GamificationState>(
@@ -129,14 +120,10 @@ class _GamificationPageState extends State<GamificationPage>
               state.awarded.join(', '),
             );
           } else if (state is ChallengeJoined) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                  '¡Te has unido al reto! Complétalo para ganar puntos.',
-                ),
-                backgroundColor: AppColors.primary,
-              ),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Text('¡Te has unido al reto! Complétalo para ganar puntos.'),
+              backgroundColor: AppColors.primary,
+            ));
           } else if (state is GamificationLoaded) {
             // Detectar retos recién completados
             for (final ch in state.challenges) {
@@ -156,16 +143,14 @@ class _GamificationPageState extends State<GamificationPage>
             // Actualizar el registro de completados anteriores
             _previouslyCompleted
               ..clear()
-              ..addAll(
-                state.challenges.where((c) => c.isCompleted).map((c) => c.id),
-              );
+              ..addAll(state.challenges
+                  .where((c) => c.isCompleted)
+                  .map((c) => c.id));
           } else if (state is GamificationError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.error,
+            ));
           }
         },
         builder: (ctx, state) {
@@ -174,17 +159,14 @@ class _GamificationPageState extends State<GamificationPage>
             appBar: AppBar(
               backgroundColor: AppColors.surfaceLight,
               elevation: 0,
-              title: Text(
-                s.gamificationTitle,
-                style: AppTypography.titleMedium(),
-              ),
+              title: Text(s.gamificationTitle, style: AppTypography.titleMedium()),
               leading: const BackButton(),
               bottom: TabBar(
                 controller: _tabs,
                 labelColor: AppColors.primary,
                 indicatorColor: AppColors.primary,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
+                isScrollable: !responsive.isTablet,
+                tabAlignment: responsive.isTablet ? TabAlignment.fill : TabAlignment.start,
                 tabs: [
                   Tab(text: s.healthScore),
                   Tab(text: s.streakLabel),
@@ -195,33 +177,41 @@ class _GamificationPageState extends State<GamificationPage>
               actions: [
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded),
-                  onPressed: () => ctx.read<GamificationBloc>().add(
-                    const LoadGamificationData(),
-                  ),
+                  onPressed: () =>
+                      ctx.read<GamificationBloc>().add(const LoadGamificationData()),
                 ),
               ],
             ),
             body: state is GamificationLoading
                 ? const Padding(
                     padding: EdgeInsets.all(16),
-                    child: SkeletonListLoader(count: 4, cardHeight: 80),
-                  )
+                    child: SkeletonListLoader(count: 4, cardHeight: 80))
                 : state is GamificationLoaded
-                ? TabBarView(
-                    controller: _tabs,
-                    children: [
-                      _buildHealthTab(ctx, state, s),
-                      _buildStreaksTab(ctx, state, s),
-                      _buildBadgesTab(ctx, state, s),
-                      _buildChallengesTab(ctx, state, s),
-                    ],
-                  )
-                : Center(
-                    child: Text(
-                      state is GamificationError ? state.message : s.noData,
-                      style: AppTypography.bodyMedium(color: AppColors.gray500),
-                    ),
-                  ),
+                    ? Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: responsive.isTablet ? 900 : double.infinity,
+                          ),
+                          child: TabBarView(
+                            controller: _tabs,
+                            children: [
+                              _buildHealthTab(ctx, state, s),
+                              _buildStreaksTab(ctx, state, s),
+                              _buildBadgesTab(ctx, state, s, responsive),
+                              _buildChallengesTab(ctx, state, s),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          state is GamificationError
+                              ? state.message
+                              : s.noData,
+                          style: AppTypography.bodyMedium(
+                              color: AppColors.gray500),
+                        ),
+                      ),
           );
         },
       ),
@@ -229,17 +219,11 @@ class _GamificationPageState extends State<GamificationPage>
   }
 
   Widget _buildHealthTab(
-    BuildContext ctx,
-    GamificationLoaded state,
-    dynamic s,
-  ) {
+      BuildContext ctx, GamificationLoaded state, dynamic s) {
     if (state.healthScore == null) {
       return Center(
-        child: Text(
-          s.noData,
-          style: AppTypography.bodyMedium(color: AppColors.gray500),
-        ),
-      );
+          child: Text(s.noData,
+              style: AppTypography.bodyMedium(color: AppColors.gray500)));
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -264,10 +248,7 @@ class _GamificationPageState extends State<GamificationPage>
   // ── RACHAS ─────────────────────────────────────────────────────────────────
 
   Widget _buildStreaksTab(
-    BuildContext ctx,
-    GamificationLoaded state,
-    dynamic s,
-  ) {
+      BuildContext ctx, GamificationLoaded state, dynamic s) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -278,8 +259,7 @@ class _GamificationPageState extends State<GamificationPage>
             icon: Icons.local_fire_department_rounded,
             color: const Color(0xFFFF6B35),
             title: '¿Qué es una racha?',
-            body:
-                'Una racha mide tu constancia financiera. '
+            body: 'Una racha mide tu constancia financiera. '
                 'Cada vez que registras un período con ahorro positivo (gastos < ingresos) '
                 'o cumples el hábito del tipo de racha, tu contador sube. '
                 'Si lo rompes, vuelve a 0. ¡Sé constante!',
@@ -288,14 +268,13 @@ class _GamificationPageState extends State<GamificationPage>
           if (state.streaks.isEmpty)
             _emptyStreakCard(ctx, s)
           else ...[
-            Text('Tus rachas activas', style: AppTypography.titleSmall()),
+            Text('Tus rachas activas',
+                style: AppTypography.titleSmall()),
             const SizedBox(height: 12),
-            ...state.streaks.map(
-              (streak) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _streakCard(ctx, streak, s),
-              ),
-            ),
+            ...state.streaks.map((streak) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _streakCard(ctx, streak, s),
+                )),
           ],
           const SizedBox(height: 16),
           // Qué puedes conseguir
@@ -303,8 +282,7 @@ class _GamificationPageState extends State<GamificationPage>
             icon: Icons.emoji_events_rounded,
             color: AppColors.primary,
             title: '¿Qué puedes conseguir?',
-            body:
-                '• 4 semanas seguidas → Logro "Constante"\n'
+            body: '• 4 semanas seguidas → Logro "Constante"\n'
                 '• 8 semanas seguidas → Logro "Disciplinado"\n'
                 '• 12 semanas seguidas → Logro "Experto del ahorro"\n'
                 'Cuanto más larga tu racha, más puntos y logros desbloqueas.',
@@ -324,17 +302,12 @@ class _GamificationPageState extends State<GamificationPage>
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.local_fire_department_rounded,
-            color: AppColors.gray300,
-            size: 56,
-          ),
+          Icon(Icons.local_fire_department_rounded,
+              color: AppColors.gray300, size: 56),
           const SizedBox(height: 12),
-          Text(
-            s.noStreakYet,
-            style: AppTypography.titleSmall(),
-            textAlign: TextAlign.center,
-          ),
+          Text(s.noStreakYet,
+              style: AppTypography.titleSmall(),
+              textAlign: TextAlign.center),
           const SizedBox(height: 8),
           Text(
             'Registra un período con más ingresos que gastos para empezar tu racha.',
@@ -343,9 +316,9 @@ class _GamificationPageState extends State<GamificationPage>
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: () => ctx.read<GamificationBloc>().add(
-              const RecordStreak('daily_login'),
-            ),
+            onPressed: () => ctx
+                .read<GamificationBloc>()
+                .add(const RecordStreak('daily_login')),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Iniciar racha'),
           ),
@@ -367,10 +340,9 @@ class _GamificationPageState extends State<GamificationPage>
         border: Border.all(color: AppColors.gray200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withValues(alpha:0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
         ],
       ),
       child: Column(
@@ -386,11 +358,8 @@ class _GamificationPageState extends State<GamificationPage>
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Icon(
-                    Icons.local_fire_department_rounded,
-                    color: AppColors.primary,
-                    size: 28,
-                  ),
+                  child: Icon(Icons.local_fire_department_rounded,
+                      color: AppColors.primary, size: 28),
                 ),
               ),
               const SizedBox(width: 12),
@@ -398,11 +367,10 @@ class _GamificationPageState extends State<GamificationPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(streakTypeLabel, style: AppTypography.titleSmall()),
-                    Text(
-                      streakTypeDesc,
-                      style: AppTypography.bodySmall(color: AppColors.gray500),
-                    ),
+                    Text(streakTypeLabel,
+                        style: AppTypography.titleSmall()),
+                    Text(streakTypeDesc,
+                        style: AppTypography.bodySmall(color: AppColors.gray500)),
                   ],
                 ),
               ),
@@ -465,11 +433,10 @@ class _GamificationPageState extends State<GamificationPage>
           const SizedBox(height: 12),
           FilledButton.icon(
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            ),
-            onPressed: () => ctx.read<GamificationBloc>().add(
-              RecordStreak(streak.streakType),
-            ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
+            onPressed: () => ctx
+                .read<GamificationBloc>()
+                .add(RecordStreak(streak.streakType)),
             icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text('Registrar semana'),
           ),
@@ -488,7 +455,7 @@ class _GamificationPageState extends State<GamificationPage>
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: color.withValues(alpha:0.08),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
@@ -496,20 +463,14 @@ class _GamificationPageState extends State<GamificationPage>
           children: [
             Icon(icon, color: color, size: 16),
             const SizedBox(height: 4),
-            Text(
-              value,
-              style: AppTypography.titleSmall(color: color),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              label,
-              style: AppTypography.bodySmall(
-                color: color.withValues(alpha: 0.7),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            Text(value,
+                style: AppTypography.titleSmall(color: color),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            Text(label,
+                style: AppTypography.bodySmall(color: color.withValues(alpha:0.7)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
@@ -556,13 +517,34 @@ class _GamificationPageState extends State<GamificationPage>
 
   // ── LOGROS (BADGES) ────────────────────────────────────────────────────────
 
-  Widget _buildBadgesTab(
-    BuildContext ctx,
-    GamificationLoaded state,
-    dynamic s,
-  ) {
+  Widget _buildBadgesTab(BuildContext ctx, GamificationLoaded state, dynamic s, [ResponsiveUtils? responsive]) {
     final earned = state.badges.where((b) => b.isEarned).toList();
     final locked = state.badges.where((b) => !b.isEarned).toList();
+    final isTablet = responsive?.isTablet ?? false;
+    final crossAxisCount = isTablet ? 3 : 1;
+
+    Widget buildBadgeGrid(List<BadgeEntity> badges, {required bool earnedBadges}) {
+      if (!isTablet || badges.isEmpty) {
+        return Column(
+          children: badges.map((b) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _badgeListTile(b, s, earned: earnedBadges),
+          )).toList(),
+        );
+      }
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 10,
+          childAspectRatio: 1.6,
+        ),
+        itemCount: badges.length,
+        itemBuilder: (_, i) => _badgeListTile(badges[i], s, earned: earnedBadges),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -586,30 +568,19 @@ class _GamificationPageState extends State<GamificationPage>
         const SizedBox(height: 16),
         // Botón comprobar logros
         OutlinedButton.icon(
-          onPressed: () =>
-              ctx.read<GamificationBloc>().add(const CheckBadges()),
+          onPressed: () => ctx.read<GamificationBloc>().add(const CheckBadges()),
           icon: const Icon(Icons.refresh_rounded),
           label: const Text('Comprobar nuevos logros'),
         ),
         const SizedBox(height: 20),
         if (earned.isNotEmpty) ...[
-          Text(
-            s.badgesEarned,
-            style: AppTypography.titleSmall(color: AppColors.primary),
-          ),
+          Text(s.badgesEarned,
+              style: AppTypography.titleSmall(color: AppColors.primary)),
           const SizedBox(height: 12),
-          ...earned.map(
-            (b) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _badgeListTile(b, s, earned: true),
-            ),
-          ),
+          buildBadgeGrid(earned, earnedBadges: true),
           const SizedBox(height: 16),
         ],
-        Text(
-          s.badgesLocked,
-          style: AppTypography.titleSmall(color: AppColors.gray500),
-        ),
+        Text(s.badgesLocked, style: AppTypography.titleSmall(color: AppColors.gray500)),
         const SizedBox(height: 4),
         Text(
           'Completa estos objetivos para desbloquear los logros.',
@@ -620,35 +591,25 @@ class _GamificationPageState extends State<GamificationPage>
           Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text(
-                '¡Has conseguido todos los logros disponibles! 🏆',
-                style: AppTypography.bodyMedium(color: AppColors.gray500),
-                textAlign: TextAlign.center,
-              ),
+              child: Text('¡Has conseguido todos los logros disponibles! 🏆',
+                  style: AppTypography.bodyMedium(color: AppColors.gray500),
+                  textAlign: TextAlign.center),
             ),
           )
         else
-          ...locked.map(
-            (b) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _badgeListTile(b, s, earned: false),
-            ),
-          ),
+          buildBadgeGrid(locked, earnedBadges: false),
       ],
     );
   }
 
-  Widget _badgeSummaryChip({
-    required String label,
-    required Color color,
-    required IconData icon,
-  }) {
+  Widget _badgeSummaryChip(
+      {required String label, required Color color, required IconData icon}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha:0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -671,10 +632,7 @@ class _GamificationPageState extends State<GamificationPage>
         color: earned ? AppColors.primarySoft : AppColors.gray100,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: earned
-              ? AppColors.primary.withValues(alpha: 0.3)
-              : AppColors.gray200,
-        ),
+            color: earned ? AppColors.primary.withValues(alpha:0.3) : AppColors.gray200),
       ),
       child: Row(
         children: [
@@ -699,45 +657,33 @@ class _GamificationPageState extends State<GamificationPage>
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        badge.name,
-                        style: AppTypography.titleSmall(color: color),
-                      ),
+                      child: Text(badge.name,
+                          style: AppTypography.titleSmall(color: color)),
                     ),
                     if (earned)
-                      Icon(
-                        Icons.check_circle_rounded,
-                        color: AppColors.success,
-                        size: 18,
-                      ),
+                      Icon(Icons.check_circle_rounded,
+                          color: AppColors.success, size: 18),
                   ],
                 ),
-                if (badge.description != null &&
-                    badge.description!.isNotEmpty) ...[
+                if (badge.description != null && badge.description!.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    badge.description!,
-                    style: AppTypography.bodySmall(color: AppColors.gray600),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(badge.description!,
+                      style: AppTypography.bodySmall(color: AppColors.gray600),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                 ],
                 if (!earned && howToEarn != null) ...[
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        size: 13,
-                        color: AppColors.gray500,
-                      ),
+                      Icon(Icons.info_outline_rounded,
+                          size: 13, color: AppColors.gray500),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           'Cómo conseguirlo: $howToEarn',
                           style: AppTypography.bodySmall(
-                            color: AppColors.gray500,
-                          ),
+                              color: AppColors.gray500),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -843,10 +789,7 @@ class _GamificationPageState extends State<GamificationPage>
   // ── RETOS (CHALLENGES) ────────────────────────────────────────────────────
 
   Widget _buildChallengesTab(
-    BuildContext ctx,
-    GamificationLoaded state,
-    dynamic s,
-  ) {
+      BuildContext ctx, GamificationLoaded state, dynamic s) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -855,8 +798,7 @@ class _GamificationPageState extends State<GamificationPage>
           icon: Icons.flag_rounded,
           color: const Color(0xFF00897B),
           title: '¿Cómo funcionan los retos?',
-          body:
-              '• Los retos son objetivos financieros temporales.\n'
+          body: '• Los retos son objetivos financieros temporales.\n'
               '• Únete a un reto activo pulsando "Unirse".\n'
               '• Completa el objetivo antes de que termine el plazo.\n'
               '• Al completarlo recibirás una notificación y puntos de recompensa.\n'
@@ -868,8 +810,7 @@ class _GamificationPageState extends State<GamificationPage>
           icon: Icons.update_rounded,
           color: AppColors.gray500,
           title: 'Actualización automática',
-          body:
-              'Los retos se actualizan automáticamente cada semana/mes. '
+          body: 'Los retos se actualizan automáticamente cada semana/mes. '
               'La app comprueba nuevos retos al abrirse y cada 24 horas en segundo plano.',
         ),
         const SizedBox(height: 16),
@@ -880,17 +821,12 @@ class _GamificationPageState extends State<GamificationPage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.emoji_events_outlined,
-                    color: AppColors.gray300,
-                    size: 56,
-                  ),
+                  Icon(Icons.emoji_events_outlined,
+                      color: AppColors.gray300, size: 56),
                   const SizedBox(height: 12),
-                  Text(
-                    s.noData,
-                    style: AppTypography.bodyMedium(color: AppColors.gray500),
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(s.noData,
+                      style: AppTypography.bodyMedium(color: AppColors.gray500),
+                      textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                   Text(
                     'Los retos se añaden periódicamente. Vuelve pronto.',
@@ -899,9 +835,9 @@ class _GamificationPageState extends State<GamificationPage>
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
-                    onPressed: () => ctx.read<GamificationBloc>().add(
-                      const LoadGamificationData(),
-                    ),
+                    onPressed: () => ctx
+                        .read<GamificationBloc>()
+                        .add(const LoadGamificationData()),
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('Buscar retos nuevos'),
                   ),
@@ -912,36 +848,29 @@ class _GamificationPageState extends State<GamificationPage>
         else ...[
           // Retos activos (en curso o sin unirse)
           if (state.challenges.any((c) => c.isActive && !c.isCompleted)) ...[
-            Text(
-              'Retos activos',
-              style: AppTypography.titleSmall(color: AppColors.primary),
-            ),
+            Text('Retos activos',
+                style: AppTypography.titleSmall(color: AppColors.primary)),
             const SizedBox(height: 8),
             ...state.challenges
                 .where((c) => c.isActive && !c.isCompleted)
-                .map(
-                  (ch) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _challengeCard(ctx, ch, s),
-                  ),
-                ),
+                .map((ch) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _challengeCard(ctx, ch, s),
+                    )),
             const SizedBox(height: 8),
           ],
           // Retos completados
           if (state.challenges.any((c) => c.isCompleted)) ...[
-            Text(
-              'Completados',
-              style: AppTypography.titleSmall(color: AppColors.success),
-            ),
+            Text('Completados',
+                style:
+                    AppTypography.titleSmall(color: AppColors.success)),
             const SizedBox(height: 8),
             ...state.challenges
                 .where((c) => c.isCompleted)
-                .map(
-                  (ch) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _challengeCard(ctx, ch, s),
-                  ),
-                ),
+                .map((ch) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _challengeCard(ctx, ch, s),
+                    )),
           ],
         ],
       ],
@@ -949,15 +878,9 @@ class _GamificationPageState extends State<GamificationPage>
   }
 
   Widget _challengeCard(
-    BuildContext ctx,
-    ChallengeEntity challenge,
-    dynamic s,
-  ) {
+      BuildContext ctx, ChallengeEntity challenge, dynamic s) {
     final challengeTypeLabel = _challengeTypeLabel(challenge.challengeType);
-    final challengeTypeDesc = _challengeTypeDescription(
-      challenge.challengeType,
-      challenge.targetValue,
-    );
+    final challengeTypeDesc = _challengeTypeDescription(challenge.challengeType, challenge.targetValue);
     final periodLabel = _challengePeriodLabel(challenge);
     final isNew = _isNewChallenge(challenge);
     final expiresSoon = _expiresSoon(challenge);
@@ -969,10 +892,10 @@ class _GamificationPageState extends State<GamificationPage>
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: challenge.isCompleted
-              ? AppColors.success.withValues(alpha: 0.5)
+              ? AppColors.success.withValues(alpha:0.5)
               : challenge.isJoined
-              ? AppColors.primary.withValues(alpha: 0.3)
-              : AppColors.gray200,
+                  ? AppColors.primary.withValues(alpha:0.3)
+                  : AppColors.gray200,
         ),
       ),
       child: Column(
@@ -1004,11 +927,11 @@ class _GamificationPageState extends State<GamificationPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(challenge.title, style: AppTypography.titleSmall()),
-                    Text(
-                      challengeTypeLabel,
-                      style: AppTypography.labelSmall(color: AppColors.gray500),
-                    ),
+                    Text(challenge.title,
+                        style: AppTypography.titleSmall()),
+                    Text(challengeTypeLabel,
+                        style: AppTypography.labelSmall(
+                            color: AppColors.gray500)),
                   ],
                 ),
               ),
@@ -1016,32 +939,26 @@ class _GamificationPageState extends State<GamificationPage>
               if (challenge.isCompleted)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                      horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.successSoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    'Completado',
-                    style: AppTypography.bodySmall(color: AppColors.success),
-                  ),
+                  child: Text('Completado',
+                      style: AppTypography.bodySmall(
+                          color: AppColors.success)),
                 )
               else if (challenge.isJoined)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                      horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    'En curso',
-                    style: AppTypography.bodySmall(color: AppColors.primary),
-                  ),
+                  child: Text('En curso',
+                      style: AppTypography.bodySmall(
+                          color: AppColors.primary)),
                 ),
             ],
           ),
@@ -1065,10 +982,8 @@ class _GamificationPageState extends State<GamificationPage>
           // Descripción del reto
           if (challenge.description != null &&
               challenge.description!.isNotEmpty)
-            Text(
-              challenge.description!,
-              style: AppTypography.bodySmall(color: AppColors.gray600),
-            ),
+            Text(challenge.description!,
+                style: AppTypography.bodySmall(color: AppColors.gray600)),
           const SizedBox(height: 6),
           // Explicación de cómo se consigue
           Container(
@@ -1080,11 +995,8 @@ class _GamificationPageState extends State<GamificationPage>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.lightbulb_outline_rounded,
-                  size: 14,
-                  color: AppColors.gray600,
-                ),
+                Icon(Icons.lightbulb_outline_rounded,
+                    size: 14, color: AppColors.gray600),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -1116,7 +1028,8 @@ class _GamificationPageState extends State<GamificationPage>
               ),
               Row(
                 children: [
-                  Icon(Icons.star_rounded, size: 14, color: AppColors.primary),
+                  Icon(Icons.star_rounded,
+                      size: 14, color: AppColors.primary),
                   const SizedBox(width: 4),
                   Text(
                     '${challenge.rewardPoints} puntos',
@@ -1131,15 +1044,13 @@ class _GamificationPageState extends State<GamificationPage>
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(
-                  Icons.schedule_rounded,
-                  size: 13,
-                  color: AppColors.gray400,
-                ),
+                Icon(Icons.schedule_rounded,
+                    size: 13, color: AppColors.gray400),
                 const SizedBox(width: 4),
                 Text(
                   _challengeDateRange(challenge),
-                  style: AppTypography.bodySmall(color: AppColors.gray400),
+                  style:
+                      AppTypography.bodySmall(color: AppColors.gray400),
                 ),
               ],
             ),
@@ -1148,16 +1059,14 @@ class _GamificationPageState extends State<GamificationPage>
           if (!challenge.isJoined && !challenge.isCompleted) ...[
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: () =>
-                  ctx.read<GamificationBloc>().add(JoinChallenge(challenge.id)),
+              onPressed: () => ctx
+                  .read<GamificationBloc>()
+                  .add(JoinChallenge(challenge.id)),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: Text(s.joinChallenge),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-              ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8)),
             ),
           ],
         ],
@@ -1169,9 +1078,9 @@ class _GamificationPageState extends State<GamificationPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withValues(alpha:0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha:0.3)),
       ),
       child: Text(label, style: AppTypography.bodySmall(color: color)),
     );
@@ -1232,9 +1141,9 @@ class _GamificationPageState extends State<GamificationPage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: color.withValues(alpha:0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withValues(alpha:0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1245,12 +1154,12 @@ class _GamificationPageState extends State<GamificationPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTypography.titleSmall(color: color)),
+                Text(title,
+                    style: AppTypography.titleSmall(color: color)),
                 const SizedBox(height: 6),
-                Text(
-                  body,
-                  style: AppTypography.bodySmall(color: AppColors.gray700),
-                ),
+                Text(body,
+                    style: AppTypography.bodySmall(
+                        color: AppColors.gray700)),
               ],
             ),
           ),

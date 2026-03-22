@@ -3,12 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
-import '../../../../core/l10n/app_localizations.dart';
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../authentication/presentation/bloc/auth_bloc.dart';
 import '../../../authentication/presentation/bloc/auth_event.dart';
 import '../../domain/entities/consent.dart';
 import '../../../home/presentation/pages/edit_profile_page.dart';
+import '../../../../core/responsive/breakpoints.dart';
 
 /// Página de Privacidad y GDPR
 ///
@@ -63,28 +64,42 @@ class _PrivacyPageState extends State<PrivacyPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context).privacyAndData),
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildGDPRInfoCard(),
-                  const SizedBox(height: 24),
-                  _buildConsentsSection(),
-                  const SizedBox(height: 24),
-                  _buildUserRightsSection(),
-                  const SizedBox(height: 24),
-                  _buildDangerZoneSection(),
-                ],
-              ),
+    final responsive = ResponsiveUtils(context);
+    final appBar = AppBar(
+      title: Text(AppLocalizations.of(context).privacyAndData),
+      elevation: 0,
+    );
+    final body = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildGDPRInfoCard(),
+                const SizedBox(height: 24),
+                _buildConsentsSection(),
+                const SizedBox(height: 24),
+                _buildUserRightsSection(),
+                const SizedBox(height: 24),
+                _buildDangerZoneSection(),
+              ],
             ),
+          );
+    if (responsive.isTablet) {
+      return Scaffold(
+        appBar: appBar,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: body,
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      appBar: appBar,
+      body: body,
     );
   }
 
@@ -239,6 +254,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
             ),
             _buildRightTile(
               icon: Icons.edit,
+              // TODO: Implementar navegación a editar perfil
               title: AppLocalizations.of(context).rightOfRectification,
               subtitle: AppLocalizations.of(context).rightOfRectificationDesc,
               onTap: _navigateToProfile,
@@ -455,9 +471,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '${AppLocalizations.of(context).errorExportingData}: $e',
-            ),
+            content: Text('${AppLocalizations.of(context).errorExportingData}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -490,13 +504,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              Text(
-                '${AppLocalizations.of(context).nameLabel}: ${personalData?['name'] ?? 'N/A'}',
-              ),
+              Text('${AppLocalizations.of(context).nameLabel}: ${personalData?['name'] ?? 'N/A'}'),
               Text('Email: ${personalData?['email'] ?? 'N/A'}'),
-              Text(
-                '${AppLocalizations.of(context).transactionsLabel}: $totalTransactions',
-              ),
+              Text('${AppLocalizations.of(context).transactionsLabel}: $totalTransactions'),
               Text(
                 '${AppLocalizations.of(context).registrationDateLabel}: ${_formatDate(personalData?['registrationDate'])}',
               ),
@@ -708,9 +718,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
         ApiEndpoints.gdprDeleteAccount,
         data: {
           'confirmDeletion': 'DELETE_MY_ACCOUNT',
-          'reason': reason.isNotEmpty
-              ? reason
-              : AppLocalizations.of(context).reasonOptionalHint,
+          'reason': reason.isNotEmpty ? reason : AppLocalizations.of(context).reasonOptionalHint,
         },
       );
 
@@ -736,9 +744,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '${AppLocalizations.of(context).errorDeletingAccount}: $e',
-            ),
+            content: Text('${AppLocalizations.of(context).errorDeletingAccount}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -885,9 +891,7 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
                       granted ? Icons.check_circle : Icons.cancel,
                       color: granted ? Colors.green : Colors.red,
                     ),
-                    title: Text(
-                      _consentTypeName(context, entry['consentType'] ?? ''),
-                    ),
+                    title: Text(_consentTypeName(context, entry['consentType'] ?? '')),
                     subtitle: Text(
                       '${_actionName(context, entry['action'] ?? '')} - ${_formatTimestamp(entry['timestamp'])}',
                     ),

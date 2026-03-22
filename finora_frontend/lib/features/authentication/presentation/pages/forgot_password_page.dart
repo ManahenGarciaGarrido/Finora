@@ -1,11 +1,11 @@
+import 'package:finora_frontend/core/l10n/app_localizations.dart';
+import 'package:finora_frontend/shared/widgets/animated_gradient_background.dart';
+import 'package:finora_frontend/shared/widgets/custom_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/responsive/responsive_builder.dart';
-import '../../../../core/l10n/app_localizations.dart';
-import '../../../../shared/widgets/animated_gradient_background.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -292,12 +292,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Widget _buildTabletLayout(BuildContext context) {
-    final responsive = ResponsiveUtils(context);
-
     return Center(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        padding: EdgeInsets.all(responsive.wp(4)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
         child: _buildMobileLayout(context),
       ),
     );
