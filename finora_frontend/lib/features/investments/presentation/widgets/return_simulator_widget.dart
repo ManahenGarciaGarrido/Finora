@@ -3,11 +3,13 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/l10n/app_localizations.dart';
 import '../../../../core/services/currency_service.dart';
+import '../../../../core/di/injection_container.dart' as di;
+import '../../domain/usecases/simulate_returns_usecase.dart';
 
+/// Return simulator — reads InvestmentBloc directly from context.
+/// No callback needed; avoids all stale-context / Completer race issues.
 class ReturnSimulatorWidget extends StatefulWidget {
-  final Future<Map<String, dynamic>> Function(Map<String, dynamic>) onSimulate;
-
-  const ReturnSimulatorWidget({super.key, required this.onSimulate});
+  const ReturnSimulatorWidget({super.key});
 
   @override
   State<ReturnSimulatorWidget> createState() => _ReturnSimulatorWidgetState();
@@ -36,7 +38,7 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
       _result = null;
     });
     try {
-      final result = await widget.onSimulate({
+      final result = await di.sl<SimulateReturnsUseCase>()({
         'monthly_amount': double.parse(_monthly.text.replaceAll(',', '.')),
         'years': int.parse(_years.text),
         'annual_return': double.parse(_rate.text.replaceAll(',', '.')),
@@ -46,7 +48,7 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
         _result = result;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
     }
@@ -56,6 +58,7 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
     final fmt = CurrencyService().format;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [

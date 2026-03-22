@@ -6,6 +6,7 @@
 /// - Sección Datos: exportar CSV/PDF (RF-34/35), consentimientos PSD2, privacidad GDPR
 library;
 
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:finora_frontend/features/home/presentation/pages/change_password_page.dart';
 import 'package:finora_frontend/features/home/presentation/pages/edit_profile_page.dart';
@@ -29,6 +30,7 @@ import 'export_page.dart'; // RF-34 / RF-35
 import 'budget_page.dart'; // RF-32
 import 'two_fa_setup_page.dart'; // RNF-03
 import 'notification_settings_page.dart'; // RF-31 / RF-32 / RF-33
+import '../../../../core/services/profile_photo_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -48,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _loadBiometricStatus();
+    ProfilePhotoService().loadIfNeeded(di.sl<ApiClient>());
   }
 
   String _translateLabel(BuildContext context, String label) {
@@ -386,6 +389,27 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _divider() => Divider(height: 1, indent: 56, color: AppColors.gray100);
 
+  Widget _initialsAvatar() {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Center(
+        child: Text(
+          _getUserInitials(),
+          style: const TextStyle(
+            color: AppColors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfileSection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -396,23 +420,23 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Center(
-              child: Text(
-                _getUserInitials(),
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-            ),
+          ValueListenableBuilder<String?>(
+            valueListenable: ProfilePhotoService().photoNotifier,
+            builder: (_, photo, __) {
+              if (photo != null && photo.isNotEmpty) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.memory(
+                    base64Decode(photo),
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _initialsAvatar(),
+                  ),
+                );
+              }
+              return _initialsAvatar();
+            },
           ),
           const SizedBox(width: 16),
           Expanded(

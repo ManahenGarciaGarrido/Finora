@@ -21,7 +21,7 @@ router.get('/deductible', async (req, res) => {
          AND fiscal_category IS NOT NULL
          AND EXTRACT(YEAR FROM date) = $2
        ORDER BY date DESC`,
-      [req.user.id, year]
+      [req.user.userId, year]
     );
     const total = rows.reduce((sum, r) => sum + parseFloat(r.amount), 0);
     res.json({ transactions: rows, total, year });
@@ -39,7 +39,7 @@ router.patch('/tag/:transactionId', async (req, res) => {
        SET fiscal_category = $1
        WHERE id = $2 AND user_id = $3
        RETURNING id, description, amount, fiscal_category`,
-      [fiscal_category || null, req.params.transactionId, req.user.id]
+      [fiscal_category || null, req.params.transactionId, req.user.userId]
     );
     if (!rows.length) return res.status(404).json({ error: 'not found' });
     res.json({ transaction: rows[0] });
@@ -60,14 +60,14 @@ router.get('/all-transactions', async (req, res) => {
            WHERE user_id = $1
              AND EXTRACT(YEAR FROM date) = $2
            ORDER BY fiscal_category NULLS LAST, date DESC`,
-          [req.user.id, year]
+          [req.user.userId, year]
         )
       : await db.query(
           `SELECT id, description, amount, date, category, fiscal_category
            FROM transactions
            WHERE user_id = $1
            ORDER BY fiscal_category NULLS LAST, date DESC`,
-          [req.user.id]
+          [req.user.userId]
         );
     res.json({ transactions: rows, year: year || 'all' });
   } catch (err) {
@@ -90,7 +90,7 @@ router.post('/irpf', async (req, res) => {
        FROM transactions
        WHERE user_id = $1 AND fiscal_category IS NOT NULL
          AND EXTRACT(YEAR FROM date) = $2`,
-      [req.user.id, year]
+      [req.user.userId, year]
     );
     const deductibleTotal = parseFloat(deductibles.rows[0].total) + parseFloat(extra_deductions);
 
@@ -176,7 +176,7 @@ router.get('/export', async (req, res) => {
          AND fiscal_category IS NOT NULL
          AND EXTRACT(YEAR FROM date) = $2
        ORDER BY date`,
-      [req.user.id, year]
+      [req.user.userId, year]
     );
 
     if (format === 'csv') {

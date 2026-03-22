@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:finora_frontend/core/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ import 'stats_page.dart';
 import 'transactions_page.dart';
 import '../../../../core/services/app_settings_service.dart';
 import '../../../../core/services/currency_service.dart';
+import '../../../../core/services/profile_photo_service.dart';
 import '../../../banks/presentation/widgets/notification_bell.dart';
 
 /// Contenido del Dashboard principal
@@ -158,6 +160,7 @@ class _DashboardContentState extends State<DashboardContent>
   @override
   void initState() {
     super.initState();
+    ProfilePhotoService().loadIfNeeded(di.sl<ApiClient>());
     _shimmerCtrl = AnimationController(
       duration: const Duration(milliseconds: 1100),
       vsync: this,
@@ -439,25 +442,46 @@ class _DashboardContentState extends State<DashboardContent>
           ),
           const NotificationBell(),
           const SizedBox(width: 10),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(
-                _getUserInitials(context),
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-              ),
-            ),
+          ValueListenableBuilder<String?>(
+            valueListenable: ProfilePhotoService().photoNotifier,
+            builder: (_, photo, __) {
+              if (photo != null && photo.isNotEmpty) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    base64Decode(photo),
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _initialsAvatar44(context),
+                  ),
+                );
+              }
+              return _initialsAvatar44(context);
+            },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _initialsAvatar44(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          _getUserInitials(context),
+          style: const TextStyle(
+            color: AppColors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+          ),
+        ),
       ),
     );
   }
@@ -655,19 +679,32 @@ class _DashboardContentState extends State<DashboardContent>
   /// Returns the localized month abbreviation for the given month number (1-12)
   String _getMonthAbbr(AppLocalizations s, int month) {
     switch (month) {
-      case 1: return s.jan;
-      case 2: return s.feb;
-      case 3: return s.mar;
-      case 4: return s.apr;
-      case 5: return s.mayy;
-      case 6: return s.jun;
-      case 7: return s.jul;
-      case 8: return s.aug;
-      case 9: return s.sep;
-      case 10: return s.oct;
-      case 11: return s.nov;
-      case 12: return s.dec;
-      default: return '';
+      case 1:
+        return s.jan;
+      case 2:
+        return s.feb;
+      case 3:
+        return s.mar;
+      case 4:
+        return s.apr;
+      case 5:
+        return s.mayy;
+      case 6:
+        return s.jun;
+      case 7:
+        return s.jul;
+      case 8:
+        return s.aug;
+      case 9:
+        return s.sep;
+      case 10:
+        return s.oct;
+      case 11:
+        return s.nov;
+      case 12:
+        return s.dec;
+      default:
+        return '';
     }
   }
 
