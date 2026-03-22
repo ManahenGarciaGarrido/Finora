@@ -26,6 +26,7 @@ import 'features/transactions/presentation/pages/add_transaction_page.dart';
 import 'features/transactions/presentation/pages/edit_transaction_page.dart';
 import 'features/transactions/domain/entities/transaction_entity.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_service.dart';
 import 'core/services/app_settings_service.dart';
 import 'core/l10n/app_localizations.dart';
 import 'core/l10n/app_strings.dart';
@@ -72,6 +73,9 @@ void main() async {
   // RNF-13: Cargar ajustes de idioma y moneda persistidos
   await AppSettingsService().load();
 
+  // Cargar paleta de colores persistida
+  await ThemeService().load();
+
   runApp(MyApp(connectivityService: connectivityService));
 }
 
@@ -113,6 +117,9 @@ class _MyAppState extends State<MyApp> {
     // Listen to currency changes — trigger full app rebuild so all currency
     // displays update immediately
     AppSettingsService().currencyNotifier.addListener(_onCurrencyChanged);
+
+    // Escuchar cambios de tema de color
+    ThemeService().paletteNotifier.addListener(_onThemeChanged);
 
     // No disparar LoadTransactions aquí: el token JWT aún no está configurado
     // en ApiClient en este punto del ciclo de vida. Se dispara desde HomePage
@@ -200,10 +207,15 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  void _onThemeChanged() {
+    setState(() => _appKey = UniqueKey());
+  }
+
   @override
   void dispose() {
     AppSettingsService().localeNotifier.removeListener(_onLocaleChanged);
     AppSettingsService().currencyNotifier.removeListener(_onCurrencyChanged);
+    ThemeService().paletteNotifier.removeListener(_onThemeChanged);
     _syncSubscription?.cancel();
     _unauthorizedSubscription?.cancel();
     super.dispose();

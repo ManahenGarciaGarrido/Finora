@@ -13,6 +13,9 @@ class ApiClient {
   late final Dio _dio;
   String? _accessToken;
 
+  /// Cuando true, los 401 no emiten onUnauthorized (logout voluntario en progreso)
+  bool suppressUnauthorized = false;
+
   final _onUnauthorizedController = StreamController<void>.broadcast();
 
   /// Emite cuando se recibe un 401 en endpoints protegidos (token expirado)
@@ -71,9 +74,9 @@ class ApiClient {
           // Detectar token expirado en endpoints protegidos
           if (error.response?.statusCode == 401) {
             final path = error.requestOptions.path;
-            // No disparar logout si el 401 viene de login/register (credenciales incorrectas)
+            // No disparar logout si el 401 viene de login/register o de un logout voluntario
             final isAuthEndpoint = path.startsWith('/auth/');
-            if (!isAuthEndpoint) {
+            if (!isAuthEndpoint && !suppressUnauthorized) {
               _onUnauthorizedController.add(null);
             }
           }

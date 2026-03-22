@@ -16,6 +16,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/theme_service.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
@@ -49,11 +50,15 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _biometricLoading = false;
   String _biometricLabel = 'Huella dactilar';
 
+  // Color theme state
+  String _currentThemeId = 'navy';
+
   @override
   void initState() {
     super.initState();
     _loadBiometricStatus();
     ProfilePhotoService().loadIfNeeded(di.sl<ApiClient>());
+    _currentThemeId = ThemeService().currentPalette.id;
   }
 
   String _translateLabel(BuildContext context, String label) {
@@ -133,10 +138,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _biometricEnabled = false;
         _biometricLoading = false;
       });
-      _showSnackBar(
-        s.biometricDeactivatedMsg,
-        AppColors.gray700,
-      );
+      _showSnackBar(s.biometricDeactivatedMsg, AppColors.gray700);
     }
   }
 
@@ -403,7 +405,11 @@ class _SettingsPageState extends State<SettingsPage> {
     final s = AppLocalizations.of(context);
 
     final navItems = [
-      {'key': 'profile', 'label': s.editProfileTitle, 'icon': Icons.person_outline},
+      {
+        'key': 'profile',
+        'label': s.editProfileTitle,
+        'icon': Icons.person_outline,
+      },
       {'key': 'general', 'label': s.sectionGeneral, 'icon': Icons.tune_rounded},
       {
         'key': 'security',
@@ -434,10 +440,7 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-                child: Text(
-                  s.settings,
-                  style: AppTypography.headlineSmall(),
-                ),
+                child: Text(s.settings, style: AppTypography.headlineSmall()),
               ),
               Expanded(
                 child: ListView.builder(
@@ -503,9 +506,7 @@ class _SettingsPageState extends State<SettingsPage> {
         Container(width: 1, color: AppColors.gray100),
 
         // Right panel
-        Expanded(
-          child: _buildRightPanelContent(context),
-        ),
+        Expanded(child: _buildRightPanelContent(context)),
       ],
     );
   }
@@ -584,6 +585,108 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const BudgetPage()),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // ── Color Theme Picker ──────────────────────────────────────
+            _buildSettingsSection(
+              title: 'Color de la aplicación',
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.palette_outlined,
+                            size: 20,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Paleta de colores',
+                            style: AppTypography.titleSmall(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Personaliza los colores principales de la app',
+                        style: AppTypography.bodySmall(
+                          color: AppColors.textSecondaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: ThemeService().palettes.map((palette) {
+                          final isSelected = _currentThemeId == palette.id;
+                          return GestureDetector(
+                            onTap: () async {
+                              await ThemeService().setPalette(palette.id);
+                              if (mounted) {
+                                setState(() => _currentThemeId = palette.id);
+                                _showSnackBar(
+                                  'Tema "${palette.name}" aplicado',
+                                  palette.primary,
+                                );
+                              }
+                            },
+                            child: Tooltip(
+                              message: palette.name,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  gradient: palette.primaryGradient,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: AppColors.primary,
+                                          width: 3,
+                                        )
+                                      : Border.all(
+                                          color: AppColors.gray200,
+                                          width: 1.5,
+                                        ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: palette.primary.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ]
+                                      : [],
+                                ),
+                                child: isSelected
+                                    ? const Icon(
+                                        Icons.check_rounded,
+                                        color: Colors.white,
+                                        size: 22,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tema actual: ${ThemeService().palettes.firstWhere((p) => p.id == _currentThemeId, orElse: () => ThemeService().palettes.first).name}',
+                        style: AppTypography.bodySmall(
+                          color: AppColors.textSecondaryLight,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
