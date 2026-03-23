@@ -857,7 +857,7 @@ class TransactionsPageState extends State<TransactionsPage> {
             if (date != null)
               GestureDetector(
                 onTap: onClear,
-                child: const Icon(
+                child: Icon(
                   Icons.close_rounded,
                   size: 16,
                   color: AppColors.primary,
@@ -944,10 +944,8 @@ class TransactionsPageState extends State<TransactionsPage> {
                         const SizedBox(width: 8),
                         // Add button
                         GestureDetector(
-                          onTap: () => Navigator.pushNamed(
-                            context,
-                            '/add-transaction',
-                          ),
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/add-transaction'),
                           child: Container(
                             decoration: BoxDecoration(
                               gradient: AppColors.primaryGradient,
@@ -1065,12 +1063,7 @@ class TransactionsPageState extends State<TransactionsPage> {
               ),
             ),
             child: _selectedTransaction == null
-                ? _buildTabletRightPanelSummary(
-                    context,
-                    income,
-                    expenses,
-                    net,
-                  )
+                ? _buildTabletRightPanelSummary(context, income, expenses, net)
                 : _buildTabletTransactionDetail(context, _selectedTransaction!),
           ),
         ),
@@ -1107,9 +1100,7 @@ class TransactionsPageState extends State<TransactionsPage> {
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
       ),
-      padding: EdgeInsets.symmetric(
-        horizontal: responsive.horizontalPadding,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: responsive.horizontalPadding),
       itemCount: listLength,
       itemBuilder: (context, index) {
         final isMoreIndicator = isSearching
@@ -1177,8 +1168,8 @@ class TransactionsPageState extends State<TransactionsPage> {
             color: isSelected
                 ? AppColors.primary
                 : t.isPendingSync
-                    ? AppColors.warning.withValues(alpha: 0.3)
-                    : AppColors.gray100,
+                ? AppColors.warning.withValues(alpha: 0.3)
+                : AppColors.gray100,
           ),
         ),
         child: Row(
@@ -1337,10 +1328,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                     color: AppColors.textSecondaryLight,
                   ),
                 ),
-                Text(
-                  value,
-                  style: AppTypography.titleMedium(color: color),
-                ),
+                Text(value, style: AppTypography.titleMedium(color: color)),
               ],
             ),
           ),
@@ -1438,10 +1426,7 @@ class TransactionsPageState extends State<TransactionsPage> {
           _buildDetailRow(
             Icons.payment_rounded,
             s.paymentMethodLabel,
-            _translatePaymentMethod(
-              context,
-              t.paymentMethod.label,
-            ),
+            _translatePaymentMethod(context, t.paymentMethod.label),
             AppColors.accent,
           ),
           const Spacer(),
@@ -1785,7 +1770,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.date_range_rounded,
                               size: 14,
                               color: AppColors.primary,
@@ -1807,7 +1792,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.account_balance_rounded,
                               size: 14,
                               color: AppColors.primary,
@@ -1829,7 +1814,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                                 _filterBankAccountId = null;
                                 _filterBankAccountName = null;
                               }),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.close_rounded,
                                 size: 14,
                                 color: AppColors.primary,

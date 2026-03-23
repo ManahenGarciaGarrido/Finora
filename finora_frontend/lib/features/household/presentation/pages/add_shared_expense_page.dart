@@ -81,203 +81,214 @@ class _AddSharedExpensePageState extends State<AddSharedExpensePage> {
       title: Text(s.addSharedExpense, style: AppTypography.titleMedium()),
     );
     final body = SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF039BE5).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF039BE5).withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.receipt_long_rounded,
-                      color: Color(0xFF039BE5),
-                      size: 36,
-                    ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF039BE5).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF039BE5).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    s.addSharedExpense,
-                    style: AppTypography.titleMedium(
-                        color: const Color(0xFF039BE5)),
-                    textAlign: TextAlign.center,
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    color: Color(0xFF039BE5),
+                    size: 36,
                   ),
-                ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  s.addSharedExpense,
+                  style: AppTypography.titleMedium(
+                    color: const Color(0xFF039BE5),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // How it works info
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
               ),
             ),
-            const SizedBox(height: 24),
-
-            // How it works info
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.lightbulb_outline_rounded,
-                          color: AppColors.primary, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        s.householdExpenseHowTitle,
-                        style: AppTypography.titleSmall(
-                            color: AppColors.primary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    s.householdExpenseHowBody,
-                    style:
-                        AppTypography.bodySmall(color: AppColors.gray700),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Description
-                  Text(s.description,
-                      style: AppTypography.labelSmall(
-                          color: AppColors.gray600)),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _descController,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.description_outlined),
-                      hintText: 'Supermercado, Netflix…',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.lightbulb_outline_rounded,
+                      color: AppColors.primary,
+                      size: 18,
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? s.enterAccountNameError
-                        : null,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Amount
-                  Text(s.amount,
-                      style: AppTypography.labelSmall(
-                          color: AppColors.gray600)),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _amountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true),
-                    decoration: InputDecoration(
-                      prefixText: '€ ',
-                      prefixIcon: const Icon(Icons.euro_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (v) {
-                      final n = double.tryParse(
-                          v?.replaceAll(',', '.') ?? '');
-                      return (n == null || n <= 0)
-                          ? s.invalidAmountError
-                          : null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Splits section
-                  if (widget.members.isNotEmpty) ...[
+                    const SizedBox(width: 8),
                     Text(
                       s.householdExpenseHowTitle,
-                      style: AppTypography.labelSmall(color: AppColors.gray600),
+                      style: AppTypography.titleSmall(color: AppColors.primary),
                     ),
-                    const SizedBox(height: 8),
-                    ...widget.members.map((m) {
-                      final pct = _splits[m.userId] ?? 0.0;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 18,
-                              backgroundColor:
-                                  AppColors.primary.withValues(alpha: 0.12),
-                              child: Text(
-                                (m.name?.isNotEmpty == true
-                                    ? m.name![0].toUpperCase()
-                                    : '?'),
-                                style: AppTypography.labelSmall(
-                                    color: AppColors.primary),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  s.householdExpenseHowBody,
+                  style: AppTypography.bodySmall(color: AppColors.gray700),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Description
+                Text(
+                  s.description,
+                  style: AppTypography.labelSmall(color: AppColors.gray600),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _descController,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.description_outlined),
+                    hintText: 'Supermercado, Netflix…',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? s.enterAccountNameError
+                      : null,
+                ),
+                const SizedBox(height: 20),
+
+                // Amount
+                Text(
+                  s.amount,
+                  style: AppTypography.labelSmall(color: AppColors.gray600),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    prefixText: '€ ',
+                    prefixIcon: const Icon(Icons.euro_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (v) {
+                    final n = double.tryParse(v?.replaceAll(',', '.') ?? '');
+                    return (n == null || n <= 0) ? s.invalidAmountError : null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Splits section
+                if (widget.members.isNotEmpty) ...[
+                  Text(
+                    s.householdExpenseHowTitle,
+                    style: AppTypography.labelSmall(color: AppColors.gray600),
+                  ),
+                  const SizedBox(height: 8),
+                  ...widget.members.map((m) {
+                    final pct = _splits[m.userId] ?? 0.0;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: AppColors.primary.withValues(
+                              alpha: 0.12,
+                            ),
+                            child: Text(
+                              (m.name?.isNotEmpty == true
+                                  ? m.name![0].toUpperCase()
+                                  : '?'),
+                              style: AppTypography.labelSmall(
+                                color: AppColors.primary,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                m.name ?? m.email ?? m.userId,
-                                style: AppTypography.bodyMedium(),
-                              ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              m.name ?? m.email ?? m.userId,
+                              style: AppTypography.bodyMedium(),
                             ),
-                            SizedBox(
-                              width: 80,
-                              child: TextFormField(
-                                initialValue: pct.toStringAsFixed(1),
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                textAlign: TextAlign.center,
-                                decoration: InputDecoration(
-                                  suffixText: '%',
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 10),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                          ),
+                          SizedBox(
+                            width: 80,
+                            child: TextFormField(
+                              initialValue: pct.toStringAsFixed(1),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
                                   ),
+                              textAlign: TextAlign.center,
+                              decoration: InputDecoration(
+                                suffixText: '%',
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 10,
                                 ),
-                                onChanged: (v) {
-                                  final val = double.tryParse(
-                                      v.replaceAll(',', '.'));
-                                  if (val != null) {
-                                    setState(
-                                        () => _splits[m.userId] = val);
-                                  }
-                                },
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
+                              onChanged: (v) {
+                                final val = double.tryParse(
+                                  v.replaceAll(',', '.'),
+                                );
+                                if (val != null) {
+                                  setState(() => _splits[m.userId] = val);
+                                }
+                              },
                             ),
-                          ],
-                        ),
-                      );
-                    }),
-                    // Total indicator
-                    Builder(builder: (ctx) {
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  // Total indicator
+                  Builder(
+                    builder: (ctx) {
                       final total = _splits.values.fold(0.0, (a, b) => a + b);
                       final ok = (total - 100).abs() < 0.5;
                       return Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Icon(
-                            ok ? Icons.check_circle_rounded : Icons.error_rounded,
+                            ok
+                                ? Icons.check_circle_rounded
+                                : Icons.error_rounded,
                             color: ok ? AppColors.success : AppColors.error,
                             size: 16,
                           ),
@@ -290,26 +301,27 @@ class _AddSharedExpensePageState extends State<AddSharedExpensePage> {
                           ),
                         ],
                       );
-                    }),
-                    const SizedBox(height: 16),
-                  ],
-
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: FilledButton.icon(
-                      onPressed: _save,
-                      icon: const Icon(Icons.add_rounded),
-                      label: Text(s.addSharedExpense),
-                    ),
+                    },
                   ),
+                  const SizedBox(height: 16),
                 ],
-              ),
+
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(s.addSharedExpense),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
     if (responsive.isTablet) {
       return Scaffold(
         backgroundColor: AppColors.backgroundLight,

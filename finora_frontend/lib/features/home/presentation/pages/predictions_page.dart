@@ -59,7 +59,6 @@ class _PredictionsPageState extends State<PredictionsPage>
   String _fmtC(double amount, {int decimals = 2}) =>
       CurrencyService().format(amount, decimals: decimals);
 
-
   Future<void> _loadData() async {
     _loadPredictions();
     _loadSavings();
@@ -262,7 +261,7 @@ class _PredictionsPageState extends State<PredictionsPage>
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
+          icon: Icon(Icons.refresh_rounded, color: AppColors.primary),
           tooltip: AppLocalizations.of(context).refreshPredictions,
           onPressed: _loadData,
         ),
@@ -394,7 +393,7 @@ class _PredictionsPageState extends State<PredictionsPage>
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.bar_chart_rounded,
                   color: AppColors.primary,
                   size: 18,
@@ -550,7 +549,7 @@ class _PredictionsPageState extends State<PredictionsPage>
           children: [
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.psychology_rounded,
                   color: AppColors.primary,
                   size: 20,
@@ -629,7 +628,7 @@ class _PredictionsPageState extends State<PredictionsPage>
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.model_training_rounded,
               color: AppColors.primary,
               size: 18,
@@ -1309,11 +1308,7 @@ class _PredictionsPageState extends State<PredictionsPage>
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.repeat_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
+                Icon(Icons.repeat_rounded, color: AppColors.primary, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   s.aiRecurringExpensesDetected,

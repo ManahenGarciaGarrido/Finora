@@ -216,10 +216,10 @@ class AppTheme {
       ),
 
       // Bottom Sheet Theme
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: AppColors.surfaceLight,
         elevation: 8,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
@@ -348,7 +348,7 @@ class AppTheme {
     brightness: Brightness.dark,
     primaryColor: AppColors.primary,
     scaffoldBackgroundColor: AppColors.backgroundDark,
-    colorScheme: const ColorScheme.dark(
+    colorScheme: ColorScheme.dark(
       primary: AppColors.primaryLight,
       primaryContainer: AppColors.primaryDark,
       secondary: AppColors.secondaryLight,
@@ -421,7 +421,7 @@ class AppTheme {
         disabledForegroundColor: AppColors.gray600,
         minimumSize: const Size(double.infinity, 52),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        side: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+        side: BorderSide(color: AppColors.primaryLight, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: AppTypography.button(color: AppColors.primaryLight),
       ),
@@ -442,7 +442,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primaryLight, width: 2),
+        borderSide: BorderSide(color: AppColors.primaryLight, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -468,7 +468,7 @@ class AppTheme {
     ),
 
     // Bottom Navigation Bar Theme
-    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: AppColors.surfaceDark,
       selectedItemColor: AppColors.primaryLight,
       unselectedItemColor: AppColors.gray500,
@@ -491,7 +491,7 @@ class AppTheme {
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const IconThemeData(color: AppColors.primaryLight, size: 24);
+          return IconThemeData(color: AppColors.primaryLight, size: 24);
         }
         return const IconThemeData(color: AppColors.gray500, size: 24);
       }),
@@ -535,7 +535,7 @@ class AppTheme {
     ),
 
     // Progress Indicator Theme
-    progressIndicatorTheme: const ProgressIndicatorThemeData(
+    progressIndicatorTheme: ProgressIndicatorThemeData(
       color: AppColors.primaryLight,
       circularTrackColor: AppColors.gray700,
       linearTrackColor: AppColors.gray700,

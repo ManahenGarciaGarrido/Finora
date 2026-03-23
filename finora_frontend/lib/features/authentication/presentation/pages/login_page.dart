@@ -273,7 +273,7 @@ class _LoginPageState extends State<LoginPage>
             },
             child: Text(
               s.resendEmail,
-              style: const TextStyle(color: AppColors.primary),
+              style: TextStyle(color: AppColors.primary),
             ),
           ),
           ElevatedButton(
@@ -361,9 +361,7 @@ class _LoginPageState extends State<LoginPage>
         Expanded(
           flex: 1,
           child: Container(
-            decoration: const BoxDecoration(
-              gradient: AppColors.primaryGradient,
-            ),
+            decoration: BoxDecoration(gradient: AppColors.primaryGradient),
             child: SafeArea(
               child: Center(
                 child: Padding(
@@ -471,7 +469,7 @@ class _LoginPageState extends State<LoginPage>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [AppColors.primary, AppColors.secondary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -620,7 +618,7 @@ class _LoginPageState extends State<LoginPage>
         child: OutlinedButton.icon(
           onPressed: _biometricAuthenticating ? null : _handleBiometricLogin,
           icon: _biometricAuthenticating
-              ? const SizedBox(
+              ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
@@ -636,7 +634,7 @@ class _LoginPageState extends State<LoginPage>
             style: AppTypography.labelLarge(color: AppColors.primary),
           ),
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.primary, width: 1.5),
+            side: BorderSide(color: AppColors.primary, width: 1.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),

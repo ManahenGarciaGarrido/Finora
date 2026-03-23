@@ -152,7 +152,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+            colorScheme: ColorScheme.light(
               primary: AppColors.primary,
               onPrimary: AppColors.white,
               surface: AppColors.white,
@@ -208,7 +208,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.camera_alt_rounded,
                     color: AppColors.primary,
                   ),
@@ -233,7 +233,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.photo_library_rounded,
                     color: AppColors.primary,
                   ),
@@ -333,7 +333,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                 color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.edit_rounded,
                 color: AppColors.primary,
                 size: 20,
@@ -759,7 +759,10 @@ class _EditTransactionPageState extends State<EditTransactionPage>
             ),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text(AppLocalizations.of(context).editTransaction, style: AppTypography.titleLarge()),
+          title: Text(
+            AppLocalizations.of(context).editTransaction,
+            style: AppTypography.titleLarge(),
+          ),
           centerTitle: true,
           // RF-07: Botón de eliminar en la barra superior
           actions: [
@@ -810,7 +813,10 @@ class _EditTransactionPageState extends State<EditTransactionPage>
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: Card(
                   elevation: 0,
                   color: AppColors.white,
@@ -914,7 +920,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
       ),
       child: Row(
         children: [
-          const Icon(Icons.history_rounded, size: 16, color: AppColors.primary),
+          Icon(Icons.history_rounded, size: 16, color: AppColors.primary),
           const SizedBox(width: 8),
           Text(
             s.lastModified(formatted),
@@ -1277,7 +1283,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -1310,13 +1316,16 @@ class _EditTransactionPageState extends State<EditTransactionPage>
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.calendar_today_rounded,
                   color: AppColors.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(_formatDate(context, _selectedDate), style: AppTypography.input()),
+                Text(
+                  _formatDate(context, _selectedDate),
+                  style: AppTypography.input(),
+                ),
                 const Spacer(),
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,

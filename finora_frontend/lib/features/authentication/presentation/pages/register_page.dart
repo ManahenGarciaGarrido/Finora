@@ -386,9 +386,7 @@ class _RegisterPageState extends State<RegisterPage>
         Expanded(
           flex: 1,
           child: Container(
-            decoration: const BoxDecoration(
-              gradient: AppColors.primaryGradient,
-            ),
+            decoration: BoxDecoration(gradient: AppColors.primaryGradient),
             child: SafeArea(
               child: Center(
                 child: Padding(

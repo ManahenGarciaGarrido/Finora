@@ -692,19 +692,32 @@ class _DashboardContentState extends State<DashboardContent>
   /// Returns the localized month abbreviation for the given month number (1-12)
   String _getMonthAbbr(AppLocalizations s, int month) {
     switch (month) {
-      case 1: return s.jan;
-      case 2: return s.feb;
-      case 3: return s.mar;
-      case 4: return s.apr;
-      case 5: return s.mayy;
-      case 6: return s.jun;
-      case 7: return s.jul;
-      case 8: return s.aug;
-      case 9: return s.sep;
-      case 10: return s.oct;
-      case 11: return s.nov;
-      case 12: return s.dec;
-      default: return '';
+      case 1:
+        return s.jan;
+      case 2:
+        return s.feb;
+      case 3:
+        return s.mar;
+      case 4:
+        return s.apr;
+      case 5:
+        return s.mayy;
+      case 6:
+        return s.jun;
+      case 7:
+        return s.jul;
+      case 8:
+        return s.aug;
+      case 9:
+        return s.sep;
+      case 10:
+        return s.oct;
+      case 11:
+        return s.nov;
+      case 12:
+        return s.dec;
+      default:
+        return '';
     }
   }
 
@@ -1282,7 +1295,7 @@ class _DashboardContentState extends State<DashboardContent>
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.receipt_long_outlined,
               color: AppColors.primary,
               size: 28,

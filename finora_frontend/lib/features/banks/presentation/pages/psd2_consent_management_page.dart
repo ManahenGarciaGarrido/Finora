@@ -27,8 +27,7 @@ class Psd2ConsentManagementPage extends StatefulWidget {
       _Psd2ConsentManagementPageState();
 }
 
-class _Psd2ConsentManagementPageState
-    extends State<Psd2ConsentManagementPage> {
+class _Psd2ConsentManagementPageState extends State<Psd2ConsentManagementPage> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _consents = [];
@@ -88,7 +87,9 @@ class _Psd2ConsentManagementPageState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context).consentRenewedMsg(bankName)),
+          content: Text(
+            AppLocalizations.of(context).consentRenewedMsg(bankName),
+          ),
           backgroundColor: AppColors.success,
         ),
       );
@@ -303,7 +304,7 @@ class _ConsentList extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   Icons.info_outline_rounded,
                   size: 20,
                   color: AppColors.primary,
@@ -401,7 +402,7 @@ class _ConsentCard extends StatelessWidget {
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.account_balance_rounded,
                     color: AppColors.primary,
                     size: 20,
@@ -420,9 +421,7 @@ class _ConsentCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             statusLabel,
-                            style: AppTypography.labelSmall(
-                              color: statusColor,
-                            ),
+                            style: AppTypography.labelSmall(color: statusColor),
                           ),
                         ],
                       ),

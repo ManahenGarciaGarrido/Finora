@@ -56,7 +56,11 @@ class _CategoriesPageState extends State<CategoriesPage>
                     size: 18,
                   ),
                   const SizedBox(width: 8),
-                  Text(AppLocalizations.of(context).categoryCreatedMsg(state.category.name)),
+                  Text(
+                    AppLocalizations.of(
+                      context,
+                    ).categoryCreatedMsg(state.category.name),
+                  ),
                 ],
               ),
               backgroundColor: AppColors.success,
@@ -69,7 +73,11 @@ class _CategoriesPageState extends State<CategoriesPage>
         } else if (state is CategoryUpdated) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context).categoryUpdatedMsg(state.category.name)),
+              content: Text(
+                AppLocalizations.of(
+                  context,
+                ).categoryUpdatedMsg(state.category.name),
+              ),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -115,7 +123,10 @@ class _CategoriesPageState extends State<CategoriesPage>
               ),
               onPressed: () => Navigator.pop(context),
             ),
-            title: Text(AppLocalizations.of(context).categoriesTitle, style: AppTypography.headlineSmall()),
+            title: Text(
+              AppLocalizations.of(context).categoriesTitle,
+              style: AppTypography.headlineSmall(),
+            ),
             centerTitle: false,
             bottom: TabBar(
               controller: _tabController,
@@ -346,7 +357,7 @@ class _CategoriesPageState extends State<CategoriesPage>
           else ...[
             // RF-16: Editar categoría personalizada
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.edit_outlined,
                 size: 18,
                 color: AppColors.primary,

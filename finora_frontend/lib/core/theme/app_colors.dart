@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
+import 'theme_service.dart';
 
 /// Paleta de colores de Finora
 ///
-/// Diseñada para una aplicación de finanzas personales:
-/// - Azul: Confianza, seguridad, profesionalismo
-/// - Verde: Crecimiento, dinero, éxito financiero
-/// - Gradientes modernos para UI atractiva
+/// Los colores primarios/secundarios/acento siguen la paleta activa en ThemeService,
+/// por lo que responden a los cambios de tema del usuario.
+/// Los colores semánticos (éxito, error, etc.) son constantes.
 class AppColors {
   AppColors._();
 
   // ============================================
-  // COLORES PRIMARIOS
+  // COLORES PRIMARIOS — siguen la paleta activa
   // ============================================
 
-  /// Azul principal - AHORA: Azul Marino Profundo (Navy)
-  static const Color primary = Color(0xFF0F172A); // Antes era azul brillante
-  static const Color primaryLight = Color(0xFF334155); // Slate
-  static const Color primaryDark = Color(0xFF020617); // Casi negro
-  static const Color primarySoft = Color(0xFFF1F5F9); // Gris muy claro
+  static Color get primary => ThemeService().currentPalette.primary;
+  static Color get primaryLight => ThemeService().currentPalette.primaryLight;
+  static Color get primaryDark => ThemeService().currentPalette.primaryDark;
+  static Color get primarySoft => ThemeService().currentPalette.primarySoft;
 
-  /// Variaciones del primario
+  /// Variaciones del primario (Material 2 – valor fijo para compatibilidad)
   static const MaterialColor primarySwatch =
       MaterialColor(0xFF0F172A, <int, Color>{
         50: Color(0xFFF8FAFC),
@@ -35,18 +34,15 @@ class AppColors {
       });
 
   // ============================================
-  // COLORES SECUNDARIOS
+  // COLORES SECUNDARIOS — siguen la paleta activa
   // ============================================
 
-  /// Verde - Éxito, ganancias (Mantenemos verde pero más sobrio)
-  static const Color secondary = Color(0xFF059669);
+  static Color get secondary => ThemeService().currentPalette.secondary;
   static const Color secondaryLight = Color(0xFF34D399);
   static const Color secondaryDark = Color(0xFF064E3B);
   static const Color secondarySoft = Color(0xFFECFDF5);
 
-  /// Púrpura -> CAMBIADO A: Azul Acero / Gris Azulado (Accent serio)
-  /// Ya no es morado, ahora es un tono técnico elegante.
-  static const Color accent = Color(0xFF475569); // Slate 600
+  static Color get accent => ThemeService().currentPalette.accent;
   static const Color accentLight = Color(0xFF64748B);
   static const Color accentDark = Color(0xFF334155);
   static const Color accentSoft = Color(0xFFF8FAFC);
@@ -83,13 +79,13 @@ class AppColors {
   // COLORES DE FINANZAS
   // ============================================
 
-  /// Ingreso
-  static const Color income = Color(0xFF059669);
+  /// Ingreso — sigue la paleta activa
+  static Color get income => ThemeService().currentPalette.income;
   static const Color incomeLight = Color(0xFF34D399);
   static const Color incomeDark = Color(0xFF064E3B);
 
-  /// Gasto
-  static const Color expense = Color(0xFFDC2626);
+  /// Gasto — sigue la paleta activa
+  static Color get expense => ThemeService().currentPalette.expense;
   static const Color expenseLight = Color(0xFFF87171);
   static const Color expenseDark = Color(0xFF991B1B);
 
@@ -129,9 +125,10 @@ class AppColors {
   // COLORES DE FONDO
   // ============================================
 
-  /// Fondo claro
-  static const Color backgroundLight = Color(0xFFF8FAFC); // Slate 50
-  static const Color surfaceLight = Color(0xFFFFFFFF);
+  /// Fondo claro — siguen la paleta activa
+  static Color get backgroundLight =>
+      ThemeService().currentPalette.backgroundLight;
+  static Color get surfaceLight => ThemeService().currentPalette.surface;
   static const Color cardLight = Color(0xFFFFFFFF);
 
   /// Fondo oscuro
@@ -159,12 +156,9 @@ class AppColors {
   // GRADIENTES (Aquí quitamos los colores infantiles)
   // ============================================
 
-  /// Gradiente primario (horizontal) -> AHORA: Navy Profundo a Slate
-  static const LinearGradient primaryGradient = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [Color(0xFF0F172A), Color(0xFF334155)], // De Navy a Pizarra
-  );
+  /// Gradiente primario (horizontal) — sigue la paleta activa
+  static LinearGradient get primaryGradient =>
+      ThemeService().currentPalette.primaryGradient;
 
   /// Gradiente primario (vertical)
   static const LinearGradient primaryGradientVertical = LinearGradient(
@@ -187,12 +181,9 @@ class AppColors {
     colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
   );
 
-  /// Gradiente de card -> AHORA: Azul corporativo sobrio
-  static const LinearGradient cardGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF1E40AF), Color(0xFF1E3A8A)], // Azules oscuros
-  );
+  /// Gradiente de card — sigue la paleta activa
+  static LinearGradient get cardGradient =>
+      ThemeService().currentPalette.cardGradient;
 
   /// Gradiente de fondo suave
   static const LinearGradient softGradient = LinearGradient(

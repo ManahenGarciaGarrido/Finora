@@ -293,8 +293,8 @@ class _CustomTextFieldState extends State<CustomTextField>
 
   Widget? _buildSuffixIcon() {
     if (widget.isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(12),
+      return Padding(
+        padding: const EdgeInsets.all(12),
         child: SizedBox(
           width: 22,
           height: 22,

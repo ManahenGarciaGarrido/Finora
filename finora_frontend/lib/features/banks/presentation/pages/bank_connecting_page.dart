@@ -111,150 +111,154 @@ class _BankConnectingPageState extends State<BankConnectingPage>
             style: AppTypography.titleMedium(),
           ),
         ),
-        body: Builder(builder: (ctx) {
-          final responsive = ResponsiveUtils(ctx);
-          final blocBody = BlocConsumer<BankBloc, BankState>(
-            listener: (context, state) {
-              if (state is BankConnectSuccess) {
-                Navigator.pop(context, true);
-              }
-              // HU-05: No cerrar automáticamente en caso de error;
-              // se muestra la UI de troubleshooting en el builder.
-            },
-            builder: (context, state) {
-              // HU-05: Si hay un fallo, mostrar pantalla de troubleshooting
-              if (state is BankConnectFailure) {
-                return _TroubleshootingView(
-                  message: state.message,
-                  errorType: state.errorType,
-                  connectionId: widget.connectionId,
-                  institutionName: widget.institutionName,
-                );
-              }
+        body: Builder(
+          builder: (ctx) {
+            final responsive = ResponsiveUtils(ctx);
+            final blocBody = BlocConsumer<BankBloc, BankState>(
+              listener: (context, state) {
+                if (state is BankConnectSuccess) {
+                  Navigator.pop(context, true);
+                }
+                // HU-05: No cerrar automáticamente en caso de error;
+                // se muestra la UI de troubleshooting en el builder.
+              },
+              builder: (context, state) {
+                // HU-05: Si hay un fallo, mostrar pantalla de troubleshooting
+                if (state is BankConnectFailure) {
+                  return _TroubleshootingView(
+                    message: state.message,
+                    errorType: state.errorType,
+                    connectionId: widget.connectionId,
+                    institutionName: widget.institutionName,
+                  );
+                }
 
-              final attempt = state is BankConnectPolling ? state.attempt : 0;
-              final progress = (attempt / 60.0).clamp(0.0, 1.0);
+                final attempt = state is BankConnectPolling ? state.attempt : 0;
+                final progress = (attempt / 60.0).clamp(0.0, 1.0);
 
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _AnimatedBankIcon(state: state),
-
-                    const SizedBox(height: 32),
-
-                    Text(
-                      _titleFor(context, state),
-                      style: AppTypography.titleLarge(),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _subtitleFor(context, state, widget.institutionName),
-                      style: AppTypography.bodyMedium(
-                        color: AppColors.textSecondaryLight,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    if (state is BankConnectPolling) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: AppColors.gray200,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppColors.primary,
-                          ),
-                          minHeight: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        '${AppLocalizations.of(context).bankWaitingAuthTitle}... ($attempt/60)',
-                        style: AppTypography.labelSmall(
-                          color: AppColors.textTertiaryLight,
-                        ),
-                      ),
-                    ],
-
-                    if (state is BankConnectAuthUrlReady) ...[
-                      const CircularProgressIndicator(
-                        color: AppColors.primary,
-                        strokeWidth: 2,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        AppLocalizations.of(context).openingBrowserMsg,
-                        style: AppTypography.labelSmall(
-                          color: AppColors.textTertiaryLight,
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 32),
-
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _InfoChip(
-                          icon: Icons.lock_outline_rounded,
-                          label: AppLocalizations.of(
-                            context,
-                          ).encryptedConnectionLabel,
-                          color: AppColors.success,
+                        _AnimatedBankIcon(state: state),
+
+                        const SizedBox(height: 32),
+
+                        Text(
+                          _titleFor(context, state),
+                          style: AppTypography.titleLarge(),
+                          textAlign: TextAlign.center,
                         ),
-                        _InfoChip(
-                          icon: Icons.visibility_off_outlined,
-                          label: AppLocalizations.of(context).readOnlyLabel,
-                          color: AppColors.info,
+                        const SizedBox(height: 12),
+                        Text(
+                          _subtitleFor(context, state, widget.institutionName),
+                          style: AppTypography.bodyMedium(
+                            color: AppColors.textSecondaryLight,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        _InfoChip(
-                          icon: Icons.verified_user_outlined,
-                          label: AppLocalizations.of(
-                            context,
-                          ).psd2CertifiedLabel,
-                          color: AppColors.accent,
+
+                        const SizedBox(height: 40),
+
+                        if (state is BankConnectPolling) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: AppColors.gray200,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.primary,
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${AppLocalizations.of(context).bankWaitingAuthTitle}... ($attempt/60)',
+                            style: AppTypography.labelSmall(
+                              color: AppColors.textTertiaryLight,
+                            ),
+                          ),
+                        ],
+
+                        if (state is BankConnectAuthUrlReady) ...[
+                          CircularProgressIndicator(
+                            color: AppColors.primary,
+                            strokeWidth: 2,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            AppLocalizations.of(context).openingBrowserMsg,
+                            style: AppTypography.labelSmall(
+                              color: AppColors.textTertiaryLight,
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 32),
+
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            _InfoChip(
+                              icon: Icons.lock_outline_rounded,
+                              label: AppLocalizations.of(
+                                context,
+                              ).encryptedConnectionLabel,
+                              color: AppColors.success,
+                            ),
+                            _InfoChip(
+                              icon: Icons.visibility_off_outlined,
+                              label: AppLocalizations.of(context).readOnlyLabel,
+                              color: AppColors.info,
+                            ),
+                            _InfoChip(
+                              icon: Icons.verified_user_outlined,
+                              label: AppLocalizations.of(
+                                context,
+                              ).psd2CertifiedLabel,
+                              color: AppColors.accent,
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        TextButton(
+                          onPressed: () {
+                            context.read<BankBloc>().add(
+                              const CancelBankPolling(),
+                            );
+                            Navigator.pop(context);
+                          },
+                          child: Text(
+                            AppLocalizations.of(context).cancel,
+                            style: AppTypography.labelLarge(
+                              color: AppColors.textSecondaryLight,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 32),
-
-                    TextButton(
-                      onPressed: () {
-                        context.read<BankBloc>().add(const CancelBankPolling());
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        AppLocalizations.of(context).cancel,
-                        style: AppTypography.labelLarge(
-                          color: AppColors.textSecondaryLight,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                );
+              },
+            );
+            if (responsive.isTablet) {
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: blocBody,
                 ),
-              ),
-            );
-            },
-          );
-          if (responsive.isTablet) {
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: blocBody,
-              ),
-            );
-          }
-          return blocBody;
-        }),
+              );
+            }
+            return blocBody;
+          },
+        ),
       ),
     );
   }
@@ -349,7 +353,7 @@ class _TroubleshootingView extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.lightbulb_outline_rounded,
                       size: 16,
                       color: AppColors.accent,
@@ -442,9 +446,9 @@ class _TroubleshootingView extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.backgroundLight,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -459,7 +463,7 @@ class _TroubleshootingView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Icon(
+            Icon(
               Icons.support_agent_rounded,
               size: 40,
               color: AppColors.primary,

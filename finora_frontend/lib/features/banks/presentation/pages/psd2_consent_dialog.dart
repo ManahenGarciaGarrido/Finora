@@ -32,9 +32,9 @@ class Psd2ConsentDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.backgroundLight,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
       child: SafeArea(
@@ -66,7 +66,7 @@ class Psd2ConsentDialog extends StatelessWidget {
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.lock_outline_rounded,
                     color: AppColors.primary,
                     size: 24,
@@ -166,7 +166,7 @@ class Psd2ConsentDialog extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.update_rounded,
                     size: 18,
                     color: AppColors.primary,

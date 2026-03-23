@@ -416,11 +416,15 @@ siempre una recomendación accionable.`;
     return res.json({ response: text });
 
   } catch (err) {
-    console.error('[RF-25] chat error:', err.message);
-    // Si Ollama no está levantado devuelve error claro
-    if (err.code === 'ECONNREFUSED') {
+    // Node.js native fetch envuelve errores de red en TypeError con la causa en err.cause
+    const code = err.code || err.cause?.code;
+    console.error('[RF-25] chat error:', err.message, code ? `(${code})` : '');
+    if (
+      code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ECONNRESET' ||
+      err.message === 'fetch failed'
+    ) {
       return res.status(503).json({
-        error: 'El servicio de IA local no está disponible. Asegúrate de que Ollama está corriendo.',
+        error: 'Finn no está disponible en este momento. Inténtalo de nuevo en unos segundos.',
       });
     }
     return res.status(500).json({ error: err.message });

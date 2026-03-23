@@ -43,8 +43,7 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
           _suggestions = List<Map<String, dynamic>>.from(
             data['suggestions'] ?? [],
           );
-          _selected.addAll(
-              Iterable.generate(_suggestions.length, (i) => i));
+          _selected.addAll(Iterable.generate(_suggestions.length, (i) => i));
           _loading = false;
         });
       }
@@ -65,10 +64,13 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
     for (final i in _selected) {
       final sug = _suggestions[i];
       try {
-        await _apiClient.post('/budget', data: {
-          'category': sug['category'],
-          'monthly_limit': sug['suggested_limit'],
-        });
+        await _apiClient.post(
+          '/budget',
+          data: {
+            'category': sug['category'],
+            'monthly_limit': sug['suggested_limit'],
+          },
+        );
         applied++;
       } catch (_) {}
     }
@@ -120,8 +122,10 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
         backgroundColor: AppColors.surfaceLight,
         elevation: 0,
         leading: const BackButton(),
-        title:
-            Text(s.aiSuggestBudgetsTitle, style: AppTypography.titleMedium()),
+        title: Text(
+          s.aiSuggestBudgetsTitle,
+          style: AppTypography.titleMedium(),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -135,11 +139,12 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
               child: SkeletonListLoader(count: 5, cardHeight: 72),
             )
           : _error != null
-              ? _buildError(s)
-              : _suggestions.isEmpty
-                  ? _buildEmpty(s)
-                  : _buildList(s, fmt),
-      bottomNavigationBar: (!_loading && _suggestions.isNotEmpty && _error == null)
+          ? _buildError(s)
+          : _suggestions.isEmpty
+          ? _buildEmpty(s)
+          : _buildList(s, fmt),
+      bottomNavigationBar:
+          (!_loading && _suggestions.isNotEmpty && _error == null)
           ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -152,12 +157,12 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.check_rounded),
-                  label: Text(
-                    '${s.applyAllSuggestions} (${_selected.length})',
-                  ),
+                  label: Text('${s.applyAllSuggestions} (${_selected.length})'),
                 ),
               ),
             )
@@ -170,8 +175,7 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline_rounded,
-              color: AppColors.error, size: 48),
+          Icon(Icons.error_outline_rounded, color: AppColors.error, size: 48),
           const SizedBox(height: 12),
           Text(s.error, style: AppTypography.bodyMedium()),
           TextButton(onPressed: _load, child: Text(s.reconnect)),
@@ -185,11 +189,12 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.auto_awesome_outlined,
-              color: AppColors.gray400, size: 56),
+          Icon(Icons.auto_awesome_outlined, color: AppColors.gray400, size: 56),
           const SizedBox(height: 16),
-          Text(s.noHistoryData,
-              style: AppTypography.bodyMedium(color: AppColors.gray500)),
+          Text(
+            s.noHistoryData,
+            style: AppTypography.bodyMedium(color: AppColors.gray500),
+          ),
           const SizedBox(height: 8),
           Text(
             s.aiSuggestBudgetsInfo,
@@ -217,19 +222,21 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.auto_awesome_rounded,
-              color: AppColors.primary, size: 24),
+          Icon(Icons.auto_awesome_rounded, color: AppColors.primary, size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(s.aiSuggestBudgetsTitle,
-                    style: AppTypography.titleSmall(color: AppColors.primary)),
+                Text(
+                  s.aiSuggestBudgetsTitle,
+                  style: AppTypography.titleSmall(color: AppColors.primary),
+                ),
                 const SizedBox(height: 4),
-                Text(s.aiSuggestBudgetsInfo,
-                    style:
-                        AppTypography.bodySmall(color: AppColors.gray600)),
+                Text(
+                  s.aiSuggestBudgetsInfo,
+                  style: AppTypography.bodySmall(color: AppColors.gray600),
+                ),
               ],
             ),
           ),
@@ -250,7 +257,8 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
                 _selected.clear();
               } else {
                 _selected.addAll(
-                    Iterable.generate(_suggestions.length, (i) => i));
+                  Iterable.generate(_suggestions.length, (i) => i),
+                );
               }
             });
           },
@@ -279,7 +287,9 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
             mainAxisSpacing: 12,
             childAspectRatio: 3.0,
             children: List.generate(
-                _suggestions.length, (i) => _buildSuggestionCard(i, s, fmt)),
+              _suggestions.length,
+              (i) => _buildSuggestionCard(i, s, fmt),
+            ),
           ),
           const SizedBox(height: 80),
         ],
@@ -346,8 +356,11 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
                 shape: BoxShape.circle,
               ),
               child: isSelected
-                  ? const Icon(Icons.check_rounded,
-                      color: Colors.white, size: 14)
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    )
                   : null,
             ),
             const SizedBox(width: 12),
@@ -363,8 +376,7 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
                     const SizedBox(height: 2),
                     Text(
                       'Media gasto: ${fmt(avg)}',
-                      style: AppTypography.bodySmall(
-                          color: AppColors.gray500),
+                      style: AppTypography.bodySmall(color: AppColors.gray500),
                     ),
                   ],
                 ],
@@ -379,8 +391,7 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
                 ),
                 Text(
                   s.monthlyLimitLabel,
-                  style: AppTypography.labelSmall(
-                      color: AppColors.gray400),
+                  style: AppTypography.labelSmall(color: AppColors.gray400),
                 ),
               ],
             ),
