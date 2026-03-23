@@ -314,143 +314,143 @@ class _AccountsPageState extends State<AccountsPage> {
     return Material(
       color: AppColors.backgroundLight,
       child: SafeArea(
-      child: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () => _onPullToRefresh(context),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          slivers: [
-            // Header
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  16,
-                  responsive.horizontalPadding,
-                  0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.onBack != null)
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_rounded),
-                            onPressed: widget.onBack,
-                            color: AppColors.textPrimaryLight,
-                            constraints: const BoxConstraints(
-                              minWidth: 40,
-                              minHeight: 40,
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () => _onPullToRefresh(context),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              // Header
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    16,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.onBack != null)
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_rounded),
+                              onPressed: widget.onBack,
+                              color: AppColors.textPrimaryLight,
+                              constraints: const BoxConstraints(
+                                minWidth: 40,
+                                minHeight: 40,
+                              ),
+                              padding: EdgeInsets.zero,
                             ),
-                            padding: EdgeInsets.zero,
+                          Text(
+                            AppLocalizations.of(context).accounts,
+                            style: AppTypography.headlineSmall(),
                           ),
-                        Text(
-                          AppLocalizations.of(context).accounts,
-                          style: AppTypography.headlineSmall(),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // HU-06: Campana de notificaciones in-app
-                        const NotificationBell(),
-                        const SizedBox(width: 4),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.add_rounded),
-                            onPressed: () => _connectBank(context),
-                            color: AppColors.white,
-                            constraints: const BoxConstraints(
-                              minWidth: 44,
-                              minHeight: 44,
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // HU-06: Campana de notificaciones in-app
+                          const NotificationBell(),
+                          const SizedBox(width: 4),
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.add_rounded),
+                              onPressed: () => _connectBank(context),
+                              color: AppColors.white,
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Balance calculado desde transacciones
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  20,
-                  responsive.horizontalPadding,
-                  0,
+              // Balance calculado desde transacciones
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    20,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildTransactionBalance(context),
                 ),
-                child: _buildTransactionBalance(context),
               ),
-            ),
 
-            // Tarjeta de efectivo
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  16,
-                  responsive.horizontalPadding,
-                  0,
+              // Tarjeta de efectivo
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    16,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildCashCard(context),
                 ),
-                child: _buildCashCard(context),
               ),
-            ),
 
-            // Saldo de cuentas bancarias
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  20,
-                  responsive.horizontalPadding,
-                  0,
+              // Saldo de cuentas bancarias
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    20,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildBankAccountsSection(context),
                 ),
-                child: _buildBankAccountsSection(context),
               ),
-            ),
 
-            // Conectar cuenta bancaria
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  20,
-                  responsive.horizontalPadding,
-                  0,
+              // Conectar cuenta bancaria
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    20,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildConnectBankCard(context),
                 ),
-                child: _buildConnectBankCard(context),
               ),
-            ),
 
-            // Métodos de pago
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  responsive.horizontalPadding,
-                  20,
-                  responsive.horizontalPadding,
-                  0,
+              // Métodos de pago
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    responsive.horizontalPadding,
+                    20,
+                    responsive.horizontalPadding,
+                    0,
+                  ),
+                  child: _buildPaymentMethodsSummary(context),
                 ),
-                child: _buildPaymentMethodsSummary(context),
               ),
-            ),
 
-            SliverToBoxAdapter(child: SizedBox(height: responsive.hp(12))),
-          ],
-        ), // CustomScrollView
-      ), // RefreshIndicator
+              SliverToBoxAdapter(child: SizedBox(height: responsive.hp(12))),
+            ],
+          ), // CustomScrollView
+        ), // RefreshIndicator
       ), // SafeArea
     );
   }
@@ -1102,7 +1102,7 @@ class _AccountsPageState extends State<AccountsPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.arrow_downward_rounded,
                           size: 10,
                           color: AppColors.primary,
@@ -1219,7 +1219,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   color: AppColors.primarySoft,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.link_rounded,
                   color: AppColors.primary,
                   size: 28,
@@ -1337,7 +1337,7 @@ class _AccountsPageState extends State<AccountsPage> {
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.account_balance_rounded,
               color: AppColors.primary,
               size: 20,
@@ -1449,7 +1449,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.info_outline_rounded,
                         size: 14,
                         color: AppColors.primary,
@@ -1755,7 +1755,7 @@ class _SyncProgressCardState extends State<_SyncProgressCard>
                   angle: _controller.value * 6.28,
                   child: child,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.sync_rounded,
                   color: AppColors.primary,
                   size: 18,
@@ -1776,7 +1776,7 @@ class _SyncProgressCardState extends State<_SyncProgressCard>
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: const LinearProgressIndicator(
+            child: LinearProgressIndicator(
               value: null, // indeterminate
               backgroundColor: Colors.transparent,
               valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
@@ -1857,7 +1857,7 @@ class _GlobalSyncBar extends StatelessWidget {
         ],
         const Spacer(),
         if (isSyncing)
-          const SizedBox(
+          SizedBox(
             width: 14,
             height: 14,
             child: CircularProgressIndicator(
@@ -1871,11 +1871,7 @@ class _GlobalSyncBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.refresh_rounded,
-                  size: 12,
-                  color: AppColors.primary,
-                ),
+                Icon(Icons.refresh_rounded, size: 12, color: AppColors.primary),
                 const SizedBox(width: 2),
                 Text(
                   AppLocalizations.of(context).synchronize,
@@ -1978,13 +1974,13 @@ class _BankAccountCard extends StatelessWidget {
                     ? Image.network(
                         account.institutionLogo!,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, __, ___) => Icon(
                           Icons.account_balance_rounded,
                           color: AppColors.primary,
                           size: 22,
                         ),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.account_balance_rounded,
                         color: AppColors.primary,
                         size: 22,
@@ -2182,9 +2178,9 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
       },
       builder: (ctx, state) {
         return Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.backgroundLight,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           padding: EdgeInsets.fromLTRB(
             20,
@@ -2229,7 +2225,7 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
                   ),
                   TextButton.icon(
                     onPressed: () => _showAddCardSheet(ctx),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.add_card_rounded,
                       size: 18,
                       color: AppColors.primary,
@@ -2392,9 +2388,9 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.backgroundLight,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.fromLTRB(
         20,
@@ -2489,10 +2485,7 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 1.5,
-                ),
+                borderSide: BorderSide(color: AppColors.primary, width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
@@ -2531,10 +2524,7 @@ class _AddCardInSheetState extends State<_AddCardInSheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 1.5,
-                ),
+                borderSide: BorderSide(color: AppColors.primary, width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,

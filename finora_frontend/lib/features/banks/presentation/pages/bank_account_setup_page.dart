@@ -86,89 +86,94 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
           ),
           centerTitle: true,
         ),
-        body: Builder(builder: (context) {
-          final responsive = ResponsiveUtils(context);
-          final listView = ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-            children: [
-              // Institution header
-              _buildInstitutionHeader(),
-              const SizedBox(height: 24),
+        body: Builder(
+          builder: (context) {
+            final responsive = ResponsiveUtils(context);
+            final listView = ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+              children: [
+                // Institution header
+                _buildInstitutionHeader(),
+                const SizedBox(height: 24),
 
-              // Account name
-              _buildSectionLabel(AppLocalizations.of(context).accountName),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _nameCtrl,
-                style: AppTypography.bodyMedium(),
-                decoration: _inputDecoration(hint: 'Ej. BBVA Principal'),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? AppLocalizations.of(context).enterAccountNameError
-                    : null,
-              ),
-              const SizedBox(height: 20),
-
-              // Account type
-              _buildSectionLabel(AppLocalizations.of(context).accountTypeLabel),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.gray200),
-                ),
-                child: DropdownButtonFormField<String>(
-                  initialValue: _accountType,
+                // Account name
+                _buildSectionLabel(AppLocalizations.of(context).accountName),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _nameCtrl,
                   style: AppTypography.bodyMedium(),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                  decoration: _inputDecoration(hint: 'Ej. BBVA Principal'),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? AppLocalizations.of(context).enterAccountNameError
+                      : null,
+                ),
+                const SizedBox(height: 20),
+
+                // Account type
+                _buildSectionLabel(
+                  AppLocalizations.of(context).accountTypeLabel,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.gray200),
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _accountType,
+                    style: AppTypography.bodyMedium(),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                     ),
+                    items: _accountTypes(context)
+                        .map(
+                          (t) =>
+                              DropdownMenuItem(value: t.$1, child: Text(t.$2)),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _accountType = v!),
                   ),
-                  items: _accountTypes(context)
-                      .map(
-                        (t) => DropdownMenuItem(value: t.$1, child: Text(t.$2)),
-                      )
-                      .toList(),
-                  onChanged: (v) => setState(() => _accountType = v!),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // IBAN (optional)
-              _buildSectionLabel(AppLocalizations.of(context).ibanOptional),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _ibanCtrl,
-                style: AppTypography.bodyMedium(),
-                decoration: _inputDecoration(
-                  hint: 'ES91 2100 0418 4502 0005 1332',
-                ),
-                textCapitalization: TextCapitalization.characters,
-              ),
-              const SizedBox(height: 28),
-
-              // Cards section
-              _buildCardsSection(),
-              const SizedBox(height: 28),
-
-              // CSV import section
-              _buildCsvSection(),
-              const SizedBox(height: 16),
-            ],
-          );
-          final formBody = Form(key: _formKey, child: listView);
-          return responsive.isTablet
-              ? Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 640),
-                    child: formBody,
+                // IBAN (optional)
+                _buildSectionLabel(AppLocalizations.of(context).ibanOptional),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _ibanCtrl,
+                  style: AppTypography.bodyMedium(),
+                  decoration: _inputDecoration(
+                    hint: 'ES91 2100 0418 4502 0005 1332',
                   ),
-                )
-              : formBody;
-        }),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 28),
+
+                // Cards section
+                _buildCardsSection(),
+                const SizedBox(height: 28),
+
+                // CSV import section
+                _buildCsvSection(),
+                const SizedBox(height: 16),
+              ],
+            );
+            final formBody = Form(key: _formKey, child: listView);
+            return responsive.isTablet
+                ? Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 640),
+                      child: formBody,
+                    ),
+                  )
+                : formBody;
+          },
+        ),
         bottomNavigationBar: _buildSaveButton(),
       ),
     );
@@ -192,10 +197,9 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppLocalizations.of(context).csvImportResult(
-              state.imported,
-              state.skipped,
-            ),
+            AppLocalizations.of(
+              context,
+            ).csvImportResult(state.imported, state.skipped),
           ),
           backgroundColor: AppColors.success,
         ),
@@ -261,7 +265,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.account_balance_rounded,
               color: AppColors.primary,
               size: 26,
@@ -301,7 +305,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
             const Spacer(),
             TextButton.icon(
               onPressed: _showAddCardSheet,
-              icon: const Icon(
+              icon: Icon(
                 Icons.add_card_rounded,
                 size: 18,
                 color: AppColors.primary,
@@ -456,7 +460,9 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            AppLocalizations.of(context).csvMovementsDetected(_csvRowCount),
+                            AppLocalizations.of(
+                              context,
+                            ).csvMovementsDetected(_csvRowCount),
                             style: AppTypography.bodySmall(
                               color: AppColors.textSecondaryLight,
                             ),
@@ -508,7 +514,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.upload_file_rounded,
                           color: AppColors.primary,
                           size: 20,
@@ -727,7 +733,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        borderSide: BorderSide(color: AppColors.primary, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
@@ -772,9 +778,9 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.backgroundLight,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.fromLTRB(
         20,
@@ -874,10 +880,7 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 1.5,
-                ),
+                borderSide: BorderSide(color: AppColors.primary, width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
@@ -918,10 +921,7 @@ class _CardSetupSheetState extends State<_CardSetupSheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 1.5,
-                ),
+                borderSide: BorderSide(color: AppColors.primary, width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,

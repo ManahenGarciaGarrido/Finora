@@ -122,7 +122,7 @@ class _SplashPageState extends State<SplashPage>
         child: Container(
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [AppColors.primary, AppColors.secondary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -178,7 +178,7 @@ class _SplashPageState extends State<SplashPage>
   Widget _buildLoadingIndicator() {
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: const SizedBox(
+      child: SizedBox(
         width: 40,
         height: 40,
         child: CircularProgressIndicator(

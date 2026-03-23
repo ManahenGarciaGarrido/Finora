@@ -189,9 +189,9 @@ class _NotificationsSheetState extends State<_NotificationsSheet> {
       maxChildSize: 0.92,
       expand: false,
       builder: (_, scrollController) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.backgroundLight,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           children: [
@@ -212,7 +212,7 @@ class _NotificationsSheetState extends State<_NotificationsSheet> {
               padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.notifications_rounded,
                     color: AppColors.primary,
                     size: 22,
@@ -266,7 +266,7 @@ class _NotificationsSheetState extends State<_NotificationsSheet> {
             // Content
             Expanded(
               child: _loading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
                         color: AppColors.primary,
                         strokeWidth: 2,
@@ -459,7 +459,7 @@ class _NotificationTile extends StatelessWidget {
                         Container(
                           width: 7,
                           height: 7,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),

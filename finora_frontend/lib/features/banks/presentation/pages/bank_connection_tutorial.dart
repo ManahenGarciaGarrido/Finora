@@ -99,9 +99,9 @@ class _BankConnectionTutorialState extends State<BankConnectionTutorial> {
     final isLast = _currentStep == steps.length - 1;
 
     final content = Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.backgroundLight,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
       child: SafeArea(

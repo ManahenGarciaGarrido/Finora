@@ -95,41 +95,43 @@ class _BankAccountSelectionPageState extends State<BankAccountSelectionPage> {
           ),
           title: Text(s.selectAccounts, style: AppTypography.titleMedium()),
         ),
-        body: Builder(builder: (ctx) {
-          final responsive = ResponsiveUtils(ctx);
-          final bodyContent = BlocBuilder<BankBloc, BankState>(
-            builder: (context, state) {
-              final isImporting =
-                  state is BankPendingAccountsReady && state.isImporting;
+        body: Builder(
+          builder: (ctx) {
+            final responsive = ResponsiveUtils(ctx);
+            final bodyContent = BlocBuilder<BankBloc, BankState>(
+              builder: (context, state) {
+                final isImporting =
+                    state is BankPendingAccountsReady && state.isImporting;
 
-              if (isImporting) {
-                return _BankImportingOverlay(
-                  accountCount: _selected.length,
-                  institutionName: widget.institutionName,
-                  s: s,
+                if (isImporting) {
+                  return _BankImportingOverlay(
+                    accountCount: _selected.length,
+                    institutionName: widget.institutionName,
+                    s: s,
+                  );
+                }
+
+                return Column(
+                  children: [
+                    _buildHeader(s),
+                    const Divider(height: 1, color: AppColors.gray200),
+                    _buildAccountsList(s, isImporting),
+                    _buildBottomAction(s, isImporting),
+                  ],
                 );
-              }
-
-              return Column(
-                children: [
-                  _buildHeader(s),
-                  const Divider(height: 1, color: AppColors.gray200),
-                  _buildAccountsList(s, isImporting),
-                  _buildBottomAction(s, isImporting),
-                ],
-              );
-            },
-          );
-          if (responsive.isTablet) {
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: bodyContent,
-              ),
+              },
             );
-          }
-          return bodyContent;
-        }),
+            if (responsive.isTablet) {
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: bodyContent,
+                ),
+              );
+            }
+            return bodyContent;
+          },
+        ),
       ),
     );
   }
@@ -227,7 +229,7 @@ class _BankAccountSelectionPageState extends State<BankAccountSelectionPage> {
                       color: AppColors.primarySoft,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.account_balance_rounded,
                       color: AppColors.primary,
                       size: 20,
@@ -408,7 +410,7 @@ class _BankImportingOverlayState extends State<_BankImportingOverlay>
                   color: AppColors.primarySoft,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.account_balance_rounded,
                   color: AppColors.primary,
                   size: 44,
@@ -437,9 +439,7 @@ class _BankImportingOverlayState extends State<_BankImportingOverlay>
               child: LinearProgressIndicator(
                 value: _progress,
                 backgroundColor: AppColors.gray200,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.primary,
-                ),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                 minHeight: 6,
               ),
             ),

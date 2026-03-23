@@ -442,9 +442,9 @@ class _SettingsPageState extends State<SettingsPage> {
         // Left panel
         Container(
           width: 280,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.surfaceLight,
-            border: Border(
+            border: const Border(
               right: BorderSide(color: AppColors.gray100, width: 1),
             ),
           ),
@@ -614,7 +614,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     children: [
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.palette_outlined,
                             size: 20,
                             color: AppColors.primary,
@@ -1093,7 +1093,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               )
             else if (_biometricLoading)
-              const SizedBox(
+              SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(

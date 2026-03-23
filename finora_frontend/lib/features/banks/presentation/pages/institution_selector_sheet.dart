@@ -68,9 +68,9 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
       snap: true,
       builder: (_, scrollController) {
         return Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.backgroundLight,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             children: [
@@ -99,7 +99,7 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                         color: AppColors.primarySoft,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.account_balance_rounded,
                         color: AppColors.primary,
                         size: 20,
@@ -177,7 +177,7 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
+                      borderSide: BorderSide(
                         color: AppColors.primary,
                         width: 1.5,
                       ),
@@ -209,7 +209,7 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                   label: const Text('Añadir cuenta manual (sin banco)'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
+                    side: BorderSide(color: AppColors.primary),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -387,12 +387,12 @@ class _InstitutionTile extends StatelessWidget {
                   ? Image.network(
                       institution.logo!,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (_, __, ___) => Icon(
                         Icons.account_balance_rounded,
                         color: AppColors.primary,
                       ),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.account_balance_rounded,
                       color: AppColors.primary,
                     ),

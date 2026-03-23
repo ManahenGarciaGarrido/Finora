@@ -40,113 +40,119 @@ class _InviteMemberPageState extends State<InviteMemberPage> {
       title: Text(s.inviteMember, style: AppTypography.titleMedium()),
     );
     final body = SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Illustration
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: const Color(0xFF039BE5).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF039BE5).withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person_add_rounded,
-                      color: Color(0xFF039BE5),
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    s.inviteMember,
-                    style: AppTypography.titleMedium(
-                        color: const Color(0xFF039BE5)),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Illustration
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: const Color(0xFF039BE5).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(height: 24),
-
-            // Info card
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.primary, size: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      s.householdInviteInfo,
-                      style:
-                          AppTypography.bodySmall(color: AppColors.gray700),
-                    ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF039BE5).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            // Email field
-            Text(s.email,
-                style: AppTypography.labelSmall(color: AppColors.gray600)),
-            const SizedBox(height: 8),
-            Form(
-              key: _formKey,
-              child: TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                autofocus: true,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  hintText: 'correo@ejemplo.com',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  child: const Icon(
+                    Icons.person_add_rounded,
+                    color: Color(0xFF039BE5),
+                    size: 40,
                   ),
                 ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return s.enterAccountNameError;
-                  }
-                  if (!v.contains('@') || !v.contains('.')) {
-                    return s.invalidEmail;
-                  }
-                  return null;
-                },
-              ),
+                const SizedBox(height: 16),
+                Text(
+                  s.inviteMember,
+                  style: AppTypography.titleMedium(
+                    color: const Color(0xFF039BE5),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            const SizedBox(height: 32),
+          ),
+          const SizedBox(height: 24),
 
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: _invite,
-                icon: const Icon(Icons.send_rounded),
-                label: Text(s.inviteMember),
+          // Info card
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
               ),
             ),
-          ],
-        ),
-      );
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    s.householdInviteInfo,
+                    style: AppTypography.bodySmall(color: AppColors.gray700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // Email field
+          Text(
+            s.email,
+            style: AppTypography.labelSmall(color: AppColors.gray600),
+          ),
+          const SizedBox(height: 8),
+          Form(
+            key: _formKey,
+            child: TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.email_outlined),
+                hintText: 'correo@ejemplo.com',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) {
+                  return s.enterAccountNameError;
+                }
+                if (!v.contains('@') || !v.contains('.')) {
+                  return s.invalidEmail;
+                }
+                return null;
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: _invite,
+              icon: const Icon(Icons.send_rounded),
+              label: Text(s.inviteMember),
+            ),
+          ),
+        ],
+      ),
+    );
     if (responsive.isTablet) {
       return Scaffold(
         backgroundColor: AppColors.backgroundLight,

@@ -252,7 +252,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+            colorScheme: ColorScheme.light(
               primary: AppColors.primary,
               onPrimary: AppColors.white,
               surface: AppColors.white,
@@ -310,7 +310,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.camera_alt_rounded,
                     color: AppColors.primary,
                   ),
@@ -335,7 +335,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.photo_library_rounded,
                     color: AppColors.primary,
                   ),
@@ -1023,7 +1023,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              borderSide: BorderSide(color: AppColors.primary, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -1056,7 +1056,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.calendar_today_rounded,
                   color: AppColors.primary,
                   size: 20,
@@ -1372,7 +1372,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),
       hint: Text(

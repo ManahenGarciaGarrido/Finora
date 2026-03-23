@@ -144,21 +144,30 @@ router.post('/parse-csv', async (req, res) => {
   try {
     const rawLines = csv_content.trim().split(/\r?\n/);
 
-    // Detectar separador (coma, punto y coma, tabulador)
-    const firstLine = rawLines[0];
+    // Detectar separador escaneando las primeras líneas con contenido
+    // (no solo la primera, ya que muchos bancos empiezan con metadatos sin separador)
     let sep = ',';
-    if ((firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length) sep = ';';
-    else if ((firstLine.match(/\t/g) || []).length > 2) sep = '\t';
+    {
+      let semis = 0, commas = 0, tabs = 0;
+      for (const l of rawLines.slice(0, 15)) {
+        semis  += (l.match(/;/g)  || []).length;
+        commas += (l.match(/,/g)  || []).length;
+        tabs   += (l.match(/\t/g) || []).length;
+      }
+      if (tabs > 4) sep = '\t';
+      else if (semis > commas) sep = ';';
+    }
 
     // Saltar líneas de cabecera que no son datos (ej: resúmenes, logos de banco)
     let dataStart = 0;
-    for (let i = 0; i < Math.min(rawLines.length, 10); i++) {
+    for (let i = 0; i < Math.min(rawLines.length, 15); i++) {
       const cols = rawLines[i].split(sep);
       const lower = rawLines[i].toLowerCase();
-      if (cols.length >= 3 && (
+      if (cols.length >= 2 && (
         lower.includes('fecha') || lower.includes('date') ||
         lower.includes('importe') || lower.includes('amount') ||
-        lower.includes('concepto') || lower.includes('description')
+        lower.includes('concepto') || lower.includes('description') ||
+        lower.includes('movimiento') || lower.includes('valor')
       )) {
         dataStart = i;
         break;
@@ -224,8 +233,21 @@ router.post('/parse-csv', async (req, res) => {
 
     const parseAmount = (raw) => {
       if (!raw) return null;
-      const cleaned = raw.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-      const val = parseFloat(cleaned);
+      let s = raw.trim().replace(/\s/g, '').replace(/[€$£+]/g, '');
+      const hasDot   = s.includes('.');
+      const hasComma = s.includes(',');
+      if (hasDot && hasComma) {
+        // Ambos presentes: el último es el separador decimal
+        if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+          s = s.replace(/\./g, '').replace(',', '.'); // Formato español: 1.234,56
+        } else {
+          s = s.replace(/,/g, ''); // Formato inglés: 1,234.56
+        }
+      } else if (hasComma) {
+        s = s.replace(',', '.'); // Coma decimal: 50,00 → 50.00
+      }
+      // Solo puntos o ninguno: parseFloat lo maneja bien (50.00 → 50.00)
+      const val = parseFloat(s);
       return isNaN(val) ? null : val;
     };
 
@@ -335,8 +357,19 @@ router.post('/parse-pdf', async (req, res) => {
 
     const parseAmount = (raw) => {
       if (!raw) return null;
-      const cleaned = raw.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-      const val = parseFloat(cleaned);
+      let s = raw.trim().replace(/\s/g, '').replace(/[€$£+]/g, '');
+      const hasDot   = s.includes('.');
+      const hasComma = s.includes(',');
+      if (hasDot && hasComma) {
+        if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+          s = s.replace(/\./g, '').replace(',', '.');
+        } else {
+          s = s.replace(/,/g, '');
+        }
+      } else if (hasComma) {
+        s = s.replace(',', '.');
+      }
+      const val = parseFloat(s);
       return isNaN(val) ? null : val;
     };
 
