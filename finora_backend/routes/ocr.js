@@ -163,7 +163,7 @@ router.post('/parse-csv', async (req, res) => {
     for (let i = 0; i < Math.min(rawLines.length, 15); i++) {
       const cols = rawLines[i].split(sep);
       const lower = rawLines[i].toLowerCase();
-      if (cols.length >= 2 && (
+      if (cols.length >= 3 && (
         lower.includes('fecha') || lower.includes('date') ||
         lower.includes('importe') || lower.includes('amount') ||
         lower.includes('concepto') || lower.includes('description') ||
