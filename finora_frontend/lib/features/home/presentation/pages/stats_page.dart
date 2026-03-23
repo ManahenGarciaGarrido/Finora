@@ -743,7 +743,7 @@ class _StatsPageState extends State<StatsPage>
             title: s.income,
             amount: income,
             icon: Icons.south_west_rounded,
-            color: AppColors.success,
+            color: AppColors.income,
             count: count,
           ),
         ),
@@ -753,7 +753,7 @@ class _StatsPageState extends State<StatsPage>
             title: s.expenses,
             amount: expenses,
             icon: Icons.north_east_rounded,
-            color: AppColors.error,
+            color: AppColors.expense,
             count: count,
           ),
         ),
@@ -872,12 +872,12 @@ class _StatsPageState extends State<StatsPage>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
+                  color: AppColors.expense.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   _fmtCurrency(total),
-                  style: AppTypography.titleSmall(color: AppColors.error),
+                  style: AppTypography.titleSmall(color: AppColors.expense),
                 ),
               ),
             ],
@@ -1138,7 +1138,7 @@ class _StatsPageState extends State<StatsPage>
               Text(s.monthlyComparative, style: AppTypography.titleMedium()),
               Row(
                 children: [
-                  _dot(AppColors.success),
+                  _dot(AppColors.income),
                   const SizedBox(width: 4),
                   Text(
                     s.inc,
@@ -1147,7 +1147,7 @@ class _StatsPageState extends State<StatsPage>
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _dot(AppColors.error),
+                  _dot(AppColors.expense),
                   const SizedBox(width: 4),
                   Text(
                     s.exp,
@@ -1253,7 +1253,7 @@ class _StatsPageState extends State<StatsPage>
                             barRods: [
                               BarChartRodData(
                                 toY: d.income * _animValue.value,
-                                color: AppColors.success,
+                                color: AppColors.income,
                                 width: barW,
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(4),
@@ -1261,7 +1261,7 @@ class _StatsPageState extends State<StatsPage>
                               ),
                               BarChartRodData(
                                 toY: d.expenses * _animValue.value,
-                                color: AppColors.error,
+                                color: AppColors.expense,
                                 width: barW,
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(4),
@@ -1318,8 +1318,8 @@ class _StatsPageState extends State<StatsPage>
             spacing: 14,
             runSpacing: 6,
             children: [
-              _legendLine(AppColors.success, s.incomes),
-              _legendLine(AppColors.error, s.expenses),
+              _legendLine(AppColors.income, s.incomes),
+              _legendLine(AppColors.expense, s.expenses),
               _legendLine(AppColors.primary, s.balance),
               if (months.length >= 2)
                 _legendDash(AppColors.warning, s.spendingTrend),
@@ -1483,7 +1483,7 @@ class _StatsPageState extends State<StatsPage>
                                       ),
                                     )
                                     .toList(),
-                                AppColors.success,
+                                AppColors.income,
                                 isCurved: true,
                                 showArea: true,
                               ),
@@ -1498,7 +1498,7 @@ class _StatsPageState extends State<StatsPage>
                                       ),
                                     )
                                     .toList(),
-                                AppColors.error,
+                                AppColors.expense,
                                 isCurved: true,
                                 showArea: true,
                               ),

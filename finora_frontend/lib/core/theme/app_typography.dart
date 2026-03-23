@@ -225,7 +225,7 @@ class AppTypography {
         fontWeight: semiBold,
         height: 1.43,
         letterSpacing: 0,
-        color: color ?? (positive ? AppColors.success : AppColors.error),
+        color: color ?? (positive ? AppColors.income : AppColors.expense),
       );
 
   /// Estilo para links

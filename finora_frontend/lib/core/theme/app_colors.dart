@@ -129,7 +129,7 @@ class AppColors {
   static Color get backgroundLight =>
       ThemeService().currentPalette.backgroundLight;
   static Color get surfaceLight => ThemeService().currentPalette.surface;
-  static const Color cardLight = Color(0xFFFFFFFF);
+  static Color get cardLight => ThemeService().currentPalette.primarySoft;
 
   /// Fondo oscuro
   static const Color backgroundDark = Color(0xFF0F172A);

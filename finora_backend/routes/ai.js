@@ -333,7 +333,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
                 description, TO_CHAR(date,'DD/MM/YYYY') AS date
          FROM transactions
          WHERE user_id=$1 AND date>=$2
-         ORDER BY date DESC LIMIT 15`,
+         ORDER BY date DESC LIMIT 10`,
         [userId, start3m.toISOString().split('T')[0]],
       ),
     ]);
@@ -382,9 +382,9 @@ siempre una recomendación accionable.`;
     }
     messages.push({ role: 'user', content: message });
 
-    // Timeout de 60s — suficiente para CPU, evita colgar la request indefinidamente
+    // Timeout de 90s — margen para CPU lenta
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000);
+    const timer = setTimeout(() => controller.abort(), 90000);
 
     const ollamaRes = await fetch(`${ollamaUrl}/api/chat`, {
       method: 'POST',
@@ -395,9 +395,9 @@ siempre una recomendación accionable.`;
         messages,
         stream: false,
         options: {
-          temperature: 0.7,
-          num_predict: 400,   // ~300 palabras — suficiente y más rápido
-          num_ctx: 2048,      // ventana de contexto reducida para más velocidad en CPU
+          temperature: 0.3,   // más determinista → genera más rápido
+          num_predict: 200,   // ~150 palabras — respuestas cortas y ágiles
+          num_ctx: 1024,      // ventana más pequeña → menos memoria, más velocidad
           repeat_penalty: 1.1,
         },
       }),
