@@ -10,6 +10,7 @@ abstract class OcrRepository {
     String? category,
   });
   Future<CsvPreviewEntity> parseCsv(String csvContent);
+  Future<CsvPreviewEntity> parsePdf(String pdfBase64);
   Future<Map<String, dynamic>> importCsvRows(
     List<CsvRowEntity> rows, {
     bool skipDuplicates,

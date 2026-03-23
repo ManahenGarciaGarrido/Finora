@@ -522,47 +522,6 @@ router.post('/check-anomaly', authenticateToken, async (req, res) => {
   }
 });
 
-// ── POST /api/v1/ai/chat ──────────────────────────────────────────────────────
-/**
- * RF-25 / HU-12 / CU-04: Asistente conversacional IA financiero.
- *
- * Recibe el mensaje del usuario y el historial de conversación, adjunta el
- * contexto financiero (últimas transacciones) y lo reenvía al microservicio AI.
- *
- * Body: { "message": string, "history": [{ "role": "user"|"assistant", "content": string }] }
- *
- * Returns: { "response": string, "intent": string, "context": object }
- */
-router.post('/chat', authenticateToken, async (req, res) => {
-  try {
-    const { message, history = [], language } = req.body;
-    if (!message) {
-      return res.status(400).json({ error: 'El campo message es requerido.' });
-    }
-
-    // Adjuntar contexto financiero del usuario (últimos 3 meses)
-    const transactions = await getUserTransactions(req.user.userId, 3);
-    const monthlyIncome = await getMonthlyIncomeAverage(req.user.userId, 3);
-
-    const aiResult = await callAiService('/chat', {
-      message,
-      history,
-      transactions,
-      monthly_income: monthlyIncome,
-      language: language || 'es',
-    }, 30000);
-
-    return res.json(aiResult);
-  } catch (err) {
-    console.error('[RF-25] chat error:', err.message);
-    return res.status(503).json({
-      error: 'Servicio de chat no disponible temporalmente.',
-      detail: err.message,
-    });
-  }
-});
-
-
 // ── GET /api/v1/ai/context ────────────────────────────────────────────────────
 /**
  * Devuelve un snapshot financiero resumido del usuario para que el cliente

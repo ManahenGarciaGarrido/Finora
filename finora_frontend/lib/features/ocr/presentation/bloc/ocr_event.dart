@@ -30,3 +30,8 @@ class ImportCsvRows extends OcrEvent {
   final bool skipDuplicates;
   const ImportCsvRows(this.rows, {this.skipDuplicates = true});
 }
+
+class ParsePdf extends OcrEvent {
+  final String pdfBase64;
+  const ParsePdf(this.pdfBase64);
+}

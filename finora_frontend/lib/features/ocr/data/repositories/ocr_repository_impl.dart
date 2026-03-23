@@ -29,6 +29,10 @@ class OcrRepositoryImpl implements OcrRepository {
       _ds.parseCsv(csvContent);
 
   @override
+  Future<CsvPreviewEntity> parsePdf(String pdfBase64) =>
+      _ds.parsePdf(pdfBase64);
+
+  @override
   Future<Map<String, dynamic>> importCsvRows(
     List<CsvRowEntity> rows, {
     bool skipDuplicates = true,
