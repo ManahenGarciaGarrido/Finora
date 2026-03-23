@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const db = require('../services/db');
+let pdfParse;
+try { pdfParse = require('pdf-parse'); } catch (_) { pdfParse = null; }
 
 router.use(authenticateToken);
 
@@ -298,6 +300,94 @@ router.post('/import-csv', async (req, res) => {
   }
 
   res.json({ imported, skipped, errors: errors.slice(0, 10) });
+});
+
+// POST /ocr/parse-pdf  – extract transactions from a PDF bank statement
+// Body: { pdf_base64: string }
+router.post('/parse-pdf', async (req, res) => {
+  const { pdf_base64 } = req.body;
+  if (!pdf_base64) return res.status(400).json({ error: 'pdf_base64 required' });
+  if (!pdfParse) return res.status(503).json({ error: 'pdf-parse not installed. Run npm install.' });
+
+  try {
+    const buffer = Buffer.from(pdf_base64, 'base64');
+    const data = await pdfParse(buffer);
+    const text = data.text || '';
+
+    const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+    // Detect if any line has a date pattern + amount pattern → likely a bank statement table
+    const datePattern = /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/;
+    const amountPattern = /[-+]?\d{1,6}[.,]\d{2}/;
+
+    const parseSpanishDate = (raw) => {
+      if (!raw) return null;
+      const m1 = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+      if (m1) {
+        const [, d, mo, y] = m1;
+        const yr = y.length === 2 ? `20${y}` : y;
+        return `${yr}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      }
+      const m2 = raw.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
+      if (m2) return raw;
+      return null;
+    };
+
+    const parseAmount = (raw) => {
+      if (!raw) return null;
+      const cleaned = raw.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+      const val = parseFloat(cleaned);
+      return isNaN(val) ? null : val;
+    };
+
+    const rows = [];
+    let idx = 0;
+
+    for (const line of rawLines) {
+      // Find date token in line
+      const dateMatch = line.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
+      // Find all amount tokens in line
+      const amountMatches = [...line.matchAll(/([-+]?\d{1,6}[.,]\d{2})/g)];
+      if (!dateMatch || amountMatches.length === 0) continue;
+
+      const date = parseSpanishDate(dateMatch[1]);
+      if (!date) continue;
+
+      // Use the last amount match (usually the transaction amount, not balance)
+      const rawAmt = amountMatches[amountMatches.length - 1][1];
+      const amount = parseAmount(rawAmt);
+      if (amount === null || Math.abs(amount) === 0) continue;
+
+      // Build description: remove date and amount tokens from line, take what remains
+      let desc = line
+        .replace(dateMatch[0], '')
+        .replace(new RegExp(amountMatches.map(m => m[1].replace(/[.+\-]/g, '\\$&')).join('|'), 'g'), '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 80);
+
+      if (!desc) desc = 'Movimiento importado';
+
+      rows.push({
+        index: idx++,
+        date,
+        description: desc,
+        amount: Math.abs(amount),
+        type: amount < 0 ? 'expense' : 'income',
+        raw: [line],
+      });
+    }
+
+    res.json({
+      headers: ['fecha', 'concepto', 'importe'],
+      rows: rows.slice(0, 200),
+      total_rows: rows.length,
+      column_mapping: { date: 0, description: 1, amount: 2 },
+      separator: 'pdf',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

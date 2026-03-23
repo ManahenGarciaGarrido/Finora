@@ -11,6 +11,7 @@ abstract class OcrRemoteDataSource {
     String? category,
   });
   Future<CsvPreviewModel> parseCsv(String csvContent);
+  Future<CsvPreviewModel> parsePdf(String pdfBase64);
   Future<Map<String, dynamic>> importCsvRows(
     List<CsvRowEntity> rows, {
     bool skipDuplicates,
@@ -55,6 +56,15 @@ class OcrRemoteDataSourceImpl implements OcrRemoteDataSource {
   }
 
   @override
+  Future<CsvPreviewModel> parsePdf(String pdfBase64) async {
+    final res = await _client.post(
+      '/ocr/parse-pdf',
+      data: {'pdf_base64': pdfBase64},
+    );
+    return CsvPreviewModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  @override
   Future<Map<String, dynamic>> importCsvRows(
     List<CsvRowEntity> rows, {
     bool skipDuplicates = true,
@@ -68,6 +78,7 @@ class OcrRemoteDataSourceImpl implements OcrRemoteDataSource {
                 'amount': r.amount,
                 'date': r.date,
                 'description': r.description,
+                'type': r.amount >= 0 ? 'expense' : 'income',
               },
             )
             .toList(),

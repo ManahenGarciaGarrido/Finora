@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +12,13 @@ class AppThemePalette {
   final Color primarySoft;
   final Color secondary;
   final Color accent;
+  // Semantic colors (with defaults matching AppColors)
+  final Color success;
+  final Color error;
+  final Color income;
+  final Color expense;
+  final Color backgroundLight;
+  final Color surface;
   final LinearGradient primaryGradient;
   final LinearGradient cardGradient;
 
@@ -23,9 +31,71 @@ class AppThemePalette {
     required this.primarySoft,
     required this.secondary,
     required this.accent,
+    this.success = const Color(0xFF059669),
+    this.error = const Color(0xFFDC2626),
+    this.income = const Color(0xFF059669),
+    this.expense = const Color(0xFFDC2626),
+    this.backgroundLight = const Color(0xFFF8FAFC),
+    this.surface = const Color(0xFFFFFFFF),
     required this.primaryGradient,
     required this.cardGradient,
   });
+
+  /// Serialise to JSON map (for SharedPreferences)
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'primary': primary.toARGB32(),
+    'primaryLight': primaryLight.toARGB32(),
+    'primaryDark': primaryDark.toARGB32(),
+    'primarySoft': primarySoft.toARGB32(),
+    'secondary': secondary.toARGB32(),
+    'accent': accent.toARGB32(),
+    'success': success.toARGB32(),
+    'error': error.toARGB32(),
+    'income': income.toARGB32(),
+    'expense': expense.toARGB32(),
+    'backgroundLight': backgroundLight.toARGB32(),
+    'surface': surface.toARGB32(),
+    'gradStart': primaryGradient.colors.first.toARGB32(),
+    'gradEnd': primaryGradient.colors.last.toARGB32(),
+    'cardStart': cardGradient.colors.first.toARGB32(),
+    'cardEnd': cardGradient.colors.last.toARGB32(),
+  };
+
+  factory AppThemePalette.fromJson(Map<String, dynamic> j) {
+    Color c(String k, int def) => Color(j[k] is int ? j[k] as int : def);
+    final gradStart = c('gradStart', 0xFF0F172A);
+    final gradEnd = c('gradEnd', 0xFF334155);
+    final cardStart = c('cardStart', 0xFF1E40AF);
+    final cardEnd = c('cardEnd', 0xFF1E3A8A);
+    return AppThemePalette(
+      id: j['id']?.toString() ?? 'custom',
+      name: j['name']?.toString() ?? 'Personalizado',
+      primary: c('primary', 0xFF0F172A),
+      primaryLight: c('primaryLight', 0xFF334155),
+      primaryDark: c('primaryDark', 0xFF020617),
+      primarySoft: c('primarySoft', 0xFFF1F5F9),
+      secondary: c('secondary', 0xFF059669),
+      accent: c('accent', 0xFF475569),
+      success: c('success', 0xFF059669),
+      error: c('error', 0xFFDC2626),
+      income: c('income', 0xFF059669),
+      expense: c('expense', 0xFFDC2626),
+      backgroundLight: c('backgroundLight', 0xFFF8FAFC),
+      surface: c('surface', 0xFFFFFFFF),
+      primaryGradient: LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [gradStart, gradEnd],
+      ),
+      cardGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [cardStart, cardEnd],
+      ),
+    );
+  }
 }
 
 /// Servicio de temas — gestiona la paleta activa y la persiste.
@@ -260,6 +330,8 @@ class ThemeService {
     ),
   ];
 
+  static const String _customPrefKey = 'app_custom_palette';
+
   List<AppThemePalette> get palettes => List.unmodifiable(_palettes);
 
   AppThemePalette? getPaletteById(String id) {
@@ -274,6 +346,16 @@ class ThemeService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final id = prefs.getString(_prefKey) ?? 'navy';
+      if (id == 'custom') {
+        final customJson = prefs.getString(_customPrefKey);
+        if (customJson != null) {
+          final palette = AppThemePalette.fromJson(
+            Map<String, dynamic>.from(jsonDecode(customJson) as Map),
+          );
+          paletteNotifier.value = palette;
+          return;
+        }
+      }
       final palette = getPaletteById(id) ?? _palettes.first;
       paletteNotifier.value = palette;
     } catch (_) {}
@@ -287,5 +369,29 @@ class ThemeService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefKey, id);
     } catch (_) {}
+  }
+
+  /// Saves and applies a fully custom palette
+  Future<void> setCustomPalette(AppThemePalette palette) async {
+    paletteNotifier.value = palette;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefKey, 'custom');
+      await prefs.setString(_customPrefKey, jsonEncode(palette.toJson()));
+    } catch (_) {}
+  }
+
+  /// Returns the saved custom palette, or null if none saved
+  Future<AppThemePalette?> loadCustomPalette() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString(_customPrefKey);
+      if (json == null) return null;
+      return AppThemePalette.fromJson(
+        Map<String, dynamic>.from(jsonDecode(json) as Map),
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }

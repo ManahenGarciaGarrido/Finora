@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -74,6 +76,17 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
             setState(() => _extracted = null);
           } else if (state is CsvParsed) {
             setState(() => _csvPreview = state.preview);
+            if (state.preview.rows.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'No se detectaron transacciones. Comprueba que el archivo tiene columnas de fecha, concepto e importe.',
+                  ),
+                  backgroundColor: AppColors.warning,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            }
           } else if (state is CsvImported) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -274,17 +287,31 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
                 const SizedBox(height: 4),
                 Text(
                   'BBVA · Santander · CaixaBank · ING · Bankinter · Sabadell · '
-                  'Openbank · N26 · Revolut · y cualquier CSV/TXT con columnas de fecha, concepto e importe.',
+                  'Openbank · N26 · Revolut · y cualquier CSV, TXT o PDF bancario.',
                   style: AppTypography.bodySmall(color: AppColors.infoDark),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () => _pickCsv(ctx),
-            icon: const Icon(Icons.upload_file_rounded),
-            label: Text(s.selectFile),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickCsv(ctx),
+                  icon: const Icon(Icons.table_chart_rounded),
+                  label: const Text('CSV / TXT'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickPdf(ctx),
+                  icon: const Icon(Icons.picture_as_pdf_rounded),
+                  label: const Text('PDF Bancario'),
+                ),
+              ),
+            ],
           ),
           if (_csvPreview != null) ...[
             const SizedBox(height: 16),
@@ -442,32 +469,64 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv', 'txt'],
+        withData: true,
       );
       if (result == null || result.files.isEmpty) return;
 
-      // Leer el archivo - intentar bytes primero, luego path
       String? content;
-      if (result.files.first.bytes != null) {
-        // Intentar UTF-8 primero, luego latin1 para bancos españoles
+      final bytes = result.files.first.bytes;
+      final path = result.files.first.path;
+
+      if (bytes != null) {
+        // UTF-8 primero, latin-1 (ISO-8859-1) como fallback (bancos españoles)
         try {
-          content = String.fromCharCodes(result.files.first.bytes!);
+          content = utf8.decode(bytes);
         } catch (_) {
-          content = String.fromCharCodes(result.files.first.bytes!);
+          content = latin1.decode(bytes);
         }
-      } else if (result.files.first.path != null) {
-        final file = File(result.files.first.path!);
+      } else if (path != null) {
+        final file = File(path);
         try {
-          content = await file.readAsString();
+          content = await file.readAsString(encoding: utf8);
         } catch (_) {
-          // Intentar con latin1 encoding (común en bancos españoles)
-          final bytes = await file.readAsBytes();
-          content = String.fromCharCodes(bytes);
+          final raw = await file.readAsBytes();
+          try {
+            content = utf8.decode(raw, allowMalformed: false);
+          } catch (_) {
+            content = latin1.decode(raw);
+          }
         }
       }
 
       if (content == null || content.trim().isEmpty) return;
       if (!ctx.mounted) return;
       ctx.read<OcrBloc>().add(ParseCsv(content));
+    } catch (e) {
+      if (!ctx.mounted) return;
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
+  Future<void> _pickPdf(BuildContext ctx) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      Uint8List? bytes = result.files.first.bytes;
+      if (bytes == null && result.files.first.path != null) {
+        bytes = await File(result.files.first.path!).readAsBytes();
+      }
+      if (bytes == null) return;
+
+      final base64Content = base64Encode(bytes);
+      if (!ctx.mounted) return;
+      ctx.read<OcrBloc>().add(ParsePdf(base64Content));
     } catch (e) {
       if (!ctx.mounted) return;
       ScaffoldMessenger.of(ctx).showSnackBar(

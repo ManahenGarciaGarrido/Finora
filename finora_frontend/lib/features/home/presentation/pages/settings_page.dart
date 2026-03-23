@@ -17,6 +17,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/theme_service.dart';
+import 'theme_customization_page.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../../../core/network/api_client.dart';
@@ -273,6 +274,18 @@ class _SettingsPageState extends State<SettingsPage> {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const BudgetPage()),
+                    ),
+                  ),
+                  _divider(),
+                  _buildSettingsRow(
+                    icon: Icons.palette_rounded,
+                    title: 'Personalizar colores',
+                    subtitle: 'Cambia la paleta de colores de toda la app',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ThemeCustomizationPage(),
+                      ),
                     ),
                   ),
                 ],
@@ -684,6 +697,20 @@ class _SettingsPageState extends State<SettingsPage> {
                         'Tema actual: ${ThemeService().palettes.firstWhere((p) => p.id == _currentThemeId, orElse: () => ThemeService().palettes.first).name}',
                         style: AppTypography.bodySmall(
                           color: AppColors.textSecondaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ThemeCustomizationPage(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.tune_rounded, size: 18),
+                        label: const Text('Personalización avanzada'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 40),
                         ),
                       ),
                     ],

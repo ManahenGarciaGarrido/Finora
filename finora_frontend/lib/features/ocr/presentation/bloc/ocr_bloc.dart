@@ -11,6 +11,7 @@ class OcrBloc extends Bloc<OcrEvent, OcrState> {
     on<ExtractReceiptText>(_onExtract);
     on<ImportReceipt>(_onImportReceipt);
     on<ParseCsv>(_onParseCsv);
+    on<ParsePdf>(_onParsePdf);
     on<ImportCsvRows>(_onImportCsv);
   }
 
@@ -43,6 +44,16 @@ class OcrBloc extends Bloc<OcrEvent, OcrState> {
     emit(const OcrLoading());
     try {
       final preview = await _repo.parseCsv(e.csvContent);
+      emit(CsvParsed(preview));
+    } catch (err) {
+      emit(OcrError(_msg(err)));
+    }
+  }
+
+  Future<void> _onParsePdf(ParsePdf e, Emitter<OcrState> emit) async {
+    emit(const OcrLoading());
+    try {
+      final preview = await _repo.parsePdf(e.pdfBase64);
       emit(CsvParsed(preview));
     } catch (err) {
       emit(OcrError(_msg(err)));
