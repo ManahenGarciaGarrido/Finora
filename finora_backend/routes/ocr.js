@@ -158,17 +158,17 @@ router.post('/parse-csv', async (req, res) => {
       else if (semis > commas) sep = ';';
     }
 
-    // Saltar líneas de cabecera que no son datos (ej: resúmenes, logos de banco)
+    // Saltar líneas de metadatos hasta encontrar la cabecera real de datos.
+    // Requisito: la línea debe tener TANTO una columna de fecha COMO una columna
+    // de importe o descripción (evita confundir "Fecha inicio;01/01/2026" con cabecera).
     let dataStart = 0;
-    for (let i = 0; i < Math.min(rawLines.length, 15); i++) {
+    for (let i = 0; i < Math.min(rawLines.length, 25); i++) {
       const cols = rawLines[i].split(sep);
       const lower = rawLines[i].toLowerCase();
-      if (cols.length >= 3 && (
-        lower.includes('fecha') || lower.includes('date') ||
-        lower.includes('importe') || lower.includes('amount') ||
-        lower.includes('concepto') || lower.includes('description') ||
-        lower.includes('movimiento') || lower.includes('valor')
-      )) {
+      const hasDateKw   = lower.includes('fecha') || lower.includes('date') || lower.includes('f.valor') || lower.includes('f. valor');
+      const hasAmountKw = lower.includes('importe') || lower.includes('amount') || lower.includes('cargo') || lower.includes('abono') || lower.includes('movimiento');
+      const hasDescKw   = lower.includes('concepto') || lower.includes('descripci') || lower.includes('beneficiario') || lower.includes('comercio');
+      if (cols.length >= 2 && hasDateKw && (hasAmountKw || hasDescKw)) {
         dataStart = i;
         break;
       }
@@ -200,11 +200,12 @@ router.post('/parse-csv', async (req, res) => {
     const headers = splitLine(lines[0]).map(h => h.replace(/"/g, '').trim().toLowerCase());
     const map = header_map || {};
 
-    // Detección automática de columnas para bancos españoles comunes
+    // Detección automática de columnas para bancos españoles comunes.
+    // NOTA: 'saldo' NO se incluye porque es el saldo acumulado, no el importe de la operación.
     const amountIdx = map.amount !== undefined ? map.amount
       : headers.findIndex(h =>
-          h.includes('importe') || h.includes('amount') || h.includes('valor') ||
-          h.includes('cargo') || h.includes('abono') || h.includes('saldo') && h !== 'saldo final' ||
+          h.includes('importe') || h.includes('amount') ||
+          h.includes('cargo') || h.includes('abono') ||
           h === 'movimiento');
     const dateIdx = map.date !== undefined ? map.date
       : headers.findIndex(h =>
@@ -233,7 +234,13 @@ router.post('/parse-csv', async (req, res) => {
 
     const parseAmount = (raw) => {
       if (!raw) return null;
-      let s = raw.trim().replace(/\s/g, '').replace(/[€$£+]/g, '');
+      // Normaliza: elimina espacios (incl. no-break), símbolo de moneda, +
+      // y convierte el signo menos Unicode (U+2212 −, usado por Santander y otros bancos)
+      // al guión ASCII estándar que acepta parseFloat.
+      let s = raw.trim()
+        .replace(/[\u00A0\u202F\u2009]/g, '')   // espacios especiales (separadores de miles)
+        .replace(/\u2212/g, '-')                  // minus sign Unicode → ASCII minus
+        .replace(/[€$£+]/g, '');
       const hasDot   = s.includes('.');
       const hasComma = s.includes(',');
       if (hasDot && hasComma) {
@@ -246,7 +253,6 @@ router.post('/parse-csv', async (req, res) => {
       } else if (hasComma) {
         s = s.replace(',', '.'); // Coma decimal: 50,00 → 50.00
       }
-      // Solo puntos o ninguno: parseFloat lo maneja bien (50.00 → 50.00)
       const val = parseFloat(s);
       return isNaN(val) ? null : val;
     };
@@ -357,7 +363,10 @@ router.post('/parse-pdf', async (req, res) => {
 
     const parseAmount = (raw) => {
       if (!raw) return null;
-      let s = raw.trim().replace(/\s/g, '').replace(/[€$£+]/g, '');
+      let s = raw.trim()
+        .replace(/[\u00A0\u202F\u2009]/g, '')
+        .replace(/\u2212/g, '-')
+        .replace(/[€$£+]/g, '');
       const hasDot   = s.includes('.');
       const hasComma = s.includes(',');
       if (hasDot && hasComma) {

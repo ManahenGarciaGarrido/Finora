@@ -846,7 +846,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -922,7 +922,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: AppColors.cardLight,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.gray100),
           ),

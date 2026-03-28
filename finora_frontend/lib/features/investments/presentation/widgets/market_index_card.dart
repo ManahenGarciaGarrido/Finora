@@ -31,7 +31,7 @@ class MarketIndexCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.gray200),
         boxShadow: [

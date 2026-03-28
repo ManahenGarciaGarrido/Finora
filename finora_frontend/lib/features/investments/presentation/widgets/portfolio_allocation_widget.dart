@@ -26,7 +26,7 @@ class PortfolioAllocationWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.primarySoft,
+            color: AppColors.cardLight,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(

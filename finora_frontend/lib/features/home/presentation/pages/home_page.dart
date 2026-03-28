@@ -125,10 +125,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           _buildExtendedNavigationRail(context),
           // Separador visual entre rail y contenido
-          Container(
-            width: 1,
-            color: AppColors.gray100,
-          ),
+          Container(width: 1, color: AppColors.gray100),
           Expanded(
             child: IndexedStack(index: _selectedNavIndex, children: _pages),
           ),
@@ -173,8 +170,9 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(width: 10),
                 Text(
                   'Finora',
-                  style: AppTypography.titleLarge(color: AppColors.primary)
-                      .copyWith(fontWeight: FontWeight.w700, fontSize: 20),
+                  style: AppTypography.titleLarge(
+                    color: AppColors.primary,
+                  ).copyWith(fontWeight: FontWeight.w700, fontSize: 20),
                 ),
               ],
             ),
@@ -192,7 +190,9 @@ class _HomePageState extends State<HomePage> {
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.white,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -201,8 +201,9 @@ class _HomePageState extends State<HomePage> {
                 icon: const Icon(Icons.add_rounded, size: 20),
                 label: Text(
                   s.addTransaction,
-                  style: AppTypography.labelMedium(color: AppColors.white)
-                      .copyWith(fontWeight: FontWeight.w600),
+                  style: AppTypography.labelMedium(
+                    color: AppColors.white,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -291,27 +292,29 @@ class _HomePageState extends State<HomePage> {
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
                 Icon(
                   isSelected ? activeIcon : icon,
-                  color:
-                      isSelected ? AppColors.primary : AppColors.textSecondaryLight,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.textSecondaryLight,
                   size: 22,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   label,
-                  style: AppTypography.bodyMedium(
-                    color: isSelected
-                        ? AppColors.primary
-                        : AppColors.textSecondaryLight,
-                  ).copyWith(
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.w400,
-                  ),
+                  style:
+                      AppTypography.bodyMedium(
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondaryLight,
+                      ).copyWith(
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
                 ),
               ],
             ),
@@ -325,7 +328,7 @@ class _HomePageState extends State<HomePage> {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
-      color: AppColors.white,
+      color: AppColors.cardLight,
       elevation: 8,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),

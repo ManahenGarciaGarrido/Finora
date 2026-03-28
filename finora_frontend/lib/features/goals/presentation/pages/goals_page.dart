@@ -35,9 +35,9 @@ class _GoalsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppLocalizations.of(context);
     return Scaffold(
-      backgroundColor: AppColors.gray50,
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.surfaceLight,
         elevation: 0,
         title: Text(s.savingsGoals, style: AppTypography.titleMedium()),
         actions: [
@@ -229,7 +229,7 @@ class _GoalCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.gray100),
           boxShadow: [
@@ -372,7 +372,8 @@ class _GoalCard extends StatelessWidget {
     bloc.add(const LoadGoals());
   }
 
-  static String _formatCurrency(double amount) => CurrencyService().format(amount);
+  static String _formatCurrency(double amount) =>
+      CurrencyService().format(amount);
 
   static String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';

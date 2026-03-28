@@ -26,10 +26,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        title,
-        style: AppTypography.titleSmall(),
-      ),
+      child: Text(title, style: AppTypography.titleSmall()),
     );
   }
 }
@@ -68,8 +65,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
     final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
     return BlocProvider(
-      create: (ctx) =>
-          di.sl<InvestmentBloc>()..add(const LoadProfile()),
+      create: (ctx) => di.sl<InvestmentBloc>()..add(const LoadProfile()),
       child: BlocConsumer<InvestmentBloc, InvestmentState>(
         listener: (ctx, state) {
           if (state is ProfileLoaded) {
@@ -79,9 +75,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
             });
           } else if (state is ProfileSaved) {
             setState(() => _profile = state.profile);
-            ctx
-                .read<InvestmentBloc>()
-                .add(const LoadPortfolioSuggestion());
+            ctx.read<InvestmentBloc>().add(const LoadPortfolioSuggestion());
           } else if (state is PortfolioLoaded) {
             setState(() {
               _portfolio = state.suggestion;
@@ -112,15 +106,19 @@ class _InvestmentsPageState extends State<InvestmentsPage>
             appBar: AppBar(
               backgroundColor: AppColors.surfaceLight,
               elevation: 0,
-              title: Text(s.investmentsTitle,
-                  style: AppTypography.titleMedium()),
+              title: Text(
+                s.investmentsTitle,
+                style: AppTypography.titleMedium(),
+              ),
               leading: const BackButton(),
               bottom: TabBar(
                 controller: _tabs,
                 labelColor: AppColors.primary,
                 indicatorColor: AppColors.primary,
                 isScrollable: !responsive.isTablet,
-                tabAlignment: responsive.isTablet ? TabAlignment.fill : TabAlignment.start,
+                tabAlignment: responsive.isTablet
+                    ? TabAlignment.fill
+                    : TabAlignment.start,
                 tabs: [
                   Tab(text: s.investorProfileTab),
                   Tab(text: s.portfolioTab),
@@ -129,9 +127,9 @@ class _InvestmentsPageState extends State<InvestmentsPage>
                 ],
                 onTap: (i) {
                   if (i == 1 && _portfolio == null && _profile != null) {
-                    ctx
-                        .read<InvestmentBloc>()
-                        .add(const LoadPortfolioSuggestion());
+                    ctx.read<InvestmentBloc>().add(
+                      const LoadPortfolioSuggestion(),
+                    );
                   }
                   if (i == 3 && _indices.isEmpty) {
                     ctx.read<InvestmentBloc>().add(const LoadIndices());
@@ -174,13 +172,17 @@ class _InvestmentsPageState extends State<InvestmentsPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.person_outline_rounded,
-                  color: AppColors.gray400, size: 64),
+              Icon(
+                Icons.person_outline_rounded,
+                color: AppColors.gray400,
+                size: 64,
+              ),
               const SizedBox(height: 16),
-              Text(s.noProfile,
-                  style:
-                      AppTypography.bodyMedium(color: AppColors.gray500),
-                  textAlign: TextAlign.center),
+              Text(
+                s.noProfile,
+                style: AppTypography.bodyMedium(color: AppColors.gray500),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: () => _openQuiz(ctx, s),
@@ -193,17 +195,21 @@ class _InvestmentsPageState extends State<InvestmentsPage>
       );
     }
 
-    final riskLabel = {
-      'conservative': s.profileConservative,
-      'moderate': s.profileModerate,
-      'aggressive': s.profileAggressive,
-    }[_profile!.riskTolerance] ?? _profile!.riskTolerance;
+    final riskLabel =
+        {
+          'conservative': s.profileConservative,
+          'moderate': s.profileModerate,
+          'aggressive': s.profileAggressive,
+        }[_profile!.riskTolerance] ??
+        _profile!.riskTolerance;
 
-    final horizonLabel = {
-      'short': s.shortTerm,
-      'medium': s.mediumTerm,
-      'long': s.longTerm,
-    }[_profile!.investmentHorizon] ?? _profile!.investmentHorizon;
+    final horizonLabel =
+        {
+          'short': s.shortTerm,
+          'medium': s.mediumTerm,
+          'long': s.longTerm,
+        }[_profile!.investmentHorizon] ??
+        _profile!.investmentHorizon;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -244,8 +250,26 @@ class _InvestmentsPageState extends State<InvestmentsPage>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTypography.bodyMedium(color: AppColors.gray600)),
-        Text(value, style: AppTypography.titleSmall()),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTypography.bodyMedium(color: AppColors.gray600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+
+        const SizedBox(width: 12),
+
+        Flexible(
+          child: Text(
+            value,
+            style: AppTypography.titleSmall(),
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
@@ -258,13 +282,17 @@ class _InvestmentsPageState extends State<InvestmentsPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.pie_chart_outline_rounded,
-                  color: AppColors.gray400, size: 56),
+              Icon(
+                Icons.pie_chart_outline_rounded,
+                color: AppColors.gray400,
+                size: 56,
+              ),
               const SizedBox(height: 16),
-              Text(s.profileRequired,
-                  style:
-                      AppTypography.bodyMedium(color: AppColors.gray500),
-                  textAlign: TextAlign.center),
+              Text(
+                s.profileRequired,
+                style: AppTypography.bodyMedium(color: AppColors.gray500),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -280,7 +308,11 @@ class _InvestmentsPageState extends State<InvestmentsPage>
     return const ReturnSimulatorWidget();
   }
 
-  Widget _buildMarketsTab(BuildContext ctx, dynamic s, [ResponsiveUtils? responsive]) {
+  Widget _buildMarketsTab(
+    BuildContext ctx,
+    dynamic s, [
+    ResponsiveUtils? responsive,
+  ]) {
     if (_indices.isEmpty) {
       return Center(
         child: Column(
@@ -288,8 +320,10 @@ class _InvestmentsPageState extends State<InvestmentsPage>
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 12),
-            Text(s.loading,
-                style: AppTypography.bodySmall(color: AppColors.gray500)),
+            Text(
+              s.loading,
+              style: AppTypography.bodySmall(color: AppColors.gray500),
+            ),
           ],
         ),
       );
@@ -328,16 +362,22 @@ class _InvestmentsPageState extends State<InvestmentsPage>
         );
       }
       return Column(
-        children: items.map((i) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => MarketDetailPage(index: i)),
-            ),
-            child: MarketIndexCard(index: i),
-          ),
-        )).toList(),
+        children: items
+            .map(
+              (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MarketDetailPage(index: i),
+                    ),
+                  ),
+                  child: MarketIndexCard(index: i),
+                ),
+              ),
+            )
+            .toList(),
       );
     }
 
@@ -375,7 +415,9 @@ class _InvestmentsPageState extends State<InvestmentsPage>
 
           // Commodities & Forex section
           if (other.isNotEmpty) ...[
-            _SectionHeader(title: '${s.sectionCommoditiesForex} (${other.length})'),
+            _SectionHeader(
+              title: '${s.sectionCommoditiesForex} (${other.length})',
+            ),
             const SizedBox(height: 8),
             buildIndexList(other),
             const SizedBox(height: 8),
@@ -392,21 +434,26 @@ class _InvestmentsPageState extends State<InvestmentsPage>
               child: Text(s.glossaryTitle),
             )
           else
-            ..._glossary.map((term) => ExpansionTile(
-                  title: Text(term['term'] as String,
-                      style: AppTypography.bodyMedium()),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: Text(
-                        term['definition_es'] as String,
-                        style: AppTypography.bodySmall(
-                            color: AppColors.gray600),
-                      ),
+            ..._glossary.map(
+              (term) => ExpansionTile(
+                title: Text(
+                  term['term'] as String,
+                  style: AppTypography.bodyMedium(),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-                  ],
-                )),
+                    child: Text(
+                      term['definition_es'] as String,
+                      style: AppTypography.bodySmall(color: AppColors.gray600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

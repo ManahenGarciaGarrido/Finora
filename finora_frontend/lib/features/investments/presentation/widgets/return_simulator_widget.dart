@@ -71,6 +71,7 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
               TextFormField(
                 controller: _monthly,
                 decoration: InputDecoration(
+                  fillColor: AppColors.cardLight,
                   labelText: s.monthlyInvestment,
                   prefixText: '€ ',
                   border: const OutlineInputBorder(),
@@ -90,6 +91,7 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
                     child: TextFormField(
                       controller: _years,
                       decoration: InputDecoration(
+                        fillColor: AppColors.cardLight,
                         labelText: s.investmentYears,
                         border: const OutlineInputBorder(),
                       ),
@@ -107,6 +109,7 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
                     child: TextFormField(
                       controller: _rate,
                       decoration: InputDecoration(
+                        fillColor: AppColors.cardLight,
                         labelText: s.expectedReturn,
                         suffixText: '%',
                         border: const OutlineInputBorder(),
@@ -130,12 +133,12 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
                 child: FilledButton.icon(
                   onPressed: _loading ? null : _simulate,
                   icon: _loading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppColors.cardLight,
                           ),
                         )
                       : const Icon(Icons.show_chart_rounded),
@@ -219,7 +222,7 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 120,
+            height: 140, // Altura incrementada para evitar el overflow
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: breakdown.map<Widget>((entry) {
@@ -236,7 +239,10 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Container(
-                          height: (heightFraction * 90).clamp(4.0, 90.0),
+                          height: (heightFraction * 100).clamp(
+                            4.0,
+                            100.0,
+                          ), // Ajustado a 100
                           decoration: BoxDecoration(
                             color: AppColors.primary.withValues(alpha: 0.7),
                             borderRadius: const BorderRadius.vertical(
@@ -244,12 +250,18 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
                           '${entry['year']}',
-                          style: AppTypography.labelSmall(
-                            color: AppColors.gray400,
-                          ),
+                          maxLines: 1, // Previene el salto de línea
+                          softWrap: false,
+                          overflow: TextOverflow.visible,
+                          style:
+                              AppTypography.labelSmall(
+                                color: AppColors.gray400,
+                              ).copyWith(
+                                fontSize: 10,
+                              ), // Tamaño de fuente ligeramente reducido
                         ),
                       ],
                     ),

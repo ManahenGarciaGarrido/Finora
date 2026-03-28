@@ -62,8 +62,9 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(e.toString()),
-              backgroundColor: AppColors.error),
+            content: Text(e.toString()),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -71,21 +72,20 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Si AppLocalizations.of(context) te marca error de nulabilidad, 
+    // Si AppLocalizations.of(context) te marca error de nulabilidad,
     // puedes cambiarlo a: final s = AppLocalizations.of(context)!;
     final s = AppLocalizations.of(context);
     final fmt = CurrencyService().format;
-    final title =
-        widget.isMortgage ? s.mortgageCalculator : s.loanCalculator;
+    final title = widget.isMortgage ? s.mortgageCalculator : s.loanCalculator;
     final responsive = ResponsiveUtils(context);
-    
+
     final appBar = AppBar(
       backgroundColor: AppColors.surfaceLight,
       elevation: 0,
       title: Text(title, style: AppTypography.titleMedium()),
       leading: const BackButton(),
     );
-    
+
     final body = ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -96,14 +96,16 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
               TextFormField(
                 controller: _principal,
                 decoration: InputDecoration(
-                    labelText: s.principal,
-                    prefixText: '€ ',
-                    border: const OutlineInputBorder()),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                  fillColor: AppColors.cardLight,
+                  labelText: s.principal,
+                  prefixText: '€ ',
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 validator: (v) {
-                  final n =
-                      double.tryParse(v?.replaceAll(',', '.') ?? '');
+                  final n = double.tryParse(v?.replaceAll(',', '.') ?? '');
                   return (n == null || n <= 0) ? s.amountInvalid : null;
                 },
               ),
@@ -111,14 +113,16 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
               TextFormField(
                 controller: _rate,
                 decoration: InputDecoration(
-                    labelText: s.annualRate,
-                    suffixText: '%',
-                    border: const OutlineInputBorder()),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                  fillColor: AppColors.cardLight,
+                  labelText: s.annualRate,
+                  suffixText: '%',
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 validator: (v) {
-                  final n =
-                      double.tryParse(v?.replaceAll(',', '.') ?? '');
+                  final n = double.tryParse(v?.replaceAll(',', '.') ?? '');
                   return (n == null || n < 0) ? s.amountInvalid : null;
                 },
               ),
@@ -126,8 +130,10 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
               TextFormField(
                 controller: _months,
                 decoration: InputDecoration(
-                    labelText: s.termMonths,
-                    border: const OutlineInputBorder()),
+                  fillColor: AppColors.cardLight,
+                  labelText: s.termMonths,
+                  border: const OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (v) {
                   final n = int.tryParse(v ?? '');
@@ -139,11 +145,14 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
                 TextFormField(
                   controller: _extra,
                   decoration: InputDecoration(
-                      labelText: s.extraPaymentLabel,
-                      prefixText: '€ ',
-                      border: const OutlineInputBorder()),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                    fillColor: AppColors.cardLight,
+                    labelText: s.extraPaymentLabel,
+                    prefixText: '€ ',
+                    border: const OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
               ],
               const SizedBox(height: 16),
@@ -156,7 +165,10 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Icon(Icons.calculate_rounded),
                   label: Text(s.calculate),
                 ),
@@ -184,7 +196,7 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
         ),
       );
     }
-    
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       appBar: appBar,
@@ -204,15 +216,22 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
       child: Column(
         children: [
           _resultRow(
-              s.monthlyPaymentResult,
-              fmt((r['monthly_payment'] as num).toDouble()),
-              AppColors.primary),
+            s.monthlyPaymentResult,
+            fmt((r['monthly_payment'] as num).toDouble()),
+            AppColors.primary,
+          ),
           const Divider(height: 20),
-          _resultRow(s.totalInterest,
-              fmt((r['total_interest'] as num).toDouble()), AppColors.error),
+          _resultRow(
+            s.totalInterest,
+            fmt((r['total_interest'] as num).toDouble()),
+            AppColors.error,
+          ),
           const SizedBox(height: 8),
-          _resultRow(s.totalPayment,
-              fmt((r['total_payment'] as num).toDouble()), AppColors.gray600),
+          _resultRow(
+            s.totalPayment,
+            fmt((r['total_payment'] as num).toDouble()),
+            AppColors.gray600,
+          ),
           if (r['savings_with_early'] != null) ...[
             const Divider(height: 20),
             _resultRow(
@@ -230,10 +249,8 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: AppTypography.bodyMedium(color: AppColors.gray600)),
-        Text(value,
-            style: AppTypography.titleSmall(color: color)),
+        Text(label, style: AppTypography.bodyMedium(color: AppColors.gray600)),
+        Text(value, style: AppTypography.titleSmall(color: color)),
       ],
     );
   }

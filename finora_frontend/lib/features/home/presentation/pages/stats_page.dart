@@ -609,7 +609,7 @@ class _StatsPageState extends State<StatsPage>
                                   child: Container(
                                     padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
-                                      color: AppColors.white,
+                                      color: AppColors.cardLight,
                                       borderRadius: BorderRadius.circular(24),
                                       border: Border.all(
                                         color: AppColors.gray100,
@@ -847,7 +847,7 @@ class _StatsPageState extends State<StatsPage>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.gray100),
         boxShadow: [
@@ -1125,7 +1125,7 @@ class _StatsPageState extends State<StatsPage>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -1305,7 +1305,7 @@ class _StatsPageState extends State<StatsPage>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -1585,7 +1585,7 @@ class _StatsPageState extends State<StatsPage>
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -1690,7 +1690,7 @@ class _SummaryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.cardLight,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.gray100),
         ),

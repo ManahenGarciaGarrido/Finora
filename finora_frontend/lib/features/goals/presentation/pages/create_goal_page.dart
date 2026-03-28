@@ -74,319 +74,337 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.gray50,
+        backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.surfaceLight,
           elevation: 0,
           title: Text(s.createGoal, style: AppTypography.titleMedium()),
         ),
         body: Center(
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: responsive.isTablet ? 580 : double.infinity),
+            constraints: BoxConstraints(
+              maxWidth: responsive.isTablet ? 580 : double.infinity,
+            ),
             child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Nombre
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Label(s.goalName),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _nameCtrl,
-                      decoration: _inputDec(s.goalNameHint),
-                      textCapitalization: TextCapitalization.sentences,
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? s.goalNameRequired
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Cantidad objetivo
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Label(s.goalTargetAmountLabel),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _amountCtrl,
-                      decoration: _inputDec('0,00').copyWith(suffixText: AppSettingsService().currentCurrency.symbol),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d,\.]')),
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // Nombre
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Label(s.goalName),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _nameCtrl,
+                          decoration: _inputDec(s.goalNameHint),
+                          textCapitalization: TextCapitalization.sentences,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? s.goalNameRequired
+                              : null,
+                        ),
                       ],
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return s.goalAmountRequired;
-                        final n = double.tryParse(v.replaceAll(',', '.'));
-                        if (n == null || n <= 0) return s.goalAmountPositive;
-                        return null;
-                      },
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
 
-              // Icono y color (HU-07: personalizable)
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Label(s.goalIconLabel),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: goalIconsMap.entries.map((e) {
-                        final selected = e.key == _selectedIcon;
-                        final color = Color(
-                          int.parse(
-                            _selectedColor.replaceAll('#', 'FF'),
-                            radix: 16,
+                  // Cantidad objetivo
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Label(s.goalTargetAmountLabel),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _amountCtrl,
+                          decoration: _inputDec('0,00').copyWith(
+                            suffixText:
+                                AppSettingsService().currentCurrency.symbol,
                           ),
-                        );
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedIcon = e.key),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? color.withValues(alpha: 0.15)
-                                  : AppColors.gray100,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: selected ? color : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                            child: Icon(
-                              e.value,
-                              size: 22,
-                              color: selected ? color : AppColors.gray400,
-                            ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
                           ),
-                        );
-                      }).toList(),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[\d,\.]'),
+                            ),
+                          ],
+                          validator: (v) {
+                            if (v == null || v.isEmpty) {
+                              return s.goalAmountRequired;
+                            }
+                            final n = double.tryParse(v.replaceAll(',', '.'));
+                            if (n == null || n <= 0) {
+                              return s.goalAmountPositive;
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    _Label('Color'),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: _colors.map((hex) {
-                        final c = Color(
-                          int.parse(hex.replaceAll('#', 'FF'), radix: 16),
-                        );
-                        final selected = hex == _selectedColor;
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedColor = hex),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            margin: const EdgeInsets.only(right: 8),
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: c,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: selected
-                                    ? Colors.black
-                                    : Colors.transparent,
-                                width: 2,
-                              ),
-                              boxShadow: selected
-                                  ? [
-                                      BoxShadow(
-                                        color: c.withValues(alpha: 0.5),
-                                        blurRadius: 6,
-                                      ),
-                                    ]
-                                  : [],
-                            ),
-                            child: selected
-                                ? const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 16,
-                                  )
-                                : null,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
 
-              // Fecha límite (opcional)
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Label(s.goalDeadlineOptional),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: _pickDate,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.gray200),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today_rounded,
-                              size: 18,
-                              color: AppColors.gray400,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              _deadline == null
-                                  ? s.goalNoDeadline
-                                  : '${_deadline!.day}/${_deadline!.month}/${_deadline!.year}',
-                              style: AppTypography.bodyMedium(
-                                color: _deadline == null
-                                    ? AppColors.gray400
-                                    : AppColors.textPrimaryLight,
+                  // Icono y color (HU-07: personalizable)
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Label(s.goalIconLabel),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: goalIconsMap.entries.map((e) {
+                            final selected = e.key == _selectedIcon;
+                            final color = Color(
+                              int.parse(
+                                _selectedColor.replaceAll('#', 'FF'),
+                                radix: 16,
                               ),
-                            ),
-                            const Spacer(),
-                            if (_deadline != null)
-                              GestureDetector(
-                                onTap: () => setState(() => _deadline = null),
+                            );
+                            return GestureDetector(
+                              onTap: () =>
+                                  setState(() => _selectedIcon = e.key),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? color.withValues(alpha: 0.15)
+                                      : AppColors.gray100,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: selected
+                                        ? color
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
                                 child: Icon(
-                                  Icons.close_rounded,
+                                  e.value,
+                                  size: 22,
+                                  color: selected ? color : AppColors.gray400,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 12),
+                        _Label('Color'),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: _colors.map((hex) {
+                            final c = Color(
+                              int.parse(hex.replaceAll('#', 'FF'), radix: 16),
+                            );
+                            final selected = hex == _selectedColor;
+                            return GestureDetector(
+                              onTap: () => setState(() => _selectedColor = hex),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin: const EdgeInsets.only(right: 8),
+                                width: 30,
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  color: c,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: selected
+                                        ? Colors.black
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                  boxShadow: selected
+                                      ? [
+                                          BoxShadow(
+                                            color: c.withValues(alpha: 0.5),
+                                            blurRadius: 6,
+                                          ),
+                                        ]
+                                      : [],
+                                ),
+                                child: selected
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 16,
+                                      )
+                                    : null,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Fecha límite (opcional)
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Label(s.goalDeadlineOptional),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: _pickDate,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.gray200),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_rounded,
                                   size: 18,
                                   color: AppColors.gray400,
                                 ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Categoría (opcional)
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Label(s.goalCategoryOptional),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: _category,
-                      decoration: _inputDec(s.goalSelectCategory),
-                      items: categories
-                          .map(
-                            (c) => DropdownMenuItem(value: c, child: Text(c)),
-                          )
-                          .toList(),
-                      onChanged: (v) => setState(() => _category = v),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Nota (opcional)
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Label(s.goalNoteOptional),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _notesCtrl,
-                      decoration: _inputDec(s.goalNoteHint),
-                      maxLines: 2,
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Aviso de análisis IA (CU-03)
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.auto_awesome_rounded,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        s.goalAiHint,
-                        style: AppTypography.bodySmall(
-                          color: AppColors.textSecondaryLight,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Botón crear
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.gray200,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+                                const SizedBox(width: 10),
+                                Text(
+                                  _deadline == null
+                                      ? s.goalNoDeadline
+                                      : '${_deadline!.day}/${_deadline!.month}/${_deadline!.year}',
+                                  style: AppTypography.bodyMedium(
+                                    color: _deadline == null
+                                        ? AppColors.gray400
+                                        : AppColors.textPrimaryLight,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (_deadline != null)
+                                  GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _deadline = null),
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                      color: AppColors.gray400,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        )
-                      : Text(
-                          s.goalAnalyzeAndCreate,
-                          style: AppTypography.labelMedium(color: Colors.white),
                         ),
-                ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Categoría (opcional)
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Label(s.goalCategoryOptional),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: _category,
+                          decoration: _inputDec(s.goalSelectCategory),
+                          items: categories
+                              .map(
+                                (c) =>
+                                    DropdownMenuItem(value: c, child: Text(c)),
+                              )
+                              .toList(),
+                          onChanged: (v) => setState(() => _category = v),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Nota (opcional)
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Label(s.goalNoteOptional),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _notesCtrl,
+                          decoration: _inputDec(s.goalNoteHint),
+                          maxLines: 2,
+                          textCapitalization: TextCapitalization.sentences,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Aviso de análisis IA (CU-03)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            s.goalAiHint,
+                            style: AppTypography.bodySmall(
+                              color: AppColors.textSecondaryLight,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Botón crear
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: AppColors.gray200,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              s.goalAnalyzeAndCreate,
+                              style: AppTypography.labelMedium(
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
               ),
-              const SizedBox(height: 32),
-            ],
-          ),
-        ),
+            ),
           ),
         ),
       ),
@@ -537,7 +555,7 @@ class _Card extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray100),
       ),

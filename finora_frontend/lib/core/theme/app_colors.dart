@@ -129,7 +129,11 @@ class AppColors {
   static Color get backgroundLight =>
       ThemeService().currentPalette.backgroundLight;
   static Color get surfaceLight => ThemeService().currentPalette.surface;
-  static Color get cardLight => ThemeService().currentPalette.primarySoft;
+
+  /// Fondo de tarjetas/contenedores — sigue el campo 'surface' de la paleta.
+  /// Cada paleta predefinida define su propio tinte; en paleta personalizada
+  /// lo controla el picker "Superficie / Tarjetas" en ajustes.
+  static Color get cardLight => ThemeService().currentPalette.surface;
 
   /// Fondo oscuro
   static const Color backgroundDark = Color(0xFF0F172A);

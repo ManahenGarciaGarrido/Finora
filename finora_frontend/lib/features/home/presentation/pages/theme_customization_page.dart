@@ -134,8 +134,11 @@ class _ThemeCustomizationPageState extends State<ThemeCustomizationPage>
             error: p.error,
             income: p.income,
             expense: p.expense,
+            // Al cambiar el primario se actualiza surface automáticamente
+            // (tinte suave del nuevo color) salvo que el usuario lo haya
+            // cambiado explícitamente mediante el picker "Superficie/Tarjetas".
             backgroundLight: p.backgroundLight,
-            surface: p.surface,
+            surface: color.withValues(alpha: 0.08),
             primaryGradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
@@ -534,7 +537,7 @@ class _ThemeCustomizationPageState extends State<ThemeCustomizationPage>
             child: Center(
               child: Text(
                 '2nd',
-                style: AppTypography.labelSmall(color: Colors.white),
+                style: AppTypography.labelSmall(color: AppColors.cardLight),
               ),
             ),
           ),
@@ -542,9 +545,9 @@ class _ThemeCustomizationPageState extends State<ThemeCustomizationPage>
             width: 56,
             color: p.income,
             child: Center(
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_upward_rounded,
-                color: Colors.white,
+                color: AppColors.cardLight,
                 size: 18,
               ),
             ),

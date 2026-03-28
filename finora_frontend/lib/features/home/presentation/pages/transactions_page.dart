@@ -701,7 +701,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                                     ? AppColors.primary
                                     : AppColors.gray200,
                               ),
-                              backgroundColor: AppColors.white,
+                              backgroundColor: AppColors.cardLight,
                             );
                           }).toList(),
                         ),
@@ -751,7 +751,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                                       ? AppColors.primary
                                       : AppColors.gray200,
                                 ),
-                                backgroundColor: AppColors.white,
+                                backgroundColor: AppColors.cardLight,
                               );
                             }).toList(),
                           ),
@@ -972,7 +972,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                 ),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.white,
+                    color: AppColors.cardLight,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppColors.gray200),
                   ),
@@ -1614,7 +1614,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                                           color: AppColors.primary,
                                           shape: BoxShape.circle,
                                           border: Border.all(
-                                            color: AppColors.white,
+                                            color: AppColors.cardLight,
                                             width: 1.5,
                                           ),
                                         ),
@@ -1663,7 +1663,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                       // ── Barra de Búsqueda Inteligente (RF-09) ──────────────
                       Container(
                         decoration: BoxDecoration(
-                          color: AppColors.white,
+                          color: AppColors.cardLight,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: AppColors.gray200),
                         ),
@@ -1953,7 +1953,7 @@ class TransactionsPageState extends State<TransactionsPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -2257,7 +2257,7 @@ class TransactionsPageState extends State<TransactionsPage> {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: AppColors.cardLight,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: t.isPendingSync
@@ -2293,7 +2293,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                               color: AppColors.warning,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: Colors.white,
+                                color: AppColors.cardLight,
                                 width: 1.5,
                               ),
                             ),

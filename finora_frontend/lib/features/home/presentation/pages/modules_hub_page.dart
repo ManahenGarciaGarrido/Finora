@@ -44,10 +44,7 @@ class ModulesHubPage extends StatelessWidget {
             automaticallyImplyLeading: false,
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-              title: Text(
-                s.modules,
-                style: AppTypography.titleLarge(),
-              ),
+              title: Text(s.modules, style: AppTypography.titleLarge()),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -119,8 +116,7 @@ class ModulesHubPage extends StatelessWidget {
                   subtitle: s.gamificationSubtitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (_) => const GamificationPage()),
+                    MaterialPageRoute(builder: (_) => const GamificationPage()),
                   ),
                 ),
                 _ModuleCard(
@@ -184,7 +180,9 @@ class _AccountsCard extends StatelessWidget {
         } else {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => AccountsPage(onViewAccountTransactions: null)),
+            MaterialPageRoute(
+              builder: (_) => AccountsPage(onViewAccountTransactions: null),
+            ),
           );
         }
       },
@@ -228,13 +226,17 @@ class _AccountsCard extends StatelessWidget {
                   Text(
                     s.accountsSubtitle,
                     style: AppTypography.bodySmall(
-                        color: Colors.white.withValues(alpha: 0.8)),
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: Colors.white, size: 16),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
           ],
         ),
       ),
@@ -264,7 +266,7 @@ class _ModuleCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.cardLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.gray200),
           boxShadow: [

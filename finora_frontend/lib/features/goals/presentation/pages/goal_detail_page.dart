@@ -101,7 +101,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
         final isLoading = state is GoalLoading;
 
         final scaffold = Scaffold(
-          backgroundColor: AppColors.gray50,
+          backgroundColor: AppColors.backgroundLight,
           body: CustomScrollView(
             slivers: [
               // ── Header con gradiente y progreso (HU-07) ───────────────────
@@ -448,7 +448,6 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
       updatedAt: goal.updatedAt,
     );
   }
-
 }
 
 // ─── Métricas de progreso (RF-19) ─────────────────────────────────────────────
@@ -464,7 +463,7 @@ class _ProgressMetrics extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -517,7 +516,6 @@ class _ProgressMetrics extends StatelessWidget {
       ),
     );
   }
-
 
   static String _fmtDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -695,7 +693,7 @@ class _ContributionsList extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -1006,9 +1004,9 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(
         20,

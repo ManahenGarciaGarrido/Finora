@@ -179,8 +179,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
                 _buildStatusHeader(s),
                 const SizedBox(height: 20),
                 if (_errorMsg != null) _buildError(),
-                if (!_is2faEnabled && _otpauthUri == null)
-                  _buildSetupPrompt(s),
+                if (!_is2faEnabled && _otpauthUri == null) _buildSetupPrompt(s),
                 if (_otpauthUri != null) _buildQrSection(s),
                 if (_is2faEnabled && _recoveryCodes == null)
                   _buildEnabledView(s),
@@ -333,7 +332,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.cardLight,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.gray200),
             ),
@@ -341,7 +340,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
               data: _otpauthUri!,
               version: QrVersions.auto,
               size: 200,
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.cardLight,
             ),
           ),
         ),
@@ -393,6 +392,7 @@ class _TwoFaSetupPageState extends State<TwoFaSetupPage> {
           textAlign: TextAlign.center,
           style: AppTypography.titleLarge(),
           decoration: InputDecoration(
+            fillColor: AppColors.cardLight,
             hintText: s.code2faHint,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             counterText: '',

@@ -128,6 +128,8 @@ class ThemeService {
       primarySoft: Color(0xFFF1F5F9),
       secondary: Color(0xFF059669),
       accent: Color(0xFF475569),
+      surface: Color(0xFFF1F5F9),
+      backgroundLight: Color(0xFFE9EEF4),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -149,6 +151,8 @@ class ThemeService {
       primarySoft: Color(0xFFEEF2FF),
       secondary: Color(0xFF059669),
       accent: Color(0xFF7C3AED),
+      surface: Color(0xFFEEF2FF),
+      backgroundLight: Color(0xFFE0E7FF),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -170,6 +174,8 @@ class ThemeService {
       primarySoft: Color(0xFFECFDF5),
       secondary: Color(0xFF0891B2),
       accent: Color(0xFF10B981),
+      surface: Color(0xFFECFDF5),
+      backgroundLight: Color(0xFFD1FAE5),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -191,6 +197,8 @@ class ThemeService {
       primarySoft: Color(0xFFE0F2FE),
       secondary: Color(0xFF059669),
       accent: Color(0xFF0891B2),
+      surface: Color(0xFFE0F2FE),
+      backgroundLight: Color(0xFFBAE6FD),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -212,6 +220,8 @@ class ThemeService {
       primarySoft: Color(0xFFFFF1F2),
       secondary: Color(0xFF059669),
       accent: Color(0xFFE11D48),
+      surface: Color(0xFFFFF1F2),
+      backgroundLight: Color(0xFFFFE4E6),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -233,6 +243,8 @@ class ThemeService {
       primarySoft: Color(0xFFFFFBEB),
       secondary: Color(0xFF059669),
       accent: Color(0xFFF59E0B),
+      surface: Color(0xFFFFFBEB),
+      backgroundLight: Color(0xFFFEF3C7),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -254,6 +266,8 @@ class ThemeService {
       primarySoft: Color(0xFFFDF4FF),
       secondary: Color(0xFF059669),
       accent: Color(0xFFD946EF),
+      surface: Color(0xFFFDF4FF),
+      backgroundLight: Color(0xFFFAE8FF),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -272,9 +286,11 @@ class ThemeService {
       primary: Color(0xFF1F2937),
       primaryLight: Color(0xFF374151),
       primaryDark: Color(0xFF111827),
-      primarySoft: Color(0xFFF9FAFB),
+      primarySoft: Color(0xFFF3F4F6),
       secondary: Color(0xFF059669),
       accent: Color(0xFF6B7280),
+      surface: Color(0xFFF3F4F6),
+      backgroundLight: Color(0xFFE5E7EB),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -296,6 +312,8 @@ class ThemeService {
       primarySoft: Color(0xFFF0FDFA),
       secondary: Color(0xFF7C3AED),
       accent: Color(0xFF14B8A6),
+      surface: Color(0xFFF0FDFA),
+      backgroundLight: Color(0xFFCCFBF1),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -317,6 +335,8 @@ class ThemeService {
       primarySoft: Color(0xFFFFF7ED),
       secondary: Color(0xFF059669),
       accent: Color(0xFFF97316),
+      surface: Color(0xFFFFF7ED),
+      backgroundLight: Color(0xFFFED7AA),
       primaryGradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,

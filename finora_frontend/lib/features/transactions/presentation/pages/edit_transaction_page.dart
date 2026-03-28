@@ -187,7 +187,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
     final s = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.cardLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -819,7 +819,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
                 ),
                 child: Card(
                   elevation: 0,
-                  color: AppColors.white,
+                  color: AppColors.cardLight,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),

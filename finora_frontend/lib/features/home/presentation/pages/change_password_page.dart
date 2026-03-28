@@ -142,116 +142,115 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
     final bodyContent = SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                s.changePasswordHeading,
-                style: AppTypography.headlineSmall(),
+      padding: const EdgeInsets.all(24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(s.changePasswordHeading, style: AppTypography.headlineSmall()),
+            const SizedBox(height: 8),
+            Text(
+              s.passwordRequirementsInfo,
+              style: AppTypography.bodySmall(
+                color: AppColors.textSecondaryLight,
               ),
-              const SizedBox(height: 8),
-              Text(
-                s.passwordRequirementsInfo,
-                style: AppTypography.bodySmall(
-                  color: AppColors.textSecondaryLight,
-                ),
-              ),
-              const SizedBox(height: 32),
+            ),
+            const SizedBox(height: 32),
 
-              TextFormField(
-                controller: _currentCtrl,
-                obscureText: _obscureCurrent,
-                decoration: InputDecoration(
-                  labelText: s.currentPasswordLabel,
-                  prefixIcon: const Icon(Icons.lock_outline_rounded),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureCurrent
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                    ),
-                    onPressed: () =>
-                        setState(() => _obscureCurrent = !_obscureCurrent),
+            TextFormField(
+              controller: _currentCtrl,
+              obscureText: _obscureCurrent,
+              decoration: InputDecoration(
+                fillColor: AppColors.cardLight,
+                labelText: s.currentPasswordLabel,
+                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureCurrent
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                   ),
+                  onPressed: () =>
+                      setState(() => _obscureCurrent = !_obscureCurrent),
                 ),
-                validator: (v) => (v == null || v.isEmpty)
-                    ? s.enterCurrentPasswordError
-                    : null,
               ),
-              const SizedBox(height: 20),
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? s.enterCurrentPasswordError : null,
+            ),
+            const SizedBox(height: 20),
 
-              TextFormField(
-                controller: _newCtrl,
-                obscureText: _obscureNew,
-                decoration: InputDecoration(
-                  labelText: s.newPasswordLabel,
-                  prefixIcon: const Icon(Icons.lock_reset_rounded),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureNew
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                    ),
-                    onPressed: () => setState(() => _obscureNew = !_obscureNew),
+            TextFormField(
+              controller: _newCtrl,
+              obscureText: _obscureNew,
+              decoration: InputDecoration(
+                fillColor: AppColors.cardLight,
+                labelText: s.newPasswordLabel,
+                prefixIcon: const Icon(Icons.lock_reset_rounded),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureNew
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                   ),
+                  onPressed: () => setState(() => _obscureNew = !_obscureNew),
                 ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return s.passwordRequired;
-                  if (v.length < 8) return s.minCharactersError;
-                  if (!_hasUppercase(v)) return s.passwordUppercase;
-                  if (!_hasNumber(v)) return s.passwordNumber;
-                  if (!_hasSpecial(v)) return s.passwordSpecial;
-                  return null;
-                },
               ),
-              const SizedBox(height: 12),
+              validator: (v) {
+                if (v == null || v.isEmpty) return s.passwordRequired;
+                if (v.length < 8) return s.minCharactersError;
+                if (!_hasUppercase(v)) return s.passwordUppercase;
+                if (!_hasNumber(v)) return s.passwordNumber;
+                if (!_hasSpecial(v)) return s.passwordSpecial;
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
 
-              // Visual password requirements indicator
-              if (_newCtrl.text.isNotEmpty) _buildPasswordRequirements(s),
+            // Visual password requirements indicator
+            if (_newCtrl.text.isNotEmpty) _buildPasswordRequirements(s),
 
-              const SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-              TextFormField(
-                controller: _confirmCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: s.confirmNewPasswordLabel,
-                  prefixIcon: const Icon(Icons.lock_rounded),
+            TextFormField(
+              controller: _confirmCtrl,
+              obscureText: true,
+              decoration: InputDecoration(
+                fillColor: AppColors.cardLight,
+                labelText: s.confirmNewPasswordLabel,
+                prefixIcon: const Icon(Icons.lock_rounded),
+              ),
+              validator: (v) =>
+                  (v != _newCtrl.text) ? s.passwordsDoNotMatchError : null,
+            ),
+
+            const SizedBox(height: 40),
+
+            FilledButton(
+              onPressed: _loading ? null : _submit,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                validator: (v) =>
-                    (v != _newCtrl.text) ? s.passwordsDoNotMatchError : null,
               ),
-
-              const SizedBox(height: 40),
-
-              FilledButton(
-                onPressed: _loading ? null : _submit,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(s.updatePasswordButton),
-              ),
-            ],
-          ),
+              child: _loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(s.updatePasswordButton),
+            ),
+          ],
         ),
-      );
+      ),
+    );
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         title: Text(s.securityTitle, style: AppTypography.titleMedium()),
         leading: IconButton(

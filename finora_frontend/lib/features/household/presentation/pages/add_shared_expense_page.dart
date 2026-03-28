@@ -173,6 +173,7 @@ class _AddSharedExpensePageState extends State<AddSharedExpensePage> {
                   autofocus: true,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
+                    fillColor: AppColors.cardLight,
                     prefixIcon: const Icon(Icons.description_outlined),
                     hintText: 'Supermercado, Netflix…',
                     border: OutlineInputBorder(
@@ -197,6 +198,7 @@ class _AddSharedExpensePageState extends State<AddSharedExpensePage> {
                     decimal: true,
                   ),
                   decoration: InputDecoration(
+                    fillColor: AppColors.cardLight,
                     prefixText: '€ ',
                     prefixIcon: const Icon(Icons.euro_rounded),
                     border: OutlineInputBorder(
@@ -254,6 +256,7 @@ class _AddSharedExpensePageState extends State<AddSharedExpensePage> {
                                   ),
                               textAlign: TextAlign.center,
                               decoration: InputDecoration(
+                                fillColor: AppColors.cardLight,
                                 suffixText: '%',
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 8,

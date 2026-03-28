@@ -122,6 +122,7 @@ class _InviteMemberPageState extends State<InviteMemberPage> {
               keyboardType: TextInputType.emailAddress,
               autofocus: true,
               decoration: InputDecoration(
+                fillColor: AppColors.cardLight,
                 prefixIcon: const Icon(Icons.email_outlined),
                 hintText: 'correo@ejemplo.com',
                 border: OutlineInputBorder(

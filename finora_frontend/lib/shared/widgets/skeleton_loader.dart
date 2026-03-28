@@ -13,12 +13,7 @@ class SkeletonBox extends StatefulWidget {
   final double height;
   final double radius;
 
-  const SkeletonBox({
-    super.key,
-    this.width,
-    this.height = 16,
-    this.radius = 8,
-  });
+  const SkeletonBox({super.key, this.width, this.height = 16, this.radius = 8});
 
   @override
   State<SkeletonBox> createState() => _SkeletonBoxState();
@@ -36,9 +31,10 @@ class _SkeletonBoxState extends State<SkeletonBox>
       duration: const Duration(milliseconds: 900),
       vsync: this,
     )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _anim = Tween<double>(
+      begin: 0.4,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -76,7 +72,7 @@ class SkeletonCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
