@@ -83,192 +83,189 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
       ],
     );
     final body = ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // ── Price header ──────────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceLight,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.gray200),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _formatPrice(index.value, index.ticker),
-                        style: AppTypography.titleLarge().copyWith(fontSize: 32),
+      padding: const EdgeInsets.all(16),
+      children: [
+        // ── Price header ──────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatPrice(index.value, index.ticker),
+                      style: AppTypography.titleLarge().copyWith(fontSize: 32),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Icon(
+                        index.isPositive
+                            ? Icons.arrow_upward_rounded
+                            : Icons.arrow_downward_rounded,
+                        color: changeColor,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${index.change.abs().toStringAsFixed(2)}%',
+                        style: AppTypography.titleSmall(color: changeColor),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              if (index.high24h > 0 || index.low24h > 0)
+                Text(
+                  '24h: H: ${_formatPrice(index.high24h, index.ticker)}  L: ${_formatPrice(index.low24h, index.ticker)}',
+                  style: AppTypography.bodySmall(color: AppColors.gray500),
+                ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // ── Period selector ───────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: AppColors.cardLight,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: _periods.map((p) {
+              final selected = p == _period;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_period != p) {
+                      setState(() => _period = p);
+                      _loadChart();
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? AppColors.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _periodLabels[p] ?? p,
+                      style: AppTypography.labelSmall(
+                        color: selected ? Colors.white : AppColors.gray600,
                       ),
                     ),
-                    Row(
-                      children: [
-                        Icon(
-                          index.isPositive
-                              ? Icons.arrow_upward_rounded
-                              : Icons.arrow_downward_rounded,
-                          color: changeColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${index.change.abs().toStringAsFixed(2)}%',
-                          style: AppTypography.titleSmall(color: changeColor),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                if (index.high24h > 0 || index.low24h > 0)
-                  Text(
-                    '24h: H: ${_formatPrice(index.high24h, index.ticker)}  L: ${_formatPrice(index.low24h, index.ticker)}',
+              );
+            }).toList(),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // ── Chart ─────────────────────────────────────────────────────────
+        Container(
+          height: 220,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Text(
+                    'Error cargando datos',
+                    style: AppTypography.bodySmall(color: AppColors.error),
+                  ),
+                )
+              : _points.isEmpty
+              ? Center(
+                  child: Text(
+                    'Sin datos disponibles',
                     style: AppTypography.bodySmall(color: AppColors.gray500),
                   ),
-              ],
-            ),
+                )
+              : _AreaChart(points: _points, color: changeColor),
+        ),
+
+        const SizedBox(height: 16),
+
+        // ── Stats grid ────────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.gray200),
           ),
-
-          const SizedBox(height: 16),
-
-          // ── Period selector ───────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppColors.gray100,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: _periods.map((p) {
-                final selected = p == _period;
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      if (_period != p) {
-                        setState(() => _period = p);
-                        _loadChart();
-                      }
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: selected ? AppColors.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _periodLabels[p] ?? p,
-                        style: AppTypography.labelSmall(
-                          color: selected ? Colors.white : AppColors.gray600,
-                        ),
-                      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(s.chartStatsTitle, style: AppTypography.titleSmall()),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatItem(
+                      label: s.volume24h,
+                      value: _formatVolume(index.volume),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                  Expanded(
+                    child: _StatItem(
+                      label: s.marketCap,
+                      value: _formatVolume(index.marketCap),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatItem(
+                      label: s.high24h,
+                      value: index.high24h > 0
+                          ? _formatPrice(index.high24h, index.ticker)
+                          : '-',
+                    ),
+                  ),
+                  Expanded(
+                    child: _StatItem(
+                      label: s.low24h,
+                      value: index.low24h > 0
+                          ? _formatPrice(index.low24h, index.ticker)
+                          : '-',
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
+        ),
 
-          const SizedBox(height: 16),
+        const SizedBox(height: 16),
 
-          // ── Chart ─────────────────────────────────────────────────────────
-          Container(
-            height: 220,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceLight,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.gray200),
-            ),
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Text(
-                          'Error cargando datos',
-                          style: AppTypography.bodySmall(color: AppColors.error),
-                        ),
-                      )
-                    : _points.isEmpty
-                        ? Center(
-                            child: Text(
-                              'Sin datos disponibles',
-                              style: AppTypography.bodySmall(color: AppColors.gray500),
-                            ),
-                          )
-                        : _AreaChart(
-                            points: _points,
-                            color: changeColor,
-                          ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── Stats grid ────────────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceLight,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.gray200),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(s.chartStatsTitle, style: AppTypography.titleSmall()),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatItem(
-                        label: s.volume24h,
-                        value: _formatVolume(index.volume),
-                      ),
-                    ),
-                    Expanded(
-                      child: _StatItem(
-                        label: s.marketCap,
-                        value: _formatVolume(index.marketCap),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatItem(
-                        label: s.high24h,
-                        value: index.high24h > 0
-                            ? _formatPrice(index.high24h, index.ticker)
-                            : '-',
-                      ),
-                    ),
-                    Expanded(
-                      child: _StatItem(
-                        label: s.low24h,
-                        value: index.low24h > 0
-                            ? _formatPrice(index.low24h, index.ticker)
-                            : '-',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── Category badge ────────────────────────────────────────────────
-          _CategoryBadge(category: index.category),
-        ],
-      );
+        // ── Category badge ────────────────────────────────────────────────
+        _CategoryBadge(category: index.category),
+      ],
+    );
     if (responsive.isTablet) {
       return Scaffold(
         backgroundColor: AppColors.backgroundLight,
@@ -358,10 +355,7 @@ class _CategoryBadge extends StatelessWidget {
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        label,
-        style: AppTypography.labelSmall(color: color),
-      ),
+      child: Text(label, style: AppTypography.labelSmall(color: color)),
     );
   }
 }
@@ -409,7 +403,9 @@ class _AreaChartPainter extends CustomPainter {
 
     double getX(int i) => i / (closes.length - 1) * size.width;
     double getY(double v) =>
-        chartHeight - ((v - minVal) / range) * (chartHeight * 0.85) - chartHeight * 0.05;
+        chartHeight -
+        ((v - minVal) / range) * (chartHeight * 0.85) -
+        chartHeight * 0.05;
 
     // Build line path
     final linePath = Path();
@@ -433,10 +429,7 @@ class _AreaChartPainter extends CustomPainter {
     final gradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [
-        color.withValues(alpha: 0.3),
-        color.withValues(alpha: 0.03),
-      ],
+      colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.03)],
     );
 
     canvas.drawPath(
@@ -462,11 +455,7 @@ class _AreaChartPainter extends CustomPainter {
     // Draw last point dot
     final lastX = getX(closes.length - 1);
     final lastY = getY(closes.last);
-    canvas.drawCircle(
-      Offset(lastX, lastY),
-      4,
-      Paint()..color = color,
-    );
+    canvas.drawCircle(Offset(lastX, lastY), 4, Paint()..color = color);
     canvas.drawCircle(
       Offset(lastX, lastY),
       4,
@@ -484,15 +473,15 @@ class _AreaChartPainter extends CustomPainter {
       final dateStr = _formatDate(points[i]['date'] as String? ?? '');
       labelPaint.text = TextSpan(
         text: dateStr,
-        style: TextStyle(
-          fontSize: 9,
-          color: Colors.grey[500],
-        ),
+        style: TextStyle(fontSize: 9, color: Colors.grey[500]),
       );
       labelPaint.layout();
       final x = getX(i) - labelPaint.width / 2;
       final y = chartHeight + 4;
-      labelPaint.paint(canvas, Offset(x.clamp(0, size.width - labelPaint.width), y));
+      labelPaint.paint(
+        canvas,
+        Offset(x.clamp(0, size.width - labelPaint.width), y),
+      );
     }
   }
 

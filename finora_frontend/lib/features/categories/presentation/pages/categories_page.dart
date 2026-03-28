@@ -303,7 +303,7 @@ class _CategoriesPageState extends State<CategoriesPage>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -458,9 +458,11 @@ class _CategoriesPageState extends State<CategoriesPage>
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
           child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundLight,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -550,11 +552,12 @@ class _CategoriesPageState extends State<CategoriesPage>
                             controller: nameController,
                             textCapitalization: TextCapitalization.sentences,
                             decoration: InputDecoration(
+                              fillColor: AppColors.cardLight,
                               hintText: 'Ej: Mascotas, Fitness...',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: AppColors.gray200,
+                                borderSide: BorderSide(
+                                  color: AppColors.cardLight,
                                 ),
                               ),
                               enabledBorder: OutlineInputBorder(
@@ -596,14 +599,14 @@ class _CategoriesPageState extends State<CategoriesPage>
                                       ),
                                       decoration: BoxDecoration(
                                         color: selectedType == 'expense'
-                                            ? AppColors.errorLight.withValues(
+                                            ? AppColors.expense.withValues(
                                                 alpha: 0.1,
                                               )
-                                            : AppColors.gray100,
+                                            : AppColors.cardLight,
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
                                           color: selectedType == 'expense'
-                                              ? AppColors.error
+                                              ? AppColors.expense
                                               : AppColors.gray200,
                                         ),
                                       ),
@@ -615,7 +618,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                                             Icons.north_east_rounded,
                                             size: 16,
                                             color: selectedType == 'expense'
-                                                ? AppColors.error
+                                                ? AppColors.expense
                                                 : AppColors.textTertiaryLight,
                                           ),
                                           const SizedBox(width: 6),
@@ -623,7 +626,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                                             s.expense,
                                             style: AppTypography.labelMedium(
                                               color: selectedType == 'expense'
-                                                  ? AppColors.error
+                                                  ? AppColors.expense
                                                   : AppColors.textTertiaryLight,
                                             ),
                                           ),
@@ -644,12 +647,14 @@ class _CategoriesPageState extends State<CategoriesPage>
                                       ),
                                       decoration: BoxDecoration(
                                         color: selectedType == 'income'
-                                            ? AppColors.successSoft
-                                            : AppColors.gray100,
+                                            ? AppColors.income.withValues(
+                                                alpha: 0.1,
+                                              )
+                                            : AppColors.cardLight,
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
                                           color: selectedType == 'income'
-                                              ? AppColors.success
+                                              ? AppColors.income
                                               : AppColors.gray200,
                                         ),
                                       ),
@@ -661,7 +666,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                                             Icons.south_west_rounded,
                                             size: 16,
                                             color: selectedType == 'income'
-                                                ? AppColors.success
+                                                ? AppColors.income
                                                 : AppColors.textTertiaryLight,
                                           ),
                                           const SizedBox(width: 6),
@@ -669,7 +674,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                                             s.income,
                                             style: AppTypography.labelMedium(
                                               color: selectedType == 'income'
-                                                  ? AppColors.success
+                                                  ? AppColors.income
                                                   : AppColors.textTertiaryLight,
                                             ),
                                           ),
@@ -708,7 +713,7 @@ class _CategoriesPageState extends State<CategoriesPage>
                                     decoration: BoxDecoration(
                                       color: isSelected
                                           ? color.withValues(alpha: 0.15)
-                                          : AppColors.gray100,
+                                          : AppColors.cardLight,
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
                                         color: isSelected

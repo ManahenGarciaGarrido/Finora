@@ -78,7 +78,10 @@ class _AssistantPageState extends State<AssistantPage>
       final income = cs.format((d['income_30d'] as num).toDouble());
       final expenses = cs.format((d['expenses_30d'] as num).toDouble());
       final cats = (d['top_categories'] as List? ?? [])
-          .map((c) => '${c['category']} (${cs.format((c['total'] as num).toDouble())})')
+          .map(
+            (c) =>
+                '${c['category']} (${cs.format((c['total'] as num).toDouble())})',
+          )
           .join(', ');
       _financialContext =
           'Balance total: $balance | Ingresos (30d): $income | Gastos (30d): $expenses'
@@ -163,7 +166,8 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
               'systemPrompt': systemPrompt,
             },
           );
-          final text = (resp.data as Map<String, dynamic>)['response'] as String;
+          final text =
+              (resp.data as Map<String, dynamic>)['response'] as String;
           response = ChatMessage(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             content: text,
@@ -305,7 +309,7 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
   PreferredSizeWidget _buildAppBar() {
     final s = AppLocalizations.of(context);
     return AppBar(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surfaceLight,
       elevation: 0,
       leading: IconButton(
         icon: const Icon(
@@ -372,7 +376,6 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
       ],
     );
   }
-
 
   Widget _buildMessageList() {
     return ListView.builder(
@@ -500,7 +503,7 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.white,
+                    color: AppColors.surfaceLight,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(4),
                       topRight: Radius.circular(18),
@@ -728,7 +731,7 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: AppColors.surfaceLight,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: AppColors.gray100),
             ),
@@ -743,7 +746,7 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
     final s = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surfaceLight,
         border: const Border(top: BorderSide(color: AppColors.gray100)),
         boxShadow: [
           BoxShadow(

@@ -1204,7 +1204,7 @@ class _AccountsPageState extends State<AccountsPage> {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: AppColors.primary.withValues(alpha: 0.15),
@@ -1278,7 +1278,7 @@ class _AccountsPageState extends State<AccountsPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.gray200),
       ),
@@ -1560,7 +1560,7 @@ class _AccountsPageState extends State<AccountsPage> {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.gray100),
           ),
@@ -1945,7 +1945,7 @@ class _BankAccountCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.gray100),
         boxShadow: [
@@ -2249,7 +2249,7 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.white,
+                    color: AppColors.surfaceLight,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppColors.gray100),
                   ),
@@ -2290,7 +2290,7 @@ class _EditCardsSheetState extends State<_EditCardsSheet> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.gray100),
       ),

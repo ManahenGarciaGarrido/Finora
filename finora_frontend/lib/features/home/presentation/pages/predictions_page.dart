@@ -245,7 +245,7 @@ class _PredictionsPageState extends State<PredictionsPage>
     final s = AppLocalizations.of(context);
     final responsive = ResponsiveUtils(context);
     final appBar = AppBar(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.cardLight,
       elevation: 0,
       title: Text(
         s.aiPredictionsTitle,

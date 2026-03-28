@@ -588,7 +588,7 @@ class _DashboardContentState extends State<DashboardContent>
       height: height,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -611,7 +611,7 @@ class _DashboardContentState extends State<DashboardContent>
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -1178,7 +1178,7 @@ class _DashboardContentState extends State<DashboardContent>
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.cardLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: t.isPendingSync
@@ -1215,7 +1215,7 @@ class _DashboardContentState extends State<DashboardContent>
                           color: AppColors.warning,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: AppColors.white,
+                            color: AppColors.cardLight,
                             width: 1.5,
                           ),
                         ),
@@ -1282,7 +1282,7 @@ class _DashboardContentState extends State<DashboardContent>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -1342,7 +1342,7 @@ class _DashboardContentState extends State<DashboardContent>
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: AppColors.cardLight,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.gray100),
           ),
@@ -1515,7 +1515,7 @@ class _DashboardContentState extends State<DashboardContent>
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: AppColors.cardLight,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.gray100),
           ),
@@ -1531,7 +1531,7 @@ class _DashboardContentState extends State<DashboardContent>
                   ),
                   Row(
                     children: [
-                      _buildLegendDot(AppColors.success),
+                      _buildLegendDot(AppColors.income),
                       const SizedBox(width: 4),
                       Text(
                         s.incomes,
@@ -1540,7 +1540,7 @@ class _DashboardContentState extends State<DashboardContent>
                         ),
                       ),
                       const SizedBox(width: 10),
-                      _buildLegendDot(AppColors.error),
+                      _buildLegendDot(AppColors.expense),
                       const SizedBox(width: 4),
                       Text(
                         s.expenses,
@@ -1607,7 +1607,7 @@ class _DashboardContentState extends State<DashboardContent>
                                       child: Container(
                                         height: incomeH,
                                         decoration: BoxDecoration(
-                                          color: AppColors.success.withValues(
+                                          color: AppColors.income.withValues(
                                             alpha: 0.80,
                                           ),
                                           borderRadius:
@@ -1622,7 +1622,7 @@ class _DashboardContentState extends State<DashboardContent>
                                       child: Container(
                                         height: expenseH,
                                         decoration: BoxDecoration(
-                                          color: AppColors.error.withValues(
+                                          color: AppColors.expense.withValues(
                                             alpha: 0.80,
                                           ),
                                           borderRadius:
@@ -1696,7 +1696,7 @@ class _DashboardContentState extends State<DashboardContent>
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: AppColors.cardLight,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.gray100),
           ),
@@ -1788,7 +1788,7 @@ class _DashboardContentState extends State<DashboardContent>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: AppColors.cardLight,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -2003,7 +2003,7 @@ class _DashboardContentState extends State<DashboardContent>
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: AppColors.cardLight,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.gray100),
           ),
@@ -2373,7 +2373,7 @@ class _GoalsSectionContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.cardLight,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.gray100),
       ),

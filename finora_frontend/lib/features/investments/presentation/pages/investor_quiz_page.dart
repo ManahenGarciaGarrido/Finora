@@ -46,8 +46,9 @@ class _InvestorQuizPageState extends State<InvestorQuizPage> {
         } else if (state is InvestmentError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error),
+              content: Text(state.message),
+              backgroundColor: AppColors.error,
+            ),
           );
         }
       },
@@ -61,53 +62,75 @@ class _InvestorQuizPageState extends State<InvestorQuizPage> {
         ),
         body: Center(
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: responsive.isTablet ? 640 : double.infinity),
+            constraints: BoxConstraints(
+              maxWidth: responsive.isTablet ? 640 : double.infinity,
+            ),
             child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(s.recommendedStrategy,
-                style: AppTypography.labelSmall(color: AppColors.gray500)),
-            const SizedBox(height: 16),
-            // Risk tolerance
-            Text(s.healthScore, style: AppTypography.titleSmall()),
-            const SizedBox(height: 8),
-            _riskOption(s, 'conservative', s.profileConservative,
-                s.profileConservativeDesc, Icons.shield_outlined),
-            const SizedBox(height: 8),
-            _riskOption(s, 'moderate', s.profileModerate,
-                s.profileModerateDesc, Icons.balance_rounded),
-            const SizedBox(height: 8),
-            _riskOption(s, 'aggressive', s.profileAggressive,
-                s.profileAggressiveDesc, Icons.trending_up_rounded),
-            const SizedBox(height: 24),
-            // Investment horizon
-            Text(s.investmentHorizon, style: AppTypography.titleSmall()),
-            const SizedBox(height: 8),
-            _horizonOption(s, 'short', s.shortTerm),
-            const SizedBox(height: 8),
-            _horizonOption(s, 'medium', s.mediumTerm),
-            const SizedBox(height: 8),
-            _horizonOption(s, 'long', s.longTerm),
-            const SizedBox(height: 24),
-            // Monthly capacity
-            TextFormField(
-              controller: _capacityCtrl,
-              decoration: InputDecoration(
-                  labelText: s.monthlyCapacity,
-                  prefixText: '€ ',
-                  border: const OutlineInputBorder()),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _save,
-                child: Text(s.saveProfile),
-              ),
-            ),
-          ],
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text(
+                  s.recommendedStrategy,
+                  style: AppTypography.labelSmall(color: AppColors.gray500),
+                ),
+                const SizedBox(height: 16),
+                // Risk tolerance
+                Text(s.healthScore, style: AppTypography.titleSmall()),
+                const SizedBox(height: 8),
+                _riskOption(
+                  s,
+                  'conservative',
+                  s.profileConservative,
+                  s.profileConservativeDesc,
+                  Icons.shield_outlined,
+                ),
+                const SizedBox(height: 8),
+                _riskOption(
+                  s,
+                  'moderate',
+                  s.profileModerate,
+                  s.profileModerateDesc,
+                  Icons.balance_rounded,
+                ),
+                const SizedBox(height: 8),
+                _riskOption(
+                  s,
+                  'aggressive',
+                  s.profileAggressive,
+                  s.profileAggressiveDesc,
+                  Icons.trending_up_rounded,
+                ),
+                const SizedBox(height: 24),
+                // Investment horizon
+                Text(s.investmentHorizon, style: AppTypography.titleSmall()),
+                const SizedBox(height: 8),
+                _horizonOption(s, 'short', s.shortTerm),
+                const SizedBox(height: 8),
+                _horizonOption(s, 'medium', s.mediumTerm),
+                const SizedBox(height: 8),
+                _horizonOption(s, 'long', s.longTerm),
+                const SizedBox(height: 24),
+                // Monthly capacity
+                TextFormField(
+                  controller: _capacityCtrl,
+                  decoration: InputDecoration(
+                    fillColor: AppColors.cardLight,
+                    labelText: s.monthlyCapacity,
+                    prefixText: '€ ',
+                    border: const OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _save,
+                    child: Text(s.saveProfile),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -116,7 +139,12 @@ class _InvestorQuizPageState extends State<InvestorQuizPage> {
   }
 
   Widget _riskOption(
-      dynamic s, String value, String label, String desc, IconData icon) {
+    dynamic s,
+    String value,
+    String label,
+    String desc,
+    IconData icon,
+  ) {
     final selected = _risk == value;
     return GestureDetector(
       onTap: () => setState(() => _risk = value),
@@ -128,33 +156,41 @@ class _InvestorQuizPageState extends State<InvestorQuizPage> {
               : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: selected ? AppColors.primary : AppColors.gray200,
-              width: selected ? 2 : 1),
+            color: selected ? AppColors.primary : AppColors.gray200,
+            width: selected ? 2 : 1,
+          ),
         ),
         child: Row(
           children: [
-            Icon(icon,
-                color: selected ? AppColors.primary : AppColors.gray400,
-                size: 24),
+            Icon(
+              icon,
+              color: selected ? AppColors.primary : AppColors.gray400,
+              size: 24,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      style: AppTypography.titleSmall(
-                          color: selected
-                              ? AppColors.primary
-                              : null)),
-                  Text(desc,
-                      style: AppTypography.bodySmall(
-                          color: AppColors.gray500)),
+                  Text(
+                    label,
+                    style: AppTypography.titleSmall(
+                      color: selected ? AppColors.primary : null,
+                    ),
+                  ),
+                  Text(
+                    desc,
+                    style: AppTypography.bodySmall(color: AppColors.gray500),
+                  ),
                 ],
               ),
             ),
             if (selected)
-              Icon(Icons.check_circle_rounded,
-                  color: AppColors.primary, size: 20),
+              Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -173,19 +209,26 @@ class _InvestorQuizPageState extends State<InvestorQuizPage> {
               : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: selected ? AppColors.primary : AppColors.gray200,
-              width: selected ? 2 : 1),
+            color: selected ? AppColors.primary : AppColors.gray200,
+            width: selected ? 2 : 1,
+          ),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(label,
-                  style: AppTypography.bodyMedium(
-                      color: selected ? AppColors.primary : null)),
+              child: Text(
+                label,
+                style: AppTypography.bodyMedium(
+                  color: selected ? AppColors.primary : null,
+                ),
+              ),
             ),
             if (selected)
-              Icon(Icons.check_circle_rounded,
-                  color: AppColors.primary, size: 20),
+              Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -193,14 +236,14 @@ class _InvestorQuizPageState extends State<InvestorQuizPage> {
   }
 
   void _save() {
-    context.read<InvestmentBloc>().add(SaveProfile({
-          'risk_tolerance': _risk,
-          'investment_horizon': _horizon,
-          'monthly_capacity':
-              _capacityCtrl.text.isEmpty
-                  ? null
-                  : double.tryParse(
-                      _capacityCtrl.text.replaceAll(',', '.')),
-        }));
+    context.read<InvestmentBloc>().add(
+      SaveProfile({
+        'risk_tolerance': _risk,
+        'investment_horizon': _horizon,
+        'monthly_capacity': _capacityCtrl.text.isEmpty
+            ? null
+            : double.tryParse(_capacityCtrl.text.replaceAll(',', '.')),
+      }),
+    );
   }
 }

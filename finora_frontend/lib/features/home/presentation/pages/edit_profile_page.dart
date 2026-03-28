@@ -139,7 +139,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final s = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.backgroundLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -418,7 +418,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         decoration: BoxDecoration(
                           color: AppColors.primary,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.white, width: 2),
+                          border: Border.all(
+                            color: AppColors.backgroundLight,
+                            width: 2,
+                          ),
                         ),
                         child: const Icon(
                           Icons.camera_alt_rounded,
@@ -446,6 +449,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             TextFormField(
               controller: _nameController,
               decoration: InputDecoration(
+                fillColor: AppColors.cardLight,
                 labelText: s.fullNameLabel,
                 prefixIcon: const Icon(Icons.person_outline_rounded),
                 border: OutlineInputBorder(
@@ -463,6 +467,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
+                fillColor: AppColors.cardLight,
                 labelText: '${s.phoneNumber} (${s.optional})',
                 prefixIcon: const Icon(Icons.phone_outlined),
                 border: OutlineInputBorder(
@@ -478,6 +483,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               maxLines: 3,
               maxLength: 150,
               decoration: InputDecoration(
+                fillColor: AppColors.cardLight,
                 labelText: '${s.profileBio} (${s.optional})',
                 prefixIcon: const Padding(
                   padding: EdgeInsets.only(bottom: 48),
@@ -503,7 +509,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             // Language selector
             Container(
               decoration: BoxDecoration(
-                color: AppColors.white,
+                color: AppColors.cardLight,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.gray100),
               ),
@@ -543,7 +549,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             // Currency selector
             Container(
               decoration: BoxDecoration(
-                color: AppColors.white,
+                color: AppColors.cardLight,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.gray100),
               ),
@@ -625,7 +631,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
     if (responsive.isTablet) {
       return Scaffold(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.backgroundLight,
         appBar: appBar,
         body: Center(
           child: ConstrainedBox(
@@ -636,7 +642,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
     }
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.backgroundLight,
       appBar: appBar,
       body: _buildBodyContent(s),
     );

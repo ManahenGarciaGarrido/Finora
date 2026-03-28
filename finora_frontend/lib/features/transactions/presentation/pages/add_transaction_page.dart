@@ -286,7 +286,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   void _showImageSourceDialog() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.cardLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -570,7 +570,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                 ),
                 child: Card(
                   elevation: 0,
-                  color: AppColors.white,
+                  color: AppColors.cardLight,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),

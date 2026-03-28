@@ -166,7 +166,7 @@ class _InstitutionSelectorSheetState extends State<InstitutionSelectorSheet> {
                           )
                         : null,
                     filled: true,
-                    fillColor: AppColors.white,
+                    fillColor: AppColors.surfaceLight,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                       borderSide: const BorderSide(color: AppColors.gray200),
@@ -368,7 +368,7 @@ class _InstitutionTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.gray100),
         ),

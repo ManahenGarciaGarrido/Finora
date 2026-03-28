@@ -116,7 +116,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                 const SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppColors.white,
+                    color: AppColors.surfaceLight,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppColors.gray200),
                   ),
@@ -252,7 +252,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -325,7 +325,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: AppColors.surfaceLight,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.gray100),
             ),
@@ -364,7 +364,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.gray100),
       ),
@@ -434,7 +434,7 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.gray100),
           ),

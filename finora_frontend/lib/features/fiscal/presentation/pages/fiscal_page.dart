@@ -64,17 +64,21 @@ class _FiscalPageState extends State<FiscalPage>
           } else if (state is CalendarLoaded) {
             setState(() => _calendarEvents = state.events);
           } else if (state is FiscalExported) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(s.fiscalDataExported),
-              backgroundColor: AppColors.success,
-            ));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(s.fiscalDataExported),
+                backgroundColor: AppColors.success,
+              ),
+            );
           } else if (state is FiscalExportReady) {
             _shareExportFile(state.filePath, state.format, s);
           } else if (state is FiscalError) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-            ));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: AppColors.error,
+              ),
+            );
           }
         },
         builder: (ctx, state) {
@@ -90,7 +94,9 @@ class _FiscalPageState extends State<FiscalPage>
                 labelColor: AppColors.primary,
                 indicatorColor: AppColors.primary,
                 isScrollable: !responsive.isTablet,
-                tabAlignment: responsive.isTablet ? TabAlignment.fill : TabAlignment.start,
+                tabAlignment: responsive.isTablet
+                    ? TabAlignment.fill
+                    : TabAlignment.start,
                 tabs: [
                   Tab(text: s.deductibleExpensesTab),
                   Tab(text: s.irpfTab),
@@ -107,7 +113,8 @@ class _FiscalPageState extends State<FiscalPage>
             body: state is FiscalLoading
                 ? const Padding(
                     padding: EdgeInsets.all(16),
-                    child: SkeletonListLoader(count: 5, cardHeight: 70))
+                    child: SkeletonListLoader(count: 5, cardHeight: 70),
+                  )
                 : Center(
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
@@ -130,20 +137,23 @@ class _FiscalPageState extends State<FiscalPage>
     );
   }
 
-  Future<void> _shareExportFile(
-      String path, String format, dynamic s) async {
+  Future<void> _shareExportFile(String path, String format, dynamic s) async {
     try {
-      final file = XFile(path,
-          mimeType: format == 'xlsx'
-              ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-              : 'text/csv');
+      final file = XFile(
+        path,
+        mimeType: format == 'xlsx'
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'text/csv',
+      );
       await Share.shareXFiles([file], subject: s.exportShareTitle);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -157,18 +167,20 @@ class _FiscalPageState extends State<FiscalPage>
             margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primarySoft,
+              color: AppColors.cardLight,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(s.totalDeductible,
-                    style:
-                        AppTypography.titleSmall(color: AppColors.primary)),
-                Text(fmt(_totalDeductible),
-                    style:
-                        AppTypography.titleMedium(color: AppColors.primary)),
+                Text(
+                  s.totalDeductible,
+                  style: AppTypography.titleSmall(color: AppColors.primary),
+                ),
+                Text(
+                  fmt(_totalDeductible),
+                  style: AppTypography.titleMedium(color: AppColors.primary),
+                ),
               ],
             ),
           ),
@@ -189,8 +201,12 @@ class _FiscalPageState extends State<FiscalPage>
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: Text(s.markDeductible),
                 style: FilledButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  backgroundColor: AppColors.cardLight,
+                  foregroundColor: AppColors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   textStyle: const TextStyle(fontSize: 13),
                 ),
               ),
@@ -203,18 +219,23 @@ class _FiscalPageState extends State<FiscalPage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.receipt_long_rounded,
-                      size: 56, color: AppColors.gray300),
+                  Icon(
+                    Icons.receipt_long_rounded,
+                    size: 56,
+                    color: AppColors.gray300,
+                  ),
                   const SizedBox(height: 12),
-                  Text(s.noFiscalData,
-                      style: AppTypography.bodyMedium(
-                          color: AppColors.gray500),
-                      textAlign: TextAlign.center),
+                  Text(
+                    s.noFiscalData,
+                    style: AppTypography.bodyMedium(color: AppColors.gray500),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 8),
-                  Text('Pulsa "Marcar como deducible" para etiquetar gastos',
-                      style:
-                          AppTypography.bodySmall(color: AppColors.gray400),
-                      textAlign: TextAlign.center),
+                  Text(
+                    'Pulsa "Marcar como deducible" para etiquetar gastos',
+                    style: AppTypography.bodySmall(color: AppColors.gray400),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -222,8 +243,7 @@ class _FiscalPageState extends State<FiscalPage>
         else
           Expanded(
             child: ListView.separated(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _deductibles.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) {
@@ -236,36 +256,50 @@ class _FiscalPageState extends State<FiscalPage>
     );
   }
 
-  Widget _deductibleTile(BuildContext ctx, FiscalTransactionEntity t,
-      Function fmt, dynamic s) {
+  Widget _deductibleTile(
+    BuildContext ctx,
+    FiscalTransactionEntity t,
+    Function fmt,
+    dynamic s,
+  ) {
     final categoryColor = _categoryColor(t.fiscalCategory);
     return ListTile(
       tileColor: AppColors.surfaceLight,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: AppColors.gray200)),
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: AppColors.gray200),
+      ),
       leading: CircleAvatar(
         radius: 18,
-        backgroundColor: categoryColor.withValues(alpha:0.15),
-        child: Icon(_categoryIcon(t.fiscalCategory),
-            size: 18, color: categoryColor),
+        backgroundColor: categoryColor.withValues(alpha: 0.15),
+        child: Icon(
+          _categoryIcon(t.fiscalCategory),
+          size: 18,
+          color: categoryColor,
+        ),
       ),
-      title: Text(t.description,
-          style: AppTypography.bodyMedium(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis),
-      subtitle: Text(_categoryLabel(t.fiscalCategory, s),
-          style:
-              AppTypography.bodySmall(color: categoryColor)),
+      title: Text(
+        t.description,
+        style: AppTypography.bodyMedium(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        _categoryLabel(t.fiscalCategory, s),
+        style: AppTypography.bodySmall(color: categoryColor),
+      ),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(fmt(t.amount),
-              style: AppTypography.titleSmall(color: AppColors.primary)),
-          Text(t.date.substring(0, 10),
-              style:
-                  AppTypography.bodySmall(color: AppColors.gray400)),
+          Text(
+            fmt(t.amount),
+            style: AppTypography.titleSmall(color: AppColors.primary),
+          ),
+          Text(
+            t.date.substring(0, 10),
+            style: AppTypography.bodySmall(color: AppColors.gray400),
+          ),
         ],
       ),
       onTap: () => _showTagDialog(ctx, t, s),
@@ -357,9 +391,11 @@ class _FiscalPageState extends State<FiscalPage>
                   onChanged: (v) {
                     Navigator.pop(context);
                     ctx.read<FiscalBloc>().add(
-                          TagTransaction(t.id,
-                              fiscalCategory: v!.isEmpty ? null : v),
-                        );
+                      TagTransaction(
+                        t.id,
+                        fiscalCategory: v!.isEmpty ? null : v,
+                      ),
+                    );
                   },
                 ),
               ),
@@ -379,6 +415,7 @@ class _FiscalPageState extends State<FiscalPage>
           TextFormField(
             controller: _incomeCtrl,
             decoration: InputDecoration(
+              fillColor: AppColors.cardLight,
               labelText: s.annualIncomeLabel,
               border: const OutlineInputBorder(),
               prefixIcon: const Icon(Icons.euro_rounded),
@@ -389,6 +426,7 @@ class _FiscalPageState extends State<FiscalPage>
           TextFormField(
             controller: _extraCtrl,
             decoration: InputDecoration(
+              fillColor: AppColors.cardLight,
               labelText: s.deductionsLabel,
               border: const OutlineInputBorder(),
               prefixIcon: const Icon(Icons.remove_circle_outline_rounded),
@@ -400,9 +438,9 @@ class _FiscalPageState extends State<FiscalPage>
             onPressed: () {
               final income = double.tryParse(_incomeCtrl.text) ?? 0;
               final extra = double.tryParse(_extraCtrl.text) ?? 0;
-              ctx
-                  .read<FiscalBloc>()
-                  .add(EstimateIrpf(income, extraDeductions: extra));
+              ctx.read<FiscalBloc>().add(
+                EstimateIrpf(income, extraDeductions: extra),
+              );
             },
             icon: const Icon(Icons.calculate_rounded),
             label: Text(s.irpfTab),
@@ -439,10 +477,7 @@ class _FiscalPageState extends State<FiscalPage>
           Text(s.taxBrackets, style: AppTypography.titleSmall()),
           const SizedBox(height: 8),
           for (final b in r.brackets.where((b) => b.taxableAmount > 0))
-            _row(
-              '${(b.rate * 100).toStringAsFixed(0)}%',
-              fmt(b.tax),
-            ),
+            _row('${(b.rate * 100).toStringAsFixed(0)}%', fmt(b.tax)),
         ],
       ),
     );
@@ -454,8 +489,10 @@ class _FiscalPageState extends State<FiscalPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: AppTypography.bodyMedium(color: AppColors.gray600)),
+          Text(
+            label,
+            style: AppTypography.bodyMedium(color: AppColors.gray600),
+          ),
           Text(value, style: AppTypography.titleSmall(color: color)),
         ],
       ),
@@ -465,8 +502,11 @@ class _FiscalPageState extends State<FiscalPage>
   Widget _buildCalendar(BuildContext ctx, dynamic s) {
     if (_calendarEvents.isEmpty) {
       return Center(
-          child: Text(s.noFiscalData,
-              style: AppTypography.bodyMedium(color: AppColors.gray500)));
+        child: Text(
+          s.noFiscalData,
+          style: AppTypography.bodyMedium(color: AppColors.gray500),
+        ),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
@@ -477,18 +517,21 @@ class _FiscalPageState extends State<FiscalPage>
         return ListTile(
           tileColor: AppColors.surfaceLight,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                  color: e.isPast ? AppColors.gray200 : AppColors.primary)),
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(
+              color: e.isPast ? AppColors.gray200 : AppColors.primary,
+            ),
+          ),
           leading: Icon(
-            e.type == 'annual'
-                ? Icons.event_rounded
-                : Icons.repeat_rounded,
+            e.type == 'annual' ? Icons.event_rounded : Icons.repeat_rounded,
             color: e.isPast ? AppColors.gray400 : AppColors.primary,
           ),
-          title: Text(e.title,
-              style: AppTypography.bodyMedium(
-                  color: e.isPast ? AppColors.gray400 : null)),
+          title: Text(
+            e.title,
+            style: AppTypography.bodyMedium(
+              color: e.isPast ? AppColors.gray400 : null,
+            ),
+          ),
           subtitle: Text(e.date),
           trailing: e.isPast
               ? Icon(Icons.check_circle_rounded, color: AppColors.gray400)
@@ -527,9 +570,9 @@ class _FiscalPageState extends State<FiscalPage>
             title: 'Excel (.xlsx)',
             description: s.exportXlsxDesc,
             buttonLabel: 'Exportar Excel',
-            onTap: () => ctx
-                .read<FiscalBloc>()
-                .add(ExportFiscal(year: year, format: 'xlsx')),
+            onTap: () => ctx.read<FiscalBloc>().add(
+              ExportFiscal(year: year, format: 'xlsx'),
+            ),
           ),
           const SizedBox(height: 16),
           // CSV card
@@ -540,15 +583,15 @@ class _FiscalPageState extends State<FiscalPage>
             title: 'CSV',
             description: s.exportCsvDesc,
             buttonLabel: 'Exportar CSV',
-            onTap: () => ctx
-                .read<FiscalBloc>()
-                .add(ExportFiscal(year: year, format: 'csv')),
+            onTap: () => ctx.read<FiscalBloc>().add(
+              ExportFiscal(year: year, format: 'csv'),
+            ),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.gray100,
+              color: AppColors.cardLight,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -578,9 +621,10 @@ class _FiscalPageState extends State<FiscalPage>
         border: Border.all(color: AppColors.gray200),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha:0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Padding(
@@ -591,7 +635,7 @@ class _FiscalPageState extends State<FiscalPage>
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: color.withValues(alpha:0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 28),
@@ -603,9 +647,10 @@ class _FiscalPageState extends State<FiscalPage>
                 children: [
                   Text(title, style: AppTypography.titleSmall()),
                   const SizedBox(height: 4),
-                  Text(description,
-                      style:
-                          AppTypography.bodySmall(color: AppColors.gray500)),
+                  Text(
+                    description,
+                    style: AppTypography.bodySmall(color: AppColors.gray500),
+                  ),
                 ],
               ),
             ),
@@ -614,8 +659,10 @@ class _FiscalPageState extends State<FiscalPage>
               onPressed: onTap,
               style: FilledButton.styleFrom(
                 backgroundColor: color,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 textStyle: const TextStyle(fontSize: 13),
               ),
               child: Text(buttonLabel),
@@ -662,8 +709,7 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
       builder: (_, controller) => Container(
         decoration: BoxDecoration(
           color: AppColors.surfaceLight,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
@@ -681,18 +727,20 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(s.allExpensesTitle,
-                      style: AppTypography.titleSmall()),
+                  Text(s.allExpensesTitle, style: AppTypography.titleSmall()),
                   const SizedBox(height: 12),
                   TextField(
                     decoration: InputDecoration(
                       hintText: 'Buscar gasto...',
                       prefixIcon: const Icon(Icons.search_rounded),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     onChanged: (v) => setState(() => _search = v.toLowerCase()),
                   ),
@@ -716,17 +764,24 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.error_outline_rounded,
-                                size: 48, color: AppColors.error),
+                            Icon(
+                              Icons.error_outline_rounded,
+                              size: 48,
+                              color: AppColors.error,
+                            ),
                             const SizedBox(height: 12),
-                            Text(state.message,
-                                style: AppTypography.bodyMedium(
-                                    color: AppColors.gray600),
-                                textAlign: TextAlign.center),
+                            Text(
+                              state.message,
+                              style: AppTypography.bodyMedium(
+                                color: AppColors.gray600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                             const SizedBox(height: 16),
                             FilledButton.icon(
-                              onPressed: () =>
-                                  ctx.read<FiscalBloc>().add(const LoadAllTransactions()),
+                              onPressed: () => ctx.read<FiscalBloc>().add(
+                                const LoadAllTransactions(),
+                              ),
                               icon: const Icon(Icons.refresh_rounded),
                               label: const Text('Reintentar'),
                             ),
@@ -742,19 +797,24 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
                         children: [
                           const CircularProgressIndicator(),
                           const SizedBox(height: 16),
-                          Text('Cargando transacciones...',
-                              style: AppTypography.bodyMedium(
-                                  color: AppColors.gray500)),
+                          Text(
+                            'Cargando transacciones...',
+                            style: AppTypography.bodyMedium(
+                              color: AppColors.gray500,
+                            ),
+                          ),
                         ],
                       ),
                     );
                   }
                   final all = state.transactions
-                      .where((t) =>
-                          _search.isEmpty ||
-                          t.description.toLowerCase().contains(_search) ||
-                          (t.category?.toLowerCase().contains(_search) ??
-                              false))
+                      .where(
+                        (t) =>
+                            _search.isEmpty ||
+                            t.description.toLowerCase().contains(_search) ||
+                            (t.category?.toLowerCase().contains(_search) ??
+                                false),
+                      )
                       .toList();
                   if (state.transactions.isEmpty) {
                     return Center(
@@ -763,8 +823,11 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.receipt_long_rounded,
-                                size: 56, color: AppColors.gray300),
+                            Icon(
+                              Icons.receipt_long_rounded,
+                              size: 56,
+                              color: AppColors.gray300,
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               'No hay transacciones disponibles',
@@ -776,7 +839,8 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
                               'Añade transacciones en la pantalla principal para poder '
                               'marcarlas como gastos deducibles aquí.',
                               style: AppTypography.bodySmall(
-                                  color: AppColors.gray500),
+                                color: AppColors.gray500,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -786,9 +850,13 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
                   }
                   if (all.isEmpty) {
                     return Center(
-                        child: Text('Sin resultados para "$_search"',
-                            style: AppTypography.bodyMedium(
-                                color: AppColors.gray500)));
+                      child: Text(
+                        'Sin resultados para "$_search"',
+                        style: AppTypography.bodyMedium(
+                          color: AppColors.gray500,
+                        ),
+                      ),
+                    );
                   }
                   return ListView.separated(
                     controller: controller,
@@ -803,15 +871,17 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
                             ? AppColors.primarySoft
                             : AppColors.surfaceLight,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(
-                                color: isTagged
-                                    ? AppColors.primary.withValues(alpha:0.3)
-                                    : AppColors.gray200)),
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(
+                            color: isTagged
+                                ? AppColors.primary.withValues(alpha: 0.3)
+                                : AppColors.gray200,
+                          ),
+                        ),
                         leading: CircleAvatar(
                           radius: 18,
                           backgroundColor: isTagged
-                              ? AppColors.primary.withValues(alpha:0.15)
+                              ? AppColors.primary.withValues(alpha: 0.15)
                               : AppColors.gray100,
                           child: Icon(
                             isTagged
@@ -823,29 +893,38 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
                                 : AppColors.gray400,
                           ),
                         ),
-                        title: Text(t.description,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.bodyMedium()),
+                        title: Text(
+                          t.description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyMedium(),
+                        ),
                         subtitle: Text(
                           isTagged
                               ? _catLabel(t.fiscalCategory, s)
                               : (t.category ?? ''),
                           style: AppTypography.bodySmall(
-                              color: isTagged
-                                  ? AppColors.primary
-                                  : AppColors.gray500),
+                            color: isTagged
+                                ? AppColors.primary
+                                : AppColors.gray500,
+                          ),
                         ),
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(fmt(t.amount),
-                                style: AppTypography.titleSmall(
-                                    color: AppColors.primary)),
-                            Text(t.date.substring(0, 10),
-                                style: AppTypography.bodySmall(
-                                    color: AppColors.gray400)),
+                            Text(
+                              fmt(t.amount),
+                              style: AppTypography.titleSmall(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            Text(
+                              t.date.substring(0, 10),
+                              style: AppTypography.bodySmall(
+                                color: AppColors.gray400,
+                              ),
+                            ),
                           ],
                         ),
                         onTap: () => _showQuickTagMenu(ctx, t, s),
@@ -877,7 +956,10 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
   }
 
   void _showQuickTagMenu(
-      BuildContext ctx, FiscalTransactionEntity t, dynamic s) {
+    BuildContext ctx,
+    FiscalTransactionEntity t,
+    dynamic s,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       builder: (_) => SafeArea(
@@ -885,10 +967,12 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            Text(t.description,
-                style: AppTypography.titleSmall(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
+            Text(
+              t.description,
+              style: AppTypography.titleSmall(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 4),
             const Divider(),
             for (final entry in {
@@ -898,8 +982,10 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
               'other': s.fiscalCategoryOther,
             }.entries)
               ListTile(
-                leading: Icon(Icons.label_outline_rounded,
-                    color: AppColors.primary),
+                leading: Icon(
+                  Icons.label_outline_rounded,
+                  color: AppColors.primary,
+                ),
                 title: Text(entry.value),
                 selected: t.fiscalCategory == entry.key,
                 selectedColor: AppColors.primary,
@@ -911,8 +997,10 @@ class _AllTransactionsSheetState extends State<_AllTransactionsSheet> {
             if (t.fiscalCategory != null)
               ListTile(
                 leading: Icon(Icons.label_off_rounded, color: AppColors.error),
-                title: Text(s.removeFiscalTag,
-                    style: TextStyle(color: AppColors.error)),
+                title: Text(
+                  s.removeFiscalTag,
+                  style: TextStyle(color: AppColors.error),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   widget.onTag(t.id, null);
