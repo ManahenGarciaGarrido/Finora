@@ -38,6 +38,7 @@ class CsvRowModel extends CsvRowEntity {
     required super.amount,
     super.date,
     required super.description,
+    super.type,
     super.selected,
   });
 
@@ -46,6 +47,7 @@ class CsvRowModel extends CsvRowEntity {
     amount: _d(j['amount']),
     date: j['date']?.toString(),
     description: j['description']?.toString() ?? '',
+    type: j['type']?.toString() ?? 'expense',
   );
 }
 

@@ -3086,6 +3086,142 @@ class AppLocalizations extends AppStringsBase {
   String get joinChallenge => _strings.joinChallenge;
 
   @override
+  String get greatExcl => _strings.greatExcl;
+  @override
+  String get joinedChallengeMsg => _strings.joinedChallengeMsg;
+  @override
+  String rewardPointsLabel(int points) => _strings.rewardPointsLabel(points);
+  @override
+  String get viewBadgesBtn => _strings.viewBadgesBtn;
+  @override
+  String get whatIsStreakTitle => _strings.whatIsStreakTitle;
+  @override
+  String get whatIsStreakBody => _strings.whatIsStreakBody;
+  @override
+  String get activeStreaksTitle => _strings.activeStreaksTitle;
+  @override
+  String get whatCanYouEarnTitle => _strings.whatCanYouEarnTitle;
+  @override
+  String get whatCanYouEarnBody => _strings.whatCanYouEarnBody;
+  @override
+  String get startStreakHint => _strings.startStreakHint;
+  @override
+  String get startStreakBtn => _strings.startStreakBtn;
+  @override
+  String get lastActivityLabel => _strings.lastActivityLabel;
+  @override
+  String nextMilestoneLabel(int milestone, int remaining) =>
+      _strings.nextMilestoneLabel(milestone, remaining);
+  @override
+  String get recordWeekBtn => _strings.recordWeekBtn;
+  @override
+  String get streakTypeDailyLogin => _strings.streakTypeDailyLogin;
+  @override
+  String get streakTypeWeeklySaving => _strings.streakTypeWeeklySaving;
+  @override
+  String get streakTypeBudgetCompliance => _strings.streakTypeBudgetCompliance;
+  @override
+  String get streakTypeNoImpulseBuy => _strings.streakTypeNoImpulseBuy;
+  @override
+  String get streakTypeDefault => _strings.streakTypeDefault;
+  @override
+  String get streakTypeDescDailyLogin => _strings.streakTypeDescDailyLogin;
+  @override
+  String get streakTypeDescWeeklySaving => _strings.streakTypeDescWeeklySaving;
+  @override
+  String get streakTypeDescBudgetCompliance =>
+      _strings.streakTypeDescBudgetCompliance;
+  @override
+  String get streakTypeDescNoImpulseBuy => _strings.streakTypeDescNoImpulseBuy;
+  @override
+  String get streakTypeDescDefault => _strings.streakTypeDescDefault;
+  @override
+  String get checkNewBadgesBtn => _strings.checkNewBadgesBtn;
+  @override
+  String get completeBadgesHint => _strings.completeBadgesHint;
+  @override
+  String get allBadgesEarned => _strings.allBadgesEarned;
+  @override
+  String get howToEarnPrefix => _strings.howToEarnPrefix;
+  @override
+  String earnedOnDate(String date) => _strings.earnedOnDate(date);
+  @override
+  String get badgeHowToFirstTransaction => _strings.badgeHowToFirstTransaction;
+  @override
+  String get badgeHowToStreak4 => _strings.badgeHowToStreak4;
+  @override
+  String get badgeHowToStreak8 => _strings.badgeHowToStreak8;
+  @override
+  String get badgeHowToStreak12 => _strings.badgeHowToStreak12;
+  @override
+  String get badgeHowToBudgetMaster => _strings.badgeHowToBudgetMaster;
+  @override
+  String get badgeHowToSavingsGoal => _strings.badgeHowToSavingsGoal;
+  @override
+  String get badgeHowToChallengeComplete => _strings.badgeHowToChallengeComplete;
+  @override
+  String get badgeHowToNoDebt => _strings.badgeHowToNoDebt;
+  @override
+  String get badgeHowToInvestor => _strings.badgeHowToInvestor;
+  @override
+  String get periodWeekly => _strings.periodWeekly;
+  @override
+  String get periodMonthly => _strings.periodMonthly;
+  @override
+  String get periodQuarterly => _strings.periodQuarterly;
+  @override
+  String get howChallengesWorkTitle => _strings.howChallengesWorkTitle;
+  @override
+  String get howChallengesWorkBody => _strings.howChallengesWorkBody;
+  @override
+  String get autoUpdateTitle => _strings.autoUpdateTitle;
+  @override
+  String get autoUpdateBody => _strings.autoUpdateBody;
+  @override
+  String get noChallengesYet => _strings.noChallengesYet;
+  @override
+  String get searchNewChallengesBtn => _strings.searchNewChallengesBtn;
+  @override
+  String get activeChallengesTitle => _strings.activeChallengesTitle;
+  @override
+  String get completedChallengesTitle => _strings.completedChallengesTitle;
+  @override
+  String get challengeCompletedBadge => _strings.challengeCompletedBadge;
+  @override
+  String get challengeInProgress => _strings.challengeInProgress;
+  @override
+  String get newBadgeLabel => _strings.newBadgeLabel;
+  @override
+  String get expiresSoonLabel => _strings.expiresSoonLabel;
+  @override
+  String get challengeTypeSavingsLabel => _strings.challengeTypeSavingsLabel;
+  @override
+  String get challengeTypeBudgetLabel => _strings.challengeTypeBudgetLabel;
+  @override
+  String get challengeTypeNoSpendingLabel =>
+      _strings.challengeTypeNoSpendingLabel;
+  @override
+  String get challengeTypeStreakLabel => _strings.challengeTypeStreakLabel;
+  @override
+  String get challengeTypeGoalLabel => _strings.challengeTypeGoalLabel;
+  @override
+  String challengeTypeSavingsDesc(String target) =>
+      _strings.challengeTypeSavingsDesc(target);
+  @override
+  String get challengeTypeBudgetDesc => _strings.challengeTypeBudgetDesc;
+  @override
+  String challengeTypeNoSpendingDesc(String target) =>
+      _strings.challengeTypeNoSpendingDesc(target);
+  @override
+  String challengeTypeStreakDesc(String target) =>
+      _strings.challengeTypeStreakDesc(target);
+  @override
+  String challengeTypeGoalDesc(String target) =>
+      _strings.challengeTypeGoalDesc(target);
+  @override
+  String get challengeTypeDefaultDesc => _strings.challengeTypeDefaultDesc;
+
+  @override
   String get settingsGamification => _strings.settingsGamification;
 
   @override
@@ -3233,6 +3369,102 @@ class AppLocalizations extends AppStringsBase {
 
   @override
   String get exportShareTitle => _strings.exportShareTitle;
+
+  @override
+  String get irpfSimulatorTitle => _strings.irpfSimulatorTitle;
+  @override
+  String get irpfStep1Title => _strings.irpfStep1Title;
+  @override
+  String get irpfStep1Subtitle => _strings.irpfStep1Subtitle;
+  @override
+  String get irpfMaritalStatusLabel => _strings.irpfMaritalStatusLabel;
+  @override
+  String get irpfMaritalSingle => _strings.irpfMaritalSingle;
+  @override
+  String get irpfMaritalMarried => _strings.irpfMaritalMarried;
+  @override
+  String get irpfMaritalWidow => _strings.irpfMaritalWidow;
+  @override
+  String get irpfChildrenLabel => _strings.irpfChildrenLabel;
+  @override
+  String get irpfDisabilityLabel => _strings.irpfDisabilityLabel;
+  @override
+  String get irpfDisabilityNone => _strings.irpfDisabilityNone;
+  @override
+  String get irpfDisability33 => _strings.irpfDisability33;
+  @override
+  String get irpfDisability65 => _strings.irpfDisability65;
+  @override
+  String get irpfDisability75 => _strings.irpfDisability75;
+  @override
+  String get irpfPersonalAllowanceInfo => _strings.irpfPersonalAllowanceInfo;
+  @override
+  String get irpfStep2Title => _strings.irpfStep2Title;
+  @override
+  String get irpfStep2Subtitle => _strings.irpfStep2Subtitle;
+  @override
+  String get irpfSalaryLabel => _strings.irpfSalaryLabel;
+  @override
+  String get irpfUseTxIncome => _strings.irpfUseTxIncome;
+  @override
+  String get irpfSalaryInfo => _strings.irpfSalaryInfo;
+  @override
+  String get irpfStep3Title => _strings.irpfStep3Title;
+  @override
+  String get irpfStep3Subtitle => _strings.irpfStep3Subtitle;
+  @override
+  String get irpfFreelanceLabel => _strings.irpfFreelanceLabel;
+  @override
+  String get irpfRentalLabel => _strings.irpfRentalLabel;
+  @override
+  String get irpfCapitalGainsLabel => _strings.irpfCapitalGainsLabel;
+  @override
+  String get irpfStep4Title => _strings.irpfStep4Title;
+  @override
+  String get irpfStep4Subtitle => _strings.irpfStep4Subtitle;
+  @override
+  String get irpfPensionLabel => _strings.irpfPensionLabel;
+  @override
+  String get irpfPensionHint => _strings.irpfPensionHint;
+  @override
+  String get irpfHousingDeductionLabel => _strings.irpfHousingDeductionLabel;
+  @override
+  String get irpfHousingDeductionHint => _strings.irpfHousingDeductionHint;
+  @override
+  String get irpfDonationsLabel => _strings.irpfDonationsLabel;
+  @override
+  String get irpfDonationsHint => _strings.irpfDonationsHint;
+  @override
+  String get irpfAppDeductiblesLabel => _strings.irpfAppDeductiblesLabel;
+  @override
+  String get irpfStep5Title => _strings.irpfStep5Title;
+  @override
+  String get irpfCalculateBtn => _strings.irpfCalculateBtn;
+  @override
+  String get irpfPrevBtn => _strings.irpfPrevBtn;
+  @override
+  String get irpfNextBtn => _strings.irpfNextBtn;
+  @override
+  String get irpfResultInterpretationLow =>
+      _strings.irpfResultInterpretationLow;
+  @override
+  String get irpfResultInterpretationMid =>
+      _strings.irpfResultInterpretationMid;
+  @override
+  String get irpfResultInterpretationHigh =>
+      _strings.irpfResultInterpretationHigh;
+  @override
+  String get irpfTipPension => _strings.irpfTipPension;
+  @override
+  String get irpfTipDonations => _strings.irpfTipDonations;
+  @override
+  String get irpfOpenRentaWebBtn => _strings.irpfOpenRentaWebBtn;
+  @override
+  String get irpfRentaWebInfo => _strings.irpfRentaWebInfo;
+  @override
+  String get irpfTaxableBase => _strings.irpfTaxableBase;
+  @override
+  String get irpfPersonalMinimum => _strings.irpfPersonalMinimum;
 
   @override
   String get wearableSyncBtn => _strings.wearableSyncBtn;

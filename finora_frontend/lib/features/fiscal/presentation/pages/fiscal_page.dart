@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'package:finora_frontend/core/l10n/app_localizations.dart';
@@ -29,8 +30,41 @@ class _FiscalPageState extends State<FiscalPage>
   double _totalDeductible = 0;
   IrpfResultEntity? _irpfResult;
   List<TaxEventEntity> _calendarEvents = [];
-  final _incomeCtrl = TextEditingController();
-  final _extraCtrl = TextEditingController();
+
+  // ── IRPF Wizard state ───────────────────────────────────────────────────
+  int _irpfStep = 0; // 0..4
+  int _maritalStatus = 0; // 0=soltero, 1=casado, 2=viudo
+  int _children = 0;
+  int _disability = 0; // 0, 33, 65, 75
+  final _salaryCtrl = TextEditingController();
+  final _freelanceCtrl = TextEditingController();
+  final _rentalCtrl = TextEditingController();
+  final _capitalGainsCtrl = TextEditingController();
+  final _pensionCtrl = TextEditingController();
+  final _housingCtrl = TextEditingController();
+  final _donationsCtrl = TextEditingController();
+
+  double _parseCtrl(TextEditingController c) =>
+      double.tryParse(c.text.replaceAll(',', '.')) ?? 0.0;
+
+  double _computePersonalMinimum() {
+    double min = 5550.0;
+    // Mínimo por descendientes (valores aproximados 2024)
+    const childDeductions = [2400.0, 2700.0, 4000.0, 4500.0];
+    for (int i = 0; i < _children && i < childDeductions.length; i++) {
+      min += childDeductions[i];
+    }
+    if (_children > 4) min += 4500.0 * (_children - 4);
+    // Mínimo por discapacidad del contribuyente
+    if (_disability >= 75) {
+      min += 12000.0;
+    } else if (_disability >= 65) {
+      min += 9000.0;
+    } else if (_disability >= 33) {
+      min += 3000.0;
+    }
+    return min;
+  }
 
   @override
   void initState() {
@@ -41,8 +75,13 @@ class _FiscalPageState extends State<FiscalPage>
   @override
   void dispose() {
     _tabs.dispose();
-    _incomeCtrl.dispose();
-    _extraCtrl.dispose();
+    _salaryCtrl.dispose();
+    _freelanceCtrl.dispose();
+    _rentalCtrl.dispose();
+    _capitalGainsCtrl.dispose();
+    _pensionCtrl.dispose();
+    _housingCtrl.dispose();
+    _donationsCtrl.dispose();
     super.dispose();
   }
 
@@ -373,82 +412,556 @@ class _FiscalPageState extends State<FiscalPage>
       context: context,
       builder: (_) => AlertDialog(
         title: Text(s.tagAsFiscal),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final entry in {
-              'freelance': s.fiscalCategoryFreelance,
-              'donation': s.fiscalCategoryDonation,
-              'capital_gain': s.fiscalCategoryCapitalGain,
-              'other': s.fiscalCategoryOther,
-              '': s.removeFiscalTag,
-            }.entries)
-              ListTile(
-                title: Text(entry.value),
-                leading: Radio<String>(
-                  value: entry.key,
-                  groupValue: t.fiscalCategory ?? '',
-                  onChanged: (v) {
-                    Navigator.pop(context);
-                    ctx.read<FiscalBloc>().add(
-                      TagTransaction(
-                        t.id,
-                        fiscalCategory: v!.isEmpty ? null : v,
-                      ),
-                    );
-                  },
-                ),
+        content: RadioGroup<String>(
+          groupValue: t.fiscalCategory ?? '',
+          onChanged: (v) {
+            Navigator.pop(context);
+            ctx.read<FiscalBloc>().add(
+              TagTransaction(
+                t.id,
+                fiscalCategory: v!.isEmpty ? null : v,
               ),
-          ],
+            );
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final entry in {
+                'freelance': s.fiscalCategoryFreelance,
+                'donation': s.fiscalCategoryDonation,
+                'capital_gain': s.fiscalCategoryCapitalGain,
+                'other': s.fiscalCategoryOther,
+                '': s.removeFiscalTag,
+              }.entries)
+                ListTile(
+                  title: Text(entry.value),
+                  leading: Radio<String>(value: entry.key),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  // ── IRPF Wizard ────────────────────────────────────────────────────────────
+
   Widget _buildIrpf(BuildContext ctx, dynamic s) {
-    final fmt = CurrencyService().format;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
-            controller: _incomeCtrl,
-            decoration: InputDecoration(
-              fillColor: AppColors.cardLight,
-              labelText: s.annualIncomeLabel,
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.euro_rounded),
-            ),
-            keyboardType: TextInputType.number,
-          ),
+          // Título del simulador
+          Text(s.irpfSimulatorTitle, style: AppTypography.titleMedium()),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _extraCtrl,
-            decoration: InputDecoration(
-              fillColor: AppColors.cardLight,
-              labelText: s.deductionsLabel,
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.remove_circle_outline_rounded),
-            ),
-            keyboardType: TextInputType.number,
+          // Indicador de pasos
+          _buildStepIndicator(s),
+          const SizedBox(height: 20),
+          // Contenido del paso actual
+          _buildCurrentStep(ctx, s),
+          const SizedBox(height: 20),
+          // Botones de navegación
+          _buildStepNavButtons(ctx, s),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepIndicator(dynamic s) {
+    const stepTitles = ['1', '2', '3', '4', '5'];
+    return Row(
+      children: List.generate(5, (i) {
+        final isActive = i == _irpfStep;
+        final isDone = i < _irpfStep;
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 4,
+                  color: isDone || isActive
+                      ? AppColors.primary
+                      : AppColors.gray200,
+                ),
+              ),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isDone
+                      ? AppColors.primary
+                      : isActive
+                      ? AppColors.primary
+                      : AppColors.gray200,
+                ),
+                child: Center(
+                  child: isDone
+                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                      : Text(
+                          stepTitles[i],
+                          style: AppTypography.bodySmall(
+                            color: isActive ? Colors.white : AppColors.gray500,
+                          ),
+                        ),
+                ),
+              ),
+              if (i < 4)
+                Expanded(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 4,
+                    color: isDone ? AppColors.primary : AppColors.gray200,
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () {
-              final income = double.tryParse(_incomeCtrl.text) ?? 0;
-              final extra = double.tryParse(_extraCtrl.text) ?? 0;
-              ctx.read<FiscalBloc>().add(
-                EstimateIrpf(income, extraDeductions: extra),
-              );
-            },
-            icon: const Icon(Icons.calculate_rounded),
-            label: Text(s.irpfTab),
-          ),
-          if (_irpfResult != null) ...[
-            const SizedBox(height: 24),
-            _resultCard(s, _irpfResult!, fmt),
+        );
+      }),
+    );
+  }
+
+  Widget _buildCurrentStep(BuildContext ctx, dynamic s) {
+    switch (_irpfStep) {
+      case 0:
+        return _buildStep1(s);
+      case 1:
+        return _buildStep2(s);
+      case 2:
+        return _buildStep3(s);
+      case 3:
+        return _buildStep4(s);
+      case 4:
+        return _buildStep5(ctx, s);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildStep1(dynamic s) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(s.irpfStep1Title, style: AppTypography.titleSmall()),
+        const SizedBox(height: 4),
+        Text(
+          s.irpfStep1Subtitle,
+          style: AppTypography.bodySmall(color: AppColors.gray500),
+        ),
+        const SizedBox(height: 16),
+        // Estado civil
+        Text(
+          s.irpfMaritalStatusLabel,
+          style: AppTypography.labelSmall(color: AppColors.gray600),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<int>(
+          segments: [
+            ButtonSegment(value: 0, label: Text(s.irpfMaritalSingle)),
+            ButtonSegment(value: 1, label: Text(s.irpfMaritalMarried)),
+            ButtonSegment(value: 2, label: Text(s.irpfMaritalWidow)),
           ],
+          selected: {_maritalStatus},
+          onSelectionChanged: (v) => setState(() => _maritalStatus = v.first),
+          style: ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+        ),
+        const SizedBox(height: 16),
+        // Hijos a cargo
+        Text(
+          s.irpfChildrenLabel,
+          style: AppTypography.labelSmall(color: AppColors.gray600),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            IconButton.outlined(
+              icon: const Icon(Icons.remove),
+              onPressed: _children > 0
+                  ? () => setState(() => _children--)
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Text('$_children', style: AppTypography.titleMedium()),
+            const SizedBox(width: 16),
+            IconButton.outlined(
+              icon: const Icon(Icons.add),
+              onPressed: () => setState(() => _children++),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Discapacidad
+        Text(
+          s.irpfDisabilityLabel,
+          style: AppTypography.labelSmall(color: AppColors.gray600),
+        ),
+        const SizedBox(height: 8),
+        RadioGroup<int>(
+          groupValue: _disability,
+          onChanged: (v) => setState(() => _disability = v!),
+          child: Column(
+            children: [
+              ...[
+                [0, s.irpfDisabilityNone],
+                [33, s.irpfDisability33],
+                [65, s.irpfDisability65],
+                [75, s.irpfDisability75],
+              ].map(
+                (item) => RadioListTile<int>(
+                  dense: true,
+                  title: Text(
+                      item[1] as String, style: AppTypography.bodySmall()),
+                  value: item[0] as int,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _infoBox(Icons.info_outline_rounded, s.irpfPersonalAllowanceInfo),
+      ],
+    );
+  }
+
+  Widget _buildStep2(dynamic s) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(s.irpfStep2Title, style: AppTypography.titleSmall()),
+        const SizedBox(height: 4),
+        Text(
+          s.irpfStep2Subtitle,
+          style: AppTypography.bodySmall(color: AppColors.gray500),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _salaryCtrl,
+          decoration: InputDecoration(
+            labelText: s.irpfSalaryLabel,
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.euro_rounded),
+            filled: true,
+            fillColor: AppColors.cardLight,
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: () {
+            if (_totalDeductible > 0) {
+              // Aquí reutilizamos los ingresos totales registrados como referencia
+              setState(
+                () => _salaryCtrl.text = _totalDeductible.toStringAsFixed(2),
+              );
+            }
+          },
+          icon: const Icon(Icons.download_rounded, size: 18),
+          label: Text(s.irpfUseTxIncome),
+        ),
+        const SizedBox(height: 12),
+        _infoBox(Icons.lightbulb_outline_rounded, s.irpfSalaryInfo),
+      ],
+    );
+  }
+
+  Widget _buildStep3(dynamic s) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(s.irpfStep3Title, style: AppTypography.titleSmall()),
+        const SizedBox(height: 4),
+        Text(
+          s.irpfStep3Subtitle,
+          style: AppTypography.bodySmall(color: AppColors.gray500),
+        ),
+        const SizedBox(height: 16),
+        _amountField(
+          _freelanceCtrl,
+          s.irpfFreelanceLabel,
+          Icons.work_outline_rounded,
+        ),
+        const SizedBox(height: 12),
+        _amountField(_rentalCtrl, s.irpfRentalLabel, Icons.home_work_outlined),
+        const SizedBox(height: 12),
+        _amountField(
+          _capitalGainsCtrl,
+          s.irpfCapitalGainsLabel,
+          Icons.trending_up_rounded,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep4(dynamic s) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(s.irpfStep4Title, style: AppTypography.titleSmall()),
+        const SizedBox(height: 4),
+        Text(
+          s.irpfStep4Subtitle,
+          style: AppTypography.bodySmall(color: AppColors.gray500),
+        ),
+        const SizedBox(height: 16),
+        _amountFieldWithHint(
+          _pensionCtrl,
+          s.irpfPensionLabel,
+          s.irpfPensionHint,
+          Icons.savings_outlined,
+        ),
+        const SizedBox(height: 12),
+        _amountFieldWithHint(
+          _housingCtrl,
+          s.irpfHousingDeductionLabel,
+          s.irpfHousingDeductionHint,
+          Icons.house_outlined,
+        ),
+        const SizedBox(height: 12),
+        _amountFieldWithHint(
+          _donationsCtrl,
+          s.irpfDonationsLabel,
+          s.irpfDonationsHint,
+          Icons.volunteer_activism_rounded,
+        ),
+        const SizedBox(height: 12),
+        // Gastos deducibles de la app (read-only)
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.receipt_long_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      s.irpfAppDeductiblesLabel,
+                      style: AppTypography.bodySmall(),
+                    ),
+                    Text(
+                      CurrencyService().format(_totalDeductible),
+                      style: AppTypography.titleSmall(color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep5(BuildContext ctx, dynamic s) {
+    final fmt = CurrencyService().format;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(s.irpfStep5Title, style: AppTypography.titleSmall()),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: () {
+            final salary = _parseCtrl(_salaryCtrl);
+            final freelance = _parseCtrl(_freelanceCtrl);
+            final rental = _parseCtrl(_rentalCtrl);
+            final capital = _parseCtrl(_capitalGainsCtrl);
+            final pension = _parseCtrl(_pensionCtrl);
+            final housing = _parseCtrl(_housingCtrl);
+            final donations = _parseCtrl(_donationsCtrl);
+            final personalMin = _computePersonalMinimum();
+
+            final totalIncome = salary + freelance + rental + capital;
+            final extraDeductions =
+                pension + housing + donations + _totalDeductible + personalMin;
+
+            ctx.read<FiscalBloc>().add(
+              EstimateIrpf(totalIncome, extraDeductions: extraDeductions),
+            );
+          },
+          icon: const Icon(Icons.calculate_rounded),
+          label: Text(s.irpfCalculateBtn),
+        ),
+        if (_irpfResult != null) ...[
+          const SizedBox(height: 20),
+          _resultCard(s, _irpfResult!, fmt),
+          const SizedBox(height: 12),
+          _buildIrpfInterpretation(s, _irpfResult!),
+          const SizedBox(height: 12),
+          _buildIrpfTips(s, _irpfResult!),
+          const SizedBox(height: 16),
+          _infoBox(Icons.info_outline_rounded, s.irpfRentaWebInfo),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final uri = Uri.parse(
+                'https://www.agenciatributaria.gob.es/AEAT.sede/tramitacion/GI01.shtml',
+              );
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: const Icon(Icons.open_in_new_rounded),
+            label: Text(s.irpfOpenRentaWebBtn),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildIrpfInterpretation(dynamic s, IrpfResultEntity r) {
+    final rate = r.effectiveRate;
+    final String text;
+    final Color color;
+    if (rate < 15) {
+      text = s.irpfResultInterpretationLow;
+      color = AppColors.success;
+    } else if (rate < 25) {
+      text = s.irpfResultInterpretationMid;
+      color = AppColors.primary;
+    } else {
+      text = s.irpfResultInterpretationHigh;
+      color = AppColors.error;
+    }
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lightbulb_rounded, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: AppTypography.bodySmall(color: color)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIrpfTips(dynamic s, IrpfResultEntity r) {
+    final tips = <String>[];
+    final pension = _parseCtrl(_pensionCtrl);
+    if (pension < 1500) tips.add(s.irpfTipPension);
+    final donations = _parseCtrl(_donationsCtrl);
+    if (donations < 150) tips.add(s.irpfTipDonations);
+    if (tips.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: tips
+          .map(
+            (tip) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _infoBox(Icons.tips_and_updates_rounded, tip),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildStepNavButtons(BuildContext ctx, dynamic s) {
+    return Row(
+      children: [
+        if (_irpfStep > 0)
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => setState(() => _irpfStep--),
+              child: Text(s.irpfPrevBtn),
+            ),
+          ),
+        if (_irpfStep > 0) const SizedBox(width: 12),
+        if (_irpfStep < 4)
+          Expanded(
+            child: FilledButton(
+              onPressed: () => setState(() => _irpfStep++),
+              child: Text(s.irpfNextBtn),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _amountField(TextEditingController ctrl, String label, IconData icon) {
+    return TextFormField(
+      controller: ctrl,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: AppColors.cardLight,
+      ),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    );
+  }
+
+  Widget _amountFieldWithHint(
+    TextEditingController ctrl,
+    String label,
+    String hint,
+    IconData icon,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: ctrl,
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            prefixIcon: Icon(icon),
+            filled: true,
+            fillColor: AppColors.cardLight,
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Text(
+            hint,
+            style: AppTypography.bodySmall(color: AppColors.gray400),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _infoBox(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.infoSoft,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.infoDark, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.bodySmall(color: AppColors.infoDark),
+            ),
+          ),
         ],
       ),
     );
@@ -468,7 +981,9 @@ class _FiscalPageState extends State<FiscalPage>
           Text(s.estimatedTax, style: AppTypography.titleSmall()),
           const SizedBox(height: 12),
           _row(s.annualIncomeLabel, fmt(r.annualIncome)),
+          _row(s.irpfPersonalMinimum, '- ${fmt(_computePersonalMinimum())}'),
           _row(s.totalDeductible, '- ${fmt(r.deductibleTotal)}'),
+          _row(s.irpfTaxableBase, fmt(r.taxableBase), color: AppColors.gray600),
           const Divider(),
           _row(s.estimatedTax, fmt(r.estimatedTax), color: AppColors.error),
           _row(s.netIncome, fmt(r.netIncome), color: AppColors.success),

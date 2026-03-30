@@ -3,6 +3,7 @@ class CsvRowEntity {
   final double amount;
   final String? date;
   final String description;
+  final String type;
   bool selected;
 
   CsvRowEntity({
@@ -10,6 +11,7 @@ class CsvRowEntity {
     required this.amount,
     this.date,
     required this.description,
+    this.type = 'expense',
     this.selected = true,
   });
 }

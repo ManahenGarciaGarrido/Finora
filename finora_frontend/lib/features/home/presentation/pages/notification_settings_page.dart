@@ -376,7 +376,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       child: SwitchListTile(
         value: value,
         onChanged: onChanged,
-        activeColor: AppColors.primary,
+        activeTrackColor: AppColors.primary,
         activeThumbColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         secondary: Container(

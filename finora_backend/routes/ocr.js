@@ -149,7 +149,7 @@ router.post('/parse-csv', async (req, res) => {
     let sep = ',';
     {
       let semis = 0, commas = 0, tabs = 0;
-      for (const l of rawLines.slice(0, 15)) {
+      for (const l of rawLines.slice(0, 20)) {
         semis  += (l.match(/;/g)  || []).length;
         commas += (l.match(/,/g)  || []).length;
         tabs   += (l.match(/\t/g) || []).length;
@@ -159,20 +159,46 @@ router.post('/parse-csv', async (req, res) => {
     }
 
     // Saltar líneas de metadatos hasta encontrar la cabecera real de datos.
-    // Requisito: la línea debe tener TANTO una columna de fecha COMO una columna
-    // de importe o descripción (evita confundir "Fecha inicio;01/01/2026" con cabecera).
-    let dataStart = 0;
-    for (let i = 0; i < Math.min(rawLines.length, 25); i++) {
+    // Busca en hasta 50 líneas. Acepta líneas con columna de fecha Y (importe o descripción).
+    // También acepta el patrón de cabecera con Cargo/Abono separados (ING, BBVA antiguo).
+    let dataStart = -1;
+    for (let i = 0; i < Math.min(rawLines.length, 50); i++) {
       const cols = rawLines[i].split(sep);
       const lower = rawLines[i].toLowerCase();
-      const hasDateKw   = lower.includes('fecha') || lower.includes('date') || lower.includes('f.valor') || lower.includes('f. valor');
-      const hasAmountKw = lower.includes('importe') || lower.includes('amount') || lower.includes('cargo') || lower.includes('abono') || lower.includes('movimiento');
-      const hasDescKw   = lower.includes('concepto') || lower.includes('descripci') || lower.includes('beneficiario') || lower.includes('comercio');
+      const hasDateKw   = lower.includes('fecha') || lower.includes('date') ||
+                          lower.includes('f.valor') || lower.includes('f. valor') ||
+                          lower.includes('f. operacion') || lower.includes('fecha operacion') ||
+                          lower.includes('valor');
+      const hasAmountKw = lower.includes('importe') || lower.includes('amount') ||
+                          lower.includes('cargo') || lower.includes('abono') ||
+                          lower.includes('movimiento') || lower.includes('haber') ||
+                          lower.includes('total');
+      const hasDescKw   = lower.includes('concepto') || lower.includes('descripci') ||
+                          lower.includes('beneficiario') || lower.includes('comercio') ||
+                          lower.includes('nombre') || lower.includes('referencia') ||
+                          lower.includes('detalle');
       if (cols.length >= 2 && hasDateKw && (hasAmountKw || hasDescKw)) {
         dataStart = i;
         break;
       }
     }
+
+    // Fallback heurístico: si no se encontró cabecera con keywords, buscar la primera
+    // línea que tenga ≥3 columnas y al menos una contenga un patrón de fecha real.
+    if (dataStart === -1) {
+      const dateValPattern = /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/;
+      for (let i = 0; i < Math.min(rawLines.length, 50); i++) {
+        const cols = rawLines[i].split(sep);
+        if (cols.length >= 3 && cols.some(c => dateValPattern.test(c.trim()))) {
+          // Esta línea es de datos, no cabecera. Usar la línea anterior como cabecera si existe.
+          dataStart = i > 0 ? i - 1 : i;
+          break;
+        }
+      }
+    }
+
+    // Si aún no se encontró, asumir que empieza en la línea 0.
+    if (dataStart === -1) dataStart = 0;
 
     const lines = rawLines.slice(dataStart);
     if (lines.length < 2) return res.status(400).json({ error: 'empty_csv' });
@@ -205,18 +231,23 @@ router.post('/parse-csv', async (req, res) => {
     const amountIdx = map.amount !== undefined ? map.amount
       : headers.findIndex(h =>
           h.includes('importe') || h.includes('amount') ||
-          h.includes('cargo') || h.includes('abono') ||
-          h === 'movimiento');
+          h === 'movimiento' || h === 'haber' || h.includes('total'));
     const dateIdx = map.date !== undefined ? map.date
       : headers.findIndex(h =>
-          h.includes('fecha') || h.includes('date') || h.includes('f.valor') || h === 'f. valor');
+          h.includes('fecha') || h.includes('date') || h.includes('f.valor') ||
+          h === 'f. valor' || h === 'valor' || h.includes('f. operacion') ||
+          h.includes('fecha operacion'));
     const descIdx = map.description !== undefined ? map.description
       : headers.findIndex(h =>
           h.includes('concepto') || h.includes('descripci') || h.includes('detail') ||
-          h.includes('desc') || h.includes('beneficiario') || h.includes('comercio'));
+          h.includes('desc') || h.includes('beneficiario') || h.includes('comercio') ||
+          h.includes('nombre') || h.includes('referencia') || h.includes('detalle'));
 
-    // Detectar columna de tipo (cargo/abono) para bancos que separan ingresos/gastos
-    const typeIdx = headers.findIndex(h => h === 'tipo' || h === 'cargo' || h === 'abono');
+    // Detectar columnas Cargo / Abono separadas (p. ej. ING Direct, Bankia).
+    // Si existen ambas como columnas distintas, se ignora amountIdx y se calculan desde ellas.
+    const cargoIdx  = headers.findIndex(h => h === 'cargo'  || h === 'débito'  || h === 'debito');
+    const abonoIdx  = headers.findIndex(h => h === 'abono'  || h === 'crédito' || h === 'credito');
+    const splitAmounts = cargoIdx >= 0 && abonoIdx >= 0 && cargoIdx !== abonoIdx;
 
     const parseSpanishDate = (raw) => {
       if (!raw) return null;
@@ -241,6 +272,7 @@ router.post('/parse-csv', async (req, res) => {
         .replace(/[\u00A0\u202F\u2009]/g, '')   // espacios especiales (separadores de miles)
         .replace(/\u2212/g, '-')                  // minus sign Unicode → ASCII minus
         .replace(/[€$£+]/g, '');
+      if (!s || s === '-' || s === '') return null;
       const hasDot   = s.includes('.');
       const hasComma = s.includes(',');
       if (hasDot && hasComma) {
@@ -260,24 +292,45 @@ router.post('/parse-csv', async (req, res) => {
     const rows = lines.slice(1).map((line, i) => {
       const cols = splitLine(line);
       if (cols.length < 2) return null;
-      const rawAmount = amountIdx >= 0 ? cols[amountIdx] : null;
-      const amount = parseAmount(rawAmount);
-      const type = amount !== null && amount < 0 ? 'expense' : 'income';
+
+      let amount, type;
+      if (splitAmounts) {
+        // Columnas Cargo y Abono separadas
+        const cargo  = parseAmount(cols[cargoIdx])  ?? 0;
+        const abono  = parseAmount(cols[abonoIdx])  ?? 0;
+        if (cargo === 0 && abono === 0) return null;
+        if (abono > 0) {
+          amount = abono;
+          type = 'income';
+        } else {
+          amount = cargo;
+          type = 'expense';
+        }
+      } else {
+        const rawAmount = amountIdx >= 0 ? cols[amountIdx] : null;
+        const parsed = parseAmount(rawAmount);
+        if (parsed === null) return null;
+        type = parsed < 0 ? 'expense' : 'income';
+        amount = Math.abs(parsed);
+      }
+
+      if (!amount || amount <= 0) return null;
+
       return {
         index: i,
         date: parseSpanishDate(dateIdx >= 0 ? cols[dateIdx] : null),
         description: descIdx >= 0 ? cols[descIdx]?.substring(0, 80) : line.substring(0, 40),
-        amount: amount !== null ? Math.abs(amount) : null,
+        amount,
         type,
         raw: cols,
       };
-    }).filter(r => r !== null && r.amount !== null && r.amount > 0);
+    }).filter(r => r !== null);
 
     res.json({
       headers,
       rows: rows.slice(0, 200),
       total_rows: rows.length,
-      column_mapping: { amount: amountIdx, date: dateIdx, description: descIdx },
+      column_mapping: { amount: splitAmounts ? -1 : amountIdx, date: dateIdx, description: descIdx },
       separator: sep,
     });
   } catch (err) {
@@ -388,22 +441,26 @@ router.post('/parse-pdf', async (req, res) => {
     for (const line of rawLines) {
       // Find date token in line
       const dateMatch = line.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
-      // Find all amount tokens in line
-      const amountMatches = [...line.matchAll(/([-+]?\d{1,6}[.,]\d{2})/g)];
+      // Find all amount tokens in line — regex handles thousand-separator formats:
+      //   1.234,56  /  1,234.56  /  45,32  /  -1.234,56  /  +45.00
+      const amountMatches = [...line.matchAll(/([-+]?(?:\d{1,3}[.]\d{3})+[,]\d{2}|[-+]?(?:\d{1,3}[,]\d{3})+[.]\d{2}|[-+]?\d{1,6}[,]\d{2}|[-+]?\d{1,6}[.]\d{2})/g)];
       if (!dateMatch || amountMatches.length === 0) continue;
 
       const date = parseSpanishDate(dateMatch[1]);
       if (!date) continue;
 
-      // Use the last amount match (usually the transaction amount, not balance)
-      const rawAmt = amountMatches[amountMatches.length - 1][1];
+      // Cuando hay ≥2 cantidades en la línea (importe + saldo), el saldo aparece al final.
+      // Usamos la penúltima si hay ≥2, o la única si solo hay una.
+      const amtIdx = amountMatches.length >= 2 ? amountMatches.length - 2 : amountMatches.length - 1;
+      const rawAmt = amountMatches[amtIdx][1];
       const amount = parseAmount(rawAmt);
       if (amount === null || Math.abs(amount) === 0) continue;
 
       // Build description: remove date and amount tokens from line, take what remains
+      const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       let desc = line
         .replace(dateMatch[0], '')
-        .replace(new RegExp(amountMatches.map(m => m[1].replace(/[.+\-]/g, '\\$&')).join('|'), 'g'), '')
+        .replace(new RegExp(amountMatches.map(m => escRe(m[1])).join('|'), 'g'), '')
         .replace(/\s+/g, ' ')
         .trim()
         .substring(0, 80);

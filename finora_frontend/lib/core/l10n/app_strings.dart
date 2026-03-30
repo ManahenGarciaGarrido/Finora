@@ -1436,6 +1436,72 @@ abstract class AppStringsBase {
   String get noStreakYet;
   String get joinChallenge;
 
+  // Gamification — extra strings
+  String get greatExcl;
+  String get joinedChallengeMsg;
+  String rewardPointsLabel(int points);
+  String get viewBadgesBtn;
+  String get whatIsStreakTitle;
+  String get whatIsStreakBody;
+  String get activeStreaksTitle;
+  String get whatCanYouEarnTitle;
+  String get whatCanYouEarnBody;
+  String get startStreakHint;
+  String get startStreakBtn;
+  String get lastActivityLabel;
+  String nextMilestoneLabel(int milestone, int remaining);
+  String get recordWeekBtn;
+  String get streakTypeDailyLogin;
+  String get streakTypeWeeklySaving;
+  String get streakTypeBudgetCompliance;
+  String get streakTypeNoImpulseBuy;
+  String get streakTypeDefault;
+  String get streakTypeDescDailyLogin;
+  String get streakTypeDescWeeklySaving;
+  String get streakTypeDescBudgetCompliance;
+  String get streakTypeDescNoImpulseBuy;
+  String get streakTypeDescDefault;
+  String get checkNewBadgesBtn;
+  String get completeBadgesHint;
+  String get allBadgesEarned;
+  String get howToEarnPrefix;
+  String earnedOnDate(String date);
+  String get badgeHowToFirstTransaction;
+  String get badgeHowToStreak4;
+  String get badgeHowToStreak8;
+  String get badgeHowToStreak12;
+  String get badgeHowToBudgetMaster;
+  String get badgeHowToSavingsGoal;
+  String get badgeHowToChallengeComplete;
+  String get badgeHowToNoDebt;
+  String get badgeHowToInvestor;
+  String get periodWeekly;
+  String get periodMonthly;
+  String get periodQuarterly;
+  String get howChallengesWorkTitle;
+  String get howChallengesWorkBody;
+  String get autoUpdateTitle;
+  String get autoUpdateBody;
+  String get noChallengesYet;
+  String get searchNewChallengesBtn;
+  String get activeChallengesTitle;
+  String get completedChallengesTitle;
+  String get challengeCompletedBadge;
+  String get challengeInProgress;
+  String get newBadgeLabel;
+  String get expiresSoonLabel;
+  String get challengeTypeSavingsLabel;
+  String get challengeTypeBudgetLabel;
+  String get challengeTypeNoSpendingLabel;
+  String get challengeTypeStreakLabel;
+  String get challengeTypeGoalLabel;
+  String challengeTypeSavingsDesc(String target);
+  String get challengeTypeBudgetDesc;
+  String challengeTypeNoSpendingDesc(String target);
+  String challengeTypeStreakDesc(String target);
+  String challengeTypeGoalDesc(String target);
+  String get challengeTypeDefaultDesc;
+
   // ── Module F: Fiscal ───────────────────────────────────────────────────────
   String get fiscalTitle;
   String get fiscalNav;
@@ -1469,6 +1535,54 @@ abstract class AppStringsBase {
   String get exportXlsxDesc;
   String get exportCsvDesc;
   String get exportShareTitle;
+
+  // IRPF Wizard (simulador declaración de la renta)
+  String get irpfSimulatorTitle;
+  String get irpfStep1Title;
+  String get irpfStep1Subtitle;
+  String get irpfMaritalStatusLabel;
+  String get irpfMaritalSingle;
+  String get irpfMaritalMarried;
+  String get irpfMaritalWidow;
+  String get irpfChildrenLabel;
+  String get irpfDisabilityLabel;
+  String get irpfDisabilityNone;
+  String get irpfDisability33;
+  String get irpfDisability65;
+  String get irpfDisability75;
+  String get irpfPersonalAllowanceInfo;
+  String get irpfStep2Title;
+  String get irpfStep2Subtitle;
+  String get irpfSalaryLabel;
+  String get irpfUseTxIncome;
+  String get irpfSalaryInfo;
+  String get irpfStep3Title;
+  String get irpfStep3Subtitle;
+  String get irpfFreelanceLabel;
+  String get irpfRentalLabel;
+  String get irpfCapitalGainsLabel;
+  String get irpfStep4Title;
+  String get irpfStep4Subtitle;
+  String get irpfPensionLabel;
+  String get irpfPensionHint;
+  String get irpfHousingDeductionLabel;
+  String get irpfHousingDeductionHint;
+  String get irpfDonationsLabel;
+  String get irpfDonationsHint;
+  String get irpfAppDeductiblesLabel;
+  String get irpfStep5Title;
+  String get irpfCalculateBtn;
+  String get irpfPrevBtn;
+  String get irpfNextBtn;
+  String get irpfResultInterpretationLow;
+  String get irpfResultInterpretationMid;
+  String get irpfResultInterpretationHigh;
+  String get irpfTipPension;
+  String get irpfTipDonations;
+  String get irpfOpenRentaWebBtn;
+  String get irpfRentaWebInfo;
+  String get irpfTaxableBase;
+  String get irpfPersonalMinimum;
 
   // ── Module G: OCR ─────────────────────────────────────────────────────────
   String get ocrTitle;
@@ -4361,6 +4475,173 @@ class _AppStringsEs extends AppStringsBase {
   String get noStreakYet => 'Empieza tu racha esta semana';
   @override
   String get joinChallenge => 'Unirse';
+  @override
+  String get greatExcl => '¡Genial!';
+  @override
+  String get joinedChallengeMsg =>
+      '¡Te has unido al reto! Complétalo para ganar puntos.';
+  @override
+  String rewardPointsLabel(int points) => '$points puntos';
+  @override
+  String get viewBadgesBtn => 'Ver Logros';
+  @override
+  String get whatIsStreakTitle => '¿Qué es una racha?';
+  @override
+  String get whatIsStreakBody =>
+      'Una racha mide tu constancia financiera. '
+      'Cada vez que registras un período con ahorro positivo (gastos < ingresos) '
+      'o cumples el hábito del tipo de racha, tu contador sube. '
+      'Si lo rompes, vuelve a 0. ¡Sé constante!';
+  @override
+  String get activeStreaksTitle => 'Tus rachas activas';
+  @override
+  String get whatCanYouEarnTitle => '¿Qué puedes conseguir?';
+  @override
+  String get whatCanYouEarnBody =>
+      '• 4 semanas seguidas → Logro "Constante"\n'
+      '• 8 semanas seguidas → Logro "Disciplinado"\n'
+      '• 12 semanas seguidas → Logro "Experto del ahorro"\n'
+      'Cuanto más larga tu racha, más puntos y logros desbloqueas.';
+  @override
+  String get startStreakHint =>
+      'Registra un período con más ingresos que gastos para empezar tu racha.';
+  @override
+  String get startStreakBtn => 'Iniciar racha';
+  @override
+  String get lastActivityLabel => 'Última actividad';
+  @override
+  String nextMilestoneLabel(int milestone, int remaining) =>
+      'Próximo hito: $milestone semanas — te faltan $remaining sem.';
+  @override
+  String get recordWeekBtn => 'Registrar semana';
+  @override
+  String get streakTypeDailyLogin => 'Acceso diario';
+  @override
+  String get streakTypeWeeklySaving => 'Ahorro semanal';
+  @override
+  String get streakTypeBudgetCompliance => 'Cumplimiento de presupuesto';
+  @override
+  String get streakTypeNoImpulseBuy => 'Sin compras impulsivas';
+  @override
+  String get streakTypeDefault => 'Hábito financiero';
+  @override
+  String get streakTypeDescDailyLogin =>
+      'Abre la app cada día para mantener esta racha activa.';
+  @override
+  String get streakTypeDescWeeklySaving =>
+      'Cada semana con más ingresos que gastos suma 1 a la racha.';
+  @override
+  String get streakTypeDescBudgetCompliance =>
+      'Cumple tu presupuesto mensual sin excederte.';
+  @override
+  String get streakTypeDescNoImpulseBuy =>
+      'No registres compras no planificadas durante períodos consecutivos.';
+  @override
+  String get streakTypeDescDefault =>
+      'Mantén el hábito financiero de forma constante.';
+  @override
+  String get checkNewBadgesBtn => 'Comprobar nuevos logros';
+  @override
+  String get completeBadgesHint =>
+      'Completa estos objetivos para desbloquear los logros.';
+  @override
+  String get allBadgesEarned => '¡Has conseguido todos los logros disponibles!';
+  @override
+  String get howToEarnPrefix => 'Cómo conseguirlo: ';
+  @override
+  String earnedOnDate(String date) => 'Conseguido el $date';
+  @override
+  String get badgeHowToFirstTransaction => 'Registra tu primera transacción.';
+  @override
+  String get badgeHowToStreak4 =>
+      'Mantén una racha de ahorro positivo durante 4 semanas consecutivas.';
+  @override
+  String get badgeHowToStreak8 =>
+      'Mantén una racha de ahorro positivo durante 8 semanas consecutivas.';
+  @override
+  String get badgeHowToStreak12 =>
+      'Mantén una racha de ahorro positivo durante 12 semanas consecutivas.';
+  @override
+  String get badgeHowToBudgetMaster =>
+      'Cumple tu presupuesto durante 3 meses consecutivos.';
+  @override
+  String get badgeHowToSavingsGoal =>
+      'Alcanza el 100% de un objetivo de ahorro.';
+  @override
+  String get badgeHowToChallengeComplete =>
+      'Completa cualquier reto financiero.';
+  @override
+  String get badgeHowToNoDebt => 'Liquida todas tus deudas registradas.';
+  @override
+  String get badgeHowToInvestor =>
+      'Conecta tu perfil de inversión y sigue una sugerencia de cartera.';
+  @override
+  String get periodWeekly => 'Semanal';
+  @override
+  String get periodMonthly => 'Mensual';
+  @override
+  String get periodQuarterly => 'Trimestral';
+  @override
+  String get howChallengesWorkTitle => '¿Cómo funcionan los retos?';
+  @override
+  String get howChallengesWorkBody =>
+      '• Los retos son objetivos financieros temporales.\n'
+      '• Únete a un reto activo pulsando "Unirse".\n'
+      '• Completa el objetivo antes de que termine el plazo.\n'
+      '• Al completarlo recibirás una notificación y puntos de recompensa.\n'
+      '• Los puntos mejoran tu puntuación de salud financiera.';
+  @override
+  String get autoUpdateTitle => 'Actualización automática';
+  @override
+  String get autoUpdateBody =>
+      'Los retos se actualizan automáticamente cada semana/mes. '
+      'La app comprueba nuevos retos al abrirse y cada 24 horas en segundo plano.';
+  @override
+  String get noChallengesYet =>
+      'Los retos se añaden periódicamente. Vuelve pronto.';
+  @override
+  String get searchNewChallengesBtn => 'Buscar retos nuevos';
+  @override
+  String get activeChallengesTitle => 'Retos activos';
+  @override
+  String get completedChallengesTitle => 'Completados';
+  @override
+  String get challengeCompletedBadge => 'Completado';
+  @override
+  String get challengeInProgress => 'En curso';
+  @override
+  String get newBadgeLabel => 'Nuevo';
+  @override
+  String get expiresSoonLabel => 'Expira pronto';
+  @override
+  String get challengeTypeSavingsLabel => 'Reto de ahorro';
+  @override
+  String get challengeTypeBudgetLabel => 'Reto de presupuesto';
+  @override
+  String get challengeTypeNoSpendingLabel => 'Reto sin gastos extra';
+  @override
+  String get challengeTypeStreakLabel => 'Reto de racha';
+  @override
+  String get challengeTypeGoalLabel => 'Reto de objetivo';
+  @override
+  String challengeTypeSavingsDesc(String target) =>
+      'Ahorra al menos $target€ durante el período del reto. '
+      'Cada vez que registres un ingreso o reduzcas gastos, avanzas.';
+  @override
+  String get challengeTypeBudgetDesc =>
+      'Mantén tus gastos dentro del presupuesto establecido durante el período completo.';
+  @override
+  String challengeTypeNoSpendingDesc(String target) =>
+      'Evita registrar gastos no esenciales durante $target días.';
+  @override
+  String challengeTypeStreakDesc(String target) =>
+      'Mantén una racha de ahorro positivo durante $target semanas consecutivas.';
+  @override
+  String challengeTypeGoalDesc(String target) =>
+      'Alcanza el $target% de progreso en uno de tus objetivos de ahorro.';
+  @override
+  String get challengeTypeDefaultDesc =>
+      'Completa el objetivo indicado antes de que finalice el reto para ganar los puntos.';
 
   // ── Module F: Fiscal ───────────────────────────────────────────────────────
   @override
@@ -4429,6 +4710,117 @@ class _AppStringsEs extends AppStringsBase {
       'Archivo CSV compatible con cualquier hoja de cálculo';
   @override
   String get exportShareTitle => 'Exportar datos fiscales';
+  @override
+  String get irpfSimulatorTitle => 'Simulador Declaración de la Renta';
+  @override
+  String get irpfStep1Title => 'Situación personal';
+  @override
+  String get irpfStep1Subtitle =>
+      'Tu situación familiar determina el mínimo personal y familiar que puedes deducir.';
+  @override
+  String get irpfMaritalStatusLabel => 'Estado civil';
+  @override
+  String get irpfMaritalSingle => 'Soltero/a';
+  @override
+  String get irpfMaritalMarried => 'Casado/a';
+  @override
+  String get irpfMaritalWidow => 'Viudo/a';
+  @override
+  String get irpfChildrenLabel => 'Hijos/as a cargo menores de 25 años';
+  @override
+  String get irpfDisabilityLabel => 'Grado de discapacidad reconocido';
+  @override
+  String get irpfDisabilityNone => 'Ninguno';
+  @override
+  String get irpfDisability33 => '≥33% (deducción de 3.000€)';
+  @override
+  String get irpfDisability65 => '≥65% (deducción de 9.000€)';
+  @override
+  String get irpfDisability75 => '≥75% + asistencia (deducción de 12.000€)';
+  @override
+  String get irpfPersonalAllowanceInfo =>
+      'El mínimo personal (5.550€) reduce directamente tu base liquidable. '
+      'Si tienes hijos o discapacidad, este mínimo aumenta.';
+  @override
+  String get irpfStep2Title => 'Rentas del trabajo';
+  @override
+  String get irpfStep2Subtitle =>
+      'Incluye el total de ingresos brutos de tu nómina, prestaciones por desempleo y otras rentas del trabajo.';
+  @override
+  String get irpfSalaryLabel => 'Ingresos brutos del trabajo (€)';
+  @override
+  String get irpfUseTxIncome => 'Usar ingresos registrados en la app';
+  @override
+  String get irpfSalaryInfo =>
+      'Puedes consultar el importe en tu certificado de retenciones (modelo 10-T) o en tu nómina anual.';
+  @override
+  String get irpfStep3Title => 'Otras rentas';
+  @override
+  String get irpfStep3Subtitle => 'Deja en 0 las que no te apliquen.';
+  @override
+  String get irpfFreelanceLabel => 'Actividades económicas / Autónomo (€)';
+  @override
+  String get irpfRentalLabel =>
+      'Rendimientos del capital inmobiliario (alquiler) (€)';
+  @override
+  String get irpfCapitalGainsLabel =>
+      'Ganancias patrimoniales (inversiones, ventas) (€)';
+  @override
+  String get irpfStep4Title => 'Deducciones';
+  @override
+  String get irpfStep4Subtitle =>
+      'Cada deducción reduce tu base imponible, lo que disminuye el impuesto final.';
+  @override
+  String get irpfPensionLabel => 'Aportación a plan de pensiones (€)';
+  @override
+  String get irpfPensionHint =>
+      'Límite: 1.500€ anuales (o 30% de rendimientos netos)';
+  @override
+  String get irpfHousingDeductionLabel => 'Deducción por vivienda habitual (€)';
+  @override
+  String get irpfHousingDeductionHint =>
+      'Solo si la hipoteca es anterior al 1 de enero de 2013. Límite: 9.040€ anuales.';
+  @override
+  String get irpfDonationsLabel =>
+      'Donativos a entidades sin ánimo de lucro (€)';
+  @override
+  String get irpfDonationsHint =>
+      'Deducción del 80% sobre los primeros 150€ y del 35% sobre el resto.';
+  @override
+  String get irpfAppDeductiblesLabel =>
+      'Gastos deducibles marcados en la app (€)';
+  @override
+  String get irpfStep5Title => 'Resultado estimado';
+  @override
+  String get irpfCalculateBtn => 'Calcular';
+  @override
+  String get irpfPrevBtn => 'Anterior';
+  @override
+  String get irpfNextBtn => 'Siguiente';
+  @override
+  String get irpfResultInterpretationLow =>
+      'Tu tipo efectivo está en un rango bajo. Asegúrate de incluir todas tus deducciones para optimizar al máximo.';
+  @override
+  String get irpfResultInterpretationMid =>
+      'Tu tipo efectivo es moderado. Considera aportar más a un plan de pensiones para reducir la base imponible.';
+  @override
+  String get irpfResultInterpretationHigh =>
+      'Tu tipo efectivo es elevado. Consulta con un asesor fiscal las deducciones aplicables a tu situación.';
+  @override
+  String get irpfTipPension =>
+      'Consejo: Maximizar tu aportación al plan de pensiones (hasta 1.500€) puede reducir significativamente tu cuota.';
+  @override
+  String get irpfTipDonations =>
+      'Consejo: Las donaciones a ONG tienen una deducción muy alta (80% sobre los primeros 150€).';
+  @override
+  String get irpfOpenRentaWebBtn => 'Ir a Renta Web (AEAT)';
+  @override
+  String get irpfRentaWebInfo =>
+      'Esta es una estimación orientativa. Para hacer la declaración oficial, accede a Renta Web en la web de la Agencia Tributaria.';
+  @override
+  String get irpfTaxableBase => 'Base imponible';
+  @override
+  String get irpfPersonalMinimum => 'Mínimo personal y familiar';
 
   // ── Module G: OCR ─────────────────────────────────────────────────────────
   @override
@@ -7349,6 +7741,171 @@ class _AppStringsEn extends AppStringsBase {
   String get noStreakYet => 'Start your streak this week';
   @override
   String get joinChallenge => 'Join';
+  @override
+  String get greatExcl => 'Great!';
+  @override
+  String get joinedChallengeMsg =>
+      'You joined the challenge! Complete it to earn points.';
+  @override
+  String rewardPointsLabel(int points) => '$points points';
+  @override
+  String get viewBadgesBtn => 'View Achievements';
+  @override
+  String get whatIsStreakTitle => 'What is a streak?';
+  @override
+  String get whatIsStreakBody =>
+      'A streak measures your financial consistency. '
+      'Each time you record a period with positive savings (expenses < income) '
+      'or keep up the streak habit, your counter goes up. '
+      'If you break it, it resets to 0. Stay consistent!';
+  @override
+  String get activeStreaksTitle => 'Your active streaks';
+  @override
+  String get whatCanYouEarnTitle => 'What can you earn?';
+  @override
+  String get whatCanYouEarnBody =>
+      '• 4 weeks in a row → "Consistent" achievement\n'
+      '• 8 weeks in a row → "Disciplined" achievement\n'
+      '• 12 weeks in a row → "Savings Expert" achievement\n'
+      'The longer your streak, the more points and achievements you unlock.';
+  @override
+  String get startStreakHint =>
+      'Record a period with more income than expenses to start your streak.';
+  @override
+  String get startStreakBtn => 'Start streak';
+  @override
+  String get lastActivityLabel => 'Last activity';
+  @override
+  String nextMilestoneLabel(int milestone, int remaining) =>
+      'Next milestone: $milestone weeks — $remaining left.';
+  @override
+  String get recordWeekBtn => 'Record week';
+  @override
+  String get streakTypeDailyLogin => 'Daily login';
+  @override
+  String get streakTypeWeeklySaving => 'Weekly saving';
+  @override
+  String get streakTypeBudgetCompliance => 'Budget compliance';
+  @override
+  String get streakTypeNoImpulseBuy => 'No impulse buying';
+  @override
+  String get streakTypeDefault => 'Financial habit';
+  @override
+  String get streakTypeDescDailyLogin =>
+      'Open the app every day to keep this streak active.';
+  @override
+  String get streakTypeDescWeeklySaving =>
+      'Every week with more income than expenses adds 1 to your streak.';
+  @override
+  String get streakTypeDescBudgetCompliance =>
+      'Stay within your monthly budget without overspending.';
+  @override
+  String get streakTypeDescNoImpulseBuy =>
+      'Do not log unplanned purchases during consecutive periods.';
+  @override
+  String get streakTypeDescDefault =>
+      'Keep up the financial habit consistently.';
+  @override
+  String get checkNewBadgesBtn => 'Check new achievements';
+  @override
+  String get completeBadgesHint =>
+      'Complete these objectives to unlock achievements.';
+  @override
+  String get allBadgesEarned => 'You have earned all available achievements!';
+  @override
+  String get howToEarnPrefix => 'How to earn: ';
+  @override
+  String earnedOnDate(String date) => 'Earned on $date';
+  @override
+  String get badgeHowToFirstTransaction => 'Log your first transaction.';
+  @override
+  String get badgeHowToStreak4 =>
+      'Keep a positive savings streak for 4 consecutive weeks.';
+  @override
+  String get badgeHowToStreak8 =>
+      'Keep a positive savings streak for 8 consecutive weeks.';
+  @override
+  String get badgeHowToStreak12 =>
+      'Keep a positive savings streak for 12 consecutive weeks.';
+  @override
+  String get badgeHowToBudgetMaster =>
+      'Stay within your budget for 3 consecutive months.';
+  @override
+  String get badgeHowToSavingsGoal => 'Reach 100% of a savings goal.';
+  @override
+  String get badgeHowToChallengeComplete => 'Complete any financial challenge.';
+  @override
+  String get badgeHowToNoDebt => 'Pay off all your registered debts.';
+  @override
+  String get badgeHowToInvestor =>
+      'Connect your investment profile and follow a portfolio suggestion.';
+  @override
+  String get periodWeekly => 'Weekly';
+  @override
+  String get periodMonthly => 'Monthly';
+  @override
+  String get periodQuarterly => 'Quarterly';
+  @override
+  String get howChallengesWorkTitle => 'How do challenges work?';
+  @override
+  String get howChallengesWorkBody =>
+      '• Challenges are temporary financial objectives.\n'
+      '• Join an active challenge by tapping "Join".\n'
+      '• Complete the objective before the deadline.\n'
+      '• When done you will receive a notification and reward points.\n'
+      '• Points improve your financial health score.';
+  @override
+  String get autoUpdateTitle => 'Automatic updates';
+  @override
+  String get autoUpdateBody =>
+      'Challenges are updated automatically every week/month. '
+      'The app checks for new challenges on launch and every 24 hours in the background.';
+  @override
+  String get noChallengesYet =>
+      'Challenges are added periodically. Check back soon.';
+  @override
+  String get searchNewChallengesBtn => 'Look for new challenges';
+  @override
+  String get activeChallengesTitle => 'Active challenges';
+  @override
+  String get completedChallengesTitle => 'Completed';
+  @override
+  String get challengeCompletedBadge => 'Completed';
+  @override
+  String get challengeInProgress => 'In progress';
+  @override
+  String get newBadgeLabel => 'New';
+  @override
+  String get expiresSoonLabel => 'Expiring soon';
+  @override
+  String get challengeTypeSavingsLabel => 'Savings challenge';
+  @override
+  String get challengeTypeBudgetLabel => 'Budget challenge';
+  @override
+  String get challengeTypeNoSpendingLabel => 'No extra spending challenge';
+  @override
+  String get challengeTypeStreakLabel => 'Streak challenge';
+  @override
+  String get challengeTypeGoalLabel => 'Goal challenge';
+  @override
+  String challengeTypeSavingsDesc(String target) =>
+      'Save at least €$target during the challenge period. '
+      'Every time you log income or reduce expenses, you progress.';
+  @override
+  String get challengeTypeBudgetDesc =>
+      'Keep your expenses within the established budget for the full period.';
+  @override
+  String challengeTypeNoSpendingDesc(String target) =>
+      'Avoid logging non-essential expenses for $target days.';
+  @override
+  String challengeTypeStreakDesc(String target) =>
+      'Maintain a positive savings streak for $target consecutive weeks.';
+  @override
+  String challengeTypeGoalDesc(String target) =>
+      'Reach $target% progress on one of your savings goals.';
+  @override
+  String get challengeTypeDefaultDesc =>
+      'Complete the stated objective before the challenge ends to earn the points.';
 
   // ── Module F: Fiscal ───────────────────────────────────────────────────────
   @override
@@ -7416,6 +7973,114 @@ class _AppStringsEn extends AppStringsBase {
   String get exportCsvDesc => 'CSV file compatible with any spreadsheet';
   @override
   String get exportShareTitle => 'Export tax data';
+  @override
+  String get irpfSimulatorTitle => 'Tax Return Simulator';
+  @override
+  String get irpfStep1Title => 'Personal situation';
+  @override
+  String get irpfStep1Subtitle =>
+      'Your family situation determines the personal and family minimum you can deduct.';
+  @override
+  String get irpfMaritalStatusLabel => 'Marital status';
+  @override
+  String get irpfMaritalSingle => 'Single';
+  @override
+  String get irpfMaritalMarried => 'Married';
+  @override
+  String get irpfMaritalWidow => 'Widowed';
+  @override
+  String get irpfChildrenLabel => 'Dependent children under 25';
+  @override
+  String get irpfDisabilityLabel => 'Recognised disability level';
+  @override
+  String get irpfDisabilityNone => 'None';
+  @override
+  String get irpfDisability33 => '≥33% (€3,000 deduction)';
+  @override
+  String get irpfDisability65 => '≥65% (€9,000 deduction)';
+  @override
+  String get irpfDisability75 => '≥75% + assistance (€12,000 deduction)';
+  @override
+  String get irpfPersonalAllowanceInfo =>
+      'The personal minimum (€5,550) directly reduces your taxable base. '
+      'If you have children or a disability, this minimum increases.';
+  @override
+  String get irpfStep2Title => 'Employment income';
+  @override
+  String get irpfStep2Subtitle =>
+      'Include total gross income from salary, unemployment benefits and other employment income.';
+  @override
+  String get irpfSalaryLabel => 'Gross employment income (€)';
+  @override
+  String get irpfUseTxIncome => 'Use income recorded in the app';
+  @override
+  String get irpfSalaryInfo =>
+      'You can find this amount on your withholding certificate or annual payslip.';
+  @override
+  String get irpfStep3Title => 'Other income';
+  @override
+  String get irpfStep3Subtitle => 'Leave at 0 any that do not apply.';
+  @override
+  String get irpfFreelanceLabel => 'Self-employment / freelance income (€)';
+  @override
+  String get irpfRentalLabel => 'Rental income (€)';
+  @override
+  String get irpfCapitalGainsLabel => 'Capital gains (investments, sales) (€)';
+  @override
+  String get irpfStep4Title => 'Deductions';
+  @override
+  String get irpfStep4Subtitle =>
+      'Each deduction reduces your taxable base, lowering your final tax bill.';
+  @override
+  String get irpfPensionLabel => 'Pension plan contributions (€)';
+  @override
+  String get irpfPensionHint => 'Limit: €1,500 per year (or 30% of net income)';
+  @override
+  String get irpfHousingDeductionLabel =>
+      'Primary residence mortgage deduction (€)';
+  @override
+  String get irpfHousingDeductionHint =>
+      'Only for mortgages taken out before 1 January 2013. Limit: €9,040 per year.';
+  @override
+  String get irpfDonationsLabel => 'Donations to non-profit organisations (€)';
+  @override
+  String get irpfDonationsHint =>
+      '80% deduction on the first €150 and 35% on the remainder.';
+  @override
+  String get irpfAppDeductiblesLabel =>
+      'Deductible expenses tagged in the app (€)';
+  @override
+  String get irpfStep5Title => 'Estimated result';
+  @override
+  String get irpfCalculateBtn => 'Calculate';
+  @override
+  String get irpfPrevBtn => 'Back';
+  @override
+  String get irpfNextBtn => 'Next';
+  @override
+  String get irpfResultInterpretationLow =>
+      'Your effective rate is low. Make sure to include all deductions to optimise further.';
+  @override
+  String get irpfResultInterpretationMid =>
+      'Your effective rate is moderate. Consider increasing your pension contributions to reduce your taxable base.';
+  @override
+  String get irpfResultInterpretationHigh =>
+      'Your effective rate is high. Consult a tax adviser about deductions applicable to your situation.';
+  @override
+  String get irpfTipPension =>
+      'Tip: Maximising your pension contribution (up to €1,500) can significantly reduce your tax bill.';
+  @override
+  String get irpfTipDonations =>
+      'Tip: Donations to charities have a very high deduction (80% on the first €150).';
+  @override
+  String get irpfOpenRentaWebBtn => 'Go to Renta Web (AEAT)';
+  @override
+  String get irpfRentaWebInfo =>
+      'This is an indicative estimate. To file your official return, access Renta Web on the Tax Agency website.';
+  @override
+  String get irpfTaxableBase => 'Taxable base';
+  @override
+  String get irpfPersonalMinimum => 'Personal and family minimum';
 
   // ── Module G: OCR ─────────────────────────────────────────────────────────
   @override

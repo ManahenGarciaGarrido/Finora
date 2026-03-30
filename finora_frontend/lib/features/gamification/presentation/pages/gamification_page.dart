@@ -66,6 +66,7 @@ class _GamificationPageState extends State<GamificationPage>
 
   /// Muestra un diálogo cuando se consigue un logro o se completa un reto
   void _showAchievementDialog(BuildContext context, String title, String message) {
+    final s = AppLocalizations.of(context);
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -96,7 +97,7 @@ class _GamificationPageState extends State<GamificationPage>
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('¡Genial!'),
+            child: Text(s.greatExcl),
           ),
         ],
         actionsAlignment: MainAxisAlignment.center,
@@ -121,7 +122,7 @@ class _GamificationPageState extends State<GamificationPage>
             );
           } else if (state is ChallengeJoined) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Text('¡Te has unido al reto! Complétalo para ganar puntos.'),
+              content: Text(s.joinedChallengeMsg),
               backgroundColor: AppColors.primary,
             ));
           } else if (state is GamificationLoaded) {
@@ -134,7 +135,7 @@ class _GamificationPageState extends State<GamificationPage>
                     _showAchievementDialog(
                       context,
                       s.challengeComplete,
-                      '${ch.title}\n+${ch.rewardPoints} puntos',
+                      '${ch.title}\n+${s.rewardPointsLabel(ch.rewardPoints)}',
                     );
                   }
                 });
@@ -238,7 +239,7 @@ class _GamificationPageState extends State<GamificationPage>
               _tabs.animateTo(2);
             },
             icon: const Icon(Icons.emoji_events_rounded),
-            label: Text('Ver ${s.badgesTitle}'),
+            label: Text(s.viewBadgesBtn),
           ),
         ],
       ),
@@ -258,17 +259,14 @@ class _GamificationPageState extends State<GamificationPage>
           _infoCard(
             icon: Icons.local_fire_department_rounded,
             color: const Color(0xFFFF6B35),
-            title: '¿Qué es una racha?',
-            body: 'Una racha mide tu constancia financiera. '
-                'Cada vez que registras un período con ahorro positivo (gastos < ingresos) '
-                'o cumples el hábito del tipo de racha, tu contador sube. '
-                'Si lo rompes, vuelve a 0. ¡Sé constante!',
+            title: s.whatIsStreakTitle,
+            body: s.whatIsStreakBody,
           ),
           const SizedBox(height: 16),
           if (state.streaks.isEmpty)
             _emptyStreakCard(ctx, s)
           else ...[
-            Text('Tus rachas activas',
+            Text(s.activeStreaksTitle,
                 style: AppTypography.titleSmall()),
             const SizedBox(height: 12),
             ...state.streaks.map((streak) => Padding(
@@ -281,11 +279,8 @@ class _GamificationPageState extends State<GamificationPage>
           _infoCard(
             icon: Icons.emoji_events_rounded,
             color: AppColors.primary,
-            title: '¿Qué puedes conseguir?',
-            body: '• 4 semanas seguidas → Logro "Constante"\n'
-                '• 8 semanas seguidas → Logro "Disciplinado"\n'
-                '• 12 semanas seguidas → Logro "Experto del ahorro"\n'
-                'Cuanto más larga tu racha, más puntos y logros desbloqueas.',
+            title: s.whatCanYouEarnTitle,
+            body: s.whatCanYouEarnBody,
           ),
         ],
       ),
@@ -310,7 +305,7 @@ class _GamificationPageState extends State<GamificationPage>
               textAlign: TextAlign.center),
           const SizedBox(height: 8),
           Text(
-            'Registra un período con más ingresos que gastos para empezar tu racha.',
+            s.startStreakHint,
             style: AppTypography.bodySmall(color: AppColors.gray500),
             textAlign: TextAlign.center,
           ),
@@ -320,7 +315,7 @@ class _GamificationPageState extends State<GamificationPage>
                 .read<GamificationBloc>()
                 .add(const RecordStreak('daily_login')),
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Iniciar racha'),
+            label: Text(s.startStreakBtn),
           ),
         ],
       ),
@@ -328,8 +323,8 @@ class _GamificationPageState extends State<GamificationPage>
   }
 
   Widget _streakCard(BuildContext ctx, StreakEntity streak, dynamic s) {
-    final streakTypeLabel = _streakTypeLabel(streak.streakType);
-    final streakTypeDesc = _streakTypeDescription(streak.streakType);
+    final streakTypeLabel = _streakTypeLabel(streak.streakType, s);
+    final streakTypeDesc = _streakTypeDescription(streak.streakType, s);
     final nextMilestone = _nextMilestone(streak.currentCount);
 
     return Container(
@@ -384,7 +379,7 @@ class _GamificationPageState extends State<GamificationPage>
             children: [
               _statCell(
                 icon: Icons.whatshot_rounded,
-                label: 'Racha actual',
+                label: s.streakLabel,
                 value: '${streak.currentCount} sem.',
                 color: AppColors.primary,
               ),
@@ -399,7 +394,7 @@ class _GamificationPageState extends State<GamificationPage>
                 const SizedBox(width: 12),
                 _statCell(
                   icon: Icons.event_rounded,
-                  label: 'Última actividad',
+                  label: s.lastActivityLabel,
                   value: streak.lastActivityDate!.substring(0, 10),
                   color: AppColors.gray500,
                 ),
@@ -421,8 +416,8 @@ class _GamificationPageState extends State<GamificationPage>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Próximo hito: $nextMilestone semanas — '
-                      'te faltan ${nextMilestone - streak.currentCount} sem.',
+                      s.nextMilestoneLabel(
+                          nextMilestone, nextMilestone - streak.currentCount),
                       style: AppTypography.bodySmall(color: AppColors.primary),
                     ),
                   ),
@@ -438,7 +433,7 @@ class _GamificationPageState extends State<GamificationPage>
                 .read<GamificationBloc>()
                 .add(RecordStreak(streak.streakType)),
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Registrar semana'),
+            label: Text(s.recordWeekBtn),
           ),
         ],
       ),
@@ -477,33 +472,33 @@ class _GamificationPageState extends State<GamificationPage>
     );
   }
 
-  String _streakTypeLabel(String type) {
+  String _streakTypeLabel(String type, dynamic s) {
     switch (type) {
       case 'daily_login':
-        return 'Acceso diario';
+        return s.streakTypeDailyLogin;
       case 'weekly_saving':
-        return 'Ahorro semanal';
+        return s.streakTypeWeeklySaving;
       case 'budget_compliance':
-        return 'Cumplimiento de presupuesto';
+        return s.streakTypeBudgetCompliance;
       case 'no_impulse_buy':
-        return 'Sin compras impulsivas';
+        return s.streakTypeNoImpulseBuy;
       default:
-        return type.replaceAll('_', ' ').toUpperCase();
+        return s.streakTypeDefault;
     }
   }
 
-  String _streakTypeDescription(String type) {
+  String _streakTypeDescription(String type, dynamic s) {
     switch (type) {
       case 'daily_login':
-        return 'Abre la app cada día para mantener esta racha activa.';
+        return s.streakTypeDescDailyLogin;
       case 'weekly_saving':
-        return 'Cada semana con más ingresos que gastos suma 1 a la racha.';
+        return s.streakTypeDescWeeklySaving;
       case 'budget_compliance':
-        return 'Cumple tu presupuesto mensual sin excederte.';
+        return s.streakTypeDescBudgetCompliance;
       case 'no_impulse_buy':
-        return 'No registres compras no planificadas durante períodos consecutivos.';
+        return s.streakTypeDescNoImpulseBuy;
       default:
-        return 'Mantén el hábito financiero de forma constante.';
+        return s.streakTypeDescDefault;
     }
   }
 
@@ -570,7 +565,7 @@ class _GamificationPageState extends State<GamificationPage>
         OutlinedButton.icon(
           onPressed: () => ctx.read<GamificationBloc>().add(const CheckBadges()),
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Comprobar nuevos logros'),
+          label: Text(s.checkNewBadgesBtn),
         ),
         const SizedBox(height: 20),
         if (earned.isNotEmpty) ...[
@@ -583,7 +578,7 @@ class _GamificationPageState extends State<GamificationPage>
         Text(s.badgesLocked, style: AppTypography.titleSmall(color: AppColors.gray500)),
         const SizedBox(height: 4),
         Text(
-          'Completa estos objetivos para desbloquear los logros.',
+          s.completeBadgesHint,
           style: AppTypography.bodySmall(color: AppColors.gray400),
         ),
         const SizedBox(height: 12),
@@ -591,7 +586,7 @@ class _GamificationPageState extends State<GamificationPage>
           Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text('¡Has conseguido todos los logros disponibles! 🏆',
+              child: Text(s.allBadgesEarned,
                   style: AppTypography.bodyMedium(color: AppColors.gray500),
                   textAlign: TextAlign.center),
             ),
@@ -624,7 +619,7 @@ class _GamificationPageState extends State<GamificationPage>
 
   Widget _badgeListTile(BadgeEntity badge, dynamic s, {required bool earned}) {
     final color = earned ? AppColors.primary : AppColors.gray400;
-    final howToEarn = _badgeHowToEarn(badge.badgeKey);
+    final howToEarn = _badgeHowToEarn(badge.badgeKey, s);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -681,7 +676,7 @@ class _GamificationPageState extends State<GamificationPage>
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          'Cómo conseguirlo: $howToEarn',
+                          '${s.howToEarnPrefix}$howToEarn',
                           style: AppTypography.bodySmall(
                               color: AppColors.gray500),
                           maxLines: 2,
@@ -694,7 +689,7 @@ class _GamificationPageState extends State<GamificationPage>
                 if (earned && badge.earnedAt != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Conseguido el ${badge.earnedAt!.substring(0, 10)}',
+                    s.earnedOnDate(badge.earnedAt!.substring(0, 10)),
                     style: AppTypography.bodySmall(color: AppColors.gray500),
                   ),
                 ],
@@ -727,29 +722,29 @@ class _GamificationPageState extends State<GamificationPage>
     }
   }
 
-  String? _badgeHowToEarn(String key) {
+  String? _badgeHowToEarn(String key, dynamic s) {
     switch (key) {
       case 'first_transaction':
-        return 'Registra tu primera transacción.';
+        return s.badgeHowToFirstTransaction;
       case 'streak_4':
       case 'streak_4_weeks':
-        return 'Mantén una racha de ahorro positivo durante 4 semanas consecutivas.';
+        return s.badgeHowToStreak4;
       case 'streak_8':
       case 'streak_8_weeks':
-        return 'Mantén una racha de ahorro positivo durante 8 semanas consecutivas.';
+        return s.badgeHowToStreak8;
       case 'streak_12':
       case 'streak_12_weeks':
-        return 'Mantén una racha de ahorro positivo durante 12 semanas consecutivas.';
+        return s.badgeHowToStreak12;
       case 'budget_master':
-        return 'Cumple tu presupuesto durante 3 meses consecutivos.';
+        return s.badgeHowToBudgetMaster;
       case 'savings_goal':
-        return 'Alcanza el 100% de un objetivo de ahorro.';
+        return s.badgeHowToSavingsGoal;
       case 'challenge_complete':
-        return 'Completa cualquier reto financiero.';
+        return s.badgeHowToChallengeComplete;
       case 'no_debt':
-        return 'Liquida todas tus deudas registradas.';
+        return s.badgeHowToNoDebt;
       case 'investor':
-        return 'Conecta tu perfil de inversión y sigue una sugerencia de cartera.';
+        return s.badgeHowToInvestor;
       default:
         return null;
     }
@@ -757,16 +752,16 @@ class _GamificationPageState extends State<GamificationPage>
 
   // ── HELPERS PARA RETOS PERIÓDICOS ─────────────────────────────────────────
 
-  /// Devuelve "Semanal", "Mensual" o "Trimestral" según la duración del reto
-  String _challengePeriodLabel(ChallengeEntity ch) {
+  /// Devuelve la etiqueta de período del reto según su duración
+  String _challengePeriodLabel(ChallengeEntity ch, dynamic s) {
     if (ch.startsAt == null || ch.endsAt == null) return '';
     final start = DateTime.tryParse(ch.startsAt!);
     final end = DateTime.tryParse(ch.endsAt!);
     if (start == null || end == null) return '';
     final days = end.difference(start).inDays;
-    if (days <= 7) return 'Semanal';
-    if (days <= 31) return 'Mensual';
-    return 'Trimestral';
+    if (days <= 7) return s.periodWeekly;
+    if (days <= 31) return s.periodMonthly;
+    return s.periodQuarterly;
   }
 
   /// True si el reto comenzó hace menos de 7 días
@@ -797,21 +792,16 @@ class _GamificationPageState extends State<GamificationPage>
         _infoCard(
           icon: Icons.flag_rounded,
           color: const Color(0xFF00897B),
-          title: '¿Cómo funcionan los retos?',
-          body: '• Los retos son objetivos financieros temporales.\n'
-              '• Únete a un reto activo pulsando "Unirse".\n'
-              '• Completa el objetivo antes de que termine el plazo.\n'
-              '• Al completarlo recibirás una notificación y puntos de recompensa.\n'
-              '• Los puntos mejoran tu puntuación de salud financiera.',
+          title: s.howChallengesWorkTitle,
+          body: s.howChallengesWorkBody,
         ),
         const SizedBox(height: 16),
         // Info de actualización periódica
         _infoCard(
           icon: Icons.update_rounded,
           color: AppColors.gray500,
-          title: 'Actualización automática',
-          body: 'Los retos se actualizan automáticamente cada semana/mes. '
-              'La app comprueba nuevos retos al abrirse y cada 24 horas en segundo plano.',
+          title: s.autoUpdateTitle,
+          body: s.autoUpdateBody,
         ),
         const SizedBox(height: 16),
         if (state.challenges.isEmpty)
@@ -829,7 +819,7 @@ class _GamificationPageState extends State<GamificationPage>
                       textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                   Text(
-                    'Los retos se añaden periódicamente. Vuelve pronto.',
+                    s.noChallengesYet,
                     style: AppTypography.bodySmall(color: AppColors.gray400),
                     textAlign: TextAlign.center,
                   ),
@@ -839,7 +829,7 @@ class _GamificationPageState extends State<GamificationPage>
                         .read<GamificationBloc>()
                         .add(const LoadGamificationData()),
                     icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Buscar retos nuevos'),
+                    label: Text(s.searchNewChallengesBtn),
                   ),
                 ],
               ),
@@ -848,7 +838,7 @@ class _GamificationPageState extends State<GamificationPage>
         else ...[
           // Retos activos (en curso o sin unirse)
           if (state.challenges.any((c) => c.isActive && !c.isCompleted)) ...[
-            Text('Retos activos',
+            Text(s.activeChallengesTitle,
                 style: AppTypography.titleSmall(color: AppColors.primary)),
             const SizedBox(height: 8),
             ...state.challenges
@@ -861,7 +851,7 @@ class _GamificationPageState extends State<GamificationPage>
           ],
           // Retos completados
           if (state.challenges.any((c) => c.isCompleted)) ...[
-            Text('Completados',
+            Text(s.completedChallengesTitle,
                 style:
                     AppTypography.titleSmall(color: AppColors.success)),
             const SizedBox(height: 8),
@@ -879,9 +869,9 @@ class _GamificationPageState extends State<GamificationPage>
 
   Widget _challengeCard(
       BuildContext ctx, ChallengeEntity challenge, dynamic s) {
-    final challengeTypeLabel = _challengeTypeLabel(challenge.challengeType);
-    final challengeTypeDesc = _challengeTypeDescription(challenge.challengeType, challenge.targetValue);
-    final periodLabel = _challengePeriodLabel(challenge);
+    final challengeTypeLabel = _challengeTypeLabel(challenge.challengeType, s);
+    final challengeTypeDesc = _challengeTypeDescription(challenge.challengeType, challenge.targetValue, s);
+    final periodLabel = _challengePeriodLabel(challenge, s);
     final isNew = _isNewChallenge(challenge);
     final expiresSoon = _expiresSoon(challenge);
 
@@ -944,7 +934,7 @@ class _GamificationPageState extends State<GamificationPage>
                     color: AppColors.successSoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('Completado',
+                  child: Text(s.challengeCompletedBadge,
                       style: AppTypography.bodySmall(
                           color: AppColors.success)),
                 )
@@ -956,7 +946,7 @@ class _GamificationPageState extends State<GamificationPage>
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('En curso',
+                  child: Text(s.challengeInProgress,
                       style: AppTypography.bodySmall(
                           color: AppColors.primary)),
                 ),
@@ -972,9 +962,9 @@ class _GamificationPageState extends State<GamificationPage>
                 if (periodLabel.isNotEmpty)
                   _challengeBadge(periodLabel, AppColors.primary),
                 if (isNew && !challenge.isCompleted)
-                  _challengeBadge('Nuevo', const Color(0xFF00897B)),
+                  _challengeBadge(s.newBadgeLabel, const Color(0xFF00897B)),
                 if (expiresSoon && !challenge.isCompleted)
-                  _challengeBadge('Expira pronto', AppColors.error),
+                  _challengeBadge(s.expiresSoonLabel, AppColors.error),
               ],
             ),
           ],
@@ -1032,7 +1022,7 @@ class _GamificationPageState extends State<GamificationPage>
                       size: 14, color: AppColors.primary),
                   const SizedBox(width: 4),
                   Text(
-                    '${challenge.rewardPoints} puntos',
+                    s.rewardPointsLabel(challenge.rewardPoints),
                     style: AppTypography.bodySmall(color: AppColors.primary),
                   ),
                 ],
@@ -1086,38 +1076,38 @@ class _GamificationPageState extends State<GamificationPage>
     );
   }
 
-  String _challengeTypeLabel(String type) {
+  String _challengeTypeLabel(String type, dynamic s) {
     switch (type) {
       case 'savings':
-        return 'Reto de ahorro';
+        return s.challengeTypeSavingsLabel;
       case 'budget':
-        return 'Reto de presupuesto';
+        return s.challengeTypeBudgetLabel;
       case 'no_spending':
-        return 'Reto sin gastos extra';
+        return s.challengeTypeNoSpendingLabel;
       case 'streak':
-        return 'Reto de racha';
+        return s.challengeTypeStreakLabel;
       case 'goal':
-        return 'Reto de objetivo';
+        return s.challengeTypeGoalLabel;
       default:
         return type.replaceAll('_', ' ');
     }
   }
 
-  String _challengeTypeDescription(String type, double target) {
+  String _challengeTypeDescription(String type, double target, dynamic s) {
+    final t = target.toStringAsFixed(0);
     switch (type) {
       case 'savings':
-        return 'Ahorra al menos ${target.toStringAsFixed(0)}€ durante el período del reto. '
-            'Cada vez que registres un ingreso o reduzcas gastos, avanzas.';
+        return s.challengeTypeSavingsDesc(t);
       case 'budget':
-        return 'Mantén tus gastos dentro del presupuesto establecido durante el período completo.';
+        return s.challengeTypeBudgetDesc;
       case 'no_spending':
-        return 'Evita registrar gastos no esenciales durante ${target.toStringAsFixed(0)} días.';
+        return s.challengeTypeNoSpendingDesc(t);
       case 'streak':
-        return 'Mantén una racha de ahorro positivo durante ${target.toStringAsFixed(0)} semanas consecutivas.';
+        return s.challengeTypeStreakDesc(t);
       case 'goal':
-        return 'Alcanza el ${target.toStringAsFixed(0)}% de progreso en uno de tus objetivos de ahorro.';
+        return s.challengeTypeGoalDesc(t);
       default:
-        return 'Completa el objetivo indicado antes de que finalice el reto para ganar los puntos.';
+        return s.challengeTypeDefaultDesc;
     }
   }
 

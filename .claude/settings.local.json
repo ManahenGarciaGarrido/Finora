@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find C:/Users/manah/OneDrive/Desktop/Temario_4_GIIIS/TFG/Finora/finora_frontend/lib -name secure_storage* -o -name *secure*storage*)"
+    ]
+  }
+}

@@ -25,13 +25,19 @@ const createTransporter = () => {
 
   // For real SMTP providers (Gmail, SendGrid, Amazon SES, etc.)
   console.log('✓ Using real SMTP transporter:', process.env.SMTP_HOST);
+  const port = parseInt(process.env.SMTP_PORT) || 587;
+  const secure = process.env.SMTP_SECURE === 'true';
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
+    port,
+    secure,
+    requireTLS: !secure && port === 587,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
+    },
+    tls: {
+      rejectUnauthorized: true
     }
   });
 };
@@ -46,6 +52,10 @@ const verifyConnection = async () => {
     return true;
   } catch (error) {
     console.error('Email service error:', error.message);
+    console.error('SMTP host:', process.env.SMTP_HOST, '| port:', process.env.SMTP_PORT);
+    console.error('SMTP user configured:', process.env.SMTP_USER ? 'yes' : 'NO');
+    console.error('SMTP pass configured:', process.env.SMTP_PASS ? 'yes' : 'NO');
+    console.error('Hint: For Gmail, EMAIL_FROM must match SMTP_USER or be a configured Send As alias.');
     return false;
   }
 };

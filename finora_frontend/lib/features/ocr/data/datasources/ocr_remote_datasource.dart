@@ -78,7 +78,7 @@ class OcrRemoteDataSourceImpl implements OcrRemoteDataSource {
                 'amount': r.amount,
                 'date': r.date,
                 'description': r.description,
-                'type': r.amount >= 0 ? 'expense' : 'income',
+                'type': r.type,
               },
             )
             .toList(),
