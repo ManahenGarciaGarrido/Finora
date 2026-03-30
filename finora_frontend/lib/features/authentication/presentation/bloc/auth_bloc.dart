@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/storage_keys.dart';
 import '../../../../core/di/injection_container.dart' as di;
@@ -272,6 +273,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         reason: 'Accede a Finora con tu huella o Face ID',
       );
 
+      dev.log(
+        '[BIO] biometricService.authenticate result: $result',
+        name: 'AuthBloc',
+      );
+
       switch (result) {
         case BiometricResult.success:
           // Restaurar sesión desde almacenamiento local.
@@ -281,17 +287,50 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           final localDataSource = di.sl<AuthLocalDataSource>();
           final secureStorage = SecureStorageService();
           await secureStorage.initialize();
-          String? token = await localDataSource.getToken();
+          dev.log('[BIO] SecureStorageService initialized', name: 'AuthBloc');
+
+          String? token;
+          try {
+            token = await localDataSource.getToken();
+          } catch (e) {
+            dev.log('[BIO] getToken() threw: $e', name: 'AuthBloc');
+          }
+          dev.log(
+            '[BIO] access_token present: ${token != null && token.isNotEmpty}  expired: ${token != null && token.isNotEmpty ? _isTokenExpired(token) : 'n/a'}',
+            name: 'AuthBloc',
+          );
+
           if (token == null || token.isEmpty || _isTokenExpired(token)) {
-            final biometricToken = await secureStorage.read(
-              key: StorageKeys.biometricToken,
-              decrypt: true,
+            String? biometricToken;
+            try {
+              biometricToken = await secureStorage.read(
+                key: StorageKeys.biometricToken,
+                decrypt: true,
+              );
+            } catch (e) {
+              dev.log(
+                '[BIO] secureStorage.read(biometricToken) threw: $e',
+                name: 'AuthBloc',
+              );
+            }
+            dev.log(
+              '[BIO] biometric_access_token present: ${biometricToken != null && biometricToken.isNotEmpty}  expired: ${biometricToken != null && biometricToken.isNotEmpty ? _isTokenExpired(biometricToken) : 'n/a'}',
+              name: 'AuthBloc',
             );
+
             if (biometricToken != null &&
                 biometricToken.isNotEmpty &&
                 !_isTokenExpired(biometricToken)) {
               token = biometricToken;
+              dev.log(
+                '[BIO] Using biometric_access_token as auth token',
+                name: 'AuthBloc',
+              );
             } else {
+              dev.log(
+                '[BIO] Both tokens missing or expired → emitting BiometricFailed(sesión expirada)',
+                name: 'AuthBloc',
+              );
               emit(
                 const BiometricFailed(
                   reason:
@@ -300,54 +339,92 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               );
               return;
             }
+          } else {
+            dev.log('[BIO] Using regular access_token', name: 'AuthBloc');
           }
 
           final apiClient = di.sl<ApiClient>();
           apiClient.setToken(token);
+          dev.log('[BIO] Token set in ApiClient', name: 'AuthBloc');
 
           // Intentar refrescar para obtener un access token fresco (24h)
           // y renovar el token biométrico (30d). Si falla (sin red), usamos
           // el token biométrico directamente.
           try {
             await loginUseCase.repository.refreshToken();
-          } catch (_) {
-            // Sin red o token expirado — continuar con el token biométrico actual
+            dev.log('[BIO] refreshToken() succeeded', name: 'AuthBloc');
+          } catch (e) {
+            dev.log(
+              '[BIO] refreshToken() failed (continúa): $e',
+              name: 'AuthBloc',
+            );
           }
 
           try {
             final cachedUser = await localDataSource.getCachedUser();
+            dev.log(
+              '[BIO] getCachedUser() success → emitting Authenticated',
+              name: 'AuthBloc',
+            );
             emit(Authenticated(user: cachedUser));
-          } catch (_) {
+          } catch (e) {
+            dev.log(
+              '[BIO] getCachedUser() threw: $e → intentando getCurrentUser()',
+              name: 'AuthBloc',
+            );
             final res = await loginUseCase.repository.getCurrentUser();
             res.fold(
-              (_) => emit(
-                const BiometricFailed(
-                  reason:
-                      'No se pudo verificar tu sesión. Por favor inicia sesión con tu contraseña.',
-                ),
-              ),
-              (user) => emit(Authenticated(user: user)),
+              (failure) {
+                dev.log(
+                  '[BIO] getCurrentUser() failed: ${failure.message}',
+                  name: 'AuthBloc',
+                );
+                emit(
+                  const BiometricFailed(
+                    reason:
+                        'No se pudo verificar tu sesión. Por favor inicia sesión con tu contraseña.',
+                  ),
+                );
+              },
+              (user) {
+                dev.log(
+                  '[BIO] getCurrentUser() success → emitting Authenticated',
+                  name: 'AuthBloc',
+                );
+                emit(Authenticated(user: user));
+              },
             );
           }
 
         case BiometricResult.disabled:
+          dev.log(
+            '[BIO] result=disabled → BiometricNotAvailable',
+            name: 'AuthBloc',
+          );
           emit(const BiometricNotAvailable());
 
         case BiometricResult.notAvailable:
         case BiometricResult.notEnrolled:
+          dev.log(
+            '[BIO] result=notAvailable/notEnrolled → BiometricNotAvailable',
+            name: 'AuthBloc',
+          );
           emit(const BiometricNotAvailable());
 
         case BiometricResult.canceled:
+          dev.log('[BIO] result=canceled', name: 'AuthBloc');
           emit(const BiometricFailed(reason: 'Autenticación cancelada'));
 
         case BiometricResult.error:
+          dev.log('[BIO] result=error', name: 'AuthBloc');
           emit(
             const BiometricFailed(
               reason: 'Error de autenticación. Por favor usa tu contraseña.',
             ),
           );
       }
-    } catch (e) {
+    } catch (e, st) {
+      dev.log('[BIO] Unhandled exception: $e\n$st', name: 'AuthBloc');
       emit(BiometricFailed(reason: 'Error inesperado: ${e.toString()}'));
     }
   }
