@@ -305,6 +305,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           final apiClient = di.sl<ApiClient>();
           apiClient.setToken(token);
 
+          // Intentar refrescar para obtener un access token fresco (24h)
+          // y renovar el token biométrico (30d). Si falla (sin red), usamos
+          // el token biométrico directamente.
+          try {
+            await loginUseCase.repository.refreshToken();
+          } catch (_) {
+            // Sin red o token expirado — continuar con el token biométrico actual
+          }
+
           try {
             final cachedUser = await localDataSource.getCachedUser();
             emit(Authenticated(user: cachedUser));

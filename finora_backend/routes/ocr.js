@@ -143,6 +143,10 @@ router.post('/parse-csv', async (req, res) => {
 
   try {
     const rawLines = csv_content.trim().split(/\r?\n/);
+    // Strip BOM from first line if present
+    if (rawLines.length > 0 && rawLines[0].charCodeAt(0) === 0xFEFF) {
+      rawLines[0] = rawLines[0].substring(1);
+    }
 
     // Detectar separador escaneando las primeras líneas con contenido
     // (no solo la primera, ya que muchos bancos empiezan con metadatos sin separador)
@@ -245,8 +249,8 @@ router.post('/parse-csv', async (req, res) => {
 
     // Detectar columnas Cargo / Abono separadas (p. ej. ING Direct, Bankia).
     // Si existen ambas como columnas distintas, se ignora amountIdx y se calculan desde ellas.
-    const cargoIdx  = headers.findIndex(h => h === 'cargo'  || h === 'débito'  || h === 'debito');
-    const abonoIdx  = headers.findIndex(h => h === 'abono'  || h === 'crédito' || h === 'credito');
+    const cargoIdx  = headers.findIndex(h => h === 'cargo' || h.includes('cargo') || h === 'débito' || h === 'debito' || h.includes('débit') || h.includes('debit'));
+    const abonoIdx  = headers.findIndex(h => h === 'abono' || h.includes('abono') || h === 'crédito' || h === 'credito' || h.includes('crédit') || h.includes('credit'));
     const splitAmounts = cargoIdx >= 0 && abonoIdx >= 0 && cargoIdx !== abonoIdx;
 
     const parseSpanishDate = (raw) => {
@@ -397,10 +401,6 @@ router.post('/parse-pdf', async (req, res) => {
 
     const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-    // Detect if any line has a date pattern + amount pattern → likely a bank statement table
-    const datePattern = /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/;
-    const amountPattern = /[-+]?\d{1,6}[.,]\d{2}/;
-
     const parseSpanishDate = (raw) => {
       if (!raw) return null;
       const m1 = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
@@ -420,6 +420,7 @@ router.post('/parse-pdf', async (req, res) => {
         .replace(/[\u00A0\u202F\u2009]/g, '')
         .replace(/\u2212/g, '-')
         .replace(/[€$£+]/g, '');
+      if (!s || s === '-' || s === '') return null;
       const hasDot   = s.includes('.');
       const hasComma = s.includes(',');
       if (hasDot && hasComma) {
@@ -435,47 +436,106 @@ router.post('/parse-pdf', async (req, res) => {
       return isNaN(val) ? null : val;
     };
 
+    const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Amount regex: handles thousand-separator formats and optional sign
+    const AMT_RE = /([-+]?(?:\d{1,3}[.]\d{3})+[,]\d{2}|[-+]?(?:\d{1,3}[,]\d{3})+[.]\d{2}|[-+]?\d{1,6}[,]\d{2}|[-+]?\d{1,6}[.]\d{2})/g;
+
     const rows = [];
     let idx = 0;
 
-    for (const line of rawLines) {
-      // Find date token in line
-      const dateMatch = line.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
-      // Find all amount tokens in line — regex handles thousand-separator formats:
-      //   1.234,56  /  1,234.56  /  45,32  /  -1.234,56  /  +45.00
-      const amountMatches = [...line.matchAll(/([-+]?(?:\d{1,3}[.]\d{3})+[,]\d{2}|[-+]?(?:\d{1,3}[,]\d{3})+[.]\d{2}|[-+]?\d{1,6}[,]\d{2}|[-+]?\d{1,6}[.]\d{2})/g)];
-      if (!dateMatch || amountMatches.length === 0) continue;
+    // Pending transaction state for multi-line rows (date on one line, amount on next)
+    let pending = null; // { date, descLines: [] }
 
-      const date = parseSpanishDate(dateMatch[1]);
-      if (!date) continue;
-
-      // Cuando hay ≥2 cantidades en la línea (importe + saldo), el saldo aparece al final.
-      // Usamos la penúltima si hay ≥2, o la única si solo hay una.
+    const flushPending = (amountMatches, amountLine) => {
+      if (!pending) return;
+      // Cuando hay ≥2 cantidades (importe + saldo), usamos la penúltima.
       const amtIdx = amountMatches.length >= 2 ? amountMatches.length - 2 : amountMatches.length - 1;
       const rawAmt = amountMatches[amtIdx][1];
       const amount = parseAmount(rawAmt);
-      if (amount === null || Math.abs(amount) === 0) continue;
+      if (amount === null || Math.abs(amount) === 0) { pending = null; return; }
 
-      // Build description: remove date and amount tokens from line, take what remains
-      const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      let desc = line
-        .replace(dateMatch[0], '')
-        .replace(new RegExp(amountMatches.map(m => escRe(m[1])).join('|'), 'g'), '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .substring(0, 80);
-
-      if (!desc) desc = 'Movimiento importado';
+      // Build description from lines accumulated between date and amount line
+      let desc = pending.descLines.join(' ');
+      // Also strip amount tokens from the amount line and append anything useful
+      let amountLineRest = amountLine;
+      for (const m of amountMatches) {
+        amountLineRest = amountLineRest.replace(m[1], '');
+      }
+      amountLineRest = amountLineRest.replace(/\s+/g, ' ').trim();
+      if (amountLineRest && !desc.includes(amountLineRest)) {
+        desc = desc ? `${desc} ${amountLineRest}` : amountLineRest;
+      }
+      desc = (desc || 'Movimiento importado').substring(0, 80);
 
       rows.push({
         index: idx++,
-        date,
+        date: pending.date,
         description: desc,
         amount: Math.abs(amount),
         type: amount < 0 ? 'expense' : 'income',
-        raw: [line],
+        raw: [...pending.descLines, amountLine],
       });
+      pending = null;
+    };
+
+    for (const line of rawLines) {
+      const dateMatch = line.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
+      const amountMatches = [...line.matchAll(AMT_RE)];
+
+      if (dateMatch) {
+        const date = parseSpanishDate(dateMatch[1]);
+        if (!date) continue;
+
+        if (amountMatches.length > 0) {
+          // Complete single-line transaction: flush any pending first
+          if (pending) flushPending([], '');
+
+          // Cuando hay ≥2 cantidades en la línea (importe + saldo), usamos la penúltima.
+          const amtIdx = amountMatches.length >= 2 ? amountMatches.length - 2 : amountMatches.length - 1;
+          const rawAmt = amountMatches[amtIdx][1];
+          const amount = parseAmount(rawAmt);
+          if (amount === null || Math.abs(amount) === 0) continue;
+
+          let desc = line
+            .replace(dateMatch[0], '')
+            .replace(new RegExp(amountMatches.map(m => escRe(m[1])).join('|'), 'g'), '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 80);
+          if (!desc) desc = 'Movimiento importado';
+
+          rows.push({
+            index: idx++,
+            date,
+            description: desc,
+            amount: Math.abs(amount),
+            type: amount < 0 ? 'expense' : 'income',
+            raw: [line],
+          });
+        } else {
+          // Date found but no amount → start accumulating a pending transaction
+          if (pending) flushPending([], ''); // discard incomplete previous pending
+          const descPart = line.replace(dateMatch[0], '').replace(/\s+/g, ' ').trim();
+          pending = { date, descLines: descPart ? [descPart] : [] };
+        }
+      } else if (amountMatches.length > 0 && pending) {
+        // No date on this line but we have amounts and a pending date → complete the transaction
+        flushPending(amountMatches, line);
+      } else if (pending) {
+        // Continuation line: accumulate into description
+        if (line.length > 0 && line.length < 120) {
+          pending.descLines.push(line);
+        }
+        // If too many description lines accumulated without an amount, discard to avoid false matches
+        if (pending.descLines.length > 5) {
+          pending = null;
+        }
+      }
     }
+
+    // Flush any remaining pending transaction (no trailing amount line found)
+    if (pending) flushPending([], '');
 
     res.json({
       headers: ['fecha', 'concepto', 'importe'],
