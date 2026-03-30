@@ -892,6 +892,7 @@ class _AddContributionSheetState extends State<_AddContributionSheet> {
     try {
       final client = di.sl<ApiClient>();
       final resp = await client.get(ApiEndpoints.bankAccounts);
+      if (!mounted) return;
       final list = (resp.data['accounts'] as List?) ?? [];
       final s = AppLocalizations.of(context);
       final accounts = <_SourceAccount>[

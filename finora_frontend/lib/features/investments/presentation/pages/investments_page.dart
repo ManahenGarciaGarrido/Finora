@@ -475,6 +475,7 @@ class _InvestmentsPageState extends State<InvestmentsPage>
         ),
       ),
     );
+    if (!ctx.mounted) return;
     if (result == true) {
       ctx.read<InvestmentBloc>().add(const LoadProfile());
     }

@@ -7,6 +7,7 @@ class StorageKeys {
   static const String accessToken = 'access_token';
   static const String refreshToken = 'refresh_token';
   static const String biometricToken = 'biometric_access_token';
+  static const String biometricCachedUser = 'biometric_cached_user';
   static const String userId = 'user_id';
   static const String userEmail = 'user_email';
   static const String biometricEnabled = 'biometric_enabled';

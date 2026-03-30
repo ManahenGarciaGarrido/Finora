@@ -144,6 +144,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
       return Right(cachedUser.toEntity());
     } on CacheException catch (e) {
+      // No hay caché local (p.ej. después de cerrar sesión con biometría activa).
+      // Intentamos obtener el usuario directamente desde el servidor con el token ya establecido.
+      if (await networkInfo.isConnected) {
+        try {
+          final user = await remoteDataSource.getCurrentUser();
+          await localDataSource.cacheUser(user);
+          return Right(user.toEntity());
+        } catch (_) {}
+      }
       return Left(CacheFailure(message: e.message, code: e.code));
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, code: e.code));

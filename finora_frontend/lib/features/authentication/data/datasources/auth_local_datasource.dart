@@ -39,6 +39,14 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         encrypt: true,
       );
 
+      // Also keep a biometric-specific copy that survives regular logout,
+      // so biometric login can restore the session without a server call.
+      await _secureStorage.write(
+        key: StorageKeys.biometricCachedUser,
+        value: userJson,
+        encrypt: true,
+      );
+
       // Store user ID and email encrypted
       await _secureStorage.write(
         key: StorageKeys.userId,
@@ -66,7 +74,16 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       );
 
       if (userJson == null) {
-        throw const CacheException(message: 'No cached user found');
+        // Fallback: try the biometric-persistent copy (survives logout)
+        final biometricJson = await _secureStorage.read(
+          key: StorageKeys.biometricCachedUser,
+          decrypt: true,
+        );
+        if (biometricJson == null) {
+          throw const CacheException(message: 'No cached user found');
+        }
+        final biometricMap = json.decode(biometricJson) as Map<String, dynamic>;
+        return UserModel.fromJson(biometricMap);
       }
 
       final userMap = json.decode(userJson) as Map<String, dynamic>;
