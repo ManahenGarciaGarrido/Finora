@@ -148,6 +148,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           if (localDataSource != null) {
             await localDataSource!.saveToken(accessToken);
           }
+          // Fire-and-forget: obtener token biométrico de 30d y guardarlo
+          _saveBiometricToken(accessToken);
         }
 
         // Parse user data
@@ -220,9 +222,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        final accessToken = data['access_token'] as String?;
-        if (accessToken != null) {
-          apiClient.setToken(accessToken);
+        // Backend returns key 'token', not 'access_token'
+        final newToken = (data['token'] ?? data['access_token']) as String?;
+        if (newToken != null) {
+          apiClient.setToken(newToken);
+          if (localDataSource != null) {
+            await localDataSource!.saveToken(newToken);
+          }
+          // Renovar el token biométrico de 30 días también
+          _saveBiometricToken(newToken);
         }
       } else {
         throw ServerException(

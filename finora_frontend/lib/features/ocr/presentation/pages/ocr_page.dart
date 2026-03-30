@@ -487,7 +487,7 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
       } else if (path != null) {
         final file = File(path);
         try {
-          content = await file.readAsString(encoding: utf8);
+          content = await file.readAsString(encoding: latin1);
         } catch (_) {
           final raw = await file.readAsBytes();
           try {

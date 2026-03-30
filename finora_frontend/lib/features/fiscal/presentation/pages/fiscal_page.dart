@@ -417,10 +417,7 @@ class _FiscalPageState extends State<FiscalPage>
           onChanged: (v) {
             Navigator.pop(context);
             ctx.read<FiscalBloc>().add(
-              TagTransaction(
-                t.id,
-                fiscalCategory: v!.isEmpty ? null : v,
-              ),
+              TagTransaction(t.id, fiscalCategory: v!.isEmpty ? null : v),
             );
           },
           child: Column(
@@ -612,7 +609,9 @@ class _FiscalPageState extends State<FiscalPage>
                 (item) => RadioListTile<int>(
                   dense: true,
                   title: Text(
-                      item[1] as String, style: AppTypography.bodySmall()),
+                    item[1] as String,
+                    style: AppTypography.bodySmall(),
+                  ),
                   value: item[0] as int,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -968,33 +967,79 @@ class _FiscalPageState extends State<FiscalPage>
   }
 
   Widget _resultCard(dynamic s, IrpfResultEntity r, Function fmt) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.gray200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(s.estimatedTax, style: AppTypography.titleSmall()),
-          const SizedBox(height: 12),
-          _row(s.annualIncomeLabel, fmt(r.annualIncome)),
-          _row(s.irpfPersonalMinimum, '- ${fmt(_computePersonalMinimum())}'),
-          _row(s.totalDeductible, '- ${fmt(r.deductibleTotal)}'),
-          _row(s.irpfTaxableBase, fmt(r.taxableBase), color: AppColors.gray600),
-          const Divider(),
-          _row(s.estimatedTax, fmt(r.estimatedTax), color: AppColors.error),
-          _row(s.netIncome, fmt(r.netIncome), color: AppColors.success),
-          _row(s.effectiveRate, '${r.effectiveRate.toStringAsFixed(1)}%'),
-          const SizedBox(height: 12),
-          Text(s.taxBrackets, style: AppTypography.titleSmall()),
-          const SizedBox(height: 8),
-          for (final b in r.brackets.where((b) => b.taxableAmount > 0))
-            _row('${(b.rate * 100).toStringAsFixed(0)}%', fmt(b.tax)),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Hero: impuesto a pagar ────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            children: [
+              Text(
+                'Impuesto estimado a pagar',
+                style: AppTypography.bodyMedium(color: AppColors.error),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                fmt(r.estimatedTax),
+                style: AppTypography.displayLarge(color: AppColors.error),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Tipo efectivo: ${r.effectiveRate.toStringAsFixed(1)}%',
+                style: AppTypography.bodySmall(
+                  color: AppColors.error.withValues(alpha: 0.7),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // ── Desglose detallado ────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.gray200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(s.estimatedTax, style: AppTypography.titleSmall()),
+              const SizedBox(height: 12),
+              _row(s.annualIncomeLabel, fmt(r.annualIncome)),
+              _row(
+                s.irpfPersonalMinimum,
+                '- ${fmt(_computePersonalMinimum())}',
+              ),
+              _row(s.totalDeductible, '- ${fmt(r.deductibleTotal)}'),
+              _row(
+                s.irpfTaxableBase,
+                fmt(r.taxableBase),
+                color: AppColors.gray600,
+              ),
+              const Divider(),
+              _row(s.estimatedTax, fmt(r.estimatedTax), color: AppColors.error),
+              _row(s.netIncome, fmt(r.netIncome), color: AppColors.success),
+              _row(s.effectiveRate, '${r.effectiveRate.toStringAsFixed(1)}%'),
+              const SizedBox(height: 12),
+              Text(s.taxBrackets, style: AppTypography.titleSmall()),
+              const SizedBox(height: 8),
+              for (final b in r.brackets.where((b) => b.taxableAmount > 0))
+                _row('${(b.rate * 100).toStringAsFixed(0)}%', fmt(b.tax)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
