@@ -454,12 +454,23 @@ router.post('/parse-pdf', async (req, res) => {
     // Amount regex: handles thousand-separator formats and optional sign
     const AMT_RE = /([-+]?(?:\d{1,3}[.]\d{3})+[,]\d{2}|[-+]?(?:\d{1,3}[,]\d{3})+[.]\d{2}|[-+]?\d{1,6}[,]\d{2}|[-+]?\d{1,6}[.]\d{2})/g;
 
+    // Spanish text-month date: "22 mar 2026", "5 ene 2025"
+    const SPANISH_DATE_TEXT_RE = /^(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+(\d{4})$/i;
+    const SPANISH_MONTHS = { ene:'01',feb:'02',mar:'03',abr:'04',may:'05',jun:'06',jul:'07',ago:'08',sep:'09',oct:'10',nov:'11',dic:'12' };
+    const parseSpanishTextDate = (line) => {
+      const m = line.match(SPANISH_DATE_TEXT_RE);
+      if (!m) return null;
+      const mo = SPANISH_MONTHS[m[2].toLowerCase().substring(0,3)];
+      if (!mo) return null;
+      return `${m[3]}-${mo}-${m[1].padStart(2,'0')}`;
+    };
+ 
     const rows = [];
     let idx = 0;
-
+ 
     // Pending transaction state for multi-line rows (date on one line, amount on next)
     let pending = null; // { date, descLines: [] }
-
+ 
     const flushPending = (amountMatches, amountLine) => {
       if (!pending) return;
       // Cuando hay ≥2 cantidades (importe + saldo), usamos la penúltima.
@@ -467,7 +478,7 @@ router.post('/parse-pdf', async (req, res) => {
       const rawAmt = amountMatches[amtIdx][1];
       const amount = parseAmount(rawAmt);
       if (amount === null || Math.abs(amount) === 0) { pending = null; return; }
-
+ 
       // Build description from lines accumulated between date and amount line
       let desc = pending.descLines.join(' ');
       // Also strip amount tokens from the amount line and append anything useful
@@ -475,12 +486,12 @@ router.post('/parse-pdf', async (req, res) => {
       for (const m of amountMatches) {
         amountLineRest = amountLineRest.replace(m[1], '');
       }
-      amountLineRest = amountLineRest.replace(/\s+/g, ' ').trim();
+      amountLineRest = amountLineRest.replace(/€/g, '').replace(/\s+/g, ' ').trim();
       if (amountLineRest && !desc.includes(amountLineRest)) {
         desc = desc ? `${desc} ${amountLineRest}` : amountLineRest;
       }
       desc = (desc || 'Movimiento importado').substring(0, 80);
-
+ 
       rows.push({
         index: idx++,
         date: pending.date,
@@ -491,28 +502,38 @@ router.post('/parse-pdf', async (req, res) => {
       });
       pending = null;
     };
-
+ 
     for (const line of rawLines) {
+      // Skip "F. valor:" lines (Santander PDF format)
+      if (/^F\.\s*valor:/i.test(line)) continue;
+ 
+      // Try numeric date first, then Spanish text-month date
       const dateMatch = line.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
+      const spanishTextDate = parseSpanishTextDate(line);
       const amountMatches = [...line.matchAll(AMT_RE)];
-
-      if (dateMatch) {
+ 
+      if (spanishTextDate) {
+        // Pure date line in Santander format ("22 mar 2026") — no amount on this line
+        if (pending) flushPending([], '');
+        pending = { date: spanishTextDate, descLines: [] };
+      } else if (dateMatch) {
         const date = parseSpanishDate(dateMatch[1]);
         if (!date) continue;
-
+ 
         if (amountMatches.length > 0) {
           // Complete single-line transaction: flush any pending first
           if (pending) flushPending([], '');
-
+ 
           // Cuando hay ≥2 cantidades en la línea (importe + saldo), usamos la penúltima.
           const amtIdx = amountMatches.length >= 2 ? amountMatches.length - 2 : amountMatches.length - 1;
           const rawAmt = amountMatches[amtIdx][1];
           const amount = parseAmount(rawAmt);
           if (amount === null || Math.abs(amount) === 0) continue;
-
+ 
           let desc = line
             .replace(dateMatch[0], '')
             .replace(new RegExp(amountMatches.map(m => escRe(m[1])).join('|'), 'g'), '')
+            .replace(/€/g, '')
             .replace(/\s+/g, ' ')
             .trim()
             .substring(0, 80);
