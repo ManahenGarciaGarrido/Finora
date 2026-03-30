@@ -161,6 +161,8 @@ router.post('/parse-csv', async (req, res) => {
       if (tabs > 4) sep = '\t';
       else if (semis > commas) sep = ';';
     }
+    console.log(`[CSV] totalLines=${rawLines.length} sep=${JSON.stringify(sep)}`);
+    console.log(`[CSV] first5Lines=`, rawLines.slice(0, 5).map((l,i) => `[${i}] ${l}`).join('\n'));
 
     // Saltar líneas de metadatos hasta encontrar la cabecera real de datos.
     // Busca en hasta 50 líneas. Acepta líneas con columna de fecha Y (importe o descripción).
@@ -203,6 +205,7 @@ router.post('/parse-csv', async (req, res) => {
 
     // Si aún no se encontró, asumir que empieza en la línea 0.
     if (dataStart === -1) dataStart = 0;
+    console.log(`[CSV] dataStart=${dataStart} headerLine=${JSON.stringify(rawLines[dataStart])}`);
 
     const lines = rawLines.slice(dataStart);
     if (lines.length < 2) return res.status(400).json({ error: 'empty_csv' });
@@ -252,6 +255,8 @@ router.post('/parse-csv', async (req, res) => {
     const cargoIdx  = headers.findIndex(h => h === 'cargo' || h.includes('cargo') || h === 'débito' || h === 'debito' || h.includes('débit') || h.includes('debit'));
     const abonoIdx  = headers.findIndex(h => h === 'abono' || h.includes('abono') || h === 'crédito' || h === 'credito' || h.includes('crédit') || h.includes('credit'));
     const splitAmounts = cargoIdx >= 0 && abonoIdx >= 0 && cargoIdx !== abonoIdx;
+    console.log(`[CSV] headers=`, headers);
+    console.log(`[CSV] dateIdx=${dateIdx} amountIdx=${amountIdx} descIdx=${descIdx} cargoIdx=${cargoIdx} abonoIdx=${abonoIdx} splitAmounts=${splitAmounts}`);
 
     const parseSpanishDate = (raw) => {
       if (!raw) return null;
@@ -330,6 +335,11 @@ router.post('/parse-csv', async (req, res) => {
       };
     }).filter(r => r !== null);
 
+    console.log(`[CSV] parsedRows=${rows.length} (de ${lines.length - 1} líneas de datos)`);
+    if (rows.length === 0 && lines.length > 1) {
+      console.log(`[CSV] WARN: 0 filas → primeras 3 líneas de datos:`, lines.slice(1, 4));
+    }
+
     res.json({
       headers,
       rows: rows.slice(0, 200),
@@ -338,6 +348,7 @@ router.post('/parse-csv', async (req, res) => {
       separator: sep,
     });
   } catch (err) {
+    console.error('[CSV] Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -400,6 +411,8 @@ router.post('/parse-pdf', async (req, res) => {
     const text = data.text || '';
 
     const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    console.log(`[PDF] pdf-parse extracted ${rawLines.length} lines, first 20:`);
+    rawLines.slice(0, 20).forEach((l, i) => console.log(`  [${i}] ${l}`));
 
     const parseSpanishDate = (raw) => {
       if (!raw) return null;
@@ -537,6 +550,13 @@ router.post('/parse-pdf', async (req, res) => {
     // Flush any remaining pending transaction (no trailing amount line found)
     if (pending) flushPending([], '');
 
+    console.log(`[PDF] parsed ${rows.length} transactions`);
+    if (rows.length === 0) {
+      console.log('[PDF] WARN: 0 transactions — verifica que el PDF tiene líneas con fechas y/o importes');
+    } else {
+      console.log('[PDF] first transaction sample:', JSON.stringify(rows[0]));
+    }
+
     res.json({
       headers: ['fecha', 'concepto', 'importe'],
       rows: rows.slice(0, 200),
@@ -545,6 +565,7 @@ router.post('/parse-pdf', async (req, res) => {
       separator: 'pdf',
     });
   } catch (err) {
+    console.error('[PDF] Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
