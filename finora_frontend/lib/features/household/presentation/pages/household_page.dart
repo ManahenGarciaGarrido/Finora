@@ -255,8 +255,15 @@ class _HouseholdPageState extends State<HouseholdPage>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTypography.bodyMedium(color: AppColors.gray600)),
-        Text(value, style: AppTypography.titleSmall()),
+        Flexible(
+          child: Text(
+            label,
+            style: AppTypography.bodyMedium(color: AppColors.gray600),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(value, style: AppTypography.titleSmall(), overflow: TextOverflow.ellipsis),
       ],
     );
   }
@@ -380,9 +387,12 @@ class _HouseholdPageState extends State<HouseholdPage>
                     size: 18,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    s.householdExpenseHowTitle,
-                    style: AppTypography.titleSmall(color: AppColors.primary),
+                  Expanded(
+                    child: Text(
+                      s.householdExpenseHowTitle,
+                      style: AppTypography.titleSmall(color: AppColors.primary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),

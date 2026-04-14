@@ -56,10 +56,13 @@ class _CategoriesPageState extends State<CategoriesPage>
                     size: 18,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    AppLocalizations.of(
-                      context,
-                    ).categoryCreatedMsg(state.category.name),
+                  Expanded(
+                    child: Text(
+                      AppLocalizations.of(
+                        context,
+                      ).categoryCreatedMsg(state.category.name),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -485,9 +488,12 @@ class _CategoriesPageState extends State<CategoriesPage>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        isEditing ? s.editCategory : s.newCategory,
-                        style: AppTypography.titleLarge(),
+                      Expanded(
+                        child: Text(
+                          isEditing ? s.editCategory : s.newCategory,
+                          style: AppTypography.titleLarge(),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded),

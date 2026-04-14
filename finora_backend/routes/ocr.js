@@ -7,6 +7,48 @@ try { pdfParse = require('pdf-parse'); } catch (_) { pdfParse = null; }
 
 router.use(authenticateToken);
 
+// ─── Shared date/amount helpers (used by parse-csv and parse-pdf) ─────────────
+
+const parseSpanishDate = (raw) => {
+  if (!raw) return null;
+  // dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy, yyyy-mm-dd
+  const m1 = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m1) {
+    const [, d, mo, y] = m1;
+    const yr = y.length === 2 ? `20${y}` : y;
+    return `${yr}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  const m2 = raw.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
+  if (m2) return raw;
+  return null;
+};
+
+const parseAmount = (raw) => {
+  if (!raw) return null;
+  // Normaliza: elimina espacios (incl. no-break), símbolo de moneda, +
+  // y convierte el signo menos Unicode (U+2212 −, usado por Santander y otros bancos)
+  // al guión ASCII estándar que acepta parseFloat.
+  let s = raw.trim()
+    .replace(/[\u00A0\u202F\u2009]/g, '')   // espacios especiales (separadores de miles)
+    .replace(/\u2212/g, '-')                  // minus sign Unicode → ASCII minus
+    .replace(/[€$£+]/g, '');
+  if (!s || s === '-' || s === '') return null;
+  const hasDot   = s.includes('.');
+  const hasComma = s.includes(',');
+  if (hasDot && hasComma) {
+    // Ambos presentes: el último es el separador decimal
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      s = s.replace(/\./g, '').replace(',', '.'); // Formato español: 1.234,56
+    } else {
+      s = s.replace(/,/g, ''); // Formato inglés: 1,234.56
+    }
+  } else if (hasComma) {
+    s = s.replace(',', '.'); // Coma decimal: 50,00 → 50.00
+  }
+  const val = parseFloat(s);
+  return isNaN(val) ? null : val;
+};
+
 // ─── OCR / RECEIPT IMPORT ─────────────────────────────────────────────────────
 
 // POST /ocr/extract  – receive text extracted by ML Kit on device, parse it
@@ -215,8 +257,7 @@ router.post('/parse-csv', async (req, res) => {
       const result = [];
       let current = '';
       let inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
+      for (const ch of line) {
         if (ch === '"') {
           inQuotes = !inQuotes;
         } else if (ch === sep && !inQuotes) {
@@ -257,46 +298,6 @@ router.post('/parse-csv', async (req, res) => {
     const splitAmounts = cargoIdx >= 0 && abonoIdx >= 0 && cargoIdx !== abonoIdx;
     console.log(`[CSV] headers=`, headers);
     console.log(`[CSV] dateIdx=${dateIdx} amountIdx=${amountIdx} descIdx=${descIdx} cargoIdx=${cargoIdx} abonoIdx=${abonoIdx} splitAmounts=${splitAmounts}`);
-
-    const parseSpanishDate = (raw) => {
-      if (!raw) return null;
-      // dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy, yyyy-mm-dd
-      const m1 = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-      if (m1) {
-        const [, d, mo, y] = m1;
-        const yr = y.length === 2 ? `20${y}` : y;
-        return `${yr}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
-      }
-      const m2 = raw.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
-      if (m2) return raw;
-      return null;
-    };
-
-    const parseAmount = (raw) => {
-      if (!raw) return null;
-      // Normaliza: elimina espacios (incl. no-break), símbolo de moneda, +
-      // y convierte el signo menos Unicode (U+2212 −, usado por Santander y otros bancos)
-      // al guión ASCII estándar que acepta parseFloat.
-      let s = raw.trim()
-        .replace(/[\u00A0\u202F\u2009]/g, '')   // espacios especiales (separadores de miles)
-        .replace(/\u2212/g, '-')                  // minus sign Unicode → ASCII minus
-        .replace(/[€$£+]/g, '');
-      if (!s || s === '-' || s === '') return null;
-      const hasDot   = s.includes('.');
-      const hasComma = s.includes(',');
-      if (hasDot && hasComma) {
-        // Ambos presentes: el último es el separador decimal
-        if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
-          s = s.replace(/\./g, '').replace(',', '.'); // Formato español: 1.234,56
-        } else {
-          s = s.replace(/,/g, ''); // Formato inglés: 1,234.56
-        }
-      } else if (hasComma) {
-        s = s.replace(',', '.'); // Coma decimal: 50,00 → 50.00
-      }
-      const val = parseFloat(s);
-      return isNaN(val) ? null : val;
-    };
 
     const rows = lines.slice(1).map((line, i) => {
       const cols = splitLine(line);
@@ -414,45 +415,10 @@ router.post('/parse-pdf', async (req, res) => {
     console.log(`[PDF] pdf-parse extracted ${rawLines.length} lines, first 20:`);
     rawLines.slice(0, 20).forEach((l, i) => console.log(`  [${i}] ${l}`));
 
-    const parseSpanishDate = (raw) => {
-      if (!raw) return null;
-      const m1 = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-      if (m1) {
-        const [, d, mo, y] = m1;
-        const yr = y.length === 2 ? `20${y}` : y;
-        return `${yr}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
-      }
-      const m2 = raw.match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/);
-      if (m2) return raw;
-      return null;
-    };
-
-    const parseAmount = (raw) => {
-      if (!raw) return null;
-      let s = raw.trim()
-        .replace(/[\u00A0\u202F\u2009]/g, '')
-        .replace(/\u2212/g, '-')
-        .replace(/[€$£+]/g, '');
-      if (!s || s === '-' || s === '') return null;
-      const hasDot   = s.includes('.');
-      const hasComma = s.includes(',');
-      if (hasDot && hasComma) {
-        if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
-          s = s.replace(/\./g, '').replace(',', '.');
-        } else {
-          s = s.replace(/,/g, '');
-        }
-      } else if (hasComma) {
-        s = s.replace(',', '.');
-      }
-      const val = parseFloat(s);
-      return isNaN(val) ? null : val;
-    };
-
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     // Amount regex: handles thousand-separator formats and optional sign
-    const AMT_RE = /([-+]?(?:\d{1,3}[.]\d{3})+[,]\d{2}|[-+]?(?:\d{1,3}[,]\d{3})+[.]\d{2}|[-+]?\d{1,6}[,]\d{2}|[-+]?\d{1,6}[.]\d{2})/g;
+    const AMT_RE = /([-+]?(?:\d{1,3}\.\d{3})+,\d{2}|[-+]?(?:\d{1,3},\d{3})+\.\d{2}|[-+]?\d{1,6},\d{2}|[-+]?\d{1,6}\.\d{2})/g;
 
     // Spanish text-month date: "22 mar 2026", "5 ene 2025"
     const SPANISH_DATE_TEXT_RE = /^(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+(\d{4})$/i;

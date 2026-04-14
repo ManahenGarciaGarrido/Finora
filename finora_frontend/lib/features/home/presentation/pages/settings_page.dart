@@ -496,12 +496,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                   : AppColors.textSecondaryLight,
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              label,
-                              style: AppTypography.titleSmall(
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.textPrimaryLight,
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: AppTypography.titleSmall(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : AppColors.textPrimaryLight,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -620,9 +623,12 @@ class _SettingsPageState extends State<SettingsPage> {
                             color: AppColors.primary,
                           ),
                           const SizedBox(width: 10),
-                          Text(
-                            'Paleta de colores',
-                            style: AppTypography.titleSmall(),
+                          Expanded(
+                            child: Text(
+                              'Paleta de colores',
+                              style: AppTypography.titleSmall(),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -1136,7 +1142,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       size: 24,
                     ),
                     const SizedBox(width: 12),
-                    Text(ds.settingsLogout),
+                    Expanded(
+                      child: Text(
+                        ds.settingsLogout,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
                 content: Text(

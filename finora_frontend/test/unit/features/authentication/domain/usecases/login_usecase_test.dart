@@ -48,8 +48,8 @@ void main() {
         (_) => fail('Should return validation failure'),
       );
       verifyNever(mockRepository.login(
-        email: any,
-        password: any,
+        email: anyNamed('email'),
+        password: anyNamed('password'),
       ));
     });
 
@@ -70,8 +70,8 @@ void main() {
         (_) => fail('Should return validation failure'),
       );
       verifyNever(mockRepository.login(
-        email: any,
-        password: any,
+        email: anyNamed('email'),
+        password: anyNamed('password'),
       ));
     });
 
@@ -92,8 +92,8 @@ void main() {
         (_) => fail('Should return validation failure'),
       );
       verifyNever(mockRepository.login(
-        email: any,
-        password: any,
+        email: anyNamed('email'),
+        password: anyNamed('password'),
       ));
     });
 
@@ -161,3 +161,4 @@ void main() {
     });
   });
 }
+

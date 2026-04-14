@@ -1,12 +1,58 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finora_frontend/core/security/encryption_service.dart';
 import 'package:finora_frontend/core/errors/exceptions.dart';
 
+// ---------------------------------------------------------------------------
+// Fake in-memory FlutterSecureStorage via method channel mock
+// ---------------------------------------------------------------------------
+
+final _fakeStorage = <String, String?>{};
+
+void _setupFakeSecureStorage() {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+    const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+    (MethodCall methodCall) async {
+      final args = methodCall.arguments as Map?;
+      final key = args?['key'] as String?;
+
+      switch (methodCall.method) {
+        case 'read':
+          return key != null ? _fakeStorage[key] : null;
+        case 'write':
+          if (key != null) _fakeStorage[key] = args?['value'] as String?;
+          return null;
+        case 'delete':
+          if (key != null) _fakeStorage.remove(key);
+          return null;
+        case 'readAll':
+          return Map<String, String>.fromEntries(
+            _fakeStorage.entries
+                .where((e) => e.value != null)
+                .map((e) => MapEntry(e.key, e.value!)),
+          );
+        case 'deleteAll':
+          _fakeStorage.clear();
+          return null;
+        case 'containsKey':
+          return key != null && _fakeStorage.containsKey(key);
+        default:
+          return null;
+      }
+    },
+  );
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('EncryptionService', () {
     late EncryptionService encryptionService;
 
     setUp(() {
+      _fakeStorage.clear();
+      _setupFakeSecureStorage();
       encryptionService = EncryptionService();
     });
 
@@ -128,3 +174,4 @@ void main() {
     });
   });
 }
+

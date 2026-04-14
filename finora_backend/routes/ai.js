@@ -491,7 +491,7 @@ router.post('/check-anomaly', authenticateToken, async (req, res) => {
   res.status(202).json({ message: 'Verificación de anomalía iniciada' });
 
   try {
-    const { transaction_id, amount, category, type } = req.body;
+    const { transaction_id, amount, type } = req.body;
     if (type !== 'expense' || !transaction_id || !amount) return;
 
     // Obtener histórico de los últimos 6 meses para el análisis

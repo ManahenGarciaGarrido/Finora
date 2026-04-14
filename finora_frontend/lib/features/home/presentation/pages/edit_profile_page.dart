@@ -261,16 +261,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
             child: Row(
               children: [
                 const Text('🇪🇸  '),
-                Text(
-                  s.spanish,
-                  style: _selectedLocale == 'es'
-                      ? const TextStyle(fontWeight: FontWeight.bold)
-                      : null,
+                Expanded(
+                  child: Text(
+                    s.spanish,
+                    style: _selectedLocale == 'es'
+                        ? const TextStyle(fontWeight: FontWeight.bold)
+                        : null,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                if (_selectedLocale == 'es')
-                  const Spacer()
-                else
-                  const SizedBox(),
                 if (_selectedLocale == 'es')
                   const Icon(Icons.check_rounded, size: 16),
               ],
@@ -281,16 +280,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
             child: Row(
               children: [
                 const Text('🇬🇧  '),
-                Text(
-                  s.english,
-                  style: _selectedLocale == 'en'
-                      ? const TextStyle(fontWeight: FontWeight.bold)
-                      : null,
+                Expanded(
+                  child: Text(
+                    s.english,
+                    style: _selectedLocale == 'en'
+                        ? const TextStyle(fontWeight: FontWeight.bold)
+                        : null,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                if (_selectedLocale == 'en')
-                  const Spacer()
-                else
-                  const SizedBox(),
                 if (_selectedLocale == 'en')
                   const Icon(Icons.check_rounded, size: 16),
               ],

@@ -97,10 +97,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
         ),
       );
     }
-    return Scaffold(
-      appBar: appBar,
-      body: body,
-    );
+    return Scaffold(appBar: appBar, body: body);
   }
 
   Widget _buildGDPRInfoCard() {
@@ -114,11 +111,14 @@ class _PrivacyPageState extends State<PrivacyPage> {
               children: [
                 Icon(Icons.shield, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 8),
-                Text(
-                  AppLocalizations.of(context).gdprCompliance,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).gdprCompliance,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -151,11 +151,14 @@ class _PrivacyPageState extends State<PrivacyPage> {
               children: [
                 const Icon(Icons.check_circle_outline),
                 const SizedBox(width: 8),
-                Text(
-                  AppLocalizations.of(context).consentManagement,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).consentManagement,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -236,11 +239,14 @@ class _PrivacyPageState extends State<PrivacyPage> {
               children: [
                 const Icon(Icons.gavel),
                 const SizedBox(width: 8),
-                Text(
-                  AppLocalizations.of(context).gdprRights,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).gdprRights,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -254,7 +260,6 @@ class _PrivacyPageState extends State<PrivacyPage> {
             ),
             _buildRightTile(
               icon: Icons.edit,
-              // TODO: Implementar navegación a editar perfil
               title: AppLocalizations.of(context).rightOfRectification,
               subtitle: AppLocalizations.of(context).rightOfRectificationDesc,
               onTap: _navigateToProfile,
@@ -471,7 +476,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${AppLocalizations.of(context).errorExportingData}: $e'),
+            content: Text(
+              '${AppLocalizations.of(context).errorExportingData}: $e',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -504,9 +511,13 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              Text('${AppLocalizations.of(context).nameLabel}: ${personalData?['name'] ?? 'N/A'}'),
+              Text(
+                '${AppLocalizations.of(context).nameLabel}: ${personalData?['name'] ?? 'N/A'}',
+              ),
               Text('Email: ${personalData?['email'] ?? 'N/A'}'),
-              Text('${AppLocalizations.of(context).transactionsLabel}: $totalTransactions'),
+              Text(
+                '${AppLocalizations.of(context).transactionsLabel}: $totalTransactions',
+              ),
               Text(
                 '${AppLocalizations.of(context).registrationDateLabel}: ${_formatDate(personalData?['registrationDate'])}',
               ),
@@ -718,7 +729,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
         ApiEndpoints.gdprDeleteAccount,
         data: {
           'confirmDeletion': 'DELETE_MY_ACCOUNT',
-          'reason': reason.isNotEmpty ? reason : AppLocalizations.of(context).reasonOptionalHint,
+          'reason': reason.isNotEmpty
+              ? reason
+              : AppLocalizations.of(context).reasonOptionalHint,
         },
       );
 
@@ -744,7 +757,9 @@ class _PrivacyPageState extends State<PrivacyPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${AppLocalizations.of(context).errorDeletingAccount}: $e'),
+            content: Text(
+              '${AppLocalizations.of(context).errorDeletingAccount}: $e',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -891,7 +906,9 @@ class _ConsentHistorySheetState extends State<_ConsentHistorySheet> {
                       granted ? Icons.check_circle : Icons.cancel,
                       color: granted ? Colors.green : Colors.red,
                     ),
-                    title: Text(_consentTypeName(context, entry['consentType'] ?? '')),
+                    title: Text(
+                      _consentTypeName(context, entry['consentType'] ?? ''),
+                    ),
                     subtitle: Text(
                       '${_actionName(context, entry['action'] ?? '')} - ${_formatTimestamp(entry['timestamp'])}',
                     ),

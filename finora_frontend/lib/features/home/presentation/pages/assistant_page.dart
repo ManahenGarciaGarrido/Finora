@@ -598,11 +598,14 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
             children: [
               Icon(verdictIcon, color: verdictColor, size: 22),
               const SizedBox(width: 8),
-              Text(
-                verdictLabel,
-                style: AppTypography.titleSmall(color: verdictColor),
+              Expanded(
+                child: Text(
+                  verdictLabel,
+                  style: AppTypography.titleSmall(color: verdictColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 CurrencyService().format(result.amount, decimals: 0),
                 style: AppTypography.titleMedium(color: verdictColor),
@@ -692,10 +695,14 @@ Mantén las respuestas conversacionales y apropiadamente concisas. Haz preguntas
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
+          Flexible(
+            child: Text(
+              label,
+              style: AppTypography.bodySmall(color: AppColors.textSecondaryLight),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+          const SizedBox(width: 8),
           Text(
             value,
             style: AppTypography.bodySmall(

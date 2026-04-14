@@ -337,10 +337,13 @@ class _BankAccountSetupPageState extends State<BankAccountSetupPage> {
                   size: 24,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  AppLocalizations.of(context).noCardsOptional,
-                  style: AppTypography.bodyMedium(
-                    color: AppColors.textSecondaryLight,
+                Expanded(
+                  child: Text(
+                    AppLocalizations.of(context).noCardsOptional,
+                    style: AppTypography.bodyMedium(
+                      color: AppColors.textSecondaryLight,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

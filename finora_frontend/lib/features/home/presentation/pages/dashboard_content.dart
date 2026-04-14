@@ -816,10 +816,13 @@ class _DashboardContentState extends State<DashboardContent>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      s.totalBalance,
-                      style: AppTypography.labelMedium(
-                        color: AppColors.white.withValues(alpha: 0.75),
+                    Expanded(
+                      child: Text(
+                        s.totalBalance,
+                        style: AppTypography.labelMedium(
+                          color: AppColors.white.withValues(alpha: 0.75),
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     GestureDetector(
@@ -1104,7 +1107,13 @@ class _DashboardContentState extends State<DashboardContent>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: AppTypography.titleMedium()),
+        Expanded(
+          child: Text(
+            title,
+            style: AppTypography.titleMedium(),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         if (onTap != null)
           GestureDetector(
             onTap: onTap,
@@ -1352,10 +1361,14 @@ class _DashboardContentState extends State<DashboardContent>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    s.topMonthlyExpenses,
-                    style: AppTypography.titleMedium(),
+                  Expanded(
+                    child: Text(
+                      s.topMonthlyExpenses,
+                      style: AppTypography.titleMedium(),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -1525,10 +1538,14 @@ class _DashboardContentState extends State<DashboardContent>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${s.incomes} vs ${s.expense}',
-                    style: AppTypography.titleMedium(),
+                  Expanded(
+                    child: Text(
+                      '${s.incomes} vs ${s.expense}',
+                      style: AppTypography.titleMedium(),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Row(
                     children: [
                       _buildLegendDot(AppColors.income),
@@ -1705,7 +1722,13 @@ class _DashboardContentState extends State<DashboardContent>
             children: [
               Row(
                 children: [
-                  Text(s.nextExpenses, style: AppTypography.titleMedium()),
+                  Expanded(
+                    child: Text(
+                      s.nextExpenses,
+                      style: AppTypography.titleMedium(),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -2013,7 +2036,14 @@ class _DashboardContentState extends State<DashboardContent>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(s.monthlySummary, style: AppTypography.titleMedium()),
+                  Expanded(
+                    child: Text(
+                      s.monthlySummary,
+                      style: AppTypography.titleMedium(),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -2078,7 +2108,14 @@ class _DashboardContentState extends State<DashboardContent>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(s.expenseProgress, style: AppTypography.bodySmall()),
+                    Flexible(
+                      child: Text(
+                        s.expenseProgress,
+                        style: AppTypography.bodySmall(),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       '${(expenses / income * 100).clamp(0, 999).toStringAsFixed(0)}% ${s.ofIncome}',
                       style: AppTypography.badge(
@@ -2383,7 +2420,13 @@ class _GoalsSectionContent extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(s.savingsGoals, style: AppTypography.titleMedium()),
+              Expanded(
+                child: Text(
+                  s.savingsGoals,
+                  style: AppTypography.titleMedium(),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               TextButton(
                 onPressed: () => Navigator.push(
                   context,

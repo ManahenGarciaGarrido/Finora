@@ -464,7 +464,6 @@ router.get(
       const PRIMARY   = '0F172A';
       const SUCCESS   = '059669';
       const DANGER    = 'DC2626';
-      const WARNING   = 'D97706';
       const GRAY_BG   = 'F3F4F6';
       const GRAY_TEXT = '6B7280';
       const WHITE     = 'FFFFFF';

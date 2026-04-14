@@ -95,15 +95,20 @@ class DebtCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${pct.toStringAsFixed(0)}% ${s.completed}',
-                style: AppTypography.labelSmall(color: AppColors.gray500),
+              Flexible(
+                child: Text(
+                  '${pct.toStringAsFixed(0)}% ${s.completed}',
+                  style: AppTypography.labelSmall(color: AppColors.gray500),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              if (debt.interestRate > 0)
+              if (debt.interestRate > 0) ...[
+                const SizedBox(width: 8),
                 Text(
                   '${debt.interestRate.toStringAsFixed(1)}% ${s.annualRate}',
                   style: AppTypography.labelSmall(color: AppColors.gray500),
                 ),
+              ],
             ],
           ),
           if (onEdit != null || onDelete != null) ...[

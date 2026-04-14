@@ -14,6 +14,12 @@ import 'package:finora_frontend/core/errors/exceptions.dart';
 @GenerateMocks([AuthRemoteDataSource, AuthLocalDataSource, NetworkInfo])
 import 'auth_repository_impl_test.mocks.dart';
 
+/// LocalDatabase that doesn't touch Hive - suitable for unit tests
+class _FakeLocalDatabase extends LocalDatabase {
+  @override
+  Future<void> clearAll() async {}
+}
+
 void main() {
   late AuthRepositoryImpl repository;
   late MockAuthRemoteDataSource mockRemoteDataSource;
@@ -25,13 +31,19 @@ void main() {
     mockRemoteDataSource = MockAuthRemoteDataSource();
     mockLocalDataSource = MockAuthLocalDataSource();
     mockNetworkInfo = MockNetworkInfo();
-    mockLocalDatabase = LocalDatabase();
+    mockLocalDatabase = _FakeLocalDatabase();
     repository = AuthRepositoryImpl(
       remoteDataSource: mockRemoteDataSource,
       localDataSource: mockLocalDataSource,
       networkInfo: mockNetworkInfo,
       localDatabase: mockLocalDatabase,
     );
+  });
+
+  tearDown(() {
+    clearInteractions(mockNetworkInfo);
+    clearInteractions(mockRemoteDataSource);
+    clearInteractions(mockLocalDataSource);
   });
 
   const testEmail = 'test@example.com';
@@ -79,7 +91,7 @@ void main() {
         result,
         const Left(NetworkFailure(message: 'No internet connection')),
       );
-      verifyNever(mockRemoteDataSource.login(email: any, password: any));
+      verifyNever(mockRemoteDataSource.login(email: anyNamed('email'), password: anyNamed('password')));
     });
 
     test('should call remote data source when device is online', () async {
@@ -236,3 +248,4 @@ void main() {
     });
   });
 }
+

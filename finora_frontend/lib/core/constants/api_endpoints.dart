@@ -14,16 +14,16 @@ class ApiEndpoints {
 
     // Web platform
     if (kIsWeb) {
-      return 'http://68.221.27.85:3000/api/v1';
+      return 'http://172.201.116.62:3000/api/v1';
     }
 
     // For local development with Docker
     if (Platform.isAndroid) {
-      return 'http://68.221.27.85:3000/api/v1';
+      return 'http://172.201.116.62:3000/api/v1';
     }
 
     // iOS, Windows, macOS, Linux
-    return 'http://68.221.27.85:3000/api/v1';
+    return 'http://172.201.116.62:3000/api/v1';
   }
 
   // Authentication endpoints

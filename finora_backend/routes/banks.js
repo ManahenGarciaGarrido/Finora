@@ -345,9 +345,10 @@ async function generateRandomTransactions(bankAccountId, userId, targetBalanceCe
       // Si el ML devolvió una categoría específica (no genérica), usarla.
       // Si el ML devolvió "Otros*", preferir la categoría pre-asignada por el
       // generador de IA (tx.cat), que ya es semánticamente correcta.
+      const fallbackCat = tx.isExpense ? 'Otros gastos' : 'Otros ingresos';
       const category = (mlCat && !ML_FALLBACK_CATS.has(mlCat))
         ? mlCat
-        : (tx.cat && tx.cat.trim()) || mlCat || (tx.isExpense ? 'Otros gastos' : 'Otros ingresos');
+        : (tx.cat && tx.cat.trim()) || mlCat || fallbackCat;
       await db.query(
         `INSERT INTO transactions
            (user_id, bank_account_id, amount, type, description, category, date, payment_method)
@@ -372,7 +373,8 @@ async function generateRandomTransactions(bankAccountId, userId, targetBalanceCe
     const yr       = today.getFullYear();
     const mo       = today.getMonth() - mBack;
     const midx     = new Date(yr, mo, 1).getMonth(); // 0-11
-    const seasonal = midx === 11 ? 1.20 : (midx === 6 || midx === 7) ? 1.15 : 1.0;
+    const summerSeasonal = (midx === 6 || midx === 7) ? 1.15 : 1.0;
+    const seasonal = midx === 11 ? 1.20 : summerSeasonal;
     const salaryDate = new Date(yr, mo, salaryDay);
     const hasSalary  = salaryDate <= today;
     const extraDay   = 15 + Math.floor(Math.random() * 5);
@@ -550,9 +552,10 @@ async function generateRandomTransactions(bankAccountId, userId, targetBalanceCe
     const tx       = txList[i];
     const amount   = (tx.amountCents / 100).toFixed(2);
     const mlCat    = aiCategories[i] && aiCategories[i].trim();
+    const fallbackCat = tx.isExpense ? 'Otros gastos' : 'Otros ingresos';
     const category = (mlCat && !_ML_FALLBACK_CATS.has(mlCat))
       ? mlCat
-      : (tx.cat && tx.cat.trim()) || mlCat || (tx.isExpense ? 'Otros gastos' : 'Otros ingresos');
+      : (tx.cat && tx.cat.trim()) || mlCat || fallbackCat;
     await db.query(
       `INSERT INTO transactions
          (user_id, bank_account_id, amount, type, description, category, date, payment_method)
@@ -1195,7 +1198,6 @@ router.post('/accounts/manual', authenticateToken, async (req, res) => {
     balance_cents = 0,
     currency = 'EUR',
     icon,
-    color,
     institution_name = 'Cuenta Manual',
   } = req.body;
 
@@ -1632,7 +1634,8 @@ router.post('/:id/import-transactions', authenticateToken, async (req, res) => {
     if (totalImported > 0) {
       try {
         const notifTitle = 'Nuevas transacciones';
-        const notifBody = `Se ${totalImported === 1 ? 'ha importado 1 transacción' : `han importado ${totalImported} transacciones`} de tu banco`;
+        const importedText = totalImported === 1 ? 'ha importado 1 transacción' : `han importado ${totalImported} transacciones`;
+        const notifBody = `Se ${importedText} de tu banco`;
         await db.query(
           `INSERT INTO notifications (user_id, type, title, body, metadata)
            VALUES ($1, 'bank_sync', $2, $3, $4)`,
@@ -2260,13 +2263,14 @@ router.post('/plaid-webhook', async (req, res) => {
       ).catch(() => {});
 
       if (imported > 0) {
+        const importedText2 = imported === 1 ? 'ha importado 1 transacción' : `han importado ${imported} transacciones`;
         await db.query(
           `INSERT INTO notifications (user_id, type, title, body, metadata)
            VALUES ($1, 'bank_sync', $2, $3, $4)`,
           [
             conn.user_id,
             'Nuevas transacciones',
-            `Se ${imported === 1 ? 'ha importado 1 transacción' : `han importado ${imported} transacciones`} de tu banco`,
+            `Se ${importedText2} de tu banco`,
             JSON.stringify({ imported, connection_id: conn.id, source: 'plaid_webhook' }),
           ]
         ).catch(() => {});

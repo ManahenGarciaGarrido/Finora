@@ -246,9 +246,12 @@ class _BudgetSuggestionsPageState extends State<BudgetSuggestionsPage> {
     final selectAllRow = Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          '${_suggestions.length} sugerencias',
-          style: AppTypography.labelSmall(color: AppColors.gray500),
+        Flexible(
+          child: Text(
+            '${_suggestions.length} sugerencias',
+            style: AppTypography.labelSmall(color: AppColors.gray500),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         TextButton(
           onPressed: () {

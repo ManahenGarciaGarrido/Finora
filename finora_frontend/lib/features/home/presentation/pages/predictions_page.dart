@@ -433,12 +433,16 @@ class _PredictionsPageState extends State<PredictionsPage>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _getTranslatedCategory(context, p.categoria),
-                          style: AppTypography.bodySmall(
-                            color: AppColors.textPrimaryLight,
+                        Flexible(
+                          child: Text(
+                            _getTranslatedCategory(context, p.categoria),
+                            style: AppTypography.bodySmall(
+                              color: AppColors.textPrimaryLight,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           _fmtC(p.prediccion, decimals: 0),
                           style: AppTypography.labelSmall(
@@ -555,10 +559,13 @@ class _PredictionsPageState extends State<PredictionsPage>
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  s.aiNextMonthPrediction,
-                  style: AppTypography.labelMedium(
-                    color: AppColors.textSecondaryLight,
+                Expanded(
+                  child: Text(
+                    s.aiNextMonthPrediction,
+                    style: AppTypography.labelMedium(
+                      color: AppColors.textSecondaryLight,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

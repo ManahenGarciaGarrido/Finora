@@ -93,7 +93,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             await localDataSource!.saveToken(accessToken);
           }
           // Fire-and-forget: obtener token biométrico de 30d y guardarlo
-          _saveBiometricToken(accessToken);
+          await _saveBiometricToken(accessToken);
         }
 
         // Parse user data
@@ -149,7 +149,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             await localDataSource!.saveToken(accessToken);
           }
           // Fire-and-forget: obtener token biométrico de 30d y guardarlo
-          _saveBiometricToken(accessToken);
+          await _saveBiometricToken(accessToken);
         }
 
         // Parse user data
@@ -230,7 +230,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             await localDataSource!.saveToken(newToken);
           }
           // Renovar el token biométrico de 30 días también
-          _saveBiometricToken(newToken);
+          await _saveBiometricToken(newToken);
         }
       } else {
         throw ServerException(

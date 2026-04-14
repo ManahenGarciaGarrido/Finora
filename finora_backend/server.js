@@ -85,6 +85,7 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
 });
 app.use('/api/', limiter);
 
@@ -94,6 +95,7 @@ const authLimiter = rateLimit({
   max: 5, // Limit each IP to 5 requests per windowMs
   message: 'Too many authentication attempts, please try again later.',
   skipSuccessfulRequests: true,
+  skip: () => process.env.NODE_ENV === 'test',
 });
 
 // ============================================
@@ -790,7 +792,11 @@ const startServer = async () => {
   }
 };
 
-startServer();
+// Only start the server when not running under Jest tests.
+// This prevents EADDRINUSE when multiple test suites import server.js.
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

@@ -1,12 +1,61 @@
+import 'package:finora_frontend/core/security/encryption_service.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finora_frontend/core/security/secure_storage_service.dart';
 
+// ---------------------------------------------------------------------------
+// Fake in-memory FlutterSecureStorage via method channel mock
+// ---------------------------------------------------------------------------
+
+final _fakeStorage = <String, String?>{};
+
+void _setupFakeSecureStorage() {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+        (MethodCall methodCall) async {
+          final args = methodCall.arguments as Map?;
+          final key = args?['key'] as String?;
+
+          switch (methodCall.method) {
+            case 'read':
+              return key != null ? _fakeStorage[key] : null;
+            case 'write':
+              if (key != null) _fakeStorage[key] = args?['value'] as String?;
+              return null;
+            case 'delete':
+              if (key != null) _fakeStorage.remove(key);
+              return null;
+            case 'readAll':
+              return Map<String, String>.fromEntries(
+                _fakeStorage.entries
+                    .where((e) => e.value != null)
+                    .map((e) => MapEntry(e.key, e.value!)),
+              );
+            case 'deleteAll':
+              _fakeStorage.clear();
+              return null;
+            case 'containsKey':
+              return key != null && _fakeStorage.containsKey(key);
+            default:
+              return null;
+          }
+        },
+      );
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('SecureStorageService', () {
     late SecureStorageService secureStorage;
 
     setUp(() {
-      secureStorage = SecureStorageService();
+      _fakeStorage.clear();
+      _setupFakeSecureStorage();
+      secureStorage = SecureStorageService(
+        encryptionService: FakeEncryptionService(),
+      );
     });
 
     test('should write and read encrypted data', () async {
@@ -126,3 +175,52 @@ void main() {
     });
   });
 }
+
+// ---------------------------------------------------------------------------
+// Fake Encryption Service para aislar el test unitario
+// ---------------------------------------------------------------------------
+class FakeEncryptionService implements EncryptionService {
+  int _version = 1;
+
+  @override
+  int get keyVersion => _version;
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<String> encrypt(String value) async => 'v$_version:$value';
+
+  @override
+  Future<String> decrypt(String value) async {
+    // Simulamos desencriptar quitando el prefijo de versión
+    if (value.startsWith('v')) {
+      return value.substring(value.indexOf(':') + 1);
+    }
+    return value;
+  }
+
+  @override
+  Future<void> rotateKey() async {
+    _version++;
+  }
+
+  @override
+  Future<void> secureDelete() async {
+    _version = 1;
+  }
+
+  @override
+  Future<String> hashPassword(String password, {String? providedSalt}) async {
+    // Simulamos un hash determinista simple para los tests
+    final saltStr = providedSalt != null ? '_$providedSalt' : '';
+    return 'fake_hash_$password$saltStr';
+  }
+
+  @override
+  Future<bool> verifyPassword(String password, String hashedPassword) async {
+    // Comprobamos si la contraseña coincide con el patrón de nuestro hash falso
+    return hashedPassword.startsWith('fake_hash_$password');
+  }
+}
+

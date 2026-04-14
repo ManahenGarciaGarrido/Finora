@@ -218,7 +218,7 @@ class _NotificationsSheetState extends State<_NotificationsSheet> {
                     size: 22,
                   ),
                   const SizedBox(width: 8),
-                  Text('Notificaciones', style: AppTypography.titleMedium()),
+                  Expanded(child: Text('Notificaciones', style: AppTypography.titleMedium(), overflow: TextOverflow.ellipsis)),
                   if (unreadCount > 0) ...[
                     const SizedBox(width: 8),
                     Container(

@@ -1,8 +1,5 @@
-// ignore_for_file: subtype_of_sealed_class
-//
-// PREREQUISITO: flutter pub run build_runner build --delete-conflicting-outputs
-
 import 'package:dio/dio.dart';
+import 'package:finora_frontend/core/database/local_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
@@ -15,9 +12,7 @@ import 'package:finora_frontend/features/authentication/data/models/user_model.d
 
 import 'auth_remote_data_source_test.mocks.dart';
 
-class MockAuthLocalDataSource extends Mock implements AuthLocalDataSource {}
-
-@GenerateMocks([ApiClient])
+@GenerateMocks([ApiClient, LocalDatabase, AuthLocalDataSource])
 void main() {
   late MockApiClient mockApiClient;
   late MockAuthLocalDataSource mockLocalDataSource;
@@ -32,7 +27,7 @@ void main() {
     'is_2fa_enabled': false,
   };
 
-  Response<dynamic> _fakeResponse(dynamic data, {int statusCode = 200}) =>
+  Response<dynamic> fakeResponse(dynamic data, {int statusCode = 200}) =>
       Response(
         requestOptions: RequestOptions(path: ''),
         data: data,
@@ -50,31 +45,33 @@ void main() {
 
   // ── login ────────────────────────────────────────────────────────────────────
   group('login', () {
-    test('retorna UserModel y guarda token en storage al recibir 200', () async {
-      when(mockApiClient.post(any, data: anyNamed('data'))).thenAnswer(
-        (_) async => _fakeResponse({
-          'access_token': 'tok-abc',
-          'user': tUserJson,
-        }),
-      );
-      // _saveBiometricToken es fire-and-forget, pero lanza una segunda llamada POST
-      // que también debemos contemplar (retorna 200 para no lanzar error)
-      when(mockLocalDataSource.saveToken(any)).thenAnswer((_) async {});
+    test(
+      'retorna UserModel y guarda token en storage al recibir 200',
+      () async {
+        when(mockApiClient.post(any, data: anyNamed('data'))).thenAnswer(
+          (_) async =>
+              fakeResponse({'access_token': 'tok-abc', 'user': tUserJson}),
+        );
 
-      final result = await dataSource.login(
-        email: 'test@finora.app',
-        password: 'Pass123!',
-      );
+        when(mockLocalDataSource.saveToken(any)).thenAnswer((_) async {
+          return;
+        });
 
-      expect(result, isA<UserModel>());
-      expect(result.id, 'user-1');
-      verify(mockApiClient.setToken('tok-abc')).called(1);
-      verify(mockLocalDataSource.saveToken('tok-abc')).called(1);
-    });
+        final result = await dataSource.login(
+          email: 'test@finora.app',
+          password: 'Pass123!',
+        );
+
+        expect(result, isA<UserModel>());
+        expect(result.id, 'user-1');
+        verify(mockApiClient.setToken('tok-abc')).called(1);
+        verify(mockLocalDataSource.saveToken('tok-abc')).called(1);
+      },
+    );
 
     test('lanza ServerException cuando el servidor devuelve != 200', () async {
       when(mockApiClient.post(any, data: anyNamed('data'))).thenAnswer(
-        (_) async => _fakeResponse({'message': 'Unauthorized'}, statusCode: 401),
+        (_) async => fakeResponse({'message': 'Unauthorized'}, statusCode: 401),
       );
 
       expect(
@@ -84,8 +81,9 @@ void main() {
     });
 
     test('relanza ServerException del ApiClient', () async {
-      when(mockApiClient.post(any, data: anyNamed('data')))
-          .thenThrow(const ServerException(message: 'Server error'));
+      when(
+        mockApiClient.post(any, data: anyNamed('data')),
+      ).thenThrow(const ServerException(message: 'Server error'));
 
       expect(
         () => dataSource.login(email: 'a@b.com', password: 'Pass1!'),
@@ -94,8 +92,9 @@ void main() {
     });
 
     test('relanza NetworkException del ApiClient', () async {
-      when(mockApiClient.post(any, data: anyNamed('data')))
-          .thenThrow(const NetworkException(message: 'No connection'));
+      when(
+        mockApiClient.post(any, data: anyNamed('data')),
+      ).thenThrow(const NetworkException(message: 'No connection'));
 
       expect(
         () => dataSource.login(email: 'a@b.com', password: 'Pass1!'),
@@ -108,12 +107,14 @@ void main() {
   group('register', () {
     test('retorna UserModel al recibir 201', () async {
       when(mockApiClient.post(any, data: anyNamed('data'))).thenAnswer(
-        (_) async => _fakeResponse(
-          {'access_token': 'tok-new', 'user': tUserJson},
-          statusCode: 201,
-        ),
+        (_) async => fakeResponse({
+          'access_token': 'tok-new',
+          'user': tUserJson,
+        }, statusCode: 201),
       );
-      when(mockLocalDataSource.saveToken(any)).thenAnswer((_) async {});
+      when(mockLocalDataSource.saveToken(any)).thenAnswer((_) async {
+        return;
+      });
 
       final result = await dataSource.register(
         email: 'test@finora.app',
@@ -128,9 +129,7 @@ void main() {
   // ── logout ───────────────────────────────────────────────────────────────────
   group('logout', () {
     test('llama a POST logout y limpia el token', () async {
-      when(mockApiClient.post(any)).thenAnswer(
-        (_) async => _fakeResponse(null),
-      );
+      when(mockApiClient.post(any)).thenAnswer((_) async => fakeResponse(null));
 
       await dataSource.logout();
 
@@ -138,14 +137,11 @@ void main() {
     });
 
     test('limpia token aunque POST falle', () async {
-      when(mockApiClient.post(any))
-          .thenThrow(const ServerException(message: 'fail'));
+      when(
+        mockApiClient.post(any),
+      ).thenThrow(const ServerException(message: 'fail'));
 
-      // Debe relanzar pero aún limpiar el token
-      await expectLater(
-        dataSource.logout(),
-        throwsA(isA<ServerException>()),
-      );
+      await expectLater(dataSource.logout(), throwsA(isA<ServerException>()));
       verify(mockApiClient.clearToken()).called(1);
     });
   });
@@ -153,9 +149,9 @@ void main() {
   // ── getCurrentUser ────────────────────────────────────────────────────────────
   group('getCurrentUser', () {
     test('retorna UserModel cuando GET /profile devuelve 200', () async {
-      when(mockApiClient.get(any)).thenAnswer(
-        (_) async => _fakeResponse(tUserJson),
-      );
+      when(
+        mockApiClient.get(any),
+      ).thenAnswer((_) async => fakeResponse(tUserJson));
 
       final result = await dataSource.getCurrentUser();
 
@@ -163,9 +159,9 @@ void main() {
     });
 
     test('lanza ServerException cuando status != 200', () async {
-      when(mockApiClient.get(any)).thenAnswer(
-        (_) async => _fakeResponse(null, statusCode: 404),
-      );
+      when(
+        mockApiClient.get(any),
+      ).thenAnswer((_) async => fakeResponse(null, statusCode: 404));
 
       expect(dataSource.getCurrentUser(), throwsA(isA<ServerException>()));
     });
@@ -174,23 +170,20 @@ void main() {
   // ── forgotPassword ────────────────────────────────────────────────────────────
   group('forgotPassword', () {
     test('completa sin error cuando POST tiene éxito', () async {
-      when(mockApiClient.post(any, data: anyNamed('data'))).thenAnswer(
-        (_) async => _fakeResponse(null),
-      );
+      when(
+        mockApiClient.post(any, data: anyNamed('data')),
+      ).thenAnswer((_) async => fakeResponse(null));
 
-      await expectLater(
-        dataSource.forgotPassword(email: 'a@b.com'),
-        completes,
-      );
+      await expectLater(dataSource.forgotPassword(email: 'a@b.com'), completes);
     });
   });
 
   // ── resetPassword ─────────────────────────────────────────────────────────────
   group('resetPassword', () {
     test('completa sin error cuando POST tiene éxito', () async {
-      when(mockApiClient.post(any, data: anyNamed('data'))).thenAnswer(
-        (_) async => _fakeResponse(null),
-      );
+      when(
+        mockApiClient.post(any, data: anyNamed('data')),
+      ).thenAnswer((_) async => fakeResponse(null));
 
       await expectLater(
         dataSource.resetPassword(token: 'tok', newPassword: 'NewPass1!'),
@@ -203,7 +196,7 @@ void main() {
   group('enable2FA', () {
     test('retorna el qr_code cuando POST tiene éxito', () async {
       when(mockApiClient.post(any)).thenAnswer(
-        (_) async => _fakeResponse({'qr_code': 'data:image/png;base64,...'}),
+        (_) async => fakeResponse({'qr_code': 'data:image/png;base64,...'}),
       );
 
       final result = await dataSource.enable2FA();

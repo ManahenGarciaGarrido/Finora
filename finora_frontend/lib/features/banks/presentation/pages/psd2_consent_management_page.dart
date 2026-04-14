@@ -419,9 +419,12 @@ class _ConsentCard extends StatelessWidget {
                         children: [
                           Icon(statusIcon, size: 14, color: statusColor),
                           const SizedBox(width: 4),
-                          Text(
-                            statusLabel,
-                            style: AppTypography.labelSmall(color: statusColor),
+                          Flexible(
+                            child: Text(
+                              statusLabel,
+                              style: AppTypography.labelSmall(color: statusColor),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -601,9 +604,12 @@ class _DetailRow extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: AppColors.gray400),
         const SizedBox(width: 6),
-        Text(
-          '$label: ',
-          style: AppTypography.bodySmall(color: AppColors.gray400),
+        Flexible(
+          child: Text(
+            '$label: ',
+            style: AppTypography.bodySmall(color: AppColors.gray400),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         Expanded(
           child: Text(

@@ -664,7 +664,7 @@ router.delete('/delete-account', authenticateToken, async (req, res) => {
     }
 
     const deletionReceipt = {
-      receiptId: `del_${Date.now()}_${userId.substring(0, 8)}`,
+      receiptId: `del_${Date.now()}_${String(userId).substring(0, 8)}`,
       userId,
       deletionDate: new Date().toISOString(),
       dataDeleted: [

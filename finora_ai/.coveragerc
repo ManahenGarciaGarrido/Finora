@@ -1,0 +1,7 @@
+[run]
+omit =
+    tests/*
+    */__pycache__/*
+    .venv/*
+    train_model.py
+relative_files = True

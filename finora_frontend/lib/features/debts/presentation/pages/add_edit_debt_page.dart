@@ -329,10 +329,13 @@ class _AddEditDebtPageState extends State<AddEditDebtPage> {
               size: 18,
             ),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTypography.bodyMedium(
-                color: selected ? AppColors.primary : AppColors.gray600,
+            Flexible(
+              child: Text(
+                label,
+                style: AppTypography.bodyMedium(
+                  color: selected ? AppColors.primary : AppColors.gray600,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

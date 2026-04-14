@@ -89,7 +89,7 @@ router.get('/status', authenticateToken, async (req, res) => {
         percentage: Math.round(pct * 10) / 10,
         over_budget: overBudget,
         near_limit: nearLimit,
-        alert_level: overBudget ? 'critical' : nearLimit ? 'warning' : 'ok',
+        alert_level: overBudget ? 'critical' : (nearLimit ? 'warning' : 'ok'),
       };
     });
 

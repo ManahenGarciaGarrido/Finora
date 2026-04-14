@@ -16,7 +16,6 @@ class SecurityConfig {
   static const bool allowHttpConnections = false;
 
   /// Certificate fingerprints (SHA-256) for pinning
-  /// TODO: Replace with actual production certificate fingerprints
   static const Map<String, List<String>> certificatePins = {
     'api.finora.com': [
       // Production certificate SHA-256 fingerprints

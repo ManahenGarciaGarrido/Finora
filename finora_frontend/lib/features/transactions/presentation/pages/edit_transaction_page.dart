@@ -340,7 +340,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               ),
             ),
             const SizedBox(width: 10),
-            Text(s.confirmChanges, style: AppTypography.titleMedium()),
+            Expanded(child: Text(s.confirmChanges, style: AppTypography.titleMedium(), overflow: TextOverflow.ellipsis)),
           ],
         ),
         content: Column(
@@ -643,7 +643,7 @@ class _EditTransactionPageState extends State<EditTransactionPage>
               ),
             ),
             const SizedBox(width: 10),
-            Text(s.deleteTransaction, style: AppTypography.titleMedium()),
+            Expanded(child: Text(s.deleteTransaction, style: AppTypography.titleMedium(), overflow: TextOverflow.ellipsis)),
           ],
         ),
         content: Column(

@@ -212,10 +212,14 @@ class _FiscalPageState extends State<FiscalPage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  s.totalDeductible,
-                  style: AppTypography.titleSmall(color: AppColors.primary),
+                Flexible(
+                  child: Text(
+                    s.totalDeductible,
+                    style: AppTypography.titleSmall(color: AppColors.primary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   fmt(_totalDeductible),
                   style: AppTypography.titleMedium(color: AppColors.primary),
