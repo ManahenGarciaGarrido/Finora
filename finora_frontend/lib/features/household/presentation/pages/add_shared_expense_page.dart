@@ -141,9 +141,12 @@ class _AddSharedExpensePageState extends State<AddSharedExpensePage> {
                       size: 18,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      s.householdExpenseHowTitle,
-                      style: AppTypography.titleSmall(color: AppColors.primary),
+                    Expanded(
+                      child: Text(
+                        s.householdExpenseHowTitle,
+                        style: AppTypography.titleSmall(color: AppColors.primary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),

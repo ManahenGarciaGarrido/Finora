@@ -192,7 +192,7 @@ void main() {
     });
 
     test('feasibilityLabel retorna Difícil para difficult', () {
-      final model = SavingsGoalModel.fromJson({
+      final model = SavingsGoalModel.fromJson(<String, dynamic>{
         ...tJsonFull,
         'ai_feasibility': 'difficult',
       });
@@ -206,3 +206,4 @@ void main() {
     });
   });
 }
+

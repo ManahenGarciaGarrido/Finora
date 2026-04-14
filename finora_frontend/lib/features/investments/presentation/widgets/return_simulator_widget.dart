@@ -174,7 +174,8 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(s.finalAmount, style: AppTypography.bodyMedium()),
+                  Flexible(child: Text(s.finalAmount, style: AppTypography.bodyMedium(), overflow: TextOverflow.ellipsis)),
+                  const SizedBox(width: 8),
                   Text(
                     fmt((r['final_amount'] as num).toDouble()),
                     style: AppTypography.titleSmall(
@@ -187,10 +188,14 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    s.totalInvested,
-                    style: AppTypography.bodySmall(color: AppColors.gray600),
+                  Flexible(
+                    child: Text(
+                      s.totalInvested,
+                      style: AppTypography.bodySmall(color: AppColors.gray600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     fmt((r['total_invested'] as num).toDouble()),
                     style: AppTypography.bodyMedium(),
@@ -201,10 +206,14 @@ class _ReturnSimulatorWidgetState extends State<ReturnSimulatorWidget> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    s.totalReturns,
-                    style: AppTypography.bodySmall(color: AppColors.gray600),
+                  Flexible(
+                    child: Text(
+                      s.totalReturns,
+                      style: AppTypography.bodySmall(color: AppColors.gray600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     fmt((r['total_returns'] as num).toDouble()),
                     style: AppTypography.bodyMedium(color: AppColors.success),

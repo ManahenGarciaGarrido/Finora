@@ -72,10 +72,13 @@ class _OfflineIndicatorState extends State<OfflineIndicator> {
                             size: 16,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'Sin conexión — Los datos se guardan localmente',
-                            style: AppTypography.labelSmall(
-                              color: AppColors.white,
+                          Expanded(
+                            child: Text(
+                              'Sin conexión — Los datos se guardan localmente',
+                              style: AppTypography.labelSmall(
+                                color: AppColors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],

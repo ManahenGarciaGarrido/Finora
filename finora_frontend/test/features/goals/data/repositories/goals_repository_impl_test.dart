@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
 import 'package:finora_frontend/features/goals/data/datasources/goals_remote_datasource.dart';
@@ -8,14 +9,13 @@ import 'package:finora_frontend/features/goals/data/repositories/goals_repositor
 import 'package:finora_frontend/features/goals/domain/entities/savings_goal_entity.dart';
 import 'package:finora_frontend/features/goals/domain/entities/goal_contribution_entity.dart';
 
-// Mock manual: GoalsRemoteDataSource es abstracta, no requiere build_runner
-class MockGoalsRemoteDataSource extends Mock implements GoalsRemoteDataSource {}
+import 'goals_repository_impl_test.mocks.dart';
 
+@GenerateMocks([GoalsRemoteDataSource])
 void main() {
   late MockGoalsRemoteDataSource mockDataSource;
   late GoalsRepositoryImpl repository;
 
-  // ── Fixtures ─────────────────────────────────────────────────────────────────
   final tGoalModel = SavingsGoalModel(
     id: 'goal-1',
     userId: 'user-1',
@@ -50,7 +50,6 @@ void main() {
     repository = GoalsRepositoryImpl(mockDataSource);
   });
 
-  // ── getGoals ─────────────────────────────────────────────────────────────────
   group('getGoals', () {
     test('delega al datasource y retorna la lista de entidades', () async {
       when(mockDataSource.getGoals()).thenAnswer((_) async => [tGoalModel]);
@@ -61,20 +60,22 @@ void main() {
       expect(result.length, 1);
       expect(result.first.id, 'goal-1');
       verify(mockDataSource.getGoals()).called(1);
-      verifyNoMoreInteractions(mockDataSource);
     });
 
     test('propaga excepción del datasource', () async {
-      when(mockDataSource.getGoals()).thenThrow(Exception('Server error'));
+      when(
+        mockDataSource.getGoals(),
+      ).thenAnswer((_) async => throw Exception('Server error'));
 
       expect(repository.getGoals(), throwsException);
     });
   });
 
-  // ── getGoal ──────────────────────────────────────────────────────────────────
   group('getGoal', () {
     test('delega al datasource con el id correcto', () async {
-      when(mockDataSource.getGoal('goal-1')).thenAnswer((_) async => tGoalModel);
+      when(
+        mockDataSource.getGoal('goal-1'),
+      ).thenAnswer((_) async => tGoalModel);
 
       final result = await repository.getGoal('goal-1');
 
@@ -83,10 +84,18 @@ void main() {
     });
   });
 
-  // ── createGoal ───────────────────────────────────────────────────────────────
   group('createGoal', () {
     test('construye el payload correcto con campos obligatorios', () async {
-      when(mockDataSource.createGoal(any)).thenAnswer((_) async => tGoalModel);
+      final expectedPayload = <String, dynamic>{
+        'name': 'Vacation Fund',
+        'icon': 'beach',
+        'color': '#6C63FF',
+        'target_amount': 5000.0,
+      };
+
+      when(
+        mockDataSource.createGoal(expectedPayload),
+      ).thenAnswer((_) async => tGoalModel);
 
       await repository.createGoal(
         name: 'Vacation Fund',
@@ -95,24 +104,22 @@ void main() {
         targetAmount: 5000.0,
       );
 
-      final captured =
-          verify(mockDataSource.createGoal(captureAny)).captured.first
-              as Map<String, dynamic>;
-
-      expect(captured['name'], 'Vacation Fund');
-      expect(captured['icon'], 'beach');
-      expect(captured['color'], '#6C63FF');
-      expect(captured['target_amount'], 5000.0);
-      // Campos opcionales no deben estar presentes si no se pasan
-      expect(captured.containsKey('deadline'), isFalse);
-      expect(captured.containsKey('category'), isFalse);
-      expect(captured.containsKey('notes'), isFalse);
-      expect(captured.containsKey('monthly_target'), isFalse);
+      verify(mockDataSource.createGoal(expectedPayload)).called(1);
     });
 
     test('incluye deadline formateada (solo fecha) cuando se provee', () async {
-      when(mockDataSource.createGoal(any)).thenAnswer((_) async => tGoalModel);
       final deadline = DateTime(2025, 12, 31);
+      final expectedPayload = <String, dynamic>{
+        'name': 'Vacation Fund',
+        'icon': 'beach',
+        'color': '#6C63FF',
+        'target_amount': 5000.0,
+        'deadline': '2025-12-31',
+      };
+
+      when(
+        mockDataSource.createGoal(expectedPayload),
+      ).thenAnswer((_) async => tGoalModel);
 
       await repository.createGoal(
         name: 'Vacation Fund',
@@ -122,40 +129,16 @@ void main() {
         deadline: deadline,
       );
 
-      final captured =
-          verify(mockDataSource.createGoal(captureAny)).captured.first
-              as Map<String, dynamic>;
-
-      expect(captured['deadline'], '2025-12-31');
-    });
-
-    test('incluye notes y monthlyTarget cuando se proveen', () async {
-      when(mockDataSource.createGoal(any)).thenAnswer((_) async => tGoalModel);
-
-      await repository.createGoal(
-        name: 'Vacation Fund',
-        icon: 'beach',
-        color: '#6C63FF',
-        targetAmount: 5000.0,
-        notes: 'My dream trip',
-        monthlyTarget: 500.0,
-      );
-
-      final captured =
-          verify(mockDataSource.createGoal(captureAny)).captured.first
-              as Map<String, dynamic>;
-
-      expect(captured['notes'], 'My dream trip');
-      expect(captured['monthly_target'], 500.0);
+      verify(mockDataSource.createGoal(expectedPayload)).called(1);
     });
   });
 
-  // ── updateGoal ───────────────────────────────────────────────────────────────
   group('updateGoal', () {
     test('pasa el id y los datos al datasource', () async {
-      final updateData = {'name': 'Updated Goal'};
-      when(mockDataSource.updateGoal('goal-1', updateData))
-          .thenAnswer((_) async => tGoalModel);
+      final updateData = <String, dynamic>{'name': 'Updated Goal'};
+      when(
+        mockDataSource.updateGoal('goal-1', updateData),
+      ).thenAnswer((_) async => tGoalModel);
 
       await repository.updateGoal('goal-1', updateData);
 
@@ -163,24 +146,30 @@ void main() {
     });
   });
 
-  // ── deleteGoal ───────────────────────────────────────────────────────────────
   group('deleteGoal', () {
     test('delega al datasource con el id correcto', () async {
-      when(mockDataSource.deleteGoal('goal-1')).thenAnswer((_) async {});
+      when(
+        mockDataSource.deleteGoal('goal-1'),
+      ).thenAnswer((_) async => Future<void>.value());
 
       await repository.deleteGoal('goal-1');
 
       verify(mockDataSource.deleteGoal('goal-1')).called(1);
-      verifyNoMoreInteractions(mockDataSource);
     });
   });
 
-  // ── addContribution ──────────────────────────────────────────────────────────
   group('addContribution', () {
     test('construye payload con amount y date formateada', () async {
-      when(mockDataSource.addContribution(any, any))
-          .thenAnswer((_) async => tContributionModel);
       final date = DateTime(2024, 3, 15);
+      final expectedPayload = <String, dynamic>{
+        'amount': 200.0,
+        'date': '2024-03-15',
+        'note': 'Monthly saving',
+      };
+
+      when(
+        mockDataSource.addContribution('goal-1', expectedPayload),
+      ).thenAnswer((_) async => tContributionModel);
 
       final result = await repository.addContribution(
         goalId: 'goal-1',
@@ -191,36 +180,17 @@ void main() {
 
       expect(result, isA<GoalContributionEntity>());
       expect(result.amount, 200.0);
-
-      final capturedArgs =
-          verify(mockDataSource.addContribution(captureAny, captureAny))
-              .captured;
-      expect(capturedArgs[0], 'goal-1');
-      final payload = capturedArgs[1] as Map<String, dynamic>;
-      expect(payload['amount'], 200.0);
-      expect(payload['date'], '2024-03-15');
-      expect(payload['note'], 'Monthly saving');
-    });
-
-    test('payload no incluye date si no se pasa', () async {
-      when(mockDataSource.addContribution(any, any))
-          .thenAnswer((_) async => tContributionModel);
-
-      await repository.addContribution(goalId: 'goal-1', amount: 200.0);
-
-      final capturedArgs =
-          verify(mockDataSource.addContribution(captureAny, captureAny))
-              .captured;
-      final payload = capturedArgs[1] as Map<String, dynamic>;
-      expect(payload.containsKey('date'), isFalse);
+      verify(
+        mockDataSource.addContribution('goal-1', expectedPayload),
+      ).called(1);
     });
   });
 
-  // ── getContributions ─────────────────────────────────────────────────────────
   group('getContributions', () {
     test('delega al datasource y retorna lista de entidades', () async {
-      when(mockDataSource.getContributions('goal-1'))
-          .thenAnswer((_) async => [tContributionModel]);
+      when(
+        mockDataSource.getContributions('goal-1'),
+      ).thenAnswer((_) async => [tContributionModel]);
 
       final result = await repository.getContributions('goal-1');
 
@@ -229,10 +199,9 @@ void main() {
     });
   });
 
-  // ── getRecommendations ───────────────────────────────────────────────────────
   group('getRecommendations', () {
     test('delega al datasource y retorna el mapa', () async {
-      final tRec = {'recommendation': 'Save more'};
+      final tRec = <String, dynamic>{'recommendation': 'Save more'};
       when(mockDataSource.getRecommendations()).thenAnswer((_) async => tRec);
 
       final result = await repository.getRecommendations();

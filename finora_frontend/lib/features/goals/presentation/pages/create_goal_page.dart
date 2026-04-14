@@ -269,17 +269,20 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
                                   color: AppColors.gray400,
                                 ),
                                 const SizedBox(width: 10),
-                                Text(
-                                  _deadline == null
-                                      ? s.goalNoDeadline
-                                      : '${_deadline!.day}/${_deadline!.month}/${_deadline!.year}',
-                                  style: AppTypography.bodyMedium(
-                                    color: _deadline == null
-                                        ? AppColors.gray400
-                                        : AppColors.textPrimaryLight,
+                                Expanded(
+                                  child: Text(
+                                    _deadline == null
+                                        ? s.goalNoDeadline
+                                        : '${_deadline!.day}/${_deadline!.month}/${_deadline!.year}',
+                                    style: AppTypography.bodyMedium(
+                                      color: _deadline == null
+                                          ? AppColors.gray400
+                                          : AppColors.textPrimaryLight,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const Spacer(),
+                                const SizedBox(width: 8),
                                 if (_deadline != null)
                                   GestureDetector(
                                     onTap: () =>
@@ -479,7 +482,7 @@ class _CreateGoalPageState extends State<CreateGoalPage> {
           children: [
             Icon(fIcon, color: fColor),
             const SizedBox(width: 8),
-            Text(fLabel, style: AppTypography.titleSmall(color: fColor)),
+            Expanded(child: Text(fLabel, style: AppTypography.titleSmall(color: fColor), overflow: TextOverflow.ellipsis)),
           ],
         ),
         content: Column(

@@ -6,6 +6,7 @@
 // Esto genera el fichero .mocks.dart con MockApiClient.
 
 import 'package:dio/dio.dart';
+import 'package:finora_frontend/core/database/local_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
@@ -17,7 +18,7 @@ import 'package:finora_frontend/features/goals/data/models/goal_contribution_mod
 
 import 'goals_remote_data_source_test.mocks.dart';
 
-@GenerateMocks([ApiClient])
+@GenerateMocks([ApiClient, LocalDatabase])
 void main() {
   late MockApiClient mockApiClient;
   late GoalsRemoteDataSourceImpl dataSource;
@@ -52,7 +53,7 @@ void main() {
     'updated_at': '2024-03-15T10:00:00.000Z',
   };
 
-  Response<dynamic> _fakeResponse(dynamic data, {int statusCode = 200}) =>
+  Response<dynamic> fakeResponse(dynamic data, {int statusCode = 200}) =>
       Response(
         requestOptions: RequestOptions(path: ''),
         data: data,
@@ -66,24 +67,29 @@ void main() {
 
   // ── getGoals ─────────────────────────────────────────────────────────────────
   group('getGoals', () {
-    test('retorna lista de SavingsGoalModel cuando la respuesta es exitosa', () async {
-      when(mockApiClient.get(any)).thenAnswer(
-        (_) async => _fakeResponse({'goals': [tGoalJson]}),
-      );
+    test(
+      'retorna lista de SavingsGoalModel cuando la respuesta es exitosa',
+      () async {
+        when(mockApiClient.get(any)).thenAnswer(
+          (_) async => fakeResponse({
+            'goals': [tGoalJson],
+          }),
+        );
 
-      final result = await dataSource.getGoals();
+        final result = await dataSource.getGoals();
 
-      expect(result, isA<List<SavingsGoalModel>>());
-      expect(result.length, 1);
-      expect(result.first.id, 'goal-1');
-      expect(result.first.name, 'Vacation Fund');
-      verify(mockApiClient.get(any)).called(1);
-    });
+        expect(result, isA<List<SavingsGoalModel>>());
+        expect(result.length, 1);
+        expect(result.first.id, 'goal-1');
+        expect(result.first.name, 'Vacation Fund');
+        verify(mockApiClient.get(any)).called(1);
+      },
+    );
 
     test('retorna lista vacía cuando goals es []', () async {
-      when(mockApiClient.get(any)).thenAnswer(
-        (_) async => _fakeResponse({'goals': <dynamic>[]}),
-      );
+      when(
+        mockApiClient.get(any),
+      ).thenAnswer((_) async => fakeResponse({'goals': <dynamic>[]}));
 
       final result = await dataSource.getGoals();
 
@@ -100,9 +106,9 @@ void main() {
   // ── getGoal ──────────────────────────────────────────────────────────────────
   group('getGoal', () {
     test('retorna SavingsGoalModel con el id correcto', () async {
-      when(mockApiClient.get(any)).thenAnswer(
-        (_) async => _fakeResponse({'goal': tGoalJson}),
-      );
+      when(
+        mockApiClient.get(any),
+      ).thenAnswer((_) async => fakeResponse({'goal': tGoalJson}));
 
       final result = await dataSource.getGoal('goal-1');
 
@@ -115,7 +121,7 @@ void main() {
   group('createGoal', () {
     test('llama a POST y retorna el modelo creado', () async {
       when(mockApiClient.post(any, data: anyNamed('data'))).thenAnswer(
-        (_) async => _fakeResponse({'goal': tGoalJson}, statusCode: 201),
+        (_) async => fakeResponse({'goal': tGoalJson}, statusCode: 201),
       );
 
       final result = await dataSource.createGoal({'name': 'Vacation Fund'});
@@ -129,10 +135,14 @@ void main() {
   group('updateGoal', () {
     test('llama a PUT y retorna el modelo actualizado', () async {
       when(mockApiClient.put(any, data: anyNamed('data'))).thenAnswer(
-        (_) async => _fakeResponse({'goal': {...tGoalJson, 'name': 'Updated Goal'}}),
+        (_) async => fakeResponse({
+          'goal': {...tGoalJson, 'name': 'Updated Goal'},
+        }),
       );
 
-      final result = await dataSource.updateGoal('goal-1', {'name': 'Updated Goal'});
+      final result = await dataSource.updateGoal('goal-1', {
+        'name': 'Updated Goal',
+      });
 
       expect(result.name, 'Updated Goal');
       verify(mockApiClient.put(any, data: anyNamed('data'))).called(1);
@@ -142,9 +152,9 @@ void main() {
   // ── deleteGoal ───────────────────────────────────────────────────────────────
   group('deleteGoal', () {
     test('llama a DELETE y completa sin error', () async {
-      when(mockApiClient.delete(any)).thenAnswer(
-        (_) async => _fakeResponse(null, statusCode: 204),
-      );
+      when(
+        mockApiClient.delete(any),
+      ).thenAnswer((_) async => fakeResponse(null, statusCode: 204));
 
       await expectLater(dataSource.deleteGoal('goal-1'), completes);
       verify(mockApiClient.delete(any)).called(1);
@@ -155,10 +165,13 @@ void main() {
   group('addContribution', () {
     test('retorna GoalContributionModel al añadir aportación', () async {
       when(mockApiClient.post(any, data: anyNamed('data'))).thenAnswer(
-        (_) async => _fakeResponse({'contribution': tContributionJson}, statusCode: 201),
+        (_) async =>
+            fakeResponse({'contribution': tContributionJson}, statusCode: 201),
       );
 
-      final result = await dataSource.addContribution('goal-1', {'amount': 200.0});
+      final result = await dataSource.addContribution('goal-1', {
+        'amount': 200.0,
+      });
 
       expect(result, isA<GoalContributionModel>());
       expect(result.id, 'contrib-1');
@@ -170,7 +183,9 @@ void main() {
   group('getContributions', () {
     test('retorna lista de GoalContributionModel', () async {
       when(mockApiClient.get(any)).thenAnswer(
-        (_) async => _fakeResponse({'contributions': [tContributionJson]}),
+        (_) async => fakeResponse({
+          'contributions': [tContributionJson],
+        }),
       );
 
       final result = await dataSource.getContributions('goal-1');
@@ -184,10 +199,8 @@ void main() {
   // ── getRecommendations ───────────────────────────────────────────────────────
   group('getRecommendations', () {
     test('retorna el mapa de recomendaciones IA', () async {
-      final tRec = {'recommendation': 'Increase monthly savings by 10%'};
-      when(mockApiClient.get(any)).thenAnswer(
-        (_) async => _fakeResponse(tRec),
-      );
+      final tRec = <String, dynamic>{'recommendation': 'Increase monthly savings by 10%'};
+      when(mockApiClient.get(any)).thenAnswer((_) async => fakeResponse(tRec));
 
       final result = await dataSource.getRecommendations();
 
@@ -195,3 +208,4 @@ void main() {
     });
   });
 }
+

@@ -318,9 +318,12 @@ class _OcrPageState extends State<OcrPage> with SingleTickerProviderStateMixin {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${s.importedTransactions}: ${_csvPreview!.rows.length}',
-                  style: AppTypography.titleSmall(),
+                Expanded(
+                  child: Text(
+                    '${s.importedTransactions}: ${_csvPreview!.rows.length}',
+                    style: AppTypography.titleSmall(),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 Row(
                   children: [

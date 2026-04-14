@@ -1027,7 +1027,7 @@ class _AccountsPageState extends State<AccountsPage> {
                     size: 18,
                   ),
                   const SizedBox(width: 8),
-                  Text(msg),
+                  Expanded(child: Text(msg, overflow: TextOverflow.ellipsis)),
                 ],
               ),
               backgroundColor: state.imported > 0
@@ -1455,10 +1455,13 @@ class _AccountsPageState extends State<AccountsPage> {
                         color: AppColors.primary,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        AppLocalizations.of(context).disconnectWarningTitle,
-                        style: AppTypography.labelSmall(
-                          color: AppColors.primary,
+                      Expanded(
+                        child: Text(
+                          AppLocalizations.of(context).disconnectWarningTitle,
+                          style: AppTypography.labelSmall(
+                            color: AppColors.primary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

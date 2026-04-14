@@ -865,7 +865,14 @@ class _StatsPageState extends State<StatsPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(s.spendingByCategory, style: AppTypography.titleMedium()),
+              Expanded(
+                child: Text(
+                  s.spendingByCategory,
+                  style: AppTypography.titleMedium(),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -1135,7 +1142,14 @@ class _StatsPageState extends State<StatsPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(s.monthlyComparative, style: AppTypography.titleMedium()),
+              Expanded(
+                child: Text(
+                  s.monthlyComparative,
+                  style: AppTypography.titleMedium(),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               Row(
                 children: [
                   _dot(AppColors.income),

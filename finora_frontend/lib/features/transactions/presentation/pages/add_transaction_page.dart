@@ -743,12 +743,15 @@ class _AddTransactionPageState extends State<AddTransactionPage>
                     : AppColors.textSecondaryLight,
               ),
               const SizedBox(width: 6),
-              Text(
-                label,
-                style: AppTypography.labelLarge(
-                  color: isSelected
-                      ? AppColors.white
-                      : AppColors.textSecondaryLight,
+              Flexible(
+                child: Text(
+                  label,
+                  style: AppTypography.labelLarge(
+                    color: isSelected
+                        ? AppColors.white
+                        : AppColors.textSecondaryLight,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

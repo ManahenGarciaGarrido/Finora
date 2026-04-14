@@ -91,11 +91,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             color: isMet ? AppColors.success : AppColors.textSecondaryLight,
           ),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 12,
-              color: isMet ? AppColors.success : AppColors.textSecondaryLight,
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: isMet ? AppColors.success : AppColors.textSecondaryLight,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

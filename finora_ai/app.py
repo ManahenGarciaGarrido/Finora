@@ -20,6 +20,7 @@ Los algoritmos de predicción de gastos están basados en los notebooks:
   - Notebooks/rf21_hu08_ahorro_inteligente.ipynb (evaluar_objetivo, calcular_capacidad_ahorro)
 """
 
+from ast import pattern
 import os
 import re
 import json
@@ -48,10 +49,12 @@ CORS(app, origins=["*"])
 CONFIDENCE_THRESHOLD = 50  # % mínimo para no usar fallback
 FALLBACK_EXPENSE = 'Otros'
 FALLBACK_INCOME  = 'Otros ingresos'
+DATE_FORMAT = '%Y-%m-%d'
+ARTICLE = 'artículo'
 
 SPANISH_STOPWORDS = {
     "de", "la", "el", "en", "un", "una", "los", "las", "con",
-    "del", "al", "es", "por", "para", "como", "sa", "sl", "slu",
+    "del", "al", "por", "para", "como", "sa", "sl", "slu",
     "pago", "compra", "cargo", "abono", "ref", "num", "op",
     "es", "sociedad", "anonima", "limitada",
 }
@@ -132,6 +135,18 @@ RULES = [
     ('expense','Ropa',        ['zara','mango','primark','bershka','stradivarius','nike','adidas','ropa','calzado'], 0.9),
 ]
 
+def _calculate_confidence(kw: str, desc_clean: str, weight: float) -> float:
+    """Calcula la confianza de una palabra clave específica (Extraído para reducir Cognitive Complexity)."""
+    if kw not in desc_clean:
+        return 0.0
+        
+    conf = weight * 85
+    if len(kw) >= 5:
+        conf = weight * 90
+    if desc_clean.startswith(kw):
+        conf = weight * 95
+        
+    return conf
 
 def _rule_based_category(desc_clean: str, tx_type: str):
     best_cat = None
@@ -139,20 +154,18 @@ def _rule_based_category(desc_clean: str, tx_type: str):
     for rule_type, cat, keywords, weight in RULES:
         if rule_type != tx_type:
             continue
+            
         for kw in keywords:
-            if kw in desc_clean:
-                conf = weight * 85
-                if len(kw) >= 5:
-                    conf = weight * 90
-                if desc_clean.startswith(kw):
-                    conf = weight * 95
-                if conf > best_conf:
-                    best_conf = conf
-                    best_cat = cat
+            conf = _calculate_confidence(kw, desc_clean, weight)
+            
+            if conf > best_conf:
+                best_conf = conf
+                best_cat = cat
+                
     return best_cat, round(min(best_conf, 100))
 
 
-def _ml_category(desc_clean: str, tx_type: str):
+def _ml_category(desc_clean: str):
     if not _model or not _vectorizer:
         return None, 0
     try:
@@ -269,13 +282,13 @@ def _predict_category_ml(serie: list, meses_list: list, cat_name: str) -> dict:
     # Evaluación leave-one-out adaptada (máx 3 splits)
     maes = []
     for i in range(1, min(len(X), 4)):
-        X_tr, X_te = X[:-i], X[-i:]
+        x_tr, x_te = X[:-i], X[-i:]
         y_tr, y_te = y[:-i], y[-i:]
-        if len(X_tr) == 0:
+        if len(x_tr) == 0:
             continue
         try:
-            modelo.fit(X_tr, y_tr)
-            pred_val = modelo.predict(X_te)
+            modelo.fit(x_tr, y_tr)
+            pred_val = modelo.predict(x_te)
             maes.append(mean_absolute_error(y_te, pred_val))
         except Exception:
             continue
@@ -304,10 +317,10 @@ def _predict_category_ml(serie: list, meses_list: list, cat_name: str) -> dict:
     ultimo_mes = int(meses_list[-1].split("-")[1]) if meses_list else 1
     mes_next   = (ultimo_mes % 12) + 1
 
-    X_next = np.array([list(lags_next) + [media_next, tend_next, idx_next, mes_next]])
+    x_next = np.array([list(lags_next) + [media_next, tend_next, idx_next, mes_next]])
 
     try:
-        pred_central = float(modelo.predict(X_next)[0])
+        pred_central = float(modelo.predict(x_next)[0])
         pred_central = max(0.0, pred_central)
     except Exception:
         pred_central = float(np.mean(serie[-3:]))
@@ -418,7 +431,6 @@ def health():
         'version': '2.0.0',
     })
 
-
 @app.route('/categorize', methods=['POST'])
 def categorize():
     """
@@ -438,7 +450,7 @@ def categorize():
 
     desc_clean = _clean_text(description)
 
-    category, confidence = _ml_category(desc_clean, tx_type)
+    category, confidence = _ml_category(desc_clean)
     method = 'ml'
 
     if category is None or confidence < CONFIDENCE_THRESHOLD:
@@ -464,6 +476,51 @@ def categorize():
     })
 
 
+def _categorize_single_transaction(tx):
+    """Handles the categorization logic for a single transaction."""
+    description = tx.get('description', '').strip()
+    tx_type = tx.get('type', 'expense')
+    fallback_cat = FALLBACK_EXPENSE if tx_type == 'expense' else FALLBACK_INCOME
+
+    # 1. Edge Case: No description
+    if not description:
+        return {
+            'category': fallback_cat,
+            'confidence': 0,
+            'is_fallback': True,
+            'method': 'fallback'
+        }
+
+    desc_clean = _clean_text(description)
+
+    # 2. Try ML Categorization
+    ml_category, ml_confidence = _ml_category(desc_clean)
+    if ml_category is not None and ml_confidence >= CONFIDENCE_THRESHOLD:
+        return {
+            'category': ml_category,
+            'confidence': ml_confidence,
+            'is_fallback': False,
+            'method': 'ml'
+        }
+
+    # 3. Try Rule-Based Categorization
+    rule_category, rule_confidence = _rule_based_category(desc_clean, tx_type)
+    if rule_category and rule_confidence >= CONFIDENCE_THRESHOLD:
+        return {
+            'category': rule_category,
+            'confidence': rule_confidence,
+            'is_fallback': False,
+            'method': 'rules'
+        }
+
+    # 4. Final Fallback (if both ML and Rules fail)
+    return {
+        'category': fallback_cat,
+        'confidence': ml_confidence or 0, 
+        'is_fallback': True,
+        'method': 'fallback'
+    }
+
 @app.route('/categorize/batch', methods=['POST'])
 def categorize_batch():
     """
@@ -477,65 +534,93 @@ def categorize_batch():
 
     if not transactions:
         return jsonify({'error': 'transactions list is required'}), 400
+    
     if len(transactions) > 500:
         return jsonify({'error': 'Maximum 500 transactions per batch'}), 400
 
-    results = []
-    for tx in transactions:
-        description = tx.get('description', '').strip()
-        tx_type = tx.get('type', 'expense')
-
-        if not description:
-            results.append({
-                'category': FALLBACK_EXPENSE if tx_type == 'expense' else FALLBACK_INCOME,
-                'confidence': 0,
-                'is_fallback': True,
-                'method': 'fallback',
-            })
-            continue
-
-        desc_clean = _clean_text(description)
-        category, confidence = _ml_category(desc_clean, tx_type)
-        method = 'ml'
-
-        if category is None or confidence < CONFIDENCE_THRESHOLD:
-            rule_cat, rule_conf = _rule_based_category(desc_clean, tx_type)
-            if rule_cat and rule_conf >= CONFIDENCE_THRESHOLD:
-                category = rule_cat
-                confidence = rule_conf
-                method = 'rules'
-
-        is_fallback = category is None or confidence < CONFIDENCE_THRESHOLD
-        if is_fallback:
-            category = FALLBACK_EXPENSE if tx_type == 'expense' else FALLBACK_INCOME
-            method = 'fallback'
-
-        results.append({
-            'category': category,
-            'confidence': confidence,
-            'is_fallback': is_fallback,
-            'method': method,
-        })
+    # The loop is now a clean list comprehension
+    results = [_categorize_single_transaction(tx) for tx in transactions]
 
     return jsonify({'results': results})
 
+
+def _agrupar_transacciones_por_mes(transactions):
+    """Agrupa los ingresos, gastos y gastos por categoría de forma mensual."""
+    meses = defaultdict(lambda: {
+        'ingresos': 0.0, 
+        'gastos': 0.0, 
+        'por_categoria': defaultdict(float)
+    })
+    
+    for tx in transactions:
+        clave = tx.get('date', '')[:7]
+        if not clave or len(clave) < 7:
+            continue
+            
+        amount = float(tx.get('amount', 0))
+        tx_type = tx.get('type')
+        
+        if tx_type == 'income':
+            meses[clave]['ingresos'] += amount
+        elif tx_type == 'expense':
+            cat = tx.get('category', 'Otros')
+            meses[clave]['gastos'] += amount
+            meses[clave]['por_categoria'][cat] += amount
+            
+    return meses
+
+def _calcular_promedio_categorias(meses):
+    """Calcula el gasto promedio mensual para cada categoría."""
+    cat_totals_all = defaultdict(list)
+    for v in meses.values():
+        for cat, monto in v['por_categoria'].items():
+            cat_totals_all[cat].append(monto)
+            
+    return {cat: sum(montos) / len(montos) for cat, montos in cat_totals_all.items()}
+
+def _generar_recomendaciones(categoria_promedio, ingreso_promedio):
+    """Evalúa los gastos contra los presupuestos recomendados e identifica ahorros."""
+    recommendations = []
+    savings_potential = 0.0
+    
+    if ingreso_promedio <= 0:
+        return recommendations, savings_potential
+
+    for cat, promedio in sorted(categoria_promedio.items(), key=lambda x: -x[1]):
+        ref_pct = REFERENCE_BUDGETS.get(cat, 0.10)
+        budget = ingreso_promedio * ref_pct
+        
+        if promedio > budget * 1.20:   # margen del 20%
+            excess = promedio - budget
+            savings_potential += excess
+            pct_over = round((promedio / budget - 1) * 100)
+            
+            recommendations.append({
+                'category':         cat,
+                'current_spend':    round(promedio, 2),
+                'suggested_budget': round(budget, 2),
+                'potential_saving': round(excess, 2),
+                'message': (
+                    f'Estás gastando un {pct_over}% más de lo recomendado en {cat}. '
+                    f'Podrías ahorrar hasta {excess:.2f}€ mensuales.'
+                ),
+                'priority': 'high' if excess > ingreso_promedio * 0.05 else 'medium',
+            })
+            
+    return recommendations, savings_potential
+
+def _calcular_score_financiero(ingreso_promedio, gasto_promedio):
+    """Calcula el score de salud financiera (0-100)."""
+    if ingreso_promedio <= 0:
+        return 50
+        
+    savings_rate = max(0, (ingreso_promedio - gasto_promedio) / ingreso_promedio)
+    return min(100, round(savings_rate * 500))
 
 @app.route('/savings', methods=['POST'])
 def savings_recommendations():
     """
     RF-21 / HU-08: Recomendaciones de ahorro inteligente.
-
-    Body: {
-        "transactions": [{ "amount": float, "type": str, "category": str, "date": str }],
-        "monthly_income": float
-    }
-    Returns: {
-        "recommendations": [...],
-        "savings_potential": float,
-        "score": int,
-        "savings_capacity": { ahorro_bruto, disponible },
-        "monthly_summary": { ingresos, gastos, meses_analizados }
-    }
     """
     data = request.get_json(silent=True) or {}
     transactions = data.get('transactions', [])
@@ -544,83 +629,27 @@ def savings_recommendations():
     if not transactions:
         return jsonify({'recommendations': [], 'savings_potential': 0, 'score': 50})
 
-    # ── Agrupar por mes (algoritmo del notebook rf21) ─────────────────────────
-    meses: dict = defaultdict(lambda: {
-        'ingresos': 0.0,
-        'gastos': 0.0,
-        'por_categoria': defaultdict(float),
-    })
-    for tx in transactions:
-        clave = tx.get('date', '')[:7]
-        if not clave or len(clave) < 7:
-            continue
-        if tx.get('type') == 'income':
-            meses[clave]['ingresos'] += float(tx.get('amount', 0))
-        elif tx.get('type') == 'expense':
-            cat = tx.get('category', 'Otros')
-            amount = float(tx.get('amount', 0))
-            meses[clave]['gastos'] += amount
-            meses[clave]['por_categoria'][cat] += amount
-
-    # ── Promedios mensuales ───────────────────────────────────────────────────
+    meses = _agrupar_transacciones_por_mes(transactions)
     n_meses = len(meses)
     if n_meses == 0:
         return jsonify({'recommendations': [], 'savings_potential': 0, 'score': 50})
 
-    ingreso_promedio = (
-        sum(v['ingresos'] for v in meses.values()) / n_meses
-        if n_meses > 0 else monthly_income
-    )
+    # ── Promedios mensuales ───────────────────────────────────────────────────
+    ingreso_prom_calc = sum(v['ingresos'] for v in meses.values()) / n_meses
+    
     # Priorizar el parámetro explícito si se provee y es mayor
-    if monthly_income > 0 and monthly_income > ingreso_promedio:
+    if monthly_income > 0 and monthly_income > ingreso_prom_calc:
         ingreso_promedio = monthly_income
+    else:
+        ingreso_promedio = ingreso_prom_calc
 
     gasto_promedio = sum(v['gastos'] for v in meses.values()) / n_meses
+    categoria_promedio = _calcular_promedio_categorias(meses)
 
-    # Totales por categoría (promedio mensual)
-    cat_totals_all: dict = defaultdict(list)
-    for v in meses.values():
-        for cat, monto in v['por_categoria'].items():
-            cat_totals_all[cat].append(monto)
-    categoria_promedio = {
-        cat: sum(montos) / len(montos)
-        for cat, montos in cat_totals_all.items()
-    }
-
-    # ── Capacidad de ahorro (rf21 :: calcular_capacidad_ahorro) ──────────────
+    # ── Delegación de lógica de negocio ───────────────────────────────────────
     capacidad = _calcular_capacidad_ahorro(ingreso_promedio, gasto_promedio)
-
-    # ── Recomendaciones por categoría excedida ────────────────────────────────
-    recommendations = []
-    savings_potential = 0.0
-
-    if ingreso_promedio > 0:
-        for cat, promedio in sorted(categoria_promedio.items(), key=lambda x: -x[1]):
-            ref_pct = REFERENCE_BUDGETS.get(cat, 0.10)
-            budget = ingreso_promedio * ref_pct
-            if promedio > budget * 1.20:   # margen del 20%
-                excess = promedio - budget
-                savings_potential += excess
-                pct_over = round((promedio / budget - 1) * 100)
-                recommendations.append({
-                    'category':         cat,
-                    'current_spend':    round(promedio, 2),
-                    'suggested_budget': round(budget, 2),
-                    'potential_saving': round(excess, 2),
-                    'message': (
-                        f'Estás gastando un {pct_over}% más de lo recomendado en {cat}. '
-                        f'Podrías ahorrar hasta {excess:.2f}€ mensuales.'
-                    ),
-                    'priority': 'high' if excess > ingreso_promedio * 0.05 else 'medium',
-                })
-
-    # ── Score de salud financiera (0-100) ────────────────────────────────────
-    if ingreso_promedio > 0:
-        savings_rate = max(0, (ingreso_promedio - gasto_promedio) / ingreso_promedio)
-        # Score: tasa de ahorro del 20% → 100 puntos
-        score = min(100, round(savings_rate * 500))
-    else:
-        score = 50
+    recommendations, savings_potential = _generar_recomendaciones(categoria_promedio, ingreso_promedio)
+    score = _calcular_score_financiero(ingreso_promedio, gasto_promedio)
 
     logger.info(
         f"[savings] {n_meses} meses | ingreso_prom={ingreso_promedio:.0f}€ "
@@ -699,97 +728,98 @@ def evaluate_savings_goal():
     return jsonify({**evaluacion, 'capacidad': capacidad})
 
 
-@app.route('/predict-expenses', methods=['POST'])
-def predict_expenses():
-    """
-    RF-22 / HU-09: Predicción ML de gastos para el próximo mes.
-
-    Algoritmo basado en el notebook rf22_prediccion_gastos_ml.ipynb:
-    - seleccionar_modelo(): Ridge (≤4 meses), RandomForest (≤8), GradientBoosting (>8)
-    - construir_features(): lags + media móvil + tendencia + índice + mes calendario
-    - entrenar_y_evaluar(): leave-one-out adaptado con intervalo de confianza
-
-    Body: {
-        "transactions": [{ "amount": float, "type": str, "category": str, "date": "YYYY-MM-DD" }]
-    }
-    Returns: {
-        "predictions": [{ "categoria": str, "prediccion": float, "pred_min": float,
-                          "pred_max": float, "modelo": str, "tendencia": str }],
-        "total_predicted": float,
-        "total_pred_min": float,
-        "total_pred_max": float,
-        "trend": str,
-        "last_month_total": float,
-        "months_of_data": int
-    }
-    """
-    data = request.get_json(silent=True) or {}
-    transactions = data.get('transactions', [])
-
-    if not transactions:
-        return jsonify({'predictions': [], 'total_predicted': 0, 'trend': 'stable'})
-
-    # ── Agrupar gastos por mes y categoría ────────────────────────────────────
-    monthly_by_cat: dict = defaultdict(lambda: defaultdict(float))
-
+def _agrupar_gastos_mensuales(transactions):
+    """Filtra y agrupa los gastos por categoría y mes."""
+    monthly_by_cat = defaultdict(lambda: defaultdict(float))
+    
     for tx in transactions:
         if tx.get('type') != 'expense':
             continue
-        cat    = tx.get('category', 'Otros')
-        amount = float(tx.get('amount', 0))
-        try:
-            month_key = tx.get('date', '')[:7]
-            if not month_key or len(month_key) < 7:
-                continue
-        except Exception:
+            
+        # Convertimos a string de forma segura para evitar el bloque try/except
+        month_key = str(tx.get('date', ''))[:7]
+        if not month_key or len(month_key) < 7:
             continue
+            
+        cat = tx.get('category', 'Otros')
+        amount = float(tx.get('amount', 0))
         monthly_by_cat[cat][month_key] += amount
+        
+    # Extraemos y ordenamos todos los meses únicos encontrados
+    all_months = sorted({m for cat_data in monthly_by_cat.values() for m in cat_data.keys()})
+    
+    return monthly_by_cat, all_months
 
-    if not monthly_by_cat:
-        return jsonify({'predictions': [], 'total_predicted': 0, 'trend': 'stable'})
 
-    # ── Construir series temporales ordenadas ─────────────────────────────────
-    # Lista global de meses ordenados
-    all_months = sorted({
-        m for cat_data in monthly_by_cat.values() for m in cat_data.keys()
-    })
-
-    if not all_months:
-        return jsonify({'predictions': [], 'total_predicted': 0, 'trend': 'stable'})
-
-    months_of_data = len(all_months)
-
-    # ── Predicción ML por categoría (notebook rf22) ───────────────────────────
+def _procesar_predicciones(monthly_by_cat, all_months):
+    """Genera predicciones por categoría y calcula el gasto total del último mes."""
     predictions_list = []
     total_last_month = 0.0
 
-    # Serie de totales por categoría (rellena 0 en meses sin gasto)
     for cat, monthly in monthly_by_cat.items():
+        # Rellenar con 0.0 los meses sin gasto para mantener la serie temporal continua
         serie = [monthly.get(m, 0.0) for m in all_months]
+        
         result = _predict_category_ml(serie, all_months, cat)
         predictions_list.append(result)
 
-        # Acumular último mes real para calcular tendencia global
-        total_last_month += serie[-1] if serie else 0.0
+        if serie:
+            total_last_month += serie[-1]
 
-    # ── Totales ───────────────────────────────────────────────────────────────
-    total_predicted = round(sum(p['prediccion'] for p in predictions_list), 2)
-    total_pred_min  = round(sum(p['pred_min']   for p in predictions_list), 2)
-    total_pred_max  = round(sum(p['pred_max']   for p in predictions_list), 2)
+    # Ordenar por predicción descendente
+    predictions_list.sort(key=lambda x: -x.get('prediccion', 0))
+    
+    return predictions_list, total_last_month
 
-    # Tendencia global
+
+def _evaluar_tendencia_global(monthly_by_cat, all_months, total_predicted, total_last_month):
+    """Calcula la serie histórica total y evalúa la tendencia global."""
     all_totals = [
         sum(monthly_by_cat[cat].get(m, 0.0) for cat in monthly_by_cat)
         for m in all_months
     ]
+    
     global_trend = _detectar_tendencia(all_totals)
+    
+    # Ajuste de tendencia basado en el crecimiento proyectado vs mes anterior
     if total_predicted > total_last_month * 1.05:
-        global_trend = 'increasing'
-    elif total_predicted < total_last_month * 0.95:
-        global_trend = 'decreasing'
+        return 'increasing'
+    if total_predicted < total_last_month * 0.95:
+        return 'decreasing'
+        
+    return global_trend
 
-    # Ordenar por predicción descendente
-    predictions_list.sort(key=lambda x: -x['prediccion'])
+@app.route('/predict-expenses', methods=['POST'])
+def predict_expenses():
+    """
+    RF-22 / HU-09: Predicción ML de gastos para el próximo mes.
+    """
+    data = request.get_json(silent=True) or {}
+    transactions = data.get('transactions', [])
+    empty_response = {'predictions': [], 'total_predicted': 0, 'trend': 'stable'}
+
+    if not transactions:
+        return jsonify(empty_response)
+
+    # 1. Agrupar datos
+    monthly_by_cat, all_months = _agrupar_gastos_mensuales(transactions)
+    if not all_months:
+        return jsonify(empty_response)
+
+    # 2. Generar predicciones
+    predictions_list, total_last_month = _procesar_predicciones(monthly_by_cat, all_months)
+
+    # 3. Calcular métricas globales
+    total_predicted = round(sum(p['prediccion'] for p in predictions_list), 2)
+    total_pred_min  = round(sum(p['pred_min']   for p in predictions_list), 2)
+    total_pred_max  = round(sum(p['pred_max']   for p in predictions_list), 2)
+
+    # 4. Evaluar tendencia
+    global_trend = _evaluar_tendencia_global(
+        monthly_by_cat, all_months, total_predicted, total_last_month
+    )
+
+    months_of_data = len(all_months)
 
     logger.info(
         f"[predict-expenses] {months_of_data} meses | {len(predictions_list)} categorías "
@@ -809,86 +839,93 @@ def predict_expenses():
 
 # ─── RF-23 / HU-10: Detección de anomalías en gastos ────────────────────────
 
-@app.route('/detect-anomalies', methods=['POST'])
-def detect_anomalies():
-    """
-    RF-23 / HU-10: Detecta gastos inusuales usando Z-score por categoría.
-
-    Un gasto se considera anómalo si su Z-score > 2.0 (> 2 desviaciones estándar
-    sobre la media histórica de esa categoría). Severidad 'high' si Z > 3.0.
-
-    Requiere mínimo 3 transacciones por categoría para calcular estadísticas.
-
-    Body: {
-        "transactions": [{ "id", "amount", "type", "category", "date", "description" }]
-    }
-    Returns: {
-        "anomalies": [...],
-        "total_anomalies": int,
-        "categories_analyzed": int,
-        "summary": { category: { mean, std, count } }
-    }
-    """
-    data = request.get_json(silent=True) or {}
-    transactions = data.get('transactions', [])
-
-    # Agrupar gastos por categoría
-    cat_history: dict = defaultdict(list)
+def _agrupar_historial_categorias(transactions):
+    """Filtra y agrupa los gastos válidos por categoría."""
+    cat_history = defaultdict(list)
+    
     for tx in transactions:
         if tx.get('type') != 'expense':
             continue
-        cat    = tx.get('category', 'Otros')
+            
         amount = float(tx.get('amount', 0))
         if amount <= 0:
             continue
+            
+        cat = tx.get('category', 'Otros')
         cat_history[cat].append({
             'id':          tx.get('id', ''),
             'amount':      amount,
             'date':        tx.get('date', ''),
             'description': tx.get('description', '') or cat,
         })
+        
+    return cat_history
 
-    anomalies  = []
-    cat_stats  = {}
 
+def _analizar_anomalias_por_categoria(cat, txs):
+    """Calcula estadísticas y detecta anomalías (Z-score > 2.0) para una categoría."""
+    if len(txs) < 3:
+        return None, []
+
+    amounts = [t['amount'] for t in txs]
+    mean = float(np.mean(amounts))
+    std = float(np.std(amounts))
+    
+    stats = {'mean': round(mean, 2), 'std': round(std, 2), 'count': len(txs)}
+    anomalies = []
+
+    # Si no hay desviación estándar, todos los importes son iguales (no hay anomalías)
+    if std < 0.01:
+        return stats, anomalies
+
+    for tx in txs:
+        z_score = (tx['amount'] - mean) / std
+        if z_score <= 2.0:
+            continue
+
+        pct_above_avg = round((tx['amount'] - mean) / mean * 100, 1)
+        
+        anomalies.append({
+            'id':                tx['id'],
+            'date':              tx['date'],
+            'category':          cat,
+            'amount':            round(tx['amount'], 2),
+            'mean_amount':       round(mean, 2),
+            'z_score':           round(z_score, 2),
+            'percent_above_avg': pct_above_avg,
+            'severity':          'high' if z_score >= 3.0 else 'medium',
+            'description':       tx['description'],
+            'message': (
+                f"Gasto {pct_above_avg:.0f}% superior al promedio de {cat} "
+                f"({mean:.2f}€ de media)"
+            ),
+        })
+
+    return stats, anomalies
+
+@app.route('/detect-anomalies', methods=['POST'])
+def detect_anomalies():
+    """
+    RF-23 / HU-10: Detecta gastos inusuales usando Z-score por categoría.
+    """
+    data = request.get_json(silent=True) or {}
+    transactions = data.get('transactions', [])
+
+    # 1. Agrupar datos (aislamos el primer bucle)
+    cat_history = _agrupar_historial_categorias(transactions)
+
+    anomalies = []
+    cat_stats = {}
+
+    # 2. Análisis estadístico delegando la lógica interna
     for cat, txs in cat_history.items():
-        if len(txs) < 3:
-            continue
+        resultado = _analizar_anomalias_por_categoria(cat, txs)
+        if resultado:
+            stats, cat_anomalies = resultado
+            cat_stats[cat] = stats
+            anomalies.extend(cat_anomalies)
 
-        amounts = [t['amount'] for t in txs]
-        mean    = float(np.mean(amounts))
-        std     = float(np.std(amounts))
-        cat_stats[cat] = {'mean': round(mean, 2), 'std': round(std, 2), 'count': len(txs)}
-
-        if std < 0.01:
-            # Todos los importes son iguales → no hay anomalías
-            continue
-
-        for tx in txs:
-            z_score = (tx['amount'] - mean) / std
-            if z_score <= 2.0:
-                continue
-
-            severity      = 'high' if z_score >= 3.0 else 'medium'
-            pct_above_avg = round((tx['amount'] - mean) / mean * 100, 1)
-
-            anomalies.append({
-                'id':              tx['id'],
-                'date':            tx['date'],
-                'category':        cat,
-                'amount':          round(tx['amount'], 2),
-                'mean_amount':     round(mean, 2),
-                'z_score':         round(z_score, 2),
-                'percent_above_avg': pct_above_avg,
-                'severity':        severity,
-                'description':     tx['description'],
-                'message':         (
-                    f"Gasto {pct_above_avg:.0f}% superior al promedio de {cat} "
-                    f"({mean:.2f}€ de media)"
-                ),
-            })
-
-    # Ordenar: más recientes primero, después por severidad
+    # 3. Ordenar: más recientes primero, después por severidad
     anomalies.sort(key=lambda x: (x['date'], x['z_score']), reverse=True)
 
     logger.info(
@@ -906,45 +943,19 @@ def detect_anomalies():
 
 # ─── RF-24 / HU-11: Detección automática de suscripciones ───────────────────
 
-@app.route('/detect-subscriptions', methods=['POST'])
-def detect_subscriptions():
-    """
-    RF-24 / HU-11: Identifica suscripciones y gastos recurrentes automáticamente.
-
-    Algoritmo:
-    1. Agrupa gastos por descripción normalizada (TF-IDF clean text)
-    2. Filtra grupos con ≥ 2 ocurrencias y variación de importe < 10%
-    3. Calcula intervalos entre fechas → clasifica periodicidad:
-       semanal (6-8d), mensual (25-35d), trimestral (85-95d), anual (330-400d)
-    4. Calcula coste mensual equivalente y próximo cargo estimado
-
-    Body: {
-        "transactions": [{ "amount", "type", "category", "date", "description" }]
-    }
-    Returns: {
-        "subscriptions": [...],
-        "total_subscriptions": int,
-        "total_monthly_cost": float,
-        "total_annual_cost": float
-    }
-    """
-    from datetime import datetime, timedelta
-
-    data = request.get_json(silent=True) or {}
-    transactions = data.get('transactions', [])
-
-    # Agrupar gastos por descripción normalizada
-    desc_groups: dict = defaultdict(list)
+def _agrupar_por_descripcion(transactions):
+    """Agrupa los gastos válidos usando su descripción normalizada o categoría."""
+    desc_groups = defaultdict(list)
     for tx in transactions:
         if tx.get('type') != 'expense':
             continue
+            
         amount = float(tx.get('amount', 0))
         if amount <= 0:
             continue
 
         raw_desc = (tx.get('description') or '').strip()
-        clean    = _clean_text(raw_desc) if raw_desc else ''
-        # Si la descripción limpia es muy corta, usar categoría como clave alternativa
+        clean = _clean_text(raw_desc) if raw_desc else ''
         key = clean if len(clean) >= 3 else tx.get('category', 'sin_descripcion')
 
         desc_groups[key].append({
@@ -953,103 +964,234 @@ def detect_subscriptions():
             'description': raw_desc or tx.get('category', ''),
             'category':    tx.get('category', 'Otros'),
         })
+        
+    return desc_groups
 
-    subscriptions = []
 
-    for key, txs in desc_groups.items():
-        if len(txs) < 2:
-            continue
+def _clasificar_periodicidad(mean_interval, mean_amount):
+    """Clasifica el tipo de suscripción y calcula su coste mensual en base al intervalo de días."""
+    if 6 <= mean_interval <= 8:
+        return 'weekly', 'Semanal', mean_amount * 4.33
+    if 25 <= mean_interval <= 35:
+        return 'monthly', 'Mensual', mean_amount
+    if 85 <= mean_interval <= 95:
+        return 'quarterly', 'Trimestral', mean_amount / 3
+    if 330 <= mean_interval <= 400:
+        return 'annual', 'Anual', mean_amount / 12
+        
+    return None, None, None
 
-        # Ordenar por fecha
+
+def _analizar_grupo_suscripcion(key, txs):
+    """Analiza un grupo de transacciones para determinar si es una suscripción recurrente."""
+    if len(txs) < 2:
+        return None
+
+    try:
+        txs_sorted = sorted(txs, key=lambda x: x['date'])
+    except Exception:
+        return None
+
+    # 1. Validación de Importes (variación < 10%)
+    amounts = [t['amount'] for t in txs_sorted]
+    mean_amount = float(np.mean(amounts))
+    if mean_amount <= 0 or (float(np.std(amounts)) / mean_amount) > 0.10:
+        return None
+
+    # 2. Validación de Fechas
+    dates = []
+    for tx in txs_sorted:
         try:
-            txs_sorted = sorted(txs, key=lambda x: x['date'])
-        except Exception:
+            dates.append(datetime.strptime(tx['date'], 'DATE_FORMAT'))
+        except ValueError:
             continue
 
-        # Verificar que los importes son similares (variación < 10%)
-        amounts     = [t['amount'] for t in txs_sorted]
-        mean_amount = float(np.mean(amounts))
-        if mean_amount <= 0:
-            continue
-        amount_std = float(np.std(amounts))
-        variation  = amount_std / mean_amount
+    if len(dates) < 2:
+        return None
 
-        if variation > 0.10:
-            continue  # Importe demasiado variable para ser suscripción
+    # 3. Cálculo de Intervalos
+    intervals = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+    mean_interval = float(np.mean(intervals))
+    
+    # Rechazar si la periodicidad es muy irregular
+    if len(intervals) > 1 and mean_interval > 0 and (float(np.std(intervals)) / mean_interval) > 0.25:
+        return None
 
-        # Calcular intervalos entre fechas consecutivas
-        dates = []
-        for tx in txs_sorted:
-            try:
-                dates.append(datetime.strptime(tx['date'], '%Y-%m-%d'))
-            except Exception:
-                pass
+    # 4. Clasificación
+    period, period_label, monthly_cost = _clasificar_periodicidad(mean_interval, mean_amount)
+    if not period:
+        return None
 
-        if len(dates) < 2:
-            continue
+    # 5. Fechas de cobro estimadas
+    last_date = dates[-1]
+    next_charge_date = last_date + timedelta(days=int(round(mean_interval)))
+    next_charge_str = next_charge_date.strftime('DATE_FORMAT')
+    days_until = (next_charge_date - datetime.now()).days
 
-        intervals  = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
-        mean_interval = float(np.mean(intervals))
-        interval_std  = float(np.std(intervals))
+    return {
+        'name':              txs_sorted[-1]['description'] or key,
+        'category':          txs_sorted[-1]['category'],
+        'amount':            round(mean_amount, 2),
+        'monthly_cost':      round(monthly_cost, 2),
+        'periodicity':       period,
+        'periodicity_label': period_label,
+        'occurrences':       len(txs_sorted),
+        'last_charge':       txs_sorted[-1]['date'],
+        'next_charge':       next_charge_str,
+        'days_until_next':   days_until,
+        'amount_variation':  round((float(np.std(amounts)) / mean_amount) * 100, 1),
+    }
 
-        # Rechazar si la periodicidad es muy irregular
-        if len(intervals) > 1 and mean_interval > 0 and interval_std / mean_interval > 0.25:
-            continue
 
-        # Clasificar periodicidad
-        if 6 <= mean_interval <= 8:
-            period       = 'weekly'
-            period_label = 'Semanal'
-            monthly_cost = mean_amount * 4.33
-        elif 25 <= mean_interval <= 35:
-            period       = 'monthly'
-            period_label = 'Mensual'
-            monthly_cost = mean_amount
-        elif 85 <= mean_interval <= 95:
-            period       = 'quarterly'
-            period_label = 'Trimestral'
-            monthly_cost = mean_amount / 3
-        elif 330 <= mean_interval <= 400:
-            period       = 'annual'
-            period_label = 'Anual'
-            monthly_cost = mean_amount / 12
+def _extraer_concepto(query: str) -> str:
+    """Extrae el concepto dividiendo el proceso para evitar Code Smells de Regex."""
+    query = query.lower()
+    
+    # 1. Encontrar el verbo de acción (Complejidad: ~7)
+    match_accion = re.search(r'(comprar?|permitir(?:me)?|pagar|gastar(?:me)?)', query)
+    if not match_accion:
+        return ARTICLE
+        
+    # Nos quedamos con todo lo que hay DESPUÉS del verbo
+    resto = query[match_accion.end():]
+    
+    # 2. Cortar en el momento en que aparezca el primer número o € (Complejidad: 1)
+    texto_sin_precio = re.split(r'[\d€]', resto)[0]
+    
+    # 3. Limpieza de texto plana (Complejidad: ~3 cada una)
+    concepto = texto_sin_precio.strip()
+    concepto = re.sub(r'^un[ao]s?\s+', '', concepto)      # Quita "un/una/unos" al inicio
+    concepto = re.sub(r'\s+(de|por|a)$', '', concepto)    # Quita "de/por/a" al final
+    
+    return concepto.strip() or ARTICLE
+
+def _calcular_impacto_objetivos(goals: list, amount: float, monthly_surplus: float) -> list:
+    """Calcula cómo la compra afectaría a los distintos objetivos de ahorro activos."""
+    impact_on_goals = []
+    if amount <= 0:
+        return impact_on_goals
+
+    for g in goals:
+        name = g.get('name', 'Objetivo')
+        target = float(g.get('target_amount', 0))
+        current = float(g.get('current_amount', 0))
+        remaining = target - current
+        
+        if remaining > 0:
+            months_delayed = round(amount / monthly_surplus) if monthly_surplus > 0 else 0
+            pct_impact = min(amount / remaining * 100, 100)
+            
+            impact_on_goals.append({
+                'goal_name':      name,
+                'months_delayed': months_delayed,
+                'pct_impact':     round(pct_impact, 1),
+            })
+            
+    return impact_on_goals
+
+def _evaluar_viabilidad(available_balance: float, amount: float, monthly_surplus: float) -> tuple[str, int | None]:
+    """Determina el veredicto (yes/no/caution) y los meses necesarios para ahorrar si no hay saldo."""
+    can_cover = available_balance >= amount
+    comfortable_cover = available_balance >= amount * 1.5
+
+    if can_cover and comfortable_cover and monthly_surplus > 0:
+        verdict = 'yes'
+    elif can_cover and (not comfortable_cover or monthly_surplus <= 0):
+        verdict = 'caution'
+    else:
+        verdict = 'no'
+
+    months_to_save = None
+    if verdict == 'no' and monthly_surplus > 0:
+        deficit = amount - available_balance
+        months_to_save = math.ceil(deficit / monthly_surplus)
+        
+    return verdict, months_to_save
+
+def _generar_textos_y_alternativas(verdict: str, amount: float, available_balance: float, balance_after: float, 
+                                   concept: str, monthly_surplus: float, months_to_save: int, fixed_monthly: float) -> tuple[str, str, list]:
+    """Construye el análisis de texto, la recomendación final y las alternativas según el escenario."""
+    def fmt(v):
+        return f"{v:,.2f}€".replace(',', '.')
+
+    alternatives = []
+    
+    if verdict == 'yes':
+        analysis = f"Tu balance disponible es {fmt(available_balance)}, suficiente para cubrir {fmt(amount)} con {fmt(balance_after)} restante."
+        recommendation = f"Sí puedes permitirte {concept}. Tendrás {fmt(balance_after)} de balance tras la compra."
+        
+    elif verdict == 'caution':
+        analysis = f"Técnicamente puedes cubrir {fmt(amount)} desde tu balance de {fmt(available_balance)}, pero te quedaría poco margen ({fmt(balance_after)})."
+        recommendation = f"Puedes comprar {concept} con precaución. Asegúrate de no tener gastos imprevistos próximos."
+        
+    else:
+        shortfall = amount - available_balance
+        analysis = f"Tu balance disponible ({fmt(available_balance)}) es insuficiente para {fmt(amount)}. Te faltan {fmt(shortfall)}."
+        if months_to_save:
+            recommendation = f"Ahorrando {fmt(monthly_surplus)}/mes, podrías comprar {concept} en ~{months_to_save} meses."
         else:
-            continue  # Periodicidad no reconocida
+            recommendation = "Revisa tus ingresos y gastos antes de realizar esta compra."
 
-        # Próximo cargo estimado
-        last_date   = dates[-1]
-        next_charge = (last_date + timedelta(days=int(round(mean_interval)))).strftime('%Y-%m-%d')
-        days_until  = (datetime.strptime(next_charge, '%Y-%m-%d') - datetime.now()).days
+    # Bloque de Alternativas
+    if verdict in ('no', 'caution'):
+        if months_to_save and months_to_save <= 6:
+            alternatives.append(f"Espera {months_to_save} mes(es) ahorrando {fmt(monthly_surplus)}/mes")
+        alternatives.append(f"Busca versiones más económicas de {concept}")
+        if fixed_monthly > 0:
+            alternatives.append(f"Revisa tus suscripciones ({fmt(fixed_monthly)}/mes) para liberar presupuesto")
 
-        subscriptions.append({
-            'name':             txs_sorted[-1]['description'] or key,
-            'category':         txs_sorted[-1]['category'],
-            'amount':           round(mean_amount, 2),
-            'monthly_cost':     round(monthly_cost, 2),
-            'periodicity':      period,
-            'periodicity_label': period_label,
-            'occurrences':      len(txs_sorted),
-            'last_charge':      txs_sorted[-1]['date'],
-            'next_charge':      next_charge,
-            'days_until_next':  days_until,
-            'amount_variation': round(variation * 100, 1),
-        })
+    return analysis, recommendation, alternatives
 
-    # Ordenar por coste mensual descendente
-    subscriptions.sort(key=lambda x: -x['monthly_cost'])
-    total_monthly = sum(s['monthly_cost'] for s in subscriptions)
+@app.route('/detect-subscriptions', methods=['POST'])
+def affordability():
+    """
+    RF-26 / HU-13: ¿Puedo permitírmelo? Análisis multi-factor de affordability.
+    """
+    data = request.get_json(silent=True) or {}
+    query = (data.get('query') or '').strip()
+    amount = data.get('amount')
+    
+    # 1. Extracción y Validación Temprana
+    if amount is None:
+        amount = _extract_amount(query)
+        
+    if amount is None or float(amount) <= 0:
+        return jsonify({'error': 'No se pudo extraer el importe de la consulta'}), 400
+        
+    amount = float(amount)
+    concept = _extraer_concepto(query)
 
-    logger.info(
-        f"[detect-subscriptions] {len(desc_groups)} grupos | "
-        f"{len(subscriptions)} suscripciones detectadas | "
-        f"coste mensual total={total_monthly:.2f}€"
+    # 2. Resumen Financiero
+    summary = _build_financial_summary(data.get('transactions', []))
+    available_balance = summary['balance']
+    monthly_surplus = summary['this_month_income'] - summary['this_month_expenses']
+    fixed_monthly = sum(float(s.get('monthly_cost', 0)) for s in data.get('subscriptions', []))
+    balance_after = available_balance - amount
+
+    # 3. Lógica de Negocio (Delegada)
+    impact_on_goals = _calcular_impacto_objetivos(data.get('goals', []), amount, monthly_surplus)
+    verdict, months_to_save = _evaluar_viabilidad(available_balance, amount, monthly_surplus)
+    
+    analysis, recommendation, alternatives = _generar_textos_y_alternativas(
+        verdict, amount, available_balance, balance_after, 
+        concept, monthly_surplus, months_to_save, fixed_monthly
     )
 
+    logger.info(f"[affordability] amount={amount} | verdict={verdict} | balance={available_balance}")
+    
     return jsonify({
-        'subscriptions':      subscriptions,
-        'total_subscriptions': len(subscriptions),
-        'total_monthly_cost': round(total_monthly, 2),
-        'total_annual_cost':  round(total_monthly * 12, 2),
+        'verdict':          verdict,
+        'amount':           amount,
+        'concept':          concept,
+        'available_balance': round(available_balance, 2),
+        'balance_after':    round(balance_after, 2),
+        'monthly_surplus':  round(monthly_surplus, 2),
+        'fixed_monthly':    round(fixed_monthly, 2),
+        'impact_on_goals':  impact_on_goals,
+        'alternatives':     alternatives,
+        'months_to_save':   months_to_save,
+        'analysis':         analysis,
+        'recommendation':   recommendation,
     })
 
 
@@ -1126,7 +1268,7 @@ def _build_financial_summary(transactions: list) -> dict:
 
     for tx in transactions:
         try:
-            tx_date = datetime.strptime(tx['date'], '%Y-%m-%d')
+            tx_date = datetime.strptime(tx['date'], 'DATE_FORMAT')
         except Exception:
             continue
         amount = float(tx.get('amount', 0))
@@ -1161,153 +1303,222 @@ def _build_financial_summary(transactions: list) -> dict:
     }
 
 
-def _generate_chat_response(intent: str, message: str, summary: dict, goals: list, language: str = 'es') -> dict:
-    """Genera una respuesta contextualizada según la intención detectada."""
-    balance = summary['balance']
-    this_month_exp = summary['this_month_expenses']
-    this_month_inc = summary['this_month_income']
-    prev_month_exp = summary['prev_month_expenses']
-    top_cats = summary['top_categories']
-    savings  = summary['savings_this_month']
-    en = language == 'en'
+def _fmt(amount: float) -> str:
+    """Formatea importes monetarios."""
+    return f"{amount:,.2f}€".replace(',', '.')
 
-    def fmt(amount):
-        return f"{amount:,.2f}€".replace(',', '.')
+# ─── Funciones Manejadoras por Intención (Handlers) ──────────────────────────
 
-    if intent == 'spending':
-        cat_detail = ''
-        if top_cats:
-            lines = [f"• {cat}: {fmt(amt)}" for cat, amt in top_cats[:3]]
-            cat_detail = '\n'.join(lines)
-        vs_prev = ''
-        if prev_month_exp > 0:
-            diff = this_month_exp - prev_month_exp
-            pct  = abs(diff) / prev_month_exp * 100
-            if diff > 0:
-                vs_prev = f" ({pct:.0f}% {'more than last month' if en else 'más que el mes anterior'})"
-            else:
-                vs_prev = f" ({pct:.0f}% {'less than last month' if en else 'menos que el mes anterior'})"
+def _get_comparison_text(exp: float, prev_exp: float, en: bool) -> str:
+    """Extrae la lógica de comparación para reducir la carga cognitiva."""
+    if prev_exp <= 0:
+        return ""
+    
+    diff = exp - prev_exp
+    pct = abs(diff) / prev_exp * 100
+    
+    if en:
+        direction = 'more' if diff > 0 else 'less'
+        return f" ({pct:.0f}% {direction} than last month)"
+    
+    direction = 'más' if diff > 0 else 'menos'
+    return f" ({pct:.0f}% {direction} que el mes anterior)"
 
-        response = f"{'This month you spent' if en else 'Este mes has gastado'} **{fmt(this_month_exp)}**{vs_prev}."
-        if cat_detail:
-            response += f"\n\n{'Your top spending categories:' if en else 'Tus principales categorías de gasto:'}\n{cat_detail}"
-        if savings > 0:
-            response += f"\n\n💚 {'You have saved' if en else 'Llevas'} **{fmt(savings)}** {'this month.' if en else 'ahorrados este mes.'}"
-        elif savings < 0:
-            response += f"\n\n⚠️ {'You are spending more than you earn this month' if en else 'Estás gastando más de lo que ingresas este mes'} ({fmt(abs(savings))} {'deficit' if en else 'de déficit'})."
+def _resp_spending(summary: dict, en: bool, **_) -> str:
+    """
+    Genera respuesta de gastos.
+    Complejidad Cognitiva: ~6
+    """
+    this_month_exp = summary.get('this_month_expenses', 0)
+    prev_month_exp = summary.get('prev_month_expenses', 0)
+    top_cats = summary.get('top_categories', [])
+    savings = summary.get('savings_this_month', 0)
 
-    elif intent == 'income':
-        response = f"{'This month you earned' if en else 'Este mes has ingresado'} **{fmt(this_month_inc)}**."
-        if this_month_exp > 0:
-            rate = (savings / this_month_inc * 100) if this_month_inc > 0 else 0
-            if rate > 0:
-                response += f"\n\n{'After expenses, you have' if en else 'Después de gastos, te quedan'} **{fmt(savings)}** ({rate:.0f}% {'savings rate' if en else 'de tasa de ahorro'})."
+    # 1. Bloque de comparación (Delegado)
+    vs_prev = _get_comparison_text(this_month_exp, prev_month_exp, en)
 
-    elif intent == 'category':
-        if top_cats:
-            lines = [f"{i+1}. **{cat}**: {fmt(amt)}" for i, (cat, amt) in enumerate(top_cats[:5])]
-            cat_list = '\n'.join(lines)
-            response = f"{'Your top spending categories this month:' if en else 'Tus categorías de mayor gasto este mes:'}\n\n{cat_list}"
-        else:
-            response = "There aren't enough transactions this month to analyze by category." if en else "Aún no hay suficientes transacciones este mes para analizar por categorías."
+    # 2. Bloque de intro y categorías (Aplanado)
+    intro = 'This month you spent' if en else 'Este mes has gastado'
+    response = f"{intro} **{_fmt(this_month_exp)}**{vs_prev}."
 
-    elif intent == 'savings':
-        if goals:
-            goal_lines = []
-            for g in goals[:3]:
-                name    = g.get('name', 'Goal' if en else 'Objetivo')
-                current = float(g.get('current_amount', 0))
-                target  = float(g.get('target_amount', 1))
-                pct     = min(current / target * 100, 100) if target > 0 else 0
-                goal_lines.append(f"• **{name}**: {fmt(current)} / {fmt(target)} ({pct:.0f}%)")
-            goals_text = '\n'.join(goal_lines)
-            response = f"{'Your savings goals:' if en else 'Tus objetivos de ahorro:'}\n\n{goals_text}"
-            if savings > 0:
-                response += f"\n\n{'This month you have saved' if en else 'Este mes llevas'} **{fmt(savings)}** {'— keep it up!' if en else 'de ahorro, ¡sigue así!'}"
-        else:
-            if savings > 0:
-                response = f"{'This month you have saved' if en else 'Este mes llevas'} **{fmt(savings)}** {'saved. You have no savings goals configured. I recommend creating one!' if en else 'ahorrados. No tienes objetivos de ahorro configurados. ¡Te recomiendo crear uno!'}"
-            else:
-                response = ("This month your savings balance is negative. I recommend reviewing your expenses and setting a savings goal." if en
-                            else "Este mes tu balance de ahorro es negativo. Te recomiendo revisar tus gastos y establecer un objetivo de ahorro.")
+    if top_cats:
+        header = 'Your top spending categories:' if en else 'Tus principales categorías de gasto:'
+        lines = [f"• {cat}: {_fmt(amt)}" for cat, amt in top_cats[:3]]
+        response += f"\n\n{header}\n" + '\n'.join(lines)
 
-    elif intent == 'balance':
-        response = f"{'Your total balance is' if en else 'Tu balance total es'} **{fmt(balance)}**."
-        if balance > 0:
-            response += f"\n\n{'This month you earned' if en else 'Este mes has ingresado'} **{fmt(this_month_inc)}** {'and spent' if en else 'y gastado'} **{fmt(this_month_exp)}**."
-        else:
-            response += f"\n\n⚠️ {'Your accumulated balance is negative. Consider reviewing your finances.' if en else 'Tu balance acumulado es negativo. Considera revisar tus finanzas.'}"
+    # 3. Bloque de ahorros (Sin anidación de ternarios)
+    if savings > 0:
+        msg = f"💚 {'You have saved' if en else 'Llevas'} **{_fmt(savings)}** {'this month.' if en else 'ahorrados este mes.'}"
+        response += f"\n\n{msg}"
+    elif savings < 0:
+        msg_text = 'You are spending more than you earn this month' if en else 'Estás gastando más de lo que ingresas este mes'
+        label = 'deficit' if en else 'de déficit'
+        response += f"\n\n⚠️ {msg_text} ({_fmt(abs(savings))} {label})."
 
-    elif intent == 'subscriptions':
-        response = ("To view your subscriptions and recurring payments, go to **AI Predictions → Subscriptions**. There you will find a detailed analysis of all your periodic payments with the monthly cost equivalent." if en
-                    else "Para ver tus suscripciones y pagos recurrentes, ve a **Predicciones IA → Suscripciones**. Allí encontrarás un análisis detallado de todos tus pagos periódicos con el coste mensual equivalente.")
+    return response
 
-    elif intent == 'recommendations':
-        recs = []
-        for cat, amt in top_cats[:3]:
-            ref = REFERENCE_BUDGETS.get(cat, 0.10)
-            ref_amt = this_month_inc * ref if this_month_inc > 0 else 0
-            if ref_amt > 0 and amt > ref_amt * 1.2:
-                saving = round(amt - ref_amt, 2)
-                if en:
-                    recs.append(f"• Reduce **{cat}** from {fmt(amt)} to ~{fmt(ref_amt)} → save {fmt(saving)}/month")
-                else:
-                    recs.append(f"• Reduce **{cat}** de {fmt(amt)} a ~{fmt(ref_amt)} → ahorrarías {fmt(saving)}/mes")
-        if recs:
-            response = ("Areas where you can optimize:\n\n" if en else "Áreas donde puedes optimizar:\n\n") + '\n'.join(recs)
-            response += ("\n\nFor a full analysis go to **AI Predictions → Savings**." if en
-                         else "\n\nPara un análisis completo ve a **Predicciones IA → Ahorro**.")
-        else:
-            response = ("Your finances look well balanced! You can view detailed analyses in **AI Predictions**." if en
-                        else "¡Tus finanzas parecen bien equilibradas! Puedes ver análisis detallados en **Predicciones IA**.")
+def _resp_income(summary: dict, en: bool, **_) -> str:
+    this_month_inc = summary.get('this_month_income', 0)
+    this_month_exp = summary.get('this_month_expenses', 0)
+    savings = summary.get('savings_this_month', 0)
+    
+    response = f"{'This month you earned' if en else 'Este mes has ingresado'} **{_fmt(this_month_inc)}**."
+    if this_month_exp > 0 and this_month_inc > 0:
+        rate = savings / this_month_inc * 100
+        if rate > 0:
+            response += f"\n\n{'After expenses, you have' if en else 'Después de gastos, te quedan'} **{_fmt(savings)}** ({rate:.0f}% {'savings rate' if en else 'de tasa de ahorro'})."
+    return response
 
-    elif intent == 'trend':
-        if prev_month_exp > 0 and this_month_exp > 0:
-            diff = this_month_exp - prev_month_exp
-            pct  = abs(diff) / prev_month_exp * 100
-            if diff > 5:
-                response = (f"Your expenses have **increased by {pct:.0f}%** compared to last month ({fmt(prev_month_exp)} → {fmt(this_month_exp)})." if en
-                            else f"Tus gastos han **aumentado un {pct:.0f}%** respecto al mes anterior ({fmt(prev_month_exp)} → {fmt(this_month_exp)}).")
-            elif diff < -5:
-                response = (f"Your expenses have **decreased by {pct:.0f}%** compared to last month ({fmt(prev_month_exp)} → {fmt(this_month_exp)}). Great job!" if en
-                            else f"Tus gastos han **disminuido un {pct:.0f}%** respecto al mes anterior ({fmt(prev_month_exp)} → {fmt(this_month_exp)}). ¡Muy bien!")
-            else:
-                response = (f"Your expenses remain stable compared to last month (~{fmt(this_month_exp)})." if en
-                            else f"Tus gastos se mantienen estables respecto al mes anterior (~{fmt(this_month_exp)}).")
-        else:
-            response = ("I don't have enough history to compare trends. Keep recording your transactions." if en
-                        else "No tengo suficiente historial para comparar tendencias. Sigue registrando tus transacciones.")
+def _resp_category(summary: dict, en: bool, **_) -> str:
+    top_cats = summary.get('top_categories', [])
+    if top_cats:
+        lines = [f"{i+1}. **{cat}**: {_fmt(amt)}" for i, (cat, amt) in enumerate(top_cats[:5])]
+        return f"{'Your top spending categories this month:' if en else 'Tus categorías de mayor gasto este mes:'}\n\n{'\n'.join(lines)}"
+    
+    return "There aren't enough transactions this month to analyze by category." if en else "Aún no hay suficientes transacciones este mes para analizar por categorías."
 
-    elif intent == 'affordability':
-        response = ("To analyze whether you can afford a purchase, ask me directly: **\"Can I buy [item] for [amount]€?\"** For example: *\"Can I buy a laptop for €800?\"*" if en
-                    else "Para analizar si puedes permitirte una compra, pregúntame directamente: **\"¿Puedo comprar [artículo] por [cantidad]€?\"** Por ejemplo: *\"¿Puedo comprar un portátil de 800€?\"*")
+def _format_goal_line(goal: dict, en: bool) -> str:
+    """Procesa un único objetivo para reducir la carga lógica del bucle."""
+    name = goal.get('name', 'Goal' if en else 'Objetivo')
+    current = float(goal.get('current_amount', 0))
+    target = float(goal.get('target_amount', 1))
+    
+    # Evitamos el ternario anidado calculando el porcentaje antes
+    pct = 0
+    if target > 0:
+        pct = min(current / target * 100, 100)
+        
+    return f"• **{name}**: {_fmt(current)} / {_fmt(target)} ({pct:.0f}%)"
 
-    else:  # general
+
+def _build_goals_response(savings: float, goals: list, en: bool) -> str:
+    """Construye la respuesta cuando existen objetivos definidos."""
+    goal_lines = [_format_goal_line(g, en) for g in goals[:3]]
+    
+    header = 'Your savings goals:' if en else 'Tus objetivos de ahorro:'
+    response = f"{header}\n\n{'\n'.join(goal_lines)}"
+    
+    if savings > 0:
+        msg_start = 'This month you have saved' if en else 'Este mes llevas'
+        msg_end = '— keep it up!' if en else 'de ahorro, ¡sigue así!'
+        response += f"\n\n{msg_start} **{_fmt(savings)}** {msg_end}"
+        
+    return response
+
+
+def _resp_savings(summary: dict, goals: list, en: bool, **_) -> str:
+    """
+    Genera la respuesta de ahorro. 
+    Complejidad Cognitiva aproximada: 4
+    """
+    savings = summary.get('savings_this_month', 0)
+    
+    # 1. Caso con objetivos (Delegado)
+    if goals:
+        return _build_goals_response(savings, goals, en)
+        
+    # 2. Caso sin objetivos y ahorro positivo
+    if savings > 0:
         if en:
-            response = (
-                f"Hi! I'm your Finora financial assistant. "
-                f"This month you spent **{fmt(this_month_exp)}** and your total balance is **{fmt(balance)}**.\n\n"
-                "I can help you with questions like:\n"
-                "• *\"How much did I spend this month?\"*\n"
-                "• *\"Which category do I spend the most on?\"*\n"
-                "• *\"Can I buy a €600 laptop?\"*\n"
-                "• *\"How are my savings goals going?\"*\n"
-                "• *\"Give me recommendations to save money\"*"
-            )
-        else:
-            response = (
-                f"Hola! Soy tu asistente financiero de Finora. "
-                f"Este mes has gastado **{fmt(this_month_exp)}** y tu balance total es **{fmt(balance)}**.\n\n"
-                "Puedo ayudarte con preguntas como:\n"
-                "• *\"¿Cuánto gasté este mes?\"*\n"
-                "• *\"¿En qué categoría gasto más?\"*\n"
-                "• *\"¿Puedo comprarme un ordenador de 600€?\"*\n"
-                "• *\"¿Cómo van mis objetivos de ahorro?\"*\n"
-                "• *\"Dame recomendaciones para ahorrar\"*"
-            )
+            return f"This month you have saved **{_fmt(savings)}** saved. You have no savings goals configured. I recommend creating one!"
+        return f"Este mes llevas **{_fmt(savings)}** ahorrados. No tienes objetivos de ahorro configurados. ¡Te recomiendo crear uno!"
+        
+    # 3. Caso sin objetivos y ahorro negativo
+    if en:
+        return "This month your savings balance is negative. I recommend reviewing your expenses and setting a savings goal."
+    return "Este mes tu balance de ahorro es negativo. Te recomiendo revisar tus gastos y establecer un objetivo de ahorro."
 
+def _resp_balance(summary: dict, en: bool, **_) -> str:
+    balance = summary.get('balance', 0)
+    this_month_inc = summary.get('this_month_income', 0)
+    this_month_exp = summary.get('this_month_expenses', 0)
+    
+    response = f"{'Your total balance is' if en else 'Tu balance total es'} **{_fmt(balance)}**."
+    if balance > 0:
+        response += f"\n\n{'This month you earned' if en else 'Este mes has ingresado'} **{_fmt(this_month_inc)}** {'and spent' if en else 'y gastado'} **{_fmt(this_month_exp)}**."
+    else:
+        response += f"\n\n⚠️ {'Your accumulated balance is negative. Consider reviewing your finances.' if en else 'Tu balance acumulado es negativo. Considera revisar tus finanzas.'}"
+    return response
+
+def _resp_subscriptions(en: bool, **_) -> str:
+    return ("To view your subscriptions and recurring payments, go to **AI Predictions → Subscriptions**." if en 
+            else "Para ver tus suscripciones y pagos recurrentes, ve a **Predicciones IA → Suscripciones**.")
+
+def _resp_recommendations(summary: dict, en: bool, **_) -> str:
+    top_cats = summary.get('top_categories', [])
+    this_month_inc = summary.get('this_month_income', 0)
+    recs = []
+    
+    for cat, amt in top_cats[:3]:
+        ref = REFERENCE_BUDGETS.get(cat, 0.10) # Asumiendo que REFERENCE_BUDGETS es global
+        ref_amt = this_month_inc * ref if this_month_inc > 0 else 0
+        if ref_amt > 0 and amt > ref_amt * 1.2:
+            saving = round(amt - ref_amt, 2)
+            msg = f"• Reduce **{cat}** from {_fmt(amt)} to ~{_fmt(ref_amt)} → save {_fmt(saving)}/month" if en else \
+                  f"• Reduce **{cat}** de {_fmt(amt)} a ~{_fmt(ref_amt)} → ahorrarías {_fmt(saving)}/mes"
+            recs.append(msg)
+            
+    if recs:
+        response = ("Areas where you can optimize:\n\n" if en else "Áreas donde puedes optimizar:\n\n") + '\n'.join(recs)
+        return response + ("\n\nFor a full analysis go to **AI Predictions → Savings**." if en else "\n\nPara un análisis completo ve a **Predicciones IA → Ahorro**.")
+        
+    return ("Your finances look well balanced! You can view detailed analyses in **AI Predictions**." if en else "¡Tus finanzas parecen bien equilibradas! Puedes ver análisis detallados en **Predicciones IA**.")
+
+def _resp_trend(summary: dict, en: bool, **_) -> str:
+    prev_month_exp = summary.get('prev_month_expenses', 0)
+    this_month_exp = summary.get('this_month_expenses', 0)
+    
+    if prev_month_exp > 0 and this_month_exp > 0:
+        diff = this_month_exp - prev_month_exp
+        pct  = abs(diff) / prev_month_exp * 100
+        if diff > 5:
+            return f"Your expenses have **increased by {pct:.0f}%** compared to last month." if en else f"Tus gastos han **aumentado un {pct:.0f}%** respecto al mes anterior."
+        elif diff < -5:
+            return f"Your expenses have **decreased by {pct:.0f}%** compared to last month. Great job!" if en else f"Tus gastos han **disminuido un {pct:.0f}%** respecto al mes anterior. ¡Muy bien!"
+        return f"Your expenses remain stable compared to last month (~{_fmt(this_month_exp)})." if en else f"Tus gastos se mantienen estables respecto al mes anterior (~{_fmt(this_month_exp)})."
+                    
+    return "I don't have enough history to compare trends. Keep recording your transactions." if en else "No tengo suficiente historial para comparar tendencias. Sigue registrando tus transacciones."
+
+def _resp_affordability(en: bool, **_) -> str:
+    return ("To analyze whether you can afford a purchase, ask me directly: **\"Can I buy [item] for [amount]€?\"**" if en 
+            else "Para analizar si puedes permitirte una compra, pregúntame directamente: **\"¿Puedo comprar [artículo] por [cantidad]€?\"**")
+
+def _resp_general(summary: dict, en: bool, **_) -> str:
+    this_month_exp = summary.get('this_month_expenses', 0)
+    balance = summary.get('balance', 0)
+    
+    if en:
+        return (f"Hi! I'm your Finora financial assistant. This month you spent **{_fmt(this_month_exp)}** and your total balance is **{_fmt(balance)}**.\n\n"
+                "I can help you with questions like:\n• *\"How much did I spend this month?\"*\n• *\"Which category do I spend the most on?\"*")
+    return (f"Hola! Soy tu asistente financiero de Finora. Este mes has gastado **{_fmt(this_month_exp)}** y tu balance total es **{_fmt(balance)}**.\n\n"
+            "Puedo ayudarte con preguntas como:\n• *\"¿Cuánto gasté este mes?\"*\n• *\"¿En qué categoría gasto más?\"*")
+
+
+# ─── Función Principal (Orquestador) ─────────────────────────────────────────
+
+def _generate_chat_response(intent: str, summary: dict, goals: list, language: str = 'es') -> dict:
+    """Genera una respuesta contextualizada según la intención detectada."""
+    en = (language == 'en')
+    
+    # Mapeo de intenciones a sus funciones correspondientes
+    intent_handlers = {
+        'spending':        _resp_spending,
+        'income':          _resp_income,
+        'category':        _resp_category,
+        'savings':         _resp_savings,
+        'balance':         _resp_balance,
+        'subscriptions':   _resp_subscriptions,
+        'recommendations': _resp_recommendations,
+        'trend':           _resp_trend,
+        'affordability':   _resp_affordability,
+    }
+    
+    # Obtenemos la función (o la general si el intent no existe) y la ejecutamos
+    handler = intent_handlers.get(intent, _resp_general)
+    response_text = handler(summary=summary, goals=goals, en=en)
+    
     return {
-        'response': response,
+        'response': response_text,
         'intent':   intent,
         'type':     'text',
     }
@@ -1345,7 +1556,7 @@ def chat():
     summary = _build_financial_summary(transactions)
 
     intent = _detect_intent(message)
-    result = _generate_chat_response(intent, message, summary, goals, language)
+    result = _generate_chat_response(intent, summary, goals, language)
     logger.info(f"[chat] motor=rules | intent={intent} | lang={language} | message_len={len(message)}")
     return jsonify(result)
 
@@ -1372,233 +1583,139 @@ def _extract_amount(text: str) -> float | None:
                 continue
     return None
 
+def _fmt_eur(v):
+    """Formateo consistente de moneda."""
+    return f"{v:,.2f}€".replace(',', '.')
+
+def _get_concept(query):
+    """
+    Extrae el concepto de la compra.
+    """
+    # Expresión aplanada: 
+    # 1. Agrupamos verbos sin anidación extra.
+    # 2. Capturamos el concepto evitando números y símbolos monetarios.
+    # 3. Lookahead simplificado para detenerse ante cifras o el final.
+    pattern = r'(?i)(?:comprar|permitir|pagar|gastar)\w*\s+(?:un[ao]\s+)?([^0-9€\n]+)(?=\s|\d|€|$)'
+    
+    match = re.search(pattern, query)
+    if not match:
+        return 'artículo'
+        
+    # Limpieza final del concepto capturado
+    return match.group(1).strip().rstrip(' de por a')
+
+def _analyze_goals_impact(goals, amount, surplus):
+    """Calcula el impacto en los objetivos de ahorro."""
+    impacts = []
+    for g in goals:
+        target, current = float(g.get('target_amount', 0)), float(g.get('current_amount', 0))
+        remaining = target - current
+        if remaining > 0 and amount > 0:
+            months = round(amount / surplus) if surplus > 0 else 0
+            impacts.append({
+                'goal_name': g.get('name', 'Objetivo'),
+                'months_delayed': months,
+                'pct_impact': round(min(amount / remaining * 100, 100), 1)
+            })
+    return impacts
+
+def _get_verdict(balance, amount, surplus):
+    """Determina la viabilidad financiera de la compra."""
+    can_cover = balance >= amount
+    comfortable = balance >= amount * 1.5
+    
+    if can_cover and comfortable and surplus > 0:
+        return 'yes'
+    return 'caution' if can_cover else 'no'
+
+def _generate_feedback(verdict, amount, balance, surplus, concept, months_to_save):
+    """Genera el análisis y la recomendación textual."""
+    after = balance - amount
+    if verdict == 'yes':
+        return (f"Tu balance disponible es {_fmt_eur(balance)}, suficiente para cubrir {_fmt_eur(amount)}.",
+                f"Sí puedes permitirte {concept}. Tendrás {_fmt_eur(after)} después.")
+    
+    if verdict == 'caution':
+        return (f"Puedes cubrir {_fmt_eur(amount)} desde tu balance de {_fmt_eur(balance)}, pero te quedaría poco margen.",
+                f"Compra {concept} con precaución. Evita gastos imprevistos próximos.")
+    
+    # Verdict == 'no'
+    msg = f"Tu balance ({_fmt_eur(balance)}) es insuficiente para {_fmt_eur(amount)}."
+    rec = f"Ahorrando {_fmt_eur(surplus)}/mes, podrías comprarlo en {months_to_save} meses." if months_to_save else "Revisa tus finanzas antes de comprar."
+    return msg, rec
 
 @app.route('/affordability', methods=['POST'])
 def affordability():
-    """
-    RF-26 / HU-13: ¿Puedo permitírmelo? Análisis multi-factor de affordability.
+    data = request.get_json(silent=True) or {}
+    query = (data.get('query') or '').strip()
+    amount = data.get('amount') or _extract_amount(query)
 
-    Analiza si el usuario puede permitirse una compra basándose en:
-    - Balance acumulado disponible
-    - Gastos fijos recurrentes próximos
-    - Impacto en objetivos de ahorro activos
-    - Tendencia de gastos del último mes
-
-    Body: {
-        "query":        str,    — pregunta del usuario ("¿Puedo comprar X por Y€?")
-        "amount":       float,  — importe (opcional, se extrae del query si no se provee)
-        "transactions": [...],  — historial de transacciones
-        "goals":        [...],  — objetivos de ahorro activos
-        "subscriptions": [...]  — suscripciones detectadas (para calcular gastos fijos)
-    }
-    Returns: {
-        "verdict":          "yes" | "no" | "caution",
-        "amount":           float,
-        "concept":          str,
-        "available_balance": float,
-        "balance_after":    float,
-        "monthly_surplus":  float,
-        "impact_on_goals":  [...],
-        "alternatives":     [...],
-        "months_to_save":   int | null,
-        "analysis":         str,
-        "recommendation":   str
-    }
-    """
-    from datetime import datetime
-
-    data          = request.get_json(silent=True) or {}
-    query         = (data.get('query') or '').strip()
-    amount        = data.get('amount')
-    transactions  = data.get('transactions', [])
-    goals         = data.get('goals', [])
-    subscriptions = data.get('subscriptions', [])
-
-    # Extraer importe si no se proporcionó
-    if amount is None:
-        amount = _extract_amount(query)
-    if amount is None or amount <= 0:
-        return jsonify({'error': 'No se pudo extraer el importe de la consulta'}), 400
+    if not amount or float(amount) <= 0:
+        return jsonify({'error': 'Importe inválido'}), 400
 
     amount = float(amount)
+    concept = _get_concept(query)
+    
+    # Métricas Base
+    summary = _build_financial_summary(data.get('transactions', []))
+    balance, surplus = summary['balance'], summary['this_month_income'] - summary['this_month_expenses']
 
-    # Extraer concepto de la query (texto entre "comprar/permitir" y el importe)
-    concept_match = re.search(
-        r'(?:comprar?|permitirme|pagar|gastar(?:me)?)\s+(?:un[ao]?\s+)?([^0-9€]+?)(?:\s+(?:de|por|a)\s+)?(?:\d|€|$)',
-        query.lower()
-    )
-    concept = concept_match.group(1).strip().rstrip(' de por') if concept_match else 'artículo'
+    # Lógica de Decisión
+    verdict = _get_verdict(balance, amount, surplus)
+    impact_on_goals = _analyze_goals_impact(data.get('goals', []), amount, surplus)
+    
+    months_to_save = math.ceil((amount - balance) / surplus) if verdict == 'no' and surplus > 0 else None
+    analysis, recommendation = _generate_feedback(verdict, amount, balance, surplus, concept, months_to_save)
 
-    # Calcular métricas financieras
-    summary = _build_financial_summary(transactions)
-    available_balance = summary['balance']
-    this_month_inc    = summary['this_month_income']
-    this_month_exp    = summary['this_month_expenses']
-    monthly_surplus   = this_month_inc - this_month_exp
-
-    # Calcular gasto fijo mensual de suscripciones
-    fixed_monthly = sum(float(s.get('monthly_cost', 0)) for s in subscriptions)
-
-    # Calcular balance_after
-    balance_after = available_balance - amount
-
-    # Analizar impacto en objetivos de ahorro
-    impact_on_goals = []
-    for g in goals:
-        name      = g.get('name', 'Objetivo')
-        target    = float(g.get('target_amount', 0))
-        current   = float(g.get('current_amount', 0))
-        remaining = target - current
-        if remaining > 0 and amount > 0:
-            months_delayed = 0
-            if monthly_surplus > 0:
-                months_delayed = round(amount / monthly_surplus)
-            pct_impact = min(amount / remaining * 100, 100) if remaining > 0 else 0
-            impact_on_goals.append({
-                'goal_name':     name,
-                'months_delayed': months_delayed,
-                'pct_impact':    round(pct_impact, 1),
-            })
-
-    # Lógica de veredicto
-    can_cover = available_balance >= amount
-    comfortable_cover = available_balance >= amount * 1.5
-
-    if can_cover and comfortable_cover and monthly_surplus > 0:
-        verdict = 'yes'
-    elif can_cover and (not comfortable_cover or monthly_surplus <= 0):
-        verdict = 'caution'
-    else:
-        verdict = 'no'
-
-    # Calcular meses para ahorrar si no es viable
-    months_to_save = None
-    if verdict == 'no' and monthly_surplus > 0:
-        deficit = amount - available_balance
-        months_to_save = math.ceil(deficit / monthly_surplus) if monthly_surplus > 0 else None
-
-    def fmt(v):
-        return f"{v:,.2f}€".replace(',', '.')
-
-    # Generar análisis y recomendación
-    if verdict == 'yes':
-        analysis = (
-            f"Tu balance disponible es {fmt(available_balance)}, suficiente para cubrir "
-            f"{fmt(amount)} con {fmt(balance_after)} restante."
-        )
-        recommendation = f"Sí puedes permitirte {concept}. Tendrás {fmt(balance_after)} de balance tras la compra."
-    elif verdict == 'caution':
-        analysis = (
-            f"Técnicamente puedes cubrir {fmt(amount)} desde tu balance de {fmt(available_balance)}, "
-            f"pero te quedaría poco margen ({fmt(balance_after)})."
-        )
-        recommendation = f"Puedes comprar {concept} con precaución. Asegúrate de no tener gastos imprevistos próximos."
-    else:
-        shortfall = amount - available_balance
-        analysis = (
-            f"Tu balance disponible ({fmt(available_balance)}) es insuficiente para {fmt(amount)}. "
-            f"Te faltan {fmt(shortfall)}."
-        )
-        if months_to_save:
-            recommendation = f"Ahorrando {fmt(monthly_surplus)}/mes, podrías comprar {concept} en ~{months_to_save} meses."
-        else:
-            recommendation = f"Revisa tus ingresos y gastos antes de realizar esta compra."
-
-    # Alternativas
-    alternatives = []
-    if verdict in ('no', 'caution'):
-        if months_to_save and months_to_save <= 6:
-            alternatives.append(f"Espera {months_to_save} mes(es) ahorrando {fmt(monthly_surplus)}/mes")
-        alternatives.append(f"Busca versiones más económicas de {concept}")
-        if fixed_monthly > 0:
-            alternatives.append(f"Revisa tus suscripciones ({fmt(fixed_monthly)}/mes) para liberar presupuesto")
-
-    logger.info(f"[affordability] amount={amount} | verdict={verdict} | balance={available_balance}")
     return jsonify({
-        'verdict':          verdict,
-        'amount':           amount,
-        'concept':          concept,
-        'available_balance': round(available_balance, 2),
-        'balance_after':    round(balance_after, 2),
-        'monthly_surplus':  round(monthly_surplus, 2),
-        'fixed_monthly':    round(fixed_monthly, 2),
-        'impact_on_goals':  impact_on_goals,
-        'alternatives':     alternatives,
-        'months_to_save':   months_to_save,
-        'analysis':         analysis,
-        'recommendation':   recommendation,
+        'verdict': verdict,
+        'amount': amount,
+        'concept': concept,
+        'available_balance': round(balance, 2),
+        'balance_after': round(balance - amount, 2),
+        'monthly_surplus': round(surplus, 2),
+        'impact_on_goals': impact_on_goals,
+        'months_to_save': months_to_save,
+        'analysis': analysis,
+        'recommendation': recommendation
     })
 
 
 # ─── RF-27 / HU-14: Recomendaciones de optimización financiera ───────────────
 
-@app.route('/recommendations', methods=['POST'])
-def recommendations():
-    """
-    RF-27 / HU-14: Recomendaciones inteligentes de optimización financiera.
-
-    Analiza patrones de gasto y genera recomendaciones priorizadas por impacto.
-    Compara gastos con la regla 50/30/20 y con umbrales de referencia por categoría.
-
-    Body: {
-        "transactions":    [...],    — historial de transacciones (mín 1 mes)
-        "monthly_income":  float,    — ingreso mensual promedio
-        "subscriptions":   [...]     — suscripciones detectadas (opcional)
-    }
-    Returns: {
-        "recommendations": [{
-            "category":          str,
-            "title":             str,
-            "description":       str,
-            "potential_saving":  float,
-            "priority":          "high" | "medium" | "low",
-            "type":              "overspending" | "subscription" | "savings_rate" | "emergency"
-        }],
-        "total_potential_saving": float,
-        "financial_score":        int (0-100),
-        "analysis_months":        int
-    }
-    """
-    from datetime import datetime
-
-    data           = request.get_json(silent=True) or {}
-    transactions   = data.get('transactions', [])
-    monthly_income = float(data.get('monthly_income', 0))
-    subscriptions  = data.get('subscriptions', [])
-
-    # Calcular métricas del último mes
-    summary        = _build_financial_summary(transactions)
-    this_month_exp = summary['this_month_expenses']
-    this_month_inc = summary['this_month_income'] or monthly_income
-    category_spend = summary['category_spend']
-    savings        = summary['savings_this_month']
-
-    # Contar meses de histórico
+def _calcular_meses_analisis(transactions: list) -> int:
+    """Calcula el número de meses de histórico basándose en las fechas de transacciones."""
     dates = []
     for tx in transactions:
         try:
-            dates.append(datetime.strptime(tx['date'], '%Y-%m-%d'))
-        except Exception:
+            dates.append(datetime.strptime(tx['date'], 'DATE_FORMAT'))
+        except ValueError:  # Cambiado de Exception a ValueError para mejor práctica
             pass
-    analysis_months = 1
+            
     if len(dates) >= 2:
         delta = (max(dates) - min(dates)).days
-        analysis_months = max(1, round(delta / 30))
+        return max(1, round(delta / 30))
+    return 1
 
-    recommendations_list = []
 
-    # 1. Gastos por encima del presupuesto de referencia (regla 50/30/20)
+def _recomendar_por_exceso_presupuesto(category_spend: dict, this_month_inc: float) -> list:
+    """Genera recomendaciones si el gasto supera el 30% del presupuesto de la regla 50/30/20."""
+    recs = []
+    if this_month_inc <= 0:
+        return recs
+
     for cat, ref_pct in REFERENCE_BUDGETS.items():
         actual = category_spend.get(cat, 0)
-        if actual <= 0 or this_month_inc <= 0:
+        if actual <= 0:
             continue
+            
         budget = this_month_inc * ref_pct
         if actual > budget * 1.3:  # > 30% por encima del presupuesto
             saving = round(actual - budget, 2)
-            recommendations_list.append({
+            recs.append({
                 'category':         cat,
                 'title':            f'Reducir gasto en {cat}',
-                'description':      (
+                'description': (
                     f'Gastas {actual:.2f}€ en {cat}, un {((actual-budget)/budget*100):.0f}% '
                     f'por encima del presupuesto recomendado ({budget:.2f}€). '
                     f'Podrías ahorrar ~{saving:.2f}€/mes.'
@@ -1607,52 +1724,70 @@ def recommendations():
                 'priority':         'high' if actual > budget * 1.5 else 'medium',
                 'type':             'overspending',
             })
+    return recs
 
-    # 2. Suscripciones (si hay muchas, sugerir revisión)
-    if len(subscriptions) >= 3:
-        total_sub_cost = sum(float(s.get('monthly_cost', 0)) for s in subscriptions)
-        recommendations_list.append({
-            'category':         'Suscripciones',
-            'title':            f'Revisar {len(subscriptions)} suscripciones activas',
-            'description':      (
-                f'Tienes {len(subscriptions)} suscripciones con un coste de '
-                f'{total_sub_cost:.2f}€/mes ({total_sub_cost*12:.2f}€/año). '
-                'Revisa si utilizas todas activamente.'
-            ),
-            'potential_saving': round(total_sub_cost * 0.3, 2),  # Estimado 30% optimizable
-            'priority':         'medium',
-            'type':             'subscription',
-        })
 
-    # 3. Tasa de ahorro baja (< 10% del ingreso)
-    if this_month_inc > 0:
-        savings_rate = savings / this_month_inc if this_month_inc > 0 else 0
-        if savings_rate < 0.10:
-            target_saving = this_month_inc * 0.20
-            rec_saving    = round(target_saving - max(savings, 0), 2)
-            recommendations_list.append({
-                'category':         'Ahorro',
-                'title':            'Aumentar tasa de ahorro al 20%',
-                'description':      (
-                    f'Tu tasa de ahorro actual es del {savings_rate*100:.0f}%. '
-                    f'Se recomienda ahorrar al menos el 20% ({target_saving:.2f}€/mes). '
-                    f'Intenta ahorrar {rec_saving:.2f}€ adicionales al mes.'
-                ),
-                'potential_saving': max(rec_saving, 0),
-                'priority':         'high' if savings_rate < 0 else 'medium',
-                'type':             'savings_rate',
-            })
+def _recomendar_por_suscripciones(subscriptions: list) -> list:
+    """Aconseja revisar suscripciones si se detectan 3 o más."""
+    if len(subscriptions) < 3:
+        return []
+        
+    total_sub_cost = sum(float(s.get('monthly_cost', 0)) for s in subscriptions)
+    return [{
+        'category':         'Suscripciones',
+        'title':            f'Revisar {len(subscriptions)} suscripciones activas',
+        'description': (
+            f'Tienes {len(subscriptions)} suscripciones con un coste de '
+            f'{total_sub_cost:.2f}€/mes ({total_sub_cost*12:.2f}€/año). '
+            'Revisa si utilizas todas activamente.'
+        ),
+        'potential_saving': round(total_sub_cost * 0.3, 2),  # Estimado 30% optimizable
+        'priority':         'medium',
+        'type':             'subscription',
+    }]
 
-    # 4. Gasto en categoría "no presupuestada" muy alto
+
+def _recomendar_por_tasa_ahorro(savings: float, this_month_inc: float) -> list:
+    """Sugiere aumentar la tasa de ahorro si es inferior al 10%."""
+    if this_month_inc <= 0:
+        return []
+        
+    savings_rate = savings / this_month_inc
+    if savings_rate >= 0.10:
+        return []
+
+    target_saving = this_month_inc * 0.20
+    rec_saving    = round(target_saving - max(savings, 0), 2)
+    
+    return [{
+        'category':         'Ahorro',
+        'title':            'Aumentar tasa de ahorro al 20%',
+        'description': (
+            f'Tu tasa de ahorro actual es del {savings_rate*100:.0f}%. '
+            f'Se recomienda ahorrar al menos el 20% ({target_saving:.2f}€/mes). '
+            f'Intenta ahorrar {rec_saving:.2f}€ adicionales al mes.'
+        ),
+        'potential_saving': max(rec_saving, 0),
+        'priority':         'high' if savings_rate < 0 else 'medium',
+        'type':             'savings_rate',
+    }]
+
+
+def _recomendar_por_categorias_sin_presupuesto(category_spend: dict, this_month_inc: float) -> list:
+    """Alerta sobre gastos elevados en categorías que no están en los presupuestos de referencia."""
+    recs = []
+    if this_month_inc <= 0:
+        return recs
+
     unbudgeted_cats = [cat for cat in category_spend if cat not in REFERENCE_BUDGETS]
     for cat in unbudgeted_cats:
         amt = category_spend[cat]
-        if this_month_inc > 0 and amt / this_month_inc > 0.15:
+        if amt / this_month_inc > 0.15:
             saving = round(amt * 0.3, 2)
-            recommendations_list.append({
+            recs.append({
                 'category':         cat,
                 'title':            f'Alto gasto en {cat}',
-                'description':      (
+                'description': (
                     f'Gastas {amt:.2f}€ en {cat}, lo que representa el '
                     f'{(amt/this_month_inc*100):.0f}% de tus ingresos. '
                     f'Considera reducirlo en un 30% para ahorrar {saving:.2f}€/mes.'
@@ -1661,19 +1796,50 @@ def recommendations():
                 'priority':         'medium',
                 'type':             'overspending',
             })
+    return recs
 
-    # Ordenar por potencial de ahorro descendente
-    recommendations_list.sort(key=lambda x: (-x['potential_saving'], x['priority']))
-    total_saving = sum(r['potential_saving'] for r in recommendations_list)
 
-    # Score financiero (0-100)
+def _calcular_score_financiero(savings: float, this_month_inc: float, num_recomendaciones: int) -> int:
+    """Calcula el score de salud financiera (0-100) aplicando penalizaciones."""
     score = 100
     if savings < 0:
         score -= 40
-    elif savings / this_month_inc < 0.10 and this_month_inc > 0:
+    elif this_month_inc > 0 and (savings / this_month_inc) < 0.10:
         score -= 20
-    score -= min(len(recommendations_list) * 5, 30)
-    score = max(0, min(100, score))
+        
+    score -= min(num_recomendaciones * 5, 30)
+    return max(0, min(100, score))
+
+@app.route('/recommendations', methods=['POST'])
+def recommendations():
+    """
+    RF-27 / HU-14: Recomendaciones inteligentes de optimización financiera.
+    """
+    data           = request.get_json(silent=True) or {}
+    transactions   = data.get('transactions', [])
+    monthly_income = float(data.get('monthly_income', 0))
+    subscriptions  = data.get('subscriptions', [])
+
+    # 1. Preparación de métricas base
+    summary        = _build_financial_summary(transactions)
+    this_month_inc = summary['this_month_income'] or monthly_income
+    category_spend = summary['category_spend']
+    savings        = summary['savings_this_month']
+    
+    analysis_months = _calcular_meses_analisis(transactions)
+
+    # 2. Generación de recomendaciones (Delegación)
+    recommendations_list = []
+    recommendations_list.extend(_recomendar_por_exceso_presupuesto(category_spend, this_month_inc))
+    recommendations_list.extend(_recomendar_por_suscripciones(subscriptions))
+    recommendations_list.extend(_recomendar_por_tasa_ahorro(savings, this_month_inc))
+    recommendations_list.extend(_recomendar_por_categorias_sin_presupuesto(category_spend, this_month_inc))
+
+    # 3. Procesamiento final
+    recommendations_list.sort(key=lambda x: (-x['potential_saving'], x['priority']))
+    total_saving = sum(r['potential_saving'] for r in recommendations_list)
+    
+    score = _calcular_score_financiero(savings, this_month_inc, len(recommendations_list))
 
     logger.info(
         f"[recommendations] {len(recommendations_list)} recomendaciones | "
@@ -1823,164 +1989,189 @@ _FB_FIXED_TEMPLATES = [
     {'desc': 'Seguro hogar',       'pm': 'direct_debit',  'day': 7,  'base': 2800, 'var': 0.00},
 ]
 
-
-def _fb_generate(balance_eur: float, months: int) -> list:
-    """
-    Generador estadístico de transacciones bancarias con presupuesto mensual controlado.
-
-    Estrategia de presupuesto:
-      variable_budget = (salary - fixed_this_month - savings_floor) * spending_mult
-    Los gastos variables se generan como un pool de candidatos aleatorios que se
-    consumen en orden aleatorio hasta agotar el presupuesto.
-    Esto garantiza ahorro positivo (≥12%) cada mes sin sacrificar aleatoriedad.
-    """
-    today = datetime.now()
-
-    salary_cents  = max(170000, min(340000,
-                        round((balance_eur / 2.8 + 1100) / 10) * 1000))
-    salary_day    = random.randint(25, 29)
-    rent_cents    = int(salary_cents * (0.25 + random.random() * 0.10))
-    has_gym       = random.random() > 0.55
-    gym_cents     = random.randint(3990, 5500) if has_gym else 0
-    has_hbo       = random.random() > 0.55
-    has_prime     = random.random() > 0.50
-    has_disney    = random.random() > 0.65
-    has_parking   = random.random() > 0.70
-    parking_cents = random.choice([6000, 7000, 8000, 9000, 10000]) if has_parking else 0
-    agua_cents    = random.randint(1800, 3500)
-    # Paga extra reducida (45-60%) para no generar picos de ingresos exagerados
-    extra_pay     = int(salary_cents * (0.45 + random.random() * 0.15))
-
+def _crear_perfil_usuario(balance_eur: float) -> dict:
+    """Genera el perfil financiero base y los contratos fijos del usuario."""
+    salary_cents = max(170000, min(340000, round((balance_eur / 2.8 + 1100) / 10) * 1000))
+    
+    profile = {
+        'salary_cents': salary_cents,
+        'salary_day':   random.randint(25, 29),
+        'extra_pay':    int(salary_cents * (0.45 + random.random() * 0.15)),
+        'rent_cents':   int(salary_cents * (0.25 + random.random() * 0.10)),
+    }
+    
+    # Configuración de gastos fijos
     fixed = [
-        {'desc': 'Alquiler mensual',  'pm': 'bank_transfer', 'day': 1,
-         'base': rent_cents,    'var': 0.00},
+        {'desc': 'Alquiler mensual', 'pm': 'bank_transfer', 'day': 1, 'base': profile['rent_cents'], 'var': 0.00},
         *_FB_FIXED_TEMPLATES,
-        {'desc': 'Canal Isabel II',   'pm': 'direct_debit',  'day': 22,
-         'base': agua_cents,    'var': 0.15},
-        *([{'desc': 'Gimnasio', 'pm': 'direct_debit', 'day': 2,
-             'base': gym_cents, 'var': 0.00}] if has_gym else []),
-        *([{'desc': 'HBO Max',  'pm': 'direct_debit', 'day': 12,
-             'base': 899,       'var': 0.00}] if has_hbo else []),
-        *([{'desc': 'Amazon Prime', 'pm': 'direct_debit', 'day': 18,
-             'base': 499,       'var': 0.00}] if has_prime else []),
-        *([{'desc': 'Disney+', 'pm': 'direct_debit', 'day': 14,
-             'base': 899,       'var': 0.00}] if has_disney else []),
-        *([{'desc': 'Plaza garaje', 'pm': 'bank_transfer', 'day': 2,
-             'base': parking_cents, 'var': 0.00}] if has_parking else []),
+        {'desc': 'Canal Isabel II',  'pm': 'direct_debit',  'day': 22, 'base': random.randint(1800, 3500), 'var': 0.15},
     ]
+    
+    if random.random() > 0.55: fixed.append({'desc': 'Gimnasio', 'pm': 'direct_debit', 'day': 2, 'base': random.randint(3990, 5500), 'var': 0.00})
+    if random.random() > 0.55: fixed.append({'desc': 'HBO Max', 'pm': 'direct_debit', 'day': 12, 'base': 899, 'var': 0.00})
+    if random.random() > 0.50: fixed.append({'desc': 'Amazon Prime', 'pm': 'direct_debit', 'day': 18, 'base': 499, 'var': 0.00})
+    if random.random() > 0.65: fixed.append({'desc': 'Disney+', 'pm': 'direct_debit', 'day': 14, 'base': 899, 'var': 0.00})
+    if random.random() > 0.70: fixed.append({'desc': 'Plaza garaje', 'pm': 'bank_transfer', 'day': 2, 'base': random.choice([6000, 7000, 8000, 9000, 10000]), 'var': 0.00})
+    
+    profile['fixed_expenses'] = fixed
+    return profile
 
+
+def _obtener_parametros_mes(today: datetime, m_offset: int) -> tuple:
+    """Calcula el año, mes, último día y factor estacional para una iteración."""
+    yr = today.year
+    mo = today.month - m_offset
+    while mo <= 0:
+        mo += 12
+        yr -= 1
+        
+    max_day_mo = calendar.monthrange(yr, mo)[1]
+    month_idx = mo - 1
+    
+    if month_idx == 11:        seasonal = 1.08
+    elif month_idx in (6, 7):  seasonal = 1.05
+    elif month_idx == 0:       seasonal = 0.90
+    else:                      seasonal = 1.0
+        
+    return yr, mo, max_day_mo, seasonal
+
+
+def _generar_ingresos(yr: int, mo: int, max_day_mo: int, profile: dict, months: int, m_offset: int, today: datetime) -> list:
+    """Genera nóminas, pagas extras e ingresos variables para el mes."""
     txs = []
+    drift = 1 + (months - m_offset) * 0.0008
+    s_amt = int(profile['salary_cents'] * drift)
+    s_day_adj = min(profile['salary_day'], max_day_mo)
+    s_date = datetime(yr, mo, s_day_adj)
 
-    for m_offset in range(months, 0, -1):  # excluye el mes actual (parcial)
-        yr = today.year
-        mo = today.month - m_offset
-        while mo <= 0:
-            mo += 12
-            yr -= 1
-        month_idx  = mo - 1
-        max_day_mo = calendar.monthrange(yr, mo)[1]
+    if s_date <= today:
+        txs.append({'date': s_date.strftime('DATE_FORMAT'), 'desc': 'Nómina', 'pm': 'bank_transfer', 'cents': s_amt, 'type': 'income'})
 
-        # Estacional: sólo afecta a precios individuales variables
-        if month_idx == 11:         seasonal = 1.08
-        elif month_idx in (6, 7):   seasonal = 1.05
-        elif month_idx == 0:        seasonal = 0.90
-        else:                       seasonal = 1.0
+    if (mo - 1) in (5, 11):
+        ex_date = datetime(yr, mo, random.randint(14, 18))
+        if ex_date <= today:
+            txs.append({'date': ex_date.strftime('DATE_FORMAT'), 'desc': 'Paga extra', 'pm': 'bank_transfer', 'cents': profile['extra_pay'], 'type': 'income'})
 
-        # Factor de frugalidad mensual (0.72–0.96): modula el presupuesto disponible
-        spending_mult = max(0.72, min(0.96, random.gauss(0.85, 0.06)))
+    if random.random() < 0.25:
+        txs.append({'date': datetime(yr, mo, random.randint(1, 20)).strftime('DATE_FORMAT'), 'desc': 'Freelance cliente', 'pm': 'bank_transfer', 'cents': random.randint(15000, 40000), 'type': 'income'})
 
-        # ── Nómina ────────────────────────────────────────────────────────────
-        drift     = 1 + (months - m_offset) * 0.0008
-        s_amt     = int(salary_cents * drift)
-        s_day_adj = min(salary_day, max_day_mo)
-        s_date    = datetime(yr, mo, s_day_adj)
-        if s_date <= today:
-            txs.append({'date': s_date.strftime('%Y-%m-%d'), 'desc': 'Nómina',
-                        'pm': 'bank_transfer', 'cents': s_amt, 'type': 'income'})
-
-        # ── Paga extra (jun=5, dic=11) ────────────────────────────────────────
-        if month_idx in (5, 11):
-            ex_date = datetime(yr, mo, random.randint(14, 18))
-            if ex_date <= today:
-                txs.append({'date': ex_date.strftime('%Y-%m-%d'), 'desc': 'Paga extra',
-                            'pm': 'bank_transfer', 'cents': extra_pay, 'type': 'income'})
-
-        # ── Ingresos variables (frecuencia y rangos moderados) ────────────────
-        if random.random() < 0.25:
-            day = random.randint(1, 20)
-            txs.append({'date': datetime(yr, mo, day).strftime('%Y-%m-%d'),
-                        'desc': 'Freelance cliente', 'pm': 'bank_transfer',
-                        'cents': random.randint(15000, 40000), 'type': 'income'})
-
-        if random.random() < 0.30:
-            day   = random.randint(1, 28)
-            descs = ['Cashback tarjeta', 'Devolución Hacienda', 'Reembolso seguro',
-                     'Intereses cuenta', 'Reembolso Amazon', 'Bonificación banco']
-            txs.append({'date': datetime(yr, mo, day).strftime('%Y-%m-%d'),
-                        'desc': random.choice(descs), 'pm': 'bank_transfer',
-                        'cents': random.randint(1000, 6000), 'type': 'income'})
-
-        # ── Gastos fijos ──────────────────────────────────────────────────────
-        fixed_this_month = 0
-        for fe in fixed:
-            try:
-                d       = min(fe['day'], max_day_mo)
-                tx_date = datetime(yr, mo, d)
-                if tx_date > today:
-                    continue
-                variation = 1 + (random.random() * 2 - 1) * fe['var']
-                if fe['desc'] == 'Iberdrola' and month_idx in (10, 11, 0, 1):
-                    variation *= 1.30
-                amt = max(1, int(fe['base'] * variation))
-                txs.append({'date': tx_date.strftime('%Y-%m-%d'),
-                            'desc': fe['desc'], 'pm': fe['pm'],
-                            'cents': amt, 'type': 'expense'})
-                fixed_this_month += amt
-            except (ValueError, KeyError):
-                pass
-
-        # ── Presupuesto de gastos variables ───────────────────────────────────
-        # savings_floor: mínimo 12%, media 20% del salario mensual (en cents)
-        savings_floor   = int(salary_cents * max(0.12, random.gauss(0.20, 0.04)))
-        variable_budget = max(20000, int(
-            (salary_cents - fixed_this_month - savings_floor) * spending_mult
-        ))
-
-        # ── Pool de candidatos variables (aleatorios) ─────────────────────────
-        candidates = []
-        for m in _FB_MERCHANTS:
-            freq = m['freq']
-            if freq == 'weekly':      n = random.randint(2, 4)
-            elif freq == 'biweekly':  n = random.randint(1, 2)
-            elif freq == 'monthly':   n = 1 if random.random() > 0.35 else 0
-            else:                     n = 1 if random.random() < 0.18 else 0
-
-            lo, hi = m['range']
-            for _ in range(n):
-                day = random.randint(1, max_day_mo)
-                try:
-                    tx_date = datetime(yr, mo, day)
-                except ValueError:
-                    continue
-                if tx_date > today:
-                    continue
-                amt = int(random.randint(lo, hi) * seasonal)
-                candidates.append((tx_date, m, amt))
-
-        # Mezclar aleatoriamente y consumir hasta agotar el presupuesto
-        random.shuffle(candidates)
-        spent = 0
-        for tx_date, m, amt in candidates:
-            if spent >= variable_budget:
-                break
-            txs.append({'date': tx_date.strftime('%Y-%m-%d'),
-                        'desc': m['desc'], 'pm': m['pm'],
-                        'cents': amt, 'type': 'expense'})
-            spent += amt
+    if random.random() < 0.30:
+        descs = ['Cashback tarjeta', 'Devolución Hacienda', 'Reembolso seguro', 'Intereses cuenta', 'Reembolso Amazon', 'Bonificación banco']
+        txs.append({'date': datetime(yr, mo, random.randint(1, 28)).strftime('DATE_FORMAT'), 'desc': random.choice(descs), 'pm': 'bank_transfer', 'cents': random.randint(1000, 6000), 'type': 'income'})
 
     return txs
 
 
+def _generar_gastos_fijos(yr: int, mo: int, max_day_mo: int, fixed_config: list, today: datetime) -> tuple:
+    """Procesa los contratos fijos y devuelve las transacciones y el importe total gastado."""
+    txs = []
+    fixed_this_month = 0
+    
+    for fe in fixed_config:
+        try:
+            tx_date = datetime(yr, mo, min(fe['day'], max_day_mo))
+            if tx_date > today:
+                continue
+                
+            variation = 1 + (random.random() * 2 - 1) * fe['var']
+            if fe['desc'] == 'Iberdrola' and (mo - 1) in (10, 11, 0, 1):
+                variation *= 1.30
+                
+            amt = max(1, int(fe['base'] * variation))
+            txs.append({'date': tx_date.strftime('DATE_FORMAT'), 'desc': fe['desc'], 'pm': fe['pm'], 'cents': amt, 'type': 'expense'})
+            fixed_this_month += amt
+        except ValueError:
+            pass
+            
+    return txs, fixed_this_month
+
+
+import random
+from datetime import datetime
+
+def _get_frequency_count(freq: str) -> int:
+    """Determina el número de ocurrencias según la frecuencia del comercio."""
+    if freq == 'weekly':
+        return random.randint(2, 4)
+    if freq == 'biweekly':
+        return random.randint(1, 2)
+    if freq == 'monthly':
+        return 1 if random.random() > 0.35 else 0
+    # Caso por defecto (ocasional/otros)
+    return 1 if random.random() < 0.18 else 0
+
+def _crear_item_variable(m: dict, yr: int, mo: int, max_day: int, seasonal: float, today: datetime):
+    """Genera un único candidato de gasto validando la fecha."""
+    try:
+        tx_date = datetime(yr, mo, random.randint(1, max_day))
+        if tx_date <= today:
+            lo, hi = m['range']
+            amt = int(random.randint(lo, hi) * seasonal)
+            return (tx_date, m, amt)
+    except ValueError:
+        pass
+    return None
+
+def _generar_gastos_variables(yr: int, mo: int, max_day_mo: int, variable_budget: int, seasonal: float, today: datetime) -> list:
+    """Crea un pool de candidatos de gasto y los consume hasta agotar el presupuesto."""
+    candidates = []
+    
+    # 1. Construcción del pool de candidatos
+    for m in _FB_MERCHANTS:
+        n = _get_frequency_count(m['freq'])
+        for _ in range(n):
+            item = _crear_item_variable(m, yr, mo, max_day_mo, seasonal, today)
+            if item:
+                candidates.append(item)
+
+    random.shuffle(candidates)
+    
+    # 2. Selección por presupuesto (Consumo lineal)
+    txs = []
+    spent = 0
+    for tx_date, m, amt in candidates:
+        if spent >= variable_budget:
+            break
+            
+        txs.append({
+            'date': tx_date.strftime('DATE_FORMAT'),
+            'desc': m['desc'],
+            'pm': m['pm'],
+            'cents': amt,
+            'type': 'expense'
+        })
+        spent += amt
+        
+    return txs
+
+
+def _fb_generate(balance_eur: float, months: int) -> list:
+    """
+    Generador estadístico de transacciones bancarias con presupuesto mensual controlado.
+    """
+    today = datetime.now()
+    profile = _crear_perfil_usuario(balance_eur)
+    txs = []
+
+    for m_offset in range(months, 0, -1):
+        yr, mo, max_day_mo, seasonal = _obtener_parametros_mes(today, m_offset)
+        spending_mult = max(0.72, min(0.96, random.gauss(0.85, 0.06)))
+
+        # 1. Ingresos
+        txs.extend(_generar_ingresos(yr, mo, max_day_mo, profile, months, m_offset, today))
+
+        # 2. Gastos Fijos
+        fixed_txs, fixed_total = _generar_gastos_fijos(yr, mo, max_day_mo, profile['fixed_expenses'], today)
+        txs.extend(fixed_txs)
+
+        # 3. Presupuesto Variable
+        savings_floor = int(profile['salary_cents'] * max(0.12, random.gauss(0.20, 0.04)))
+        variable_budget = max(20000, int((profile['salary_cents'] - fixed_total - savings_floor) * spending_mult))
+
+        # 4. Gastos Variables
+        txs.extend(_generar_gastos_variables(yr, mo, max_day_mo, variable_budget, seasonal, today))
+
+    return txs
 
 @app.route('/generate-sample-transactions', methods=['POST'])
 def generate_sample_transactions():

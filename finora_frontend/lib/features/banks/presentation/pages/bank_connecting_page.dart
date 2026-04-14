@@ -359,9 +359,12 @@ class _TroubleshootingView extends StatelessWidget {
                       color: AppColors.accent,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      AppLocalizations.of(context).bankWhatYouCanDo,
-                      style: AppTypography.labelMedium(color: AppColors.accent),
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(context).bankWhatYouCanDo,
+                        style: AppTypography.labelMedium(color: AppColors.accent),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -651,9 +654,12 @@ class _SupportRow extends StatelessWidget {
         children: [
           Icon(icon, color: AppColors.primary, size: 20),
           const SizedBox(width: 12),
-          Text(
-            label,
-            style: AppTypography.bodyMedium(color: AppColors.textPrimaryLight),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTypography.bodyMedium(color: AppColors.textPrimaryLight),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

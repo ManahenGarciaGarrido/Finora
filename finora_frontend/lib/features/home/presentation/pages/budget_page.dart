@@ -581,10 +581,14 @@ class _BudgetPageState extends State<BudgetPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${_formatCurrency((statusData['spent'] as num).toDouble())} ${s.spentOfLabel} ${_formatCurrency((statusData['monthly_limit'] as num).toDouble())}',
-                style: AppTypography.bodySmall(color: AppColors.gray600),
+              Flexible(
+                child: Text(
+                  '${_formatCurrency((statusData['spent'] as num).toDouble())} ${s.spentOfLabel} ${_formatCurrency((statusData['monthly_limit'] as num).toDouble())}',
+                  style: AppTypography.bodySmall(color: AppColors.gray600),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${pct.toStringAsFixed(1)}%',
                 style: AppTypography.labelSmall(color: barColor),

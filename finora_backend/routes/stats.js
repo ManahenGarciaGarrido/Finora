@@ -44,10 +44,6 @@ const authenticateToken = (req, res, next) => {
  * @returns {{ sql: string, params: any[] }}
  */
 function buildDateFilter(period) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1; // 1-based
-
   switch (period) {
     case 'current_month':
       return {

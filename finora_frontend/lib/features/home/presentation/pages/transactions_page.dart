@@ -582,9 +582,12 @@ class TransactionsPageState extends State<TransactionsPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          s.advancedFiltersTitle,
-                          style: AppTypography.titleMedium(),
+                        Expanded(
+                          child: Text(
+                            s.advancedFiltersTitle,
+                            style: AppTypography.titleMedium(),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         TextButton(
                           onPressed: () {
@@ -1484,7 +1487,7 @@ class TransactionsPageState extends State<TransactionsPage> {
                   color: AppColors.textTertiaryLight,
                 ),
               ),
-              Text(value, style: AppTypography.bodyMedium()),
+              Text(value, style: AppTypography.bodyMedium(), overflow: TextOverflow.ellipsis),
             ],
           ),
         ),

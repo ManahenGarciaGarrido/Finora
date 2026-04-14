@@ -138,9 +138,8 @@ class StrategyComparisonWidget extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 20),
               const SizedBox(width: 8),
-              Text(title, style: AppTypography.titleSmall(color: color)),
+              Expanded(child: Text(title, style: AppTypography.titleSmall(color: color), overflow: TextOverflow.ellipsis)),
               if (recommended) ...[
-                const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

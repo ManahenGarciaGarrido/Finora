@@ -249,8 +249,15 @@ class _LoanCalculatorPageState extends State<LoanCalculatorPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppTypography.bodyMedium(color: AppColors.gray600)),
-        Text(value, style: AppTypography.titleSmall(color: color)),
+        Flexible(
+          child: Text(
+            label,
+            style: AppTypography.bodyMedium(color: AppColors.gray600),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(value, style: AppTypography.titleSmall(color: color), overflow: TextOverflow.ellipsis),
       ],
     );
   }

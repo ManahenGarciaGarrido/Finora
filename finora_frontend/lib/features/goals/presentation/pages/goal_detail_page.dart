@@ -199,16 +199,24 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  CurrencyService().format(_goal.currentAmount),
-                                  style: AppTypography.labelMedium(
-                                    color: Colors.white,
+                                Flexible(
+                                  child: Text(
+                                    CurrencyService().format(_goal.currentAmount),
+                                    style: AppTypography.labelMedium(
+                                      color: Colors.white,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                Text(
-                                  'Meta: ${CurrencyService().format(_goal.targetAmount)}',
-                                  style: AppTypography.bodySmall(
-                                    color: Colors.white.withValues(alpha: 0.80),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    'Meta: ${CurrencyService().format(_goal.targetAmount)}',
+                                    style: AppTypography.bodySmall(
+                                      color: Colors.white.withValues(alpha: 0.80),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.end,
                                   ),
                                 ),
                               ],
@@ -569,15 +577,18 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: AppColors.gray400),
         const SizedBox(width: 4),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: AppTypography.badge(color: AppColors.textTertiaryLight),
-            ),
-            Text(value, style: AppTypography.labelMedium()),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: AppTypography.badge(color: AppColors.textTertiaryLight),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(value, style: AppTypography.labelMedium(), overflow: TextOverflow.ellipsis),
+            ],
+          ),
         ),
       ],
     );

@@ -336,14 +336,18 @@ class _GoalCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 if (goal.deadline != null)
-                  Text(
-                    s.goalDeadlineDate(_formatDate(goal.deadline!)),
-                    style: AppTypography.badge(
-                      color: AppColors.textTertiaryLight,
+                  Flexible(
+                    child: Text(
+                      s.goalDeadlineDate(_formatDate(goal.deadline!)),
+                      style: AppTypography.badge(
+                        color: AppColors.textTertiaryLight,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   )
                 else
                   const SizedBox.shrink(),
+                const SizedBox(width: 8),
                 Text(
                   s.goalRemainingAmount(_formatCurrency(goal.remainingAmount)),
                   style: AppTypography.badge(

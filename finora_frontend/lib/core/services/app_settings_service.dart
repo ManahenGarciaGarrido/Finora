@@ -14,7 +14,7 @@ class AppSettingsService {
   AppSettingsService._();
 
   /// Notifier for locale — MyApp listens to this to rebuild
-  final ValueNotifier<Locale> localeNotifier = ValueNotifier(const Locale('es'));
+  final localeNotifier = ValueNotifier<Locale>(const Locale('es'));
 
   /// Notifier for currency — widgets that display money listen to this
   final ValueNotifier<CurrencyConfig> currencyNotifier = ValueNotifier(
@@ -43,7 +43,7 @@ class AppSettingsService {
     );
     currencyNotifier.value = cfg;
     // Fetch exchange rate in background (non-blocking)
-    CurrencyService().fetchRate(cfg.code);
+    await CurrencyService().fetchRate(cfg.code);
   }
 
   Future<void> setLocale(String languageCode) async {
@@ -57,7 +57,7 @@ class AppSettingsService {
     await prefs.setString(_keyCurrency, cfg.code);
     currencyNotifier.value = cfg;
     // Refresh exchange rate whenever the user changes currency
-    CurrencyService().fetchRate(cfg.code);
+    await CurrencyService().fetchRate(cfg.code);
   }
 
   String get currentLocaleCode => localeNotifier.value.languageCode;

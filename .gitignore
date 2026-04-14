@@ -8,6 +8,20 @@
 .history
 
 
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+.scannerwork/
+
+
+# Coverage and test results
+coverage/
+coverage.*
+lcov.info
+.coverage
 
 # Flutter repo-specific
 /bin/cache/

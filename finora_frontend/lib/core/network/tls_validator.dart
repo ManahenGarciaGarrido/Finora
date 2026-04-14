@@ -16,7 +16,7 @@ class TlsValidator {
     final isLocalDevelopment =
         uri.host == 'localhost' ||
         uri.host == '127.0.0.1' ||
-        uri.host == '68.221.27.85' ||
+        uri.host == '172.201.116.62' ||
         uri.host == '10.0.2.2';
 
     if (isLocalDevelopment) {

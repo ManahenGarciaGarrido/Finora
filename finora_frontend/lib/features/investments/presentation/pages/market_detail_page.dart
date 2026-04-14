@@ -106,6 +106,7 @@ class _MarketDetailPageState extends State<MarketDetailPage> {
                     ),
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         index.isPositive

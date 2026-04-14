@@ -411,6 +411,43 @@ router.get(
 );
 
 // ============================================
+// GET BALANCE SUMMARY
+// ============================================
+router.get('/summary/balance',
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.userId;
+
+      const result = await db.query(
+        `SELECT
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
+          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expenses,
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) as balance,
+          COUNT(*) as total_transactions
+        FROM transactions WHERE user_id = $1`,
+        [userId]
+      );
+
+      res.json({
+        summary: {
+          totalIncome: parseFloat(result.rows[0].total_income),
+          totalExpenses: parseFloat(result.rows[0].total_expenses),
+          balance: parseFloat(result.rows[0].balance),
+          totalTransactions: parseInt(result.rows[0].total_transactions)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching balance summary:', error);
+      res.status(500).json({
+        error: 'Server Error',
+        message: 'Error al obtener el resumen del balance'
+      });
+    }
+  }
+);
+
+// ============================================
 // GET SINGLE TRANSACTION
 // ============================================
 router.get('/:id',
@@ -630,43 +667,6 @@ router.delete('/:id',
 );
 
 // ============================================
-// GET BALANCE SUMMARY
-// ============================================
-router.get('/summary/balance',
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const userId = req.user.userId;
-
-      const result = await db.query(
-        `SELECT
-          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
-          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expenses,
-          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) as balance,
-          COUNT(*) as total_transactions
-        FROM transactions WHERE user_id = $1`,
-        [userId]
-      );
-
-      res.json({
-        summary: {
-          totalIncome: parseFloat(result.rows[0].total_income),
-          totalExpenses: parseFloat(result.rows[0].total_expenses),
-          balance: parseFloat(result.rows[0].balance),
-          totalTransactions: parseInt(result.rows[0].total_transactions)
-        }
-      });
-    } catch (error) {
-      console.error('Error fetching balance summary:', error);
-      res.status(500).json({
-        error: 'Server Error',
-        message: 'Error al obtener el resumen del balance'
-      });
-    }
-  }
-);
-
-// ============================================
 // IMPORT TRANSACTIONS FROM CSV (RF-10 fallback)
 //
 // Acepta el contenido del CSV como string en el body JSON.
@@ -694,10 +694,10 @@ function splitCSVRow(line, sep) {
   let inQuotes = false;
   for (const ch of line) {
     if (ch === '"') { inQuotes = !inQuotes; }
-    else if (ch === sep && !inQuotes) { cols.push(cur.trim().replace(/^"|"$/g, '')); cur = ''; }
+    else if (ch === sep && !inQuotes) { cols.push(cur.trim().replace(/(^")|("$)/g, '')); cur = ''; }
     else { cur += ch; }
   }
-  cols.push(cur.trim().replace(/^"|"$/g, ''));
+  cols.push(cur.trim().replace(/(^")|("$)/g, ''));
   return cols;
 }
 
@@ -798,7 +798,8 @@ function parseCSV(csvText) {
       // Dos columnas separadas: cargo (negativo) y abono (positivo)
       const debit  = parseAmount(cols[debitCol])  || 0;
       const credit = parseAmount(cols[creditCol]) || 0;
-      amount = credit > 0 ? credit : (debit > 0 ? -debit : null);
+      const debitAmount = debit > 0 ? -debit : null;
+      amount = credit > 0 ? credit : debitAmount;
     }
 
     if (amount === null) continue;
