@@ -257,6 +257,30 @@ services:
       retries: 1
       start_period: 30s
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: finora-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - finora-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: finora-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - finora-network
+      
 networks:
   finora-network:
     driver: bridge
@@ -274,4 +298,7 @@ volumes:
     driver: local
   # RNF-17: Almacenamiento de backups diarios (retención 30 días)
   db_backups:
+    driver: local
+    
+  grafana_data:
     driver: local
